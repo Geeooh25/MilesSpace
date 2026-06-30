@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=yes, viewport-fit=cover">
+<title>Miles Exchange | Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:'DM Sans',sans-serif;background:#edf1f4;color:#0a2530;overflow-x:hidden}
+  :root{
+    --p:#0c3d4a;--p-mid:#155e72;--p-lite:#e8f4f7;--p-xlit:#f2fafb;
+    --acc:#f59e0b;--acc-d:#d97706;--acc-lite:#fef3c7;
+    --ok:#10b981;--ok-lite:#d1fae5;--err:#ef4444;--err-lite:#fee2e2;
+    --t1:#0a2530;--t2:#456475;--t3:#8aa4ae;
+    --bdr:#dde4e9;--bdr2:rgba(12,61,74,.08);
+    --sw:268px;--th:64px;
+    --r:12px;--rl:20px;--rxl:28px;--rpill:999px;
+    --sh0:0 1px 3px rgba(12,61,74,.05);--sh1:0 2px 10px rgba(12,61,74,.08);
+    --sh2:0 8px 28px rgba(12,61,74,.12);--sh3:0 20px 56px rgba(12,61,74,.16);
+    --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+    --tr:all .28s cubic-bezier(.25,.8,.25,1)
+  }
+  /* LAYOUT */
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:var(--sw);background:var(--p);position:fixed;top:0;left:0;height:100vh;z-index:500;transform:translateX(-100%);transition:transform .32s var(--tr);overflow-y:auto;scrollbar-width:none}
+  .sidebar::-webkit-scrollbar{display:none}
+  @media(min-width:1025px){.sidebar{transform:translateX(0)!important}}
+  .sidebar.open{transform:translateX(0)!important}
+  .main{margin-left:var(--sw);flex:1;min-width:0;display:flex;flex-direction:column}
+  .content{padding:20px 22px;flex:1;width:100%;max-width:1400px;margin:0 auto}
+  /* SIDEBAR */
+  .sb-brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .sb-logo{display:flex;align-items:center;gap:10px;font-family:var(--fd);font-weight:800;font-size:1.08rem;color:#fff}
+  .sb-logo-ic{width:32px;height:32px;background:var(--acc);border-radius:9px;display:grid;place-items:center}
+  .sb-bal{margin:12px 12px 0;padding:14px 16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);border-radius:var(--rl)}
+  .sbb-lbl{font-size:.65rem;font-weight:600;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:3px}
+  .sbb-amt{font-family:var(--fd);font-size:1.4rem;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:9px}
+  .sbb-fund{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;background:var(--acc);color:#fff;border-radius:var(--rpill);font-size:.74rem;font-weight:600;transition:var(--tr);text-decoration:none}
+  .sbb-fund:hover{background:var(--acc-d);transform:translateY(-1px)}
+  .sb-sec{padding:14px 18px 5px;font-size:.62rem;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.28)}
+  .sb-nav{padding:0 10px}
+  .sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:var(--r);color:rgba(255,255,255,.58);font-size:.83rem;font-weight:500;transition:var(--tr);margin-bottom:1px;text-decoration:none}
+  .sb-lnk i{width:16px;text-align:center}
+  .sb-lnk:hover,.sb-lnk.active{background:rgba(255,255,255,.12);color:#fff;font-weight:600}
+  .sb-foot{margin-top:auto;padding:13px;border-top:1px solid rgba(255,255,255,.07)}
+  .sb-prof{display:flex;align-items:center;gap:8px}
+  .sb-av{width:34px;height:34px;border-radius:50%;background:var(--acc);display:grid;place-items:center;font-weight:800;color:#fff;flex-shrink:0}
+  .sb-ui{flex:1;min-width:0}
+  .sb-un{font-size:.78rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-ue{font-size:.66rem;color:rgba(255,255,255,.38);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-out{width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.07);display:grid;place-items:center;color:rgba(255,255,255,.5);cursor:pointer;transition:var(--tr)}
+  .sb-out:hover{background:rgba(239,68,68,.22);color:#ef4444}
+  /* TOPBAR */
+  .topbar{background:#fff;border-bottom:1px solid var(--bdr);padding:0 22px;height:var(--th);display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:12px}
+  .tb-hbg{display:none;width:34px;height:34px;border-radius:9px;background:var(--p-lite);color:var(--p);border:none;font-size:.92rem;cursor:pointer}
+  .tb-title{font-family:var(--fd);font-size:.95rem;font-weight:700;color:var(--t1)}
+  .tb-title span{color:var(--p-mid)}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:9px}
+  .tb-ico-btn{position:relative;width:34px;height:34px;border-radius:9px;background:#f7f9fb;border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);cursor:pointer;transition:var(--tr)}
+  .tb-ico-btn:hover{background:var(--p-lite);color:var(--p)}
+  .tb-ndot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--err);border:2px solid #fff;display:none}
+  .tb-ndot.on{display:block}
+  .tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:800;color:#fff;border:2px solid var(--acc);cursor:pointer}
+  /* CURRENCY SWITCHER */
+  .currency-switch{display:flex;align-items:center;background:var(--srf2);border-radius:var(--rpill);border:1px solid var(--bdr);padding:2px;margin-left:12px}
+  .curr-btn{padding:5px 14px;border-radius:40px;font-size:.75rem;font-weight:700;cursor:pointer;transition:var(--tr);color:var(--t2);background:transparent;border:none}
+  .curr-btn.active{background:var(--p);color:#fff;box-shadow:var(--sh0)}
+  /* STATS / CARDS */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+  .sc{background:#fff;border:1px solid var(--bdr);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;transition:var(--tr)}
+  .sc:hover{transform:translateY(-2px);box-shadow:var(--sh1)}
+  .sc-ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:.9rem}
+  .ic-t{background:var(--p-lite);color:var(--p-mid)}
+  .ic-a{background:var(--acc-lite);color:var(--acc-d)}
+  .ic-g{background:var(--ok-lite);color:var(--ok)}
+  .sc-lbl{font-size:.65rem;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:2px}
+  .sc-val{font-family:var(--fd);font-size:1.2rem;font-weight:800;color:var(--t1);letter-spacing:-.5px}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:22px}
+  .svc{background:#fff;border:1px solid var(--bdr);border-radius:var(--rl);padding:18px;transition:var(--tr)}
+  .svc:hover{transform:translateY(-3px);box-shadow:var(--sh1);border-color:rgba(12,61,74,.2)}
+  .svc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+  .svc-ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:1.1rem}
+  .svc-ico.it{background:linear-gradient(135deg,var(--p-lite),#c2e4ed);color:var(--p)}
+  .svc-ico.ia{background:linear-gradient(135deg,var(--acc-lite),#fde5b8);color:var(--acc-d)}
+  .svc-ico.ib{background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1d4ed8}
+  .svc-ico.ig{background:linear-gradient(135deg,var(--ok-lite),#a7f3d0);color:#065f46}
+  .svc-badge{padding:3px 9px;border-radius:20px;font-size:.6rem;font-weight:700;background:var(--p-lite);color:var(--p)}
+  .svc-badge.a{background:var(--acc-lite);color:var(--acc-d)}
+  .svc-title{font-family:var(--fd);font-size:.9rem;font-weight:700;margin-bottom:4px}
+  .svc-desc{font-size:.73rem;color:var(--t2);line-height:1.45;margin-bottom:12px}
+  .pills{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+  .pill{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;background:var(--p);color:#fff;border-radius:10px;font-size:.7rem;font-weight:600;text-decoration:none;transition:var(--tr)}
+  .pill.full{grid-column:1/-1;flex-direction:row;justify-content:space-between;padding:8px 12px}
+  .pill:hover{background:var(--p-mid);transform:translateY(-2px)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:var(--rpill);font-size:.75rem;font-weight:600;transition:var(--tr);border:none;cursor:pointer;text-decoration:none}
+  .btn-p{background:var(--p);color:#fff}
+  .btn-p:hover{background:var(--p-mid);transform:translateY(-1px)}
+  .btn-o{background:transparent;border:1.5px solid var(--p);color:var(--p)}
+  .btn-o:hover{background:var(--p-lite)}
+  .btn-full{width:100%}
+  .ref-box{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--p-lite);border:1.5px dashed rgba(12,61,74,.22);border-radius:var(--r);font-weight:700;color:var(--p);font-size:.82rem;margin-bottom:10px;cursor:pointer}
+  .tbl-wrap{background:#fff;border:1px solid var(--bdr);border-radius:var(--rl);overflow:hidden;margin-bottom:22px}
+  .tbl-hd{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:500px}
+  th{padding:10px 12px;background:#f7f9fb;font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--t3);text-align:left}
+  td{padding:10px 12px;font-size:.75rem;border-bottom:1px solid var(--bdr)}
+  .badge-ok{background:var(--ok-lite);color:#065f46;padding:3px 8px;border-radius:6px;font-size:.65rem;font-weight:700}
+  .badge-err{background:var(--err-lite);color:#991b1b;padding:3px 8px;border-radius:6px;font-size:.65rem;font-weight:700}
+  .amc{color:var(--ok);font-weight:700}
+  .amd{color:var(--err);font-weight:700}
+  .brow{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px}
+  .card{background:#fff;border:1px solid var(--bdr);border-radius:var(--rl);padding:16px}
+  .ctitle{font-weight:700;font-size:.85rem;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+  .act-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr)}
+  .act-dot{width:6px;height:6px;border-radius:50%;background:var(--p-mid);margin-top:5px}
+  .srch{position:relative;margin-bottom:12px}
+  .srch i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3)}
+  .srch input{width:100%;padding:9px 10px 9px 32px;border:1.5px solid var(--bdr);border-radius:var(--r);outline:none}
+  .srch input:focus{border-color:var(--p)}
+  .srch-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--bdr);background:#f7f9fb;font-size:.73rem;text-decoration:none;color:var(--t2);margin-bottom:6px}
+  .srch-item i{color:var(--p)}
+  /* MODAL + NOTIF */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);z-index:700;display:none;align-items:center;justify-content:center}
+  .modal-bg.open{display:flex}
+  .modal{background:#fff;border-radius:var(--rxl);width:90%;max-width:420px;overflow:hidden}
+  .modal-hd{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+  .modal-x{background:none;border:none;font-size:1.2rem;cursor:pointer}
+  .modal-bd{padding:20px}
+  .np{position:fixed;top:0;right:-100%;width:100%;max-width:360px;height:100vh;background:#fff;border-left:1px solid var(--bdr);z-index:600;display:flex;flex-direction:column;transition:right .32s var(--tr)}
+  .np.open{right:0}
+  .np-hd{padding:18px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between}
+  .np-all{font-size:.72rem;font-weight:600;color:var(--p-mid);cursor:pointer}
+  .np-body{flex:1;overflow-y:auto;padding:6px}
+  .np-item{padding:12px;border-radius:var(--r);margin-bottom:3px;cursor:pointer}
+  .np-item.unread{background:var(--p-xlit)}
+  .np-row{display:flex;gap:10px}
+  .np-ico{width:34px;height:34px;border-radius:9px;background:var(--p-lite);color:var(--p);display:grid;place-items:center;font-size:.85rem}
+  .np-ttl{font-size:.82rem;font-weight:600}
+  .np-msg{font-size:.76rem;color:var(--t2)}
+  .np-ts{font-size:.68rem;color:var(--t3)}
+  .np-view-all{padding:14px;border-top:1px solid var(--bdr);text-align:center}
+  .ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.5);backdrop-filter:blur(6px);z-index:490}
+  .ov.on{display:block}
+  .mnav{display:none;position:fixed;bottom:12px;left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:420px;height:58px;background:rgba(255,255,255,.85);backdrop-filter:blur(28px);border-radius:20px;z-index:450;align-items:center;justify-content:space-around}
+  .mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.54rem;font-weight:600;color:var(--t3);text-decoration:none}
+  .mni.active{color:var(--p)}
+  .mni.active i{background:var(--p-lite);color:var(--p)}
+  .toasts{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:92%;max-width:340px;z-index:900;display:flex;flex-direction:column;gap:7px}
+  .toast{background:var(--t1);color:#fff;padding:10px 14px;border-radius:var(--r);font-size:.8rem;display:flex;gap:8px;animation:slideIn .25s ease}
+  .toast.ok{background:var(--ok)}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .fu{animation:fadeUp .45s ease forwards}
+  @media(max-width:1024px){.main{margin-left:0}.tb-hbg{display:grid}}
+  @media(max-width:768px){.content{padding:13px 13px 82px}.grid2{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.brow{grid-template-columns:1fr}.mnav{display:flex}}
+</style>
+</head>
+<body>
+
+<div class="ov" id="ov"></div>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sb">
+    <div class="sb-brand"><div class="sb-logo"><div class="sb-logo-ic"><i class="fas fa-exchange-alt"></i></div>Miles Exchange</div></div>
+    <div class="sb-bal"><p class="sbb-lbl">Total Balance</p><p class="sbb-amt" id="sbBalance">₦0.00</p><a href="#" class="sbb-fund" data-open-fund><i class="fas fa-plus"></i> Fund Wallet</a></div>
+    <p class="sb-sec">Main Menu</p>
+    <nav class="sb-nav">
+      <a href="dashboard.html" class="sb-lnk active"><i class="fas fa-home"></i> Dashboard</a>
+      <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+      <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+      <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+      <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    </nav>
+    <p class="sb-sec">Account</p>
+    <nav class="sb-nav">
+      <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile Settings</a>
+      <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+    </nav>
+    <div class="sb-foot"><div class="sb-prof"><div class="sb-av" id="avDisp">M</div><div class="sb-ui"><p class="sb-un" id="nameDisp">Loading...</p><p class="sb-ue" id="emailDisp"></p></div><button class="sb-out" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button></div></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+      <p class="tb-title">Good day, <span id="greetingName">there</span> 👋</p>
+      <div class="tb-right">
+        <div class="currency-switch" id="currencySwitch">
+          <button class="curr-btn active" data-curr="NGN">₦ NGN</button>
+          <button class="curr-btn" data-curr="USD">$ USD</button>
+        </div>
+        <button class="tb-ico-btn" id="npBtn"><i class="fas fa-bell"></i><span class="tb-ndot" id="notifDot"></span></button>
+        <div class="tb-av" id="avTop">M</div>
+      </div>
+    </header>
+    <main class="content">
+      <div class="chips fu d1" style="display:flex;gap:8px;overflow-x:auto;margin-bottom:20px">
+        <a href="fund.html" class="chip" style="background:#fff;border:1px solid var(--bdr);padding:7px 14px;border-radius:40px;text-decoration:none;font-weight:600"><i class="fas fa-plus"></i> Fund</a>
+        <a href="boost.html" class="chip"><i class="fas fa-chart-line"></i> Boost</a>
+        <a href="virtual.html" class="chip"><i class="fas fa-phone-alt"></i> Numbers</a>
+        <a href="market.html" class="chip"><i class="fas fa-store"></i> Market</a>
+      </div>
+
+      <!-- Wallet hero -->
+      <div class="wh" style="background:linear-gradient(135deg,var(--p),#0f5063);border-radius:var(--rxl);padding:24px 28px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;color:#fff">
+        <div><p style="font-size:.75rem;opacity:.7">Available Balance</p><p class="wh-amt" id="walletHero" style="font-family:var(--fd);font-size:2rem;font-weight:800;letter-spacing:-1px">₦0.00</p></div>
+        <div style="display:flex;gap:12px"><button class="wh-btn-p" onclick="location.href='fund.html'" style="background:#fff;color:var(--p);border:none;padding:10px 22px;border-radius:40px;font-weight:700">Fund Wallet</button><a href="history.html" style="background:rgba(255,255,255,.15);padding:10px 22px;border-radius:40px;text-decoration:none;color:#fff">History</a></div>
+      </div>
+
+      <div class="stats fu d2">
+        <div class="sc"><div class="sc-ic ic-t"><i class="fas fa-chart-line"></i></div><div><p class="sc-lbl">Total Spent</p><p class="sc-val" id="statSpent">₦0.00</p></div></div>
+        <div class="sc"><div class="sc-ic ic-a"><i class="fas fa-shopping-cart"></i></div><div><p class="sc-lbl">Orders</p><p class="sc-val" id="statOrders">0</p></div></div>
+        <div class="sc"><div class="sc-ic ic-g"><i class="fas fa-trophy"></i></div><div><p class="sc-lbl">Completed</p><p class="sc-val" id="statDone">0</p></div></div>
+      </div>
+
+      <div class="grid2 fu d3">
+        <div class="svc"><div class="svc-top"><div class="svc-ico it"><i class="fas fa-chart-line"></i></div><span class="svc-badge">Popular</span></div><h3>Social Boosting</h3><p class="svc-desc">Grow followers & engagement across all platforms.</p><div class="pills"><a href="boost.html" class="pill">Instagram</a><a href="boost.html" class="pill">TikTok</a><a href="boost.html" class="pill full">All platforms →</a></div></div>
+        <div class="svc"><div class="svc-top"><div class="svc-ico ia"><i class="fas fa-phone-alt"></i></div><span class="svc-badge a">From ₦2,500</span></div><h3>Virtual Numbers</h3><p class="svc-desc">Rent disposable numbers for OTP verification worldwide.</p><div class="pills"><a href="virtual.html" class="pill">Nigeria</a><a href="virtual.html" class="pill">USA/UK</a><a href="virtual.html" class="pill full">Browse →</a></div></div>
+        <div class="svc"><div class="svc-top"><div class="svc-ico ib"><i class="fas fa-store"></i></div><span class="svc-badge">Verified</span></div><h3>Account Marketplace</h3><p class="svc-desc">Buy aged, verified social accounts securely.</p><a href="market.html" class="btn btn-p btn-full">Browse Market</a></div>
+        <div class="svc"><div class="svc-top"><div class="svc-ico ig"><i class="fas fa-gift"></i></div><span class="svc-badge a">Earn ₦500</span></div><h3>Invite & Earn</h3><p class="svc-desc">Share your code and earn per referral.</p><div class="ref-box" id="refBox"><span id="refCode">LOADING</span><i class="fas fa-copy"></i></div><button class="btn btn-o btn-full" onclick="copyLink()">Copy Link</button></div>
+      </div>
+
+      <div class="tbl-wrap fu d4">
+        <div class="tbl-hd"><h3><i class="fas fa-receipt"></i> Recent Transactions</h3><a href="history.html" style="color:var(--p-mid);font-size:.75rem">View all</a></div>
+        <div class="tbl-scroll"><table><thead><tr><th>Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="txTable"><tr><td colspan="4" style="text-align:center">No transactions yet</td></tr></tbody></table></div>
+      </div>
+
+      <div class="brow fu d5">
+        <div class="card"><p class="ctitle"><i class="fas fa-clock"></i> Recent Activity</p><div id="actList"><div class="act-item"><div class="act-dot"></div><div><p>Welcome to Miles Exchange</p><p style="font-size:.65rem;color:var(--t3)">Just now</p></div></div></div></div>
+        <div class="card"><p class="ctitle"><i class="fas fa-search"></i> Explore</p><div class="srch"><i class="fas fa-search"></i><input id="searchInput" placeholder="Search services..."></div><div id="searchRes"><a href="boost.html" class="srch-item"><i class="fas fa-chart-line"></i> Social Boosting</a><a href="virtual.html" class="srch-item"><i class="fas fa-phone-alt"></i> Virtual Numbers</a><a href="market.html" class="srch-item"><i class="fas fa-store"></i> Marketplace</a></div></div>
+      </div>
+      <footer style="text-align:center;font-size:.7rem;color:var(--t3);padding:12px 0"><i class="fas fa-shield-alt"></i> © 2025 Miles Exchange</footer>
+    </main>
+  </div>
+</div>
+
+<!-- Notif panel -->
+<div class="np" id="np"><div class="np-hd"><h3><i class="fas fa-bell"></i> Notifications</h3><div><span class="np-all" id="markAllRead">Mark all read</span><button class="np-cls" id="npClose" style="margin-left:12px"><i class="fas fa-xmark"></i></button></div></div><div class="np-body" id="npList"></div><div class="np-view-all"><a href="notifications.html">View all</a></div></div>
+<div class="modal-bg" id="fundModal"><div class="modal"><div class="modal-hd"><h3>Quick Fund</h3><button class="modal-x" data-close-fund><i class="fas fa-xmark"></i></button></div><div class="modal-bd"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px"><button data-preset="1000">₦1k</button><button data-preset="5000">₦5k</button><button data-preset="10000">₦10k</button></div><form id="fundModalForm"><input type="number" id="fundAmount" placeholder="Amount (₦)" style="width:100%;padding:10px;border:1px solid var(--bdr);border-radius:12px"><button type="submit" class="btn btn-p btn-full" style="margin-top:14px">Continue</button></form></div></div></div>
+<nav class="mnav"><a href="dashboard.html" class="mni active"><i class="fas fa-home"></i><span>Home</span></a><a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a><a href="fund.html" class="mni"><i class="fas fa-wallet"></i><span>Fund</span></a><a href="profile.html" class="mni"><i class="fas fa-user"></i><span>Profile</span></a></nav>
+<div id="toasts"></div>
+
+<script>
+const API_BASE = 'http://localhost:5000/api';
+const SESSION_KEY = 'mx_sess';
+let currentCurrency = 'NGN'; // NGN or USD
+let userBalance = 0; // stored in NGN equivalent
+
+function getSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||sessionStorage.getItem(SESSION_KEY)||'null')}catch(e){return null}}
+function getToken(){return getSession()?.token||''}
+function getUser(){return getSession()?.user||{}}
+function saveSession(data){localStorage.setItem(SESSION_KEY,JSON.stringify(data))}
+const session = getSession();
+if(!session?.token) window.location.href='login.html';
+
+function fmtMoney(amount,currency=currentCurrency){
+  if(currency==='USD') return '$'+Number(amount).toLocaleString('en-US',{minimumFractionDigits:2});
+  return '₦'+Number(amount).toLocaleString('en-NG',{minimumFractionDigits:2});
+}
+function toast(msg,type='info'){let c=document.getElementById('toasts'),el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<i class="fas ${type==='ok'?'fa-check-circle':'fa-info-circle'}"></i>${msg}`;c.appendChild(el);setTimeout(()=>el.remove(),3000);}
+async function apiCall(path,opts={}){const headers={'Content-Type':'application/json',...(opts.headers||{})};if(getToken())headers['Authorization']=`Bearer ${getToken()}`;const res=await fetch(API_BASE+path,{...opts,headers});const json=await res.json().catch(()=>({}));if(!res.ok)throw new Error(json.error||`HTTP ${res.status}`);return json;}
+
+function updateUI(){const u=getUser();const name=u.username||u.full_name||u.email?.split('@')[0]||'User';const init=name.charAt(0).toUpperCase();['avDisp','avTop'].forEach(id=>document.getElementById(id).textContent=init);document.getElementById('nameDisp').textContent=name;document.getElementById('emailDisp').textContent=u.email||'';document.getElementById('greetingName').textContent=name.split(' ')[0];document.getElementById('refCode').textContent=u.referral_code||'MILES2025';}
+
+async function loadDashboard(){
+  try{
+    const userData=await apiCall('/auth/me');
+    userBalance=userData.data?.balance||0;
+    const spent=userData.data?.total_spent||0;
+    document.getElementById('statSpent').innerHTML=fmtMoney(spent);
+    document.getElementById('statOrders').innerHTML=userData.data?.total_orders||0;
+    document.getElementById('statDone').innerHTML=userData.data?.completed_orders||0;
+    const balEls=document.querySelectorAll('#walletHero, #sbBalance');
+    balEls.forEach(el=>el.innerHTML=fmtMoney(userBalance));
+    const txData=await apiCall('/transactions');
+    const txs=txData.data||[];
+    const tbody=document.getElementById('txTable');
+    if(txs.length){
+      tbody.innerHTML=txs.slice(0,5).map(t=>`<tr><td><span class="badge-ok">${t.type}</span></td><td class="${t.type==='credit'?'amc':'amd'}">${fmtMoney(t.amount)}</td><td><span class="badge-ok">${t.status}</span></td><td style="font-size:.65rem">${new Date(t.created_at).toLocaleDateString()}</td></tr>`).join('');
+    }
+    const notifRes=await apiCall('/notifications');
+    const unread=notifRes.data?.filter(n=>!n.read).length||0;
+    document.getElementById('notifDot').classList.toggle('on',unread>0);
+  }catch(e){console.warn(e)}
+}
+
+async function loadNotifPanel(){
+  try{
+    const res=await apiCall('/notifications');
+    const list=res.data||[];
+    const container=document.getElementById('npList');
+    if(!list.length){container.innerHTML='<div class="np-empty">No notifications</div>';return;}
+    container.innerHTML=list.map(n=>`<div class="np-item ${!n.read?'unread':''}" data-id="${n.id}"><div class="np-row"><div class="np-ico"><i class="fas fa-bell"></i></div><div><div class="np-ttl">${n.title}</div><div class="np-msg">${n.message}</div><div class="np-ts">${new Date(n.created_at).toLocaleString()}</div></div></div></div>`).join('');
+    document.querySelectorAll('.np-item').forEach(el=>el.addEventListener('click',async()=>{try{await apiCall(`/notifications/${el.dataset.id}/read`,{method:'PUT'});el.classList.remove('unread');}catch(e){}}));
+  }catch(e){}
+}
+
+document.getElementById('logoutBtn')?.addEventListener('click',async()=>{try{await apiCall('/auth/logout',{method:'POST'})}catch(e){}localStorage.removeItem(SESSION_KEY);sessionStorage.removeItem(SESSION_KEY);window.location.href='login.html';});
+document.getElementById('markAllRead')?.addEventListener('click',async()=>{try{await apiCall('/notifications/read/all',{method:'PUT'});loadNotifPanel();document.getElementById('notifDot').classList.remove('on');toast('All marked read','ok');}catch(e){}});
+window.copyLink=function(){const code=document.getElementById('refCode').innerText;navigator.clipboard.writeText(`${location.origin}/signup.html?ref=${code}`);toast('Referral link copied','ok');};
+document.getElementById('refBox')?.addEventListener('click',()=>{navigator.clipboard.writeText(document.getElementById('refCode').innerText);toast('Code copied','ok');});
+
+// Currency switcher logic
+function refreshBalances(){
+  document.querySelectorAll('#walletHero, #sbBalance').forEach(el=>el.innerHTML=fmtMoney(userBalance));
+  const spentText=document.getElementById('statSpent')?.innerText;
+  if(spentText){
+    const numeric=parseFloat(spentText.replace(/[₦$,]/g,''));
+    if(!isNaN(numeric))document.getElementById('statSpent').innerHTML=fmtMoney(numeric);
+  }
+}
+document.querySelectorAll('.curr-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.curr-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCurrency=btn.dataset.curr;
+    refreshBalances();
+    // re-render transaction amounts
+    loadDashboard();
+  });
+});
+
+// init modals & sidebar
+document.querySelectorAll('[data-open-fund]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();document.getElementById('fundModal').classList.add('open');}));
+document.querySelectorAll('[data-close-fund]').forEach(b=>b.addEventListener('click',()=>document.getElementById('fundModal').classList.remove('open')));
+document.getElementById('fundModalForm')?.addEventListener('submit',async e=>{e.preventDefault();const amt=document.getElementById('fundAmount').value;if(amt<100)toast('Min ₦100','err');else window.location.href=`fund.html?amount=${amt}`;});
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{document.getElementById('fundAmount').value=b.dataset.preset;}));
+const sb=document.getElementById('sb'),ov=document.getElementById('ov'),hbg=document.getElementById('hbg');hbg?.addEventListener('click',()=>sb.classList.toggle('open'));ov?.addEventListener('click',()=>sb.classList.remove('open'));
+const npBtn=document.getElementById('npBtn'),np=document.getElementById('np'),npCls=document.getElementById('npClose');npBtn?.addEventListener('click',()=>{np.classList.toggle('open');ov.classList.toggle('on');});npCls?.addEventListener('click',()=>{np.classList.remove('open');ov.classList.remove('on');});ov?.addEventListener('click',()=>np.classList.remove('open'));
+document.getElementById('searchInput')?.addEventListener('input',function(){const q=this.value.toLowerCase();document.querySelectorAll('#searchRes .srch-item').forEach(i=>{i.style.display=i.textContent.toLowerCase().includes(q)?'flex':'none';})});
+if(window.innerWidth>=1025)sb.classList.add('open');
+updateUI();loadDashboard();loadNotifPanel();
+</script>
+</body>
+</html>

@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>MilesSpace | Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+:root{
+  --p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;
+  --acc:#f59e0b;--acd:#d97706;--acl:#fef3c7;
+  --ok:#10b981;--okl:#d1fae5;
+  --err:#ef4444;--erl:#fee2e2;
+  --usd:#1652f0;--usdl:#dbeafe;
+  --bg:#edf1f4;--srf:#fff;--srf2:#f7f9fb;
+  --bdr:#dde4e9;--t1:#0a2530;--t2:#456475;--t3:#8aa4ae;
+  --sw:264px;--r:12px;--rl:18px;--rxl:24px;--rp:999px;
+  --s0:0 1px 3px rgba(0,0,0,.04);
+  --s1:0 4px 14px rgba(0,0,0,.07);
+  --s2:0 8px 28px rgba(0,0,0,.1);
+  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+  --ease:cubic-bezier(.25,.8,.25,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select{font-family:inherit}
+
+.ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.4);backdrop-filter:blur(5px);z-index:490}
+.ov.on{display:block}
+
+/* ═══ SIDEBAR ═══ */
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+@media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0!important}}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd)}
+.sb-lic{width:30px;height:30px;background:var(--acc);border-radius:8px;display:grid;place-items:center;font-size:.8rem;color:#fff;flex-shrink:0}
+.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.sb-nav{padding:0 8px}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:all .18s;margin-bottom:2px;text-decoration:none}
+.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
+.sb-lnk.active i{color:var(--p)}
+.sb-lnk.proxy-lnk:hover{background:#f5f3ff;color:#7c3aed}
+.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
+.sb-prof:hover{background:var(--bg)}
+.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden}
+.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:all .18s;cursor:pointer;border:none;background:none}
+.sb-out:hover{background:var(--erl);color:var(--err)}
+
+.app{display:flex;min-height:100vh}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* ═══ TOPBAR ═══ */
+.topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 16px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:10px}
+.tb-hbg{width:38px;height:38px;border-radius:10px;background:var(--pl);color:var(--p);font-size:.9rem;display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:all .2s;border:none}
+.tb-hbg:hover{background:var(--p);color:#fff}
+.tb-brand{font-family:var(--fd);font-size:.9rem;font-weight:700;color:var(--t1);flex:1}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-icon-btn{width:36px;height:36px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.85rem;cursor:pointer;transition:all .2s;position:relative;text-decoration:none}
+.tb-icon-btn:hover{background:var(--pl);color:var(--p)}
+.notif-dot{position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--err);border:2px solid var(--srf)}
+.tb-av{width:34px;height:34px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.8rem;color:#fff;border:2px solid var(--acc);cursor:pointer;overflow:hidden;flex-shrink:0}
+.tb-av img{width:100%;height:100%;object-fit:cover}
+
+.content{padding:16px;flex:1}
+@media(min-width:768px){.content{padding:20px 22px}}
+
+/* ═══ HERO BALANCE CARD ═══ */
+.balance-hero{
+  background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);
+  padding:24px 24px 22px;margin-bottom:20px;box-shadow:var(--s1);position:relative;
+}
+.bh-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.bh-greeting{display:flex;flex-direction:column;gap:2px}
+.bh-greeting-lbl{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.bh-greeting-name{font-family:var(--fd);font-size:1.05rem;font-weight:800;color:var(--t1)}
+
+/* ─── CURRENCY SELECTOR ─── */
+.curr-selector{position:relative;flex-shrink:0}
+.curr-trigger{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 10px;background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--rp);cursor:pointer;transition:all .2s;user-select:none}
+.curr-trigger:hover{background:var(--pl);border-color:var(--p)}
+.curr-trigger:active{transform:scale(.97)}
+.curr-flag{font-size:1rem;line-height:1}
+.curr-name{font-family:var(--fd);font-size:.78rem;font-weight:700;color:var(--t1)}
+.curr-chev{font-size:.6rem;color:var(--t3);transition:transform .22s}
+.curr-selector.open .curr-chev{transform:rotate(180deg)}
+.curr-dropdown{position:absolute;top:calc(100% + 7px);right:0;width:230px;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);box-shadow:var(--s2);z-index:60;overflow:hidden;display:none}
+.curr-selector.open .curr-dropdown{display:block;animation:dropIn .2s var(--ease)}
+@keyframes dropIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.curr-dropdown-hd{padding:10px 14px 6px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.curr-opt{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;transition:all .18s}
+.curr-opt:hover{background:var(--srf2)}
+.curr-opt.active{background:var(--pl)}
+.curr-opt-flag{font-size:1.1rem;flex-shrink:0;width:26px;text-align:center}
+.curr-opt-info{flex:1;min-width:0}
+.curr-opt-name{font-size:.8rem;font-weight:600;color:var(--t1);display:block}
+.curr-opt-sub{font-size:.66rem;color:var(--t3);margin-top:1px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.curr-opt-bal{font-family:var(--fd);font-size:.78rem;font-weight:700;color:var(--t2);flex-shrink:0;text-align:right}
+.curr-opt.active .curr-opt-name,.curr-opt.active .curr-opt-bal{color:var(--p)}
+.curr-opt-check{width:16px;height:16px;border-radius:50%;background:var(--ok);display:none;place-items:center;font-size:.5rem;color:#fff;flex-shrink:0}
+.curr-opt.active .curr-opt-check{display:grid}
+
+/* ─── MAIN BALANCE DISPLAY ─── */
+.bh-balance{margin-bottom:18px}
+.bh-bal-lbl{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.eye-btn{background:var(--srf2);border:1px solid var(--bdr);border-radius:6px;width:22px;height:22px;display:grid;place-items:center;cursor:pointer;color:var(--t2);font-size:.65rem;transition:all .18s}
+.eye-btn:hover{background:var(--pl);color:var(--p);border-color:var(--p)}
+.bh-amount-wrap{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.bh-currency-sym{font-family:var(--fd);font-size:1.6rem;font-weight:800;color:var(--t3);flex-shrink:0;align-self:flex-start;padding-top:6px}
+.bh-main-amount{font-family:var(--fd);font-size:2.8rem;font-weight:800;color:var(--t1);letter-spacing:-2px;line-height:1;transition:all .25s;word-break:break-all}
+.bh-main-amount.hidden{letter-spacing:2px;opacity:.4}
+.bh-equiv{display:flex;gap:14px;flex-wrap:wrap}
+.bh-eq-item{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--pl);border:1px solid var(--bdr);border-radius:var(--rp);font-size:.7rem;color:var(--t2)}
+.bh-eq-item span{font-weight:700;color:var(--p)}
+
+/* ─── CHANGE INDICATOR ─── */
+.bh-change{display:flex;align-items:center;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.change-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--rp);font-size:.72rem;font-weight:700}
+.change-badge.pos{background:var(--okl);color:#065f46;border:1px solid #a7f3d0}
+.change-badge.neg{background:var(--erl);color:#991b1b;border:1px solid #fecaca}
+.change-period{font-size:.68rem;color:var(--t3)}
+
+/* ─── ACTION BUTTONS ─── */
+.bh-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bh-btn{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:all .22s;flex:1;min-width:64px;max-width:90px}
+.bh-btn-ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:.95rem;transition:all .22s;border:1px solid var(--bdr)}
+.bh-btn:hover .bh-btn-ic{transform:translateY(-2px);box-shadow:var(--s1)}
+.bh-btn-lbl{font-size:.65rem;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.bh-btn.dep .bh-btn-ic{background:var(--okl);color:#065f46;border-color:#bbf0d8}
+.bh-btn.dep:hover .bh-btn-ic{background:var(--ok);color:#fff}
+.bh-btn.wd .bh-btn-ic{background:var(--erl);color:var(--err);border-color:#fecaca}
+.bh-btn.wd:hover .bh-btn-ic{background:var(--err);color:#fff}
+.bh-btn.cv .bh-btn-ic{background:var(--usdl);color:var(--usd);border-color:#c7d9ff}
+.bh-btn.cv:hover .bh-btn-ic{background:var(--usd);color:#fff}
+.bh-btn.hi .bh-btn-ic{background:var(--acl);color:var(--acd);border-color:#fde7ad}
+.bh-btn.hi:hover .bh-btn-ic{background:var(--acc);color:#fff}
+@media(max-width:400px){.bh-main-amount{font-size:2.2rem}.bh-btn-ic{width:38px;height:38px}}
+
+/* ═══ GIFT CARD RATE TICKER ═══ */
+.ticker-section{margin-bottom:20px}
+.ticker-lbl{display:flex;align-items:center;gap:7px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;padding:0 2px}
+.ticker-lbl i{color:var(--p)}
+.ticker-wrap{overflow:hidden;position:relative}
+.ticker-wrap::before,.ticker-wrap::after{content:'';position:absolute;top:0;bottom:0;width:30px;z-index:2;pointer-events:none}
+.ticker-wrap::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
+.ticker-wrap::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
+.ticker-track{display:flex;gap:10px;animation:ticker 32s linear infinite;width:max-content}
+.ticker-track:hover{animation-play-state:paused}
+.ticker-item{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rp);white-space:nowrap;flex-shrink:0;cursor:pointer;transition:all .2s}
+.ticker-item:hover{border-color:var(--p);transform:translateY(-1px);box-shadow:var(--s0)}
+.ticker-sym{font-family:var(--fd);font-size:.74rem;font-weight:700;color:var(--t1)}
+.ticker-price{font-size:.72rem;font-weight:600;color:var(--t2)}
+.ticker-chg{font-size:.66rem;font-weight:700;padding:1px 6px;border-radius:4px}
+.chg-pos{background:var(--okl);color:#065f46}
+.chg-neg{background:var(--erl);color:#991b1b}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ═══ QUICK CONVERT WIDGET ═══ */
+.convert-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);padding:18px;margin-bottom:20px;box-shadow:var(--s0)}
+.convert-title{font-family:var(--fd);font-size:.86rem;font-weight:700;color:var(--t1);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.convert-title i{color:var(--p)}
+.convert-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.conv-side{flex:1;min-width:120px;background:var(--srf2);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:12px 14px;transition:border-color .2s}
+.conv-side:focus-within{border-color:var(--p)}
+.conv-lbl{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.conv-lbl select{border:none;background:none;font-size:.62rem;font-weight:700;color:var(--t2);cursor:pointer;outline:none;font-family:var(--fd)}
+.conv-inp{width:100%;border:none;background:none;font-family:var(--fd);font-size:1.1rem;font-weight:800;color:var(--t1);outline:none;padding:0}
+.conv-inp::placeholder{color:var(--t3)}
+.conv-sub{font-size:.64rem;color:var(--t3);margin-top:3px}
+.swap-btn{width:36px;height:36px;border-radius:50%;background:var(--pl);border:2px solid var(--srf);display:grid;place-items:center;color:var(--p);cursor:pointer;transition:all .25s;flex-shrink:0}
+.swap-btn:hover{background:var(--p);color:#fff;transform:rotate(180deg)}
+.btn-convert{margin-top:12px;width:100%;padding:11px;border-radius:var(--rp);background:var(--p);color:#fff;font-family:var(--fd);font-weight:700;font-size:.84rem;border:none;cursor:pointer;transition:all .22s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-convert:hover{background:var(--pm);transform:translateY(-1px)}
+
+/* ═══ PRODUCTS GRID ═══ */
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-hd h2{font-family:var(--fd);font-size:.88rem;font-weight:700;color:var(--t1)}
+.view-all{font-size:.76rem;font-weight:600;color:var(--pm);cursor:pointer;transition:opacity .18s;text-decoration:none}
+.view-all:hover{opacity:.7}
+.prod-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+@media(max-width:640px){.prod-grid{grid-template-columns:repeat(2,1fr)}}
+.prod-card{background:var(--srf);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:16px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:9px;transition:all .22s;cursor:pointer;text-decoration:none}
+.prod-card:hover{border-color:var(--p);box-shadow:var(--s1);transform:translateY(-2px)}
+.pc-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:1rem;flex-shrink:0}
+.pc-name{font-family:var(--fd);font-size:.82rem;font-weight:700;color:var(--t1)}
+.pc-sub{font-size:.7rem;color:var(--t3);margin-top:-5px}
+
+/* ═══ TRANSACTIONS ═══ */
+.tx-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0);margin-bottom:20px}
+.tx-hd{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.tx-hd h3{font-family:var(--fd);font-size:.86rem;font-weight:700;display:flex;align-items:center;gap:7px}
+.tx-hd h3 i{color:var(--p)}
+.tx-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:460px}
+th{padding:9px 14px;background:var(--srf2);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);text-align:left;border-bottom:1px solid var(--bdr)}
+td{padding:11px 14px;font-size:.79rem;border-bottom:1px solid var(--bdr);color:var(--t1)}
+tr:last-child td{border-bottom:none}
+.tx-type-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:.8rem;flex-shrink:0}
+.tx-type-wrap{display:flex;align-items:center;gap:9px}
+.tx-type-name{font-size:.78rem;font-weight:600;color:var(--t1)}
+.tx-type-sub{font-size:.66rem;color:var(--t3)}
+.bdg{display:inline-flex;padding:2px 8px;border-radius:5px;font-size:.62rem;font-weight:700}
+.bdg-ok{background:var(--okl);color:#065f46}
+.bdg-pend{background:#fef9c3;color:#854d0e}
+.bdg-err{background:var(--erl);color:#991b1b}
+.amt-c{color:var(--ok);font-weight:700;font-family:var(--fd)}
+.amt-d{color:var(--err);font-weight:700;font-family:var(--fd)}
+.tx-empty{text-align:center;padding:36px;color:var(--t3);font-size:.82rem}
+.tx-empty i{font-size:1.6rem;display:block;margin-bottom:10px;color:var(--bdr)}
+
+/* skeleton rows while loading */
+.tx-skel td{padding:0}
+.tx-skel-inner{height:44px;background:linear-gradient(90deg,var(--srf2) 25%,var(--bdr) 50%,var(--srf2) 75%);background-size:400% 100%;animation:shimmer 1.4s infinite}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* ═══ ANNOUNCE STRIP ═══ */
+.announce-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin-bottom:20px;padding-bottom:2px}
+.announce-row::-webkit-scrollbar{display:none}
+.ann-card{flex-shrink:0;width:230px;border-radius:var(--rl);padding:16px;position:relative;overflow:hidden;cursor:pointer;transition:all .22s;text-decoration:none}
+.ann-card:hover{transform:translateY(-2px)}
+.ann-card.c1{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.ann-card.c2{background:linear-gradient(135deg,#7c3aed,#4c1d95)}
+.ann-card.c3{background:linear-gradient(135deg,var(--p),#1a5f75)}
+.ann-card h4{font-family:var(--fd);font-size:.82rem;font-weight:800;color:#fff;margin-bottom:4px}
+.ann-card p{font-size:.7rem;color:rgba(255,255,255,.72);line-height:1.45;margin-bottom:10px}
+.ann-lm{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;color:#fff}
+
+/* ═══ MOBILE NAV ═══ */
+.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:56px;background:rgba(255,255,255,.86);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.8);border-radius:18px;box-shadow:0 6px 24px rgba(12,61,74,.15);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+.mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.52rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1}
+.mni i{font-size:.88rem;padding:5px 7px;border-radius:10px;transition:all .18s}
+.mni.active{color:var(--p)}
+.mni.active i{background:var(--pl);color:var(--p)}
+
+/* ═══ TOASTS ═══ */
+.toasts{position:fixed;bottom:78px;right:14px;z-index:900;display:flex;flex-direction:column;gap:6px;max-width:300px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:var(--rp);box-shadow:var(--s2);font-size:.77rem;font-weight:500;pointer-events:auto;animation:tIn .22s ease}
+.toast.ok{background:var(--okl);color:#065f46}
+.toast.err{background:var(--erl);color:#991b1b}
+.toast.info{background:var(--srf);color:var(--t1);border:1px solid var(--bdr)}
+@keyframes tIn{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+
+@media(max-width:768px){
+  .content{padding:14px 13px 82px}
+  .topbar{height:56px}
+  .mnav{display:flex}
+  .balance-hero{padding:20px 18px 18px}
+  .bh-main-amount{font-size:2.2rem}
+  .bh-equiv{gap:8px}
+}
+
+.fu{animation:fadeUp .4s var(--ease) both}
+.d1{animation-delay:.03s}.d2{animation-delay:.07s}.d3{animation-delay:.11s}.d4{animation-delay:.15s}.d5{animation-delay:.19s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="ov" id="ov"></div>
+<div class="app">
+
+<!-- ════════════════ SIDEBAR ════════════════ -->
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" style="width:28px;height:28px;border-radius:7px;flex-shrink:0">MilesSpace</div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk active"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html"     class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html"   class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html"    class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="history.html"   class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html"      class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+    <a href="social-ads.html" class="sb-lnk"><i class="fas fa-ad"></i> Social Ads</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="profile.html"       class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+    <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk">
+      <i class="fas fa-shield-alt"></i> Buy Proxy
+    </a>
+  </nav>
+  <div class="sb-foot">
+    <a href="profile.html" class="sb-prof">
+      <div class="sb-av" id="sbAv">U</div>
+      <div class="sb-ui">
+        <p class="sb-un"  id="sbName">Loading…</p>
+        <p class="sb-ue"  id="sbEmail"></p>
+      </div>
+      <button class="sb-out" id="logoutBtn" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </a>
+  </div>
+</aside>
+
+<!-- ════════════════ MAIN ════════════════ -->
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+    <span class="tb-brand">MilesSpace</span>
+    <div class="tb-right">
+      <a href="notifications.html" class="tb-icon-btn">
+        <i class="fas fa-bell"></i><span class="notif-dot"></span>
+      </a>
+      <a href="profile.html" class="tb-av" id="tbAv">U</a>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- ══ BALANCE CARD ══ -->
+    <div class="balance-hero fu d1">
+      <div class="bh-top">
+        <div class="bh-greeting">
+          <span class="bh-greeting-lbl">Welcome back</span>
+          <span class="bh-greeting-name" id="greetName">Loading…</span>
+        </div>
+
+        <div class="curr-selector" id="currSelector">
+          <div class="curr-trigger" id="currTrigger">
+            <span class="curr-flag" id="currFlag">🇳🇬</span>
+            <span class="curr-name" id="currName">NGN</span>
+            <i class="fas fa-chevron-down curr-chev"></i>
+          </div>
+          <div class="curr-dropdown" id="currDropdown">
+            <div class="curr-dropdown-hd">Select wallet</div>
+            <div class="curr-opt active" data-key="ngn">
+              <span class="curr-opt-flag">🇳🇬</span>
+              <div class="curr-opt-info">
+                <span class="curr-opt-name">Nigerian Naira</span>
+                <span class="curr-opt-sub" id="drop-ngn-sub">₦0.00</span>
+              </div>
+              <span class="curr-opt-bal">NGN</span>
+              <span class="curr-opt-check"><i class="fas fa-check" style="font-size:.5rem"></i></span>
+            </div>
+            <div class="curr-opt" data-key="usd">
+              <span class="curr-opt-flag">🌐</span>
+              <div class="curr-opt-info">
+                <span class="curr-opt-name">US Dollar</span>
+                <span class="curr-opt-sub" id="drop-usd-sub">$0.00</span>
+              </div>
+              <span class="curr-opt-bal">USD</span>
+              <span class="curr-opt-check"><i class="fas fa-check" style="font-size:.5rem"></i></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bh-balance">
+        <div class="bh-bal-lbl">
+          <span id="balLabel">Naira Balance</span>
+          <button class="eye-btn" id="eyeBtn"><i class="fas fa-eye" id="eyeIc"></i></button>
+        </div>
+        <div class="bh-amount-wrap">
+          <span class="bh-currency-sym" id="currSym">₦</span>
+          <span class="bh-main-amount"  id="mainBal">0.00</span>
+        </div>
+        <div class="bh-equiv" id="equivRow" style="display:none"></div>
+      </div>
+
+      <div class="bh-change">
+        <span class="change-badge pos" id="changeBadge">
+          <i class="fas fa-arrow-up" style="font-size:.55rem"></i> 0.00%
+        </span>
+        <span class="change-period">vs last week</span>
+      </div>
+
+      <div class="bh-actions">
+        <div class="bh-btn dep" onclick="location.href='fund.html'">
+          <div class="bh-btn-ic"><i class="fas fa-plus"></i></div>
+          <span class="bh-btn-lbl">Deposit</span>
+        </div>
+        <div class="bh-btn wd" onclick="location.href='fund.html?op=withdraw'">
+          <div class="bh-btn-ic"><i class="fas fa-arrow-up-from-bracket"></i></div>
+          <span class="bh-btn-lbl">Withdraw</span>
+        </div>
+        <div class="bh-btn cv" onclick="document.querySelector('.convert-card').scrollIntoView({behavior:'smooth'})">
+          <div class="bh-btn-ic"><i class="fas fa-right-left"></i></div>
+          <span class="bh-btn-lbl">Convert</span>
+        </div>
+        <div class="bh-btn hi" onclick="location.href='history.html'">
+          <div class="bh-btn-ic"><i class="fas fa-clock-rotate-left"></i></div>
+          <span class="bh-btn-lbl">History</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TICKER ══ -->
+    <div class="ticker-section fu d2">
+      <div class="ticker-lbl"><i class="fas fa-gift"></i> Live Gift Card Rates (per $1)</div>
+      <div class="ticker-wrap">
+        <div class="ticker-track" id="tickerTrack">
+          <!-- populated by loadGiftCardRates() -->
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:.74rem;color:var(--t3)">
+            <i class="fas fa-spinner fa-spin"></i> Loading rates…
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ANNOUNCEMENTS ══ -->
+    <div class="announce-row fu d2">
+      <a href="fund.html?wallet=ngn&method=paystack" class="ann-card c1">
+        <h4>Fund with Paystack</h4>
+        <p>Top up your Naira wallet instantly with cards, USSD or bank transfer.</p>
+        <span class="ann-lm">Fund Now <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a href="giftcards.html" class="ann-card c3">
+        <h4>Buy &amp; Sell Gift Cards</h4>
+        <p>Trade Amazon, iTunes, Steam at best rates in Nigeria.</p>
+        <span class="ann-lm">Trade Now <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a href="fund.html?wallet=usd" class="ann-card c2">
+        <h4>Fund with Crypto</h4>
+        <p>Send USDT, BTC or ETH to credit your Dollar wallet.</p>
+        <span class="ann-lm">Fund USD <i class="fas fa-arrow-right"></i></span>
+      </a>
+    </div>
+
+    <!-- ══ QUICK CONVERT ══ -->
+    <div class="convert-card fu d3">
+      <div class="convert-title"><i class="fas fa-right-left"></i> Quick Convert</div>
+      <div class="convert-row">
+        <div class="conv-side">
+          <div class="conv-lbl">
+            From:
+            <select id="fromCurr" onchange="doConvert()">
+              <option value="NGN">🇳🇬 NGN</option>
+              <option value="USD">🌐 USD</option>
+            </select>
+          </div>
+          <input type="number" class="conv-inp" id="fromAmt" placeholder="0.00" oninput="doConvert()" value="1000"/>
+          <div class="conv-sub" id="fromSub">Nigerian Naira</div>
+        </div>
+        <button class="swap-btn" onclick="swapConvert()"><i class="fas fa-right-left"></i></button>
+        <div class="conv-side">
+          <div class="conv-lbl">
+            To:
+            <select id="toCurr" onchange="doConvert()">
+              <option value="USD">🌐 USD</option>
+              <option value="NGN">🇳🇬 NGN</option>
+            </select>
+          </div>
+          <input type="number" class="conv-inp" id="toAmt" placeholder="0.00" readonly/>
+          <div class="conv-sub" id="toSub">US Dollar</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:.7rem;color:var(--t3)">
+        <i class="fas fa-info-circle" style="color:var(--p)"></i>
+        Rate: <span id="rateDisplay">₦1,620 = $1 USD</span> · Updated just now
+      </div>
+    </div>
+
+    <!-- ══ PRODUCTS ══ -->
+    <div class="fu d3">
+      <div class="section-hd">
+        <h2>Products</h2>
+        <a href="market.html" class="view-all">View All</a>
+      </div>
+      <div class="prod-grid">
+        <a href="boost.html" class="prod-card">
+          <div class="pc-icon" style="background:#e8f4f7;color:var(--p)"><i class="fas fa-chart-line"></i></div>
+          <p class="pc-name">Social Boost</p>
+          <p class="pc-sub">Followers &amp; likes</p>
+        </a>
+        <a href="virtual.html" class="prod-card">
+          <div class="pc-icon" style="background:var(--okl);color:#065f46"><i class="fas fa-phone-alt"></i></div>
+          <p class="pc-name">Virtual Numbers</p>
+          <p class="pc-sub">OTP verification</p>
+        </a>
+        <a href="market.html" class="prod-card">
+          <div class="pc-icon" style="background:var(--usdl);color:var(--usd)"><i class="fas fa-store"></i></div>
+          <p class="pc-name">Marketplace</p>
+          <p class="pc-sub">Verified accounts</p>
+        </a>
+        <a href="giftcards.html" class="prod-card">
+          <div class="pc-icon" style="background:var(--acl);color:var(--acd)"><i class="fas fa-gift"></i></div>
+          <p class="pc-name">Gift Cards</p>
+          <p class="pc-sub">Buy &amp; sell cards</p>
+        </a>
+      </div>
+    </div>
+
+    <!-- ══ RECENT TRANSACTIONS ══ -->
+    <div class="fu d4">
+      <div class="section-hd">
+        <h2>Recent Transactions</h2>
+        <a href="history.html" class="view-all">View All</a>
+      </div>
+      <div class="tx-card">
+        <div class="tx-hd">
+          <h3><i class="fas fa-receipt"></i> Activity</h3>
+          <a href="history.html" style="font-size:.74rem;font-weight:600;color:var(--pm)">See all →</a>
+        </div>
+        <div class="tx-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Amount (NGN)</th>
+                <th>Amount (USD)</th>
+                <th>Wallet</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="txBody">
+              <!-- skeleton -->
+              <tr class="tx-skel"><td colspan="6"><div class="tx-skel-inner"></div></td></tr>
+              <tr class="tx-skel"><td colspan="6"><div class="tx-skel-inner"></div></td></tr>
+              <tr class="tx-skel"><td colspan="6"><div class="tx-skel-inner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <footer style="text-align:center;padding:14px 0 4px;font-size:.7rem;color:var(--t3)">
+      © 2025 MilesSpace · All rights reserved
+    </footer>
+  </main>
+</div>
+</div>
+
+<!-- ══ MOBILE NAV ══ -->
+<nav class="mnav">
+  <a href="dashboard.html" class="mni active"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="boost.html"     class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+  <a href="fund.html"      class="mni"><i class="fas fa-wallet"></i><span>Fund</span></a>
+  <a href="market.html"    class="mni"><i class="fas fa-store"></i><span>Market</span></a>
+  <a href="profile.html"   class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
+  <a href="social-ads.html" class="sb-lnk"><i class="fas fa-ad"></i> Social Ads</a>
+</nav>
+<div class="toasts" id="toastWrap"></div>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════ */
+const SK       = 'mx_sess';
+const API      = '/api';
+const NGN_RATE = 1620; // 1 USD = ₦1,620  (fallback; prefer live rate)
+
+/* ══════════════════════════════════════
+   SESSION
+══════════════════════════════════════ */
+function getSess() {
+  try { return JSON.parse(localStorage.getItem(SK) || sessionStorage.getItem(SK) || 'null'); }
+  catch(e) { return null; }
+}
+function getToken() { return getSess()?.token || ''; }
+
+// Guard
+if (!getToken()) location.href = 'login.html';
+
+/* ══════════════════════════════════════
+   API WRAPPER
+══════════════════════════════════════ */
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (getToken()) headers['Authorization'] = `Bearer ${getToken()}`;
+  const res  = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+  const json = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    localStorage.removeItem(SK); sessionStorage.removeItem(SK);
+    location.href = 'login.html'; return;
+  }
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json;
+}
+
+/* ══════════════════════════════════════
+   FORMATTERS
+══════════════════════════════════════ */
+const fNGN = n => '₦' + (Number(n) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fUSD = n => '$' + (Number(n) || 0).toFixed(2);
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m] || m);
+}
+
+/* ══════════════════════════════════════
+   TOAST
+══════════════════════════════════════ */
+function toast(msg, type = 'info') {
+  const c  = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  const ic = { ok:'fa-check-circle', err:'fa-times-circle', info:'fa-info-circle' };
+  el.innerHTML = `<i class="fas ${ic[type] || ic.info}"></i><span>${msg}</span>`;
+  c.appendChild(el);
+  setTimeout(() => {
+    el.style.cssText = 'opacity:0;transition:all .25s';
+    setTimeout(() => el.remove(), 260);
+  }, 3500);
+}
+
+/* ══════════════════════════════════════
+   STATE
+══════════════════════════════════════ */
+let balNGN    = 0;
+let balUSD    = 0;
+let activeCurr = 'ngn';
+let hidden    = false;
+let liveRate  = NGN_RATE; // updated from gift card rates if available
+
+/* ══════════════════════════════════════
+   CURRENCY SELECTOR
+══════════════════════════════════════ */
+const currSelector = document.getElementById('currSelector');
+const currTrigger  = document.getElementById('currTrigger');
+
+currTrigger.addEventListener('click', e => {
+  e.preventDefault(); e.stopPropagation();
+  currSelector.classList.toggle('open');
+});
+document.querySelectorAll('.curr-opt').forEach(opt => {
+  opt.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    selectCurr(opt.dataset.key);
+  });
+});
+document.addEventListener('click', e => {
+  if (!currSelector.contains(e.target)) currSelector.classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') currSelector.classList.remove('open');
+});
+
+function selectCurr(key) {
+  activeCurr = key;
+  currSelector.classList.remove('open');
+  document.querySelectorAll('.curr-opt').forEach(o => o.classList.toggle('active', o.dataset.key === key));
+  const info = { ngn:{ flag:'🇳🇬', name:'NGN' }, usd:{ flag:'🌐', name:'USD' } };
+  document.getElementById('currFlag').textContent = info[key].flag;
+  document.getElementById('currName').textContent = info[key].name;
+  renderBalance();
+}
+
+/* ══════════════════════════════════════
+   BALANCE DISPLAY
+══════════════════════════════════════ */
+function renderBalance() {
+  const lbl    = document.getElementById('balLabel');
+  const sym    = document.getElementById('currSym');
+  const main   = document.getElementById('mainBal');
+  const equiv  = document.getElementById('equivRow');
+  const badge  = document.getElementById('changeBadge');
+
+  if (activeCurr === 'ngn') {
+    lbl.textContent = 'Naira Balance';
+    sym.textContent = '₦';
+    if (hidden) {
+      main.textContent = '• • • • •';
+      main.classList.add('hidden');
+      equiv.style.display = 'none';
+    } else {
+      main.textContent = (balNGN || 0).toLocaleString('en-NG', { minimumFractionDigits:2, maximumFractionDigits:2 });
+      main.classList.remove('hidden');
+      equiv.style.display = 'flex';
+      equiv.innerHTML = `<div class="bh-eq-item">≈ <span>${fUSD(balNGN / liveRate)}</span></div>`;
+    }
+    badge.className = 'change-badge pos';
+    badge.innerHTML = '<i class="fas fa-arrow-up" style="font-size:.55rem"></i> 0.12%';
+  } else {
+    lbl.textContent = 'Dollar Balance';
+    sym.textContent = '$';
+    if (hidden) {
+      main.textContent = '• • • • •';
+      main.classList.add('hidden');
+      equiv.style.display = 'none';
+    } else {
+      main.textContent = (balUSD || 0).toFixed(2);
+      main.classList.remove('hidden');
+      equiv.style.display = 'flex';
+      equiv.innerHTML = `<div class="bh-eq-item">≈ <span>${fNGN(balUSD * liveRate)}</span></div>`;
+    }
+    badge.className = 'change-badge pos';
+    badge.innerHTML = '<i class="fas fa-arrow-up" style="font-size:.55rem"></i> 1.87%';
+  }
+  document.getElementById('drop-ngn-sub').textContent = hidden ? '₦ • • •' : fNGN(balNGN);
+  document.getElementById('drop-usd-sub').textContent = hidden ? '$ • • •' : fUSD(balUSD);
+}
+
+/* ── HIDE TOGGLE ── */
+document.getElementById('eyeBtn').addEventListener('click', e => {
+  e.preventDefault(); e.stopPropagation();
+  hidden = !hidden;
+  document.getElementById('eyeIc').className = hidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+  renderBalance();
+});
+
+/* ══════════════════════════════════════
+   LOAD USER
+══════════════════════════════════════ */
+async function loadUser() {
+  // Pre-fill from cache so UI isn't blank on slow connections
+  const cached = getSess()?.user;
+  if (cached) populateUser(cached);
+
+  try {
+    const { data } = await api('/auth/me');
+    if (!data) return;
+    populateUser(data);
+    const s = getSess();
+    if (s) { s.user = data; localStorage.setItem(SK, JSON.stringify(s)); }
+  } catch(e) {
+    console.warn('loadUser error:', e.message);
+  }
+}
+
+function populateUser(u) {
+  const name  = u.username || u.full_name || u.email?.split('@')[0] || 'User';
+  const init  = name.charAt(0).toUpperCase();
+  const avUrl = u.avatar_url || '';
+
+  document.getElementById('greetName').textContent = name.split(' ')[0];
+  document.getElementById('sbName').textContent    = name;
+  document.getElementById('sbEmail').textContent   = u.email || '';
+
+  ['sbAv', 'tbAv'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (avUrl) el.innerHTML = `<img src="${escHtml(avUrl)}" alt=""/>`;
+    else el.textContent = init;
+  });
+
+  balNGN = parseFloat(u.wallet_ngn) || 0;
+  balUSD = parseFloat(u.wallet_usd) || 0;
+  renderBalance();
+}
+
+/* ══════════════════════════════════════
+   GIFT CARD RATE TICKER — from database
+   GET /api/rates/giftcards
+   Response shape: { success, rates: [{
+     card_name, icon, rate_ngn,
+     change_percent, is_positive,
+     country, card_type
+   }] }
+══════════════════════════════════════ */
+async function loadGiftCardRates() {
+  const track = document.getElementById('tickerTrack');
+  try {
+    const res   = await api('/rates/giftcards');
+    const rates = res.rates || [];
+
+    if (!rates.length) {
+      track.innerHTML = `<div style="padding:8px 14px;font-size:.74rem;color:var(--t3)">No rates available</div>`;
+      return;
+    }
+
+    // Build doubled list for seamless infinite scroll
+    const items = [...rates, ...rates];
+    track.innerHTML = items.map(r => {
+      const rateNGN  = Number(r.rate_ngn)       || 0;
+      const chgPct   = r.change_percent          || '0.0%';
+      const isPos    = r.is_positive !== false;   // default positive
+      const icon     = r.icon                    || '💳';
+      const name     = escHtml(r.card_name       || 'Card');
+      const chgClass = isPos ? 'chg-pos' : 'chg-neg';
+      const chgSign  = isPos ? '+' : '';
+      const chgLabel = String(chgPct).startsWith('+') || String(chgPct).startsWith('-')
+        ? chgPct
+        : `${chgSign}${chgPct}`;
+      return `
+        <div class="ticker-item" onclick="location.href='giftcards.html'">
+          <span class="ticker-sym">${icon} ${name}</span>
+          <span class="ticker-price">₦${rateNGN.toLocaleString()}/$</span>
+          <span class="ticker-chg ${chgClass}">${escHtml(String(chgLabel))}</span>
+        </div>`;
+    }).join('');
+
+    // Use first rate as live exchange rate for convert widget
+    if (rates[0]?.rate_ngn) {
+      liveRate = Number(rates[0].rate_ngn) || NGN_RATE;
+      document.getElementById('rateDisplay').textContent = `₦${liveRate.toLocaleString()} = $1 USD`;
+      doConvert(); // refresh converter with live rate
+    }
+
+  } catch(e) {
+    console.warn('loadGiftCardRates error:', e.message);
+    // Render fallback static rates so ticker isn't blank
+    const FALLBACK = [
+      { card_name:'Amazon',      icon:'🛒', rate_ngn:1580, change_percent:'+0.3%', is_positive:true  },
+      { card_name:'iTunes',      icon:'🎵', rate_ngn:1560, change_percent:'+0.5%', is_positive:true  },
+      { card_name:'Steam',       icon:'🎮', rate_ngn:1540, change_percent:'-0.2%', is_positive:false },
+      { card_name:'Google Play', icon:'▶️', rate_ngn:1520, change_percent:'+0.1%', is_positive:true  },
+      { card_name:'Netflix',     icon:'🎬', rate_ngn:1570, change_percent:'+0.4%', is_positive:true  },
+      { card_name:'Xbox',        icon:'🕹️', rate_ngn:1530, change_percent:'0.0%',  is_positive:true  },
+      { card_name:'Spotify',     icon:'🎧', rate_ngn:1510, change_percent:'-0.1%', is_positive:false },
+      { card_name:'Visa',        icon:'💳', rate_ngn:1500, change_percent:'+0.2%', is_positive:true  },
+    ];
+    const items = [...FALLBACK, ...FALLBACK];
+    track.innerHTML = items.map(r => `
+      <div class="ticker-item" onclick="location.href='giftcards.html'">
+        <span class="ticker-sym">${r.icon} ${r.card_name}</span>
+        <span class="ticker-price">₦${r.rate_ngn.toLocaleString()}/$</span>
+        <span class="ticker-chg ${r.is_positive ? 'chg-pos' : 'chg-neg'}">${r.change_percent}</span>
+      </div>`).join('');
+  }
+}
+
+/* ══════════════════════════════════════
+   QUICK CONVERT
+══════════════════════════════════════ */
+const CURR_NAMES = { NGN:'Nigerian Naira', USD:'US Dollar' };
+
+function doConvert() {
+  const from = document.getElementById('fromCurr').value;
+  const to   = document.getElementById('toCurr').value;
+  const amt  = parseFloat(document.getElementById('fromAmt').value) || 0;
+
+  document.getElementById('fromSub').textContent = CURR_NAMES[from] || '';
+  document.getElementById('toSub').textContent   = CURR_NAMES[to]   || '';
+
+  let result = 0;
+  if      (from === 'NGN' && to === 'USD') result = amt / liveRate;
+  else if (from === 'USD' && to === 'NGN') result = amt * liveRate;
+  else                                      result = amt;
+
+  document.getElementById('toAmt').value       = result.toFixed(from === 'USD' && to === 'NGN' ? 2 : 6);
+  document.getElementById('rateDisplay').textContent = `₦${liveRate.toLocaleString()} = $1 USD`;
+}
+
+function swapConvert() {
+  const fc = document.getElementById('fromCurr');
+  const tc = document.getElementById('toCurr');
+  [fc.value, tc.value] = [tc.value, fc.value];
+  doConvert();
+}
+
+/* ══════════════════════════════════════
+   TRANSACTION TYPE → ICON / COLOURS
+   Maps the raw `type` field from the DB
+   to a human label, icon, and colour pair.
+══════════════════════════════════════ */
+const TX_TYPE_MAP = {
+  deposit:     { label:'Deposit',       icon:'fas fa-plus-circle',    bg:'var(--okl)',  cl:'#065f46' },
+  fund:        { label:'Funding',       icon:'fas fa-wallet',         bg:'var(--okl)',  cl:'#065f46' },
+  credit:      { label:'Credit',        icon:'fas fa-arrow-down',     bg:'var(--okl)',  cl:'#065f46' },
+  withdrawal:  { label:'Withdrawal',    icon:'fas fa-arrow-up',       bg:'var(--erl)',  cl:'var(--err)' },
+  withdraw:    { label:'Withdrawal',    icon:'fas fa-arrow-up',       bg:'var(--erl)',  cl:'var(--err)' },
+  debit:       { label:'Debit',         icon:'fas fa-arrow-up',       bg:'var(--erl)',  cl:'var(--err)' },
+  boost:       { label:'Social Boost',  icon:'fas fa-chart-line',     bg:'var(--pl)',   cl:'var(--p)'  },
+  virtual:     { label:'Virtual Number',icon:'fas fa-phone-alt',      bg:'#ede9fe',     cl:'#7c3aed'   },
+  marketplace: { label:'Marketplace',   icon:'fas fa-store',          bg:'var(--acl)',  cl:'var(--acd)'},
+  giftcard:    { label:'Gift Card',     icon:'fas fa-gift',           bg:'#d1fae5',     cl:'#065f46'   },
+};
+
+function getTxType(type) {
+  const key = (type || '').toLowerCase();
+  return TX_TYPE_MAP[key] || { label: type || 'Transaction', icon:'fas fa-receipt', bg:'var(--pl)', cl:'var(--p)' };
+}
+
+/* ══════════════════════════════════════
+   LOAD TRANSACTIONS  — real data only
+   Backend route returns { success, data[], count, totals }
+   Each row has: type, description, amount_ngn, amount (numeric),
+   currency, status, created_at, ref
+══════════════════════════════════════ */
+async function loadTransactions() {
+  try {
+    const res  = await api('/transactions');
+    const rows = res.data || res.transactions || [];
+
+    if (!rows.length) {
+      document.getElementById('txBody').innerHTML = `
+        <tr><td colspan="6">
+          <div class="tx-empty">
+            <i class="fas fa-receipt"></i>
+            No transactions yet — your history will appear here
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    const SC = { completed:'bdg-ok', pending:'bdg-pend', processing:'bdg-pend', failed:'bdg-err', cancelled:'bdg-err' };
+
+    document.getElementById('txBody').innerHTML = rows.slice(0, 8).map(t => {
+      const cfg = getTxType(t.type);
+
+      // ── Real amounts ──────────────────────────────
+      // Backend stores amount_ngn for NGN amounts.
+      // `amount` may be negative (debit) or positive (credit).
+      const rawAmt  = Number(t.amount_ngn ?? t.amount) || 0;
+      const absAmt  = Math.abs(rawAmt);
+      const isCredit = rawAmt > 0 || (t.category === 'credit') || String(t.type).toLowerCase() === 'deposit' || String(t.type).toLowerCase() === 'credit' || String(t.type).toLowerCase() === 'fund';
+
+      // NGN amount
+      const ngnAmt  = absAmt; // amount_ngn is already in NGN
+      // USD equivalent — prefer stored USD amount if present
+      const usdAmt  = Number(t.amount_usd) || (absAmt / liveRate);
+
+      // Currency label
+      const currency = (t.currency || 'NGN').toUpperCase();
+
+      // Formatted display
+      const ngnDisplay = (isCredit ? '+' : '-') + fNGN(ngnAmt);
+      const usdDisplay = (isCredit ? '+' : '-') + fUSD(usdAmt);
+      const amtClass   = isCredit ? 'amt-c' : 'amt-d';
+
+      const dateStr = t.created_at
+        ? new Date(t.created_at).toLocaleDateString('en-NG', { day:'2-digit', month:'short', year:'numeric' })
+        : '—';
+
+      const statusKey  = (t.status || 'pending').toLowerCase();
+      const badgeClass = SC[statusKey] || 'bdg-pend';
+
+      return `<tr>
+        <td>
+          <div class="tx-type-wrap">
+            <div class="tx-type-ic" style="background:${cfg.bg};color:${cfg.cl}">
+              <i class="${cfg.icon}"></i>
+            </div>
+            <div>
+              <div class="tx-type-name">${escHtml(cfg.label)}</div>
+              <div class="tx-type-sub">${escHtml(t.description || t.ref || '')}</div>
+            </div>
+          </div>
+        </td>
+        <td class="${amtClass}">${ngnDisplay}</td>
+        <td class="${amtClass}" style="font-size:.76rem">${usdDisplay}</td>
+        <td>
+          <span style="font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:4px;
+            background:${currency === 'USD' ? 'var(--usdl)' : 'var(--pl)'};
+            color:${currency === 'USD' ? 'var(--usd)' : 'var(--pm)'}">
+            ${currency}
+          </span>
+        </td>
+        <td><span class="bdg ${badgeClass}">${escHtml(t.status || 'pending')}</span></td>
+        <td style="font-size:.7rem;color:var(--t3)">${dateStr}</td>
+      </tr>`;
+    }).join('');
+
+  } catch(e) {
+    console.error('loadTransactions error:', e.message);
+    document.getElementById('txBody').innerHTML = `
+      <tr><td colspan="6">
+        <div class="tx-empty">
+          <i class="fas fa-triangle-exclamation"></i>
+          Could not load transactions
+        </div>
+      </td></tr>`;
+  }
+}
+
+/* ══════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════ */
+function initSidebar() {
+  const sb  = document.getElementById('sb');
+  const ov  = document.getElementById('ov');
+  const hbg = document.getElementById('hbg');
+  const isMobile = () => window.innerWidth < 1025;
+
+  hbg?.addEventListener('click', () => {
+    if (!isMobile()) return;
+    const open = sb.classList.toggle('open');
+    ov.classList.toggle('on', open);
+  });
+  ov?.addEventListener('click', () => {
+    sb.classList.remove('open');
+    ov.classList.remove('on');
+  });
+  window.addEventListener('resize', () => {
+    if (!isMobile()) {
+      sb.classList.remove('open');
+      ov.classList.remove('on');
+    }
+  });
+}
+
+/* ── LOGOUT — single listener, no onclick attr ── */
+document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+  e.preventDefault(); e.stopPropagation();
+  try { await api('/auth/logout', { method:'POST' }); } catch(_) {}
+  localStorage.removeItem(SK);
+  sessionStorage.removeItem(SK);
+  location.href = 'login.html';
+});
+
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
+(function init() {
+  initSidebar();
+  doConvert(); // render converter immediately with cached rate
+  loadUser();
+  loadGiftCardRates(); // loads ticker from DB, updates liveRate
+  loadTransactions();  // loads real TX rows
+})();
+</script>
+</body>
+</html>

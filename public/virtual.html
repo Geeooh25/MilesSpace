@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>MilesSpace | Virtual Numbers</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+/* ════ TOKENS ════ */
+:root{
+  --p:#0B1220;--pm:#1A2C3E;--pl:#eef1f6;--pxl:#f5f7fa;
+  --acc:#F5A623;--acd:#d98c12;--acl:#fff6e6;
+  --ok:#10b981;--okl:#d1fae5;
+  --err:#ef4444;--erl:#fee2e2;
+  --warn:#f59e0b;--warnl:#fef3c7;
+  --bg:#f0f2f5;--srf:#fff;--srf2:#f7f8fa;
+  --bdr:#e2e8ee;--t1:#0d1b26;--t2:#445d6e;--t3:#8ea8b4;
+  --sw:264px;--r:10px;--rl:16px;--rxl:22px;--rp:999px;
+  --s0:0 1px 4px rgba(0,0,0,.05);
+  --s1:0 6px 20px rgba(0,0,0,.08);
+  --s2:0 16px 44px rgba(0,0,0,.13);
+  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+  --ease:cubic-bezier(.25,.8,.25,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select{font-family:inherit}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:4px}
+
+/* ── OVERLAY ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(11,18,32,.4);backdrop-filter:blur(4px);z-index:490}
+.ov.on{display:block}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+@media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0!important}}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:.95rem;color:var(--t1);font-family:var(--fd)}
+.sb-lic{width:28px;height:28px;background:var(--acc);border-radius:7px;display:grid;place-items:center;font-size:.75rem;color:#fff;flex-shrink:0}
+.sb-sec{padding:14px 16px 4px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.sb-nav{padding:0 8px}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);color:var(--t2);font-size:.83rem;font-weight:500;transition:all .18s;margin-bottom:1px;text-decoration:none}
+.sb-lnk i{width:15px;text-align:center;font-size:.82rem;flex-shrink:0;opacity:.7}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
+.sb-lnk.active i{color:var(--p);opacity:1}
+.sb-foot{margin-top:auto;padding:10px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
+.sb-prof:hover{background:var(--bg)}
+.sb-av{width:30px;height:30px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.78rem;color:#fff;flex-shrink:0;overflow:hidden}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:.78rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.66rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:24px;height:24px;border-radius:5px;display:grid;place-items:center;color:var(--t3);font-size:.74rem;transition:all .18s;cursor:pointer}
+.sb-out:hover{background:var(--erl);color:var(--err)}
+
+/* ── APP / MAIN ── */
+.app{display:flex;min-height:100vh}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 20px;height:58px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:10px}
+.tb-hbg{width:34px;height:34px;border-radius:9px;background:var(--pl);color:var(--p);font-size:.85rem;display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:all .2s}
+.tb-hbg:hover{background:var(--p);color:#fff}
+.tb-title{font-family:var(--fd);font-size:.88rem;font-weight:700;color:var(--t1);flex:1}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.tb-btn{width:34px;height:34px;border-radius:8px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.82rem;cursor:pointer;transition:all .2s;text-decoration:none}
+.tb-btn:hover{background:var(--pl);color:var(--p)}
+.tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.76rem;color:#fff;border:2px solid var(--acc);cursor:pointer;flex-shrink:0}
+
+/* ── CONTENT ── */
+.content{padding:20px 22px;flex:1}
+@media(max-width:768px){.content{padding:14px 13px 82px}}
+
+/* ── PAGE HEADER ── */
+.page-header{margin-bottom:22px}
+.page-header h1{font-family:var(--fd);font-size:1.45rem;font-weight:800;letter-spacing:-.4px;margin-bottom:4px}
+.page-header p{font-size:.82rem;color:var(--t3);max-width:480px;line-height:1.55}
+.ph-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ph-pill{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--rp);background:var(--srf);border:1px solid var(--bdr);font-size:.7rem;font-weight:600;color:var(--t2)}
+.ph-pill i{font-size:.68rem;color:var(--acc)}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}50%{box-shadow:0 0 0 5px rgba(16,185,129,0)}}
+
+/* ── STEP BAR ── */
+.steps-bar{display:flex;align-items:center;margin-bottom:22px;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);padding:14px 20px;box-shadow:var(--s0)}
+.step-dot{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;position:relative}
+.step-dot::after{content:'';position:absolute;top:15px;left:50%;width:100%;height:2px;background:var(--bdr);z-index:0;transition:background .4s}
+.step-dot:last-child::after{display:none}
+.step-dot.done::after{background:var(--ok)}
+.step-dot-ic{width:30px;height:30px;border-radius:50%;background:var(--bdr);display:grid;place-items:center;font-size:.78rem;color:var(--t3);font-weight:700;position:relative;z-index:1;transition:all .3s}
+.step-dot.active .step-dot-ic{background:var(--p);color:#fff}
+.step-dot.done .step-dot-ic{background:var(--ok);color:#fff}
+.step-dot-lbl{font-size:.65rem;font-weight:600;color:var(--t3);text-align:center;white-space:nowrap;transition:color .3s}
+.step-dot.active .step-dot-lbl{color:var(--p)}
+.step-dot.done .step-dot-lbl{color:var(--ok)}
+@media(max-width:500px){.step-dot-lbl{display:none}.steps-bar{padding:12px 14px}}
+
+/* ── LAYOUT ── */
+.virtual-layout{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
+@media(max-width:1000px){.virtual-layout{grid-template-columns:1fr}}
+
+/* ── PANEL ── */
+.panel{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0);margin-bottom:16px}
+.panel-hd{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px}
+.panel-hd-ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:.84rem;color:#fff;flex-shrink:0}
+.panel-hd-main{flex:1;min-width:0}
+.panel-hd-main h2{font-family:var(--fd);font-size:.86rem;font-weight:700;color:var(--t1)}
+.panel-hd-main p{font-size:.7rem;color:var(--t3);margin-top:1px}
+.panel-badge{margin-left:auto;font-size:.63rem;font-weight:700;padding:3px 9px;border-radius:var(--rp);flex-shrink:0;text-transform:uppercase;letter-spacing:.03em}
+.pb-live{background:var(--okl);color:#065f46}
+.pb-warn{background:var(--warnl);color:#92400e}
+.pb-err{background:var(--erl);color:#991b1b}
+.panel-bd{padding:14px}
+
+/* ── SEARCH ── */
+.search-wrap{position:relative;margin-bottom:12px}
+.search-wrap .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.76rem;pointer-events:none}
+.search-inp{width:100%;padding:9px 32px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.82rem;color:var(--t1);background:var(--srf2);outline:none;transition:all .18s}
+.search-inp::placeholder{color:var(--t3)}
+.search-inp:focus{border-color:var(--p);background:var(--srf)}
+.search-clr{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.72rem;cursor:pointer;display:none;transition:color .18s}
+.search-clr:hover{color:var(--err)}
+.search-clr.show{display:block}
+
+/* ── COUNTRY GRID ── */
+.country-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:7px;max-height:420px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.country-grid::-webkit-scrollbar{width:3px}
+.country-grid::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+.c-card{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1.5px solid var(--bdr);border-radius:var(--r);cursor:pointer;transition:all .18s;background:var(--srf);user-select:none}
+.c-card:hover{border-color:var(--p);background:var(--pl);transform:translateY(-1px)}
+.c-card.sel{border-color:var(--p);background:var(--pl)}
+.c-flag{font-size:1.22rem;flex-shrink:0;line-height:1}
+.c-name{font-size:.74rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.c-chk{width:15px;height:15px;border-radius:50%;background:var(--p);display:none;place-items:center;font-size:.42rem;color:#fff;flex-shrink:0}
+.c-card.sel .c-chk{display:grid}
+
+/* ── SKELETON ── */
+.skeleton{animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{opacity:.35}50%{opacity:.9}100%{opacity:.35}}
+.skel{background:var(--bdr);border-radius:var(--r)}
+.skel-cc{height:44px}
+.skel-svc{height:62px;margin-bottom:5px}
+
+/* ── SERVICE LIST ── */
+.svc-list{display:flex;flex-direction:column;gap:5px;max-height:480px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.svc-list::-webkit-scrollbar{width:3px}
+.svc-list::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+.svc-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);cursor:pointer;transition:all .18s;background:var(--srf);user-select:none}
+.svc-item:hover{border-color:var(--p);background:var(--pxl)}
+.svc-item.sel{border-color:var(--p);background:var(--pl)}
+.svc-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:.85rem;flex-shrink:0}
+.svc-info{flex:1;min-width:0}
+.svc-name{font-size:.79rem;font-weight:600;color:var(--t1);margin-bottom:1px}
+.svc-code{font-size:.6rem;color:var(--t3);font-family:monospace;letter-spacing:.04em}
+.svc-right{text-align:right;flex-shrink:0;min-width:80px}
+.svc-usd{font-size:.82rem;font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums}
+.svc-ngn{font-size:.65rem;color:var(--t3);font-variant-numeric:tabular-nums}
+.svc-avail{font-size:.62rem;font-weight:700;margin-top:2px}
+.av-hi{color:var(--ok)}
+.av-lo{color:var(--warn)}
+
+/* ── EMPTY / ERROR STATES ── */
+.state-empty{text-align:center;padding:32px 16px;color:var(--t3)}
+.state-empty i{font-size:1.8rem;display:block;margin-bottom:10px;color:var(--bdr)}
+.state-empty p{font-size:.82rem;font-weight:600;color:var(--t1);margin-bottom:4px}
+.state-empty span{font-size:.74rem}
+.state-err{text-align:center;padding:28px 16px;color:var(--t2)}
+.state-err i{font-size:1.6rem;display:block;margin-bottom:9px;color:var(--err)}
+.state-err p{font-size:.82rem;font-weight:600;color:var(--t1);margin-bottom:3px}
+.state-err span{font-size:.72rem;color:var(--t3);display:block;margin-bottom:12px}
+.btn-retry{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--rp);background:var(--pl);color:var(--p);font-size:.76rem;font-weight:700;cursor:pointer;transition:all .2s;border:none}
+.btn-retry:hover{background:var(--p);color:#fff}
+
+/* ── ORDER CARD ── */
+.order-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0);position:sticky;top:74px}
+@media(max-width:1000px){.order-card{position:static}}
+
+/* Hero */
+.oc-hero{background:linear-gradient(150deg,var(--p) 0%,var(--pm) 100%);padding:20px 18px;color:#fff;position:relative;overflow:hidden;display:none}
+.oc-hero.on{display:block}
+.oc-hero::before{content:'';position:absolute;top:-30px;right:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(245,166,35,.22),transparent 70%);pointer-events:none}
+.oc-top{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:13px}
+.oc-lbl{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.4)}
+.oc-chg{font-size:.68rem;font-weight:600;color:rgba(255,255,255,.6);cursor:pointer;display:flex;align-items:center;gap:4px;transition:color .2s}
+.oc-chg:hover{color:#fff}
+.oc-sel{display:flex;align-items:center;gap:10px;position:relative;z-index:1;margin-bottom:13px}
+.oc-flag{font-size:1.6rem;flex-shrink:0;line-height:1}
+.oc-country{font-family:var(--fd);font-size:.95rem;font-weight:800}
+.oc-svc{font-size:.74rem;color:rgba(255,255,255,.62);margin-top:2px}
+.price-box{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);border-radius:var(--rl);padding:11px 13px;position:relative;z-index:1}
+.pb-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.76rem;border-bottom:1px solid rgba(255,255,255,.08)}
+.pb-row:last-child{border-bottom:none;padding-top:8px;margin-top:3px}
+.pb-lbl{color:rgba(255,255,255,.5)}
+.pb-val{font-weight:600;color:rgba(255,255,255,.88)}
+.pb-hi{font-family:var(--fd);font-size:1.05rem;font-weight:800;color:var(--acc)}
+
+/* Body */
+.oc-body{padding:15px}
+.oc-avail{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.avail-bar{flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden}
+.avail-fill{height:100%;border-radius:3px;background:var(--ok);transition:width .6s ease}
+.avail-fill.lo{background:var(--warn)}
+.avail-fill.cr{background:var(--err)}
+.avail-lbl{font-size:.68rem;font-weight:700;color:var(--t2);flex-shrink:0;white-space:nowrap}
+.timing-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.t-tile{background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--r);padding:9px;text-align:center}
+.t-val{font-family:var(--fd);font-size:.9rem;font-weight:800;color:var(--t1)}
+.t-lbl{font-size:.58rem;color:var(--t3);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.warn-box{display:flex;gap:7px;align-items:flex-start;background:var(--warnl);border:1px solid #fde68a;border-radius:var(--r);padding:9px 11px;font-size:.73rem;color:#92400e;line-height:1.5;margin-bottom:12px}
+.warn-box i{flex-shrink:0;margin-top:1px}
+.btn-rent{width:100%;padding:12px;border-radius:var(--rp);background:var(--p);color:#fff;font-family:var(--fd);font-weight:700;font-size:.86rem;transition:all .22s;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:8px}
+.btn-rent:hover:not(:disabled){background:var(--pm);transform:translateY(-1px);box-shadow:0 6px 20px rgba(11,18,32,.22)}
+.btn-rent:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.btn-sec-lbl{font-size:.65rem;color:var(--t3);text-align:center}
+.btn-sec-lbl i{color:var(--p)}
+
+/* Active number */
+.act-banner{border-radius:var(--rl);padding:14px;margin:13px;display:none;background:linear-gradient(135deg,var(--ok),#047857);animation:popIn .35s var(--ease)}
+.act-banner.on{display:block}
+@keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.ab-lbl{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.55);margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.ab-num{font-family:var(--fd);font-size:1.2rem;font-weight:800;color:#fff;letter-spacing:.05em;margin-bottom:9px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ab-copy{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);border-radius:6px;padding:3px 9px;font-size:.68rem;font-weight:700;color:#fff;cursor:pointer;transition:all .18s;flex-shrink:0}
+.ab-copy:hover{background:rgba(255,255,255,.3)}
+.ab-sms{background:rgba(255,255,255,.1);border-radius:var(--r);padding:9px 12px;font-size:.78rem;color:rgba(255,255,255,.82);margin-bottom:9px;min-height:36px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ab-code{font-family:var(--fd);font-size:1.1rem;font-weight:800;color:#fff;letter-spacing:.14em}
+.ab-code-cp{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);border-radius:5px;padding:2px 8px;font-size:.65rem;font-weight:700;color:#fff;cursor:pointer;transition:all .18s}
+.ab-code-cp:hover{background:rgba(255,255,255,.3)}
+.ab-acts{display:flex;gap:6px;margin-bottom:6px}
+.ab-btn{flex:1;padding:7px;border-radius:var(--r);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:.71rem;font-weight:600;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:4px}
+.ab-btn:hover{background:rgba(255,255,255,.22)}
+.ab-btn.cxl{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.38)}
+.ab-btn:disabled{opacity:.4;cursor:not-allowed}
+.ab-timer{font-size:.6rem;color:rgba(255,255,255,.5);text-align:center}
+
+/* Mini history */
+.mini-hist{padding:13px 16px;border-top:1px solid var(--bdr)}
+.mini-hist h4{font-family:var(--fd);font-size:.76rem;font-weight:700;color:var(--t1);margin-bottom:9px}
+.mh-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--bdr)}
+.mh-row:last-child{border-bottom:none}
+.mh-flag{font-size:1.05rem}
+.mh-info{flex:1;min-width:0}
+.mh-name{font-size:.75rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mh-meta{font-size:.63rem;color:var(--t3)}
+.mh-bdg{font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase}
+.bdg-ok{background:var(--okl);color:#065f46}
+.bdg-pe{background:var(--warnl);color:#92400e}
+
+/* ── TOASTS ── */
+.toasts{position:fixed;bottom:76px;right:14px;z-index:900;display:flex;flex-direction:column;gap:5px;max-width:300px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:var(--rp);box-shadow:var(--s2);font-size:.75rem;font-weight:500;pointer-events:auto;animation:tIn .2s ease}
+.toast.ok{background:var(--okl);color:#065f46}
+.toast.err{background:var(--erl);color:#991b1b}
+.toast.warn{background:var(--warnl);color:#92400e}
+.toast.info{background:var(--srf);color:var(--t1);border:1px solid var(--bdr)}
+@keyframes tIn{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:none}}
+
+/* ── MOBILE NAV ── */
+.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:54px;background:rgba(255,255,255,.88);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:17px;box-shadow:0 6px 22px rgba(11,18,32,.12);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+.mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.5rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1}
+.mni i{font-size:.84rem;padding:5px 6px;border-radius:9px;transition:all .18s}
+.mni.active{color:var(--p)}
+.mni.active i{background:var(--pl);color:var(--p)}
+@media(max-width:768px){.content{padding:14px 13px 82px}.topbar{height:54px}.mnav{display:flex}.virtual-layout{grid-template-columns:1fr}}
+
+/* ── ANIM ── */
+.fu{animation:fadeUp .38s var(--ease) both}
+.d1{animation-delay:.03s}.d2{animation-delay:.07s}.d3{animation-delay:.11s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="ov" id="ov"></div>
+<div class="app">
+
+<!-- ════ SIDEBAR ════ -->
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" style="width:28px;height:28px;border-radius:7px;flex-shrink:0">MilesSpace</div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html"     class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html"   class="sb-lnk active"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html"    class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="history.html"   class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html"      class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+    <a href="social-ads.html" class="sb-lnk"><i class="fas fa-ad"></i> Social Ads</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="profile.html"       class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+    <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk"><i class="fas fa-shield-alt"></i> Buy Proxy</a>
+  </nav>
+  <div class="sb-foot">
+    <a href="profile.html" class="sb-prof">
+      <div class="sb-av" id="sbAv">U</div>
+      <div class="sb-ui"><p class="sb-un" id="sbName">User</p><p class="sb-ue" id="sbEmail"></p></div>
+      <button class="sb-out" onclick="event.preventDefault();doLogout()"><i class="fas fa-sign-out-alt"></i></button>
+    </a>
+  </div>
+</aside>
+
+<!-- ════ MAIN ════ -->
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+    <p class="tb-title">Virtual Numbers</p>
+    <div class="tb-right">
+      <a href="notifications.html" class="tb-btn"><i class="fas fa-bell"></i></a>
+      <div class="tb-av" id="tbAv">U</div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header fu d1">
+      <h1>Virtual Numbers</h1>
+      <p>Rent real SIM-based phone numbers from 150+ countries for OTP verification. Auto-refund if no SMS arrives.</p>
+      <div class="ph-pills">
+        <span class="ph-pill"><i class="fas fa-bolt"></i> Instant activation</span>
+        <span class="ph-pill"><i class="fas fa-sim-card"></i> Real SIM cards</span>
+        <span class="ph-pill"><span class="live-dot"></span>&nbsp;Live inventory</span>
+        <span class="ph-pill"><i class="fas fa-shield-halved"></i> Auto-refund</span>
+      </div>
+    </div>
+
+    <!-- STEP BAR -->
+    <div class="steps-bar fu d2">
+      <div class="step-dot active" id="step1"><div class="step-dot-ic">1</div><span class="step-dot-lbl">Country</span></div>
+      <div class="step-dot" id="step2"><div class="step-dot-ic">2</div><span class="step-dot-lbl">Service</span></div>
+      <div class="step-dot" id="step3"><div class="step-dot-ic"><i class="fas fa-check" style="font-size:.6rem"></i></div><span class="step-dot-lbl">Rent</span></div>
+    </div>
+
+    <div class="virtual-layout fu d3">
+
+      <!-- LEFT -->
+      <div>
+
+        <!-- COUNTRIES -->
+        <div class="panel" id="pCountries">
+          <div class="panel-hd">
+            <div class="panel-hd-ic" style="background:var(--p)"><i class="fas fa-globe"></i></div>
+            <div class="panel-hd-main">
+              <h2>Select Country</h2>
+              <p>Choose where your number should be from</p>
+            </div>
+            <span class="panel-badge pb-live" id="cntBadge">Loading…</span>
+          </div>
+          <div class="panel-bd">
+            <div class="search-wrap">
+              <i class="fas fa-search si"></i>
+              <input class="search-inp" id="cSearch" placeholder="Search 150+ countries…" autocomplete="off"/>
+              <i class="fas fa-xmark search-clr" id="cClr"></i>
+            </div>
+            <div class="country-grid" id="cGrid">
+              <div class="skel skel-cc skeleton"></div><div class="skel skel-cc skeleton"></div>
+              <div class="skel skel-cc skeleton"></div><div class="skel skel-cc skeleton"></div>
+              <div class="skel skel-cc skeleton"></div><div class="skel skel-cc skeleton"></div>
+              <div class="skel skel-cc skeleton"></div><div class="skel skel-cc skeleton"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SERVICES -->
+        <div class="panel" id="pServices" style="display:none">
+          <div class="panel-hd">
+            <div class="panel-hd-ic" style="background:#7c3aed"><i class="fas fa-mobile-screen-button"></i></div>
+            <div class="panel-hd-main">
+              <h2>Select Service</h2>
+              <p id="svcSub">In-stock services for selected country</p>
+            </div>
+            <span class="panel-badge pb-live" id="svcBadge">—</span>
+          </div>
+          <div class="panel-bd">
+            <div class="search-wrap">
+              <i class="fas fa-search si"></i>
+              <input class="search-inp" id="sSearch" placeholder="Search WhatsApp, Telegram, Google…" autocomplete="off"/>
+              <i class="fas fa-xmark search-clr" id="sClr"></i>
+            </div>
+            <div class="svc-list" id="svcList">
+              <div class="skel skel-svc skeleton"></div>
+              <div class="skel skel-svc skeleton"></div>
+              <div class="skel skel-svc skeleton"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT — ORDER CARD -->
+      <div>
+        <div class="order-card" id="orderCard">
+
+          <!-- Active number banner -->
+          <div class="act-banner" id="actBanner">
+            <div class="ab-lbl"><span class="live-dot"></span>&nbsp;Active Number</div>
+            <div class="ab-num">
+              <span id="abPhone">—</span>
+              <button class="ab-copy" onclick="copyPhone()"><i class="fas fa-copy"></i> Copy</button>
+            </div>
+            <div class="ab-sms" id="abSms">
+              <i class="fas fa-spinner fa-spin" style="opacity:.6;flex-shrink:0"></i>
+              <span>Waiting for SMS code…</span>
+            </div>
+            <div class="ab-acts">
+              <button class="ab-btn" onclick="doRetry()"><i class="fas fa-rotate-right"></i> Resend</button>
+              <button class="ab-btn cxl" id="cxlBtn" onclick="doCancel()" disabled><i class="fas fa-xmark"></i> Cancel</button>
+            </div>
+            <div class="ab-timer" id="abTimer">0:00 / 20:00</div>
+          </div>
+
+          <!-- Pricing hero -->
+          <div class="oc-hero" id="ocHero">
+            <div class="oc-top">
+              <span class="oc-lbl">Selected</span>
+              <span class="oc-chg" onclick="resetSelection()"><i class="fas fa-pencil"></i> Change</span>
+            </div>
+            <div class="oc-sel">
+              <span class="oc-flag" id="ocFlag">🌐</span>
+              <div>
+                <div class="oc-country" id="ocCountry">—</div>
+                <div class="oc-svc" id="ocSvc">—</div>
+              </div>
+            </div>
+            <div class="price-box">
+              <div class="pb-row"><span class="pb-lbl">Price (USD)</span><span class="pb-val" id="pbUSD">—</span></div>
+              <div class="pb-row"><span class="pb-lbl">Price (NGN)</span><span class="pb-val pb-hi" id="pbNGN">—</span></div>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="oc-body">
+            <!-- Empty state -->
+            <div id="ocEmpty" class="state-empty">
+              <i class="fas fa-phone-slash"></i>
+              <p>No number selected</p>
+              <span>Pick a country, then a service</span>
+            </div>
+
+            <!-- Ready state -->
+            <div id="ocReady" style="display:none">
+              <div class="oc-avail">
+                <div class="avail-bar"><div class="avail-fill" id="availFill" style="width:0%"></div></div>
+                <span class="avail-lbl" id="availLbl">—</span>
+              </div>
+              <div class="timing-row">
+                <div class="t-tile"><div class="t-val">~15s</div><div class="t-lbl">SMS speed</div></div>
+                <div class="t-tile"><div class="t-val">20m</div><div class="t-lbl">Validity</div></div>
+              </div>
+              <div class="warn-box">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span>If no SMS arrives within 20 minutes your order auto-cancels and a full refund is issued. Cancellation is blocked for the first 5 minutes.</span>
+              </div>
+              <button class="btn-rent" id="rentBtn" onclick="rentNumber()">
+                <i class="fas fa-sim-card"></i> Rent Number
+              </button>
+              <p class="btn-sec-lbl"><i class="fas fa-lock"></i> Secure · Real SIM · Auto-refund guaranteed</p>
+            </div>
+          </div>
+
+          <!-- Recent rentals -->
+          <div class="mini-hist">
+            <h4>Recent Rentals</h4>
+            <div class="mh-row"><span class="mh-flag">🇺🇸</span><div class="mh-info"><div class="mh-name">WhatsApp · USA</div><div class="mh-meta">2h ago</div></div><span class="mh-bdg bdg-ok">Done</span></div>
+            <div class="mh-row"><span class="mh-flag">🇬🇧</span><div class="mh-info"><div class="mh-name">Telegram · UK</div><div class="mh-meta">1d ago</div></div><span class="mh-bdg bdg-ok">Done</span></div>
+            <div class="mh-row"><span class="mh-flag">🇮🇳</span><div class="mh-info"><div class="mh-name">Google · India</div><div class="mh-meta">3d ago</div></div><span class="mh-bdg bdg-pe">Pending</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+
+<nav class="mnav">
+  <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="boost.html"     class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+  <a href="fund.html"      class="mni"><i class="fas fa-wallet"></i><span>Fund</span></a>
+  <a href="virtual.html"   class="mni active"><i class="fas fa-phone-alt"></i><span>Numbers</span></a>
+  <a href="profile.html"   class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
+</nav>
+<div class="toasts" id="toastWrap"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════
+   VIRTUAL NUMBERS — Miles Exchange
+   • Pricing applied by backend: USD = VSMS × 2.5, NGN = USD × 1300
+   • Frontend displays sellingUSD / sellingNGN exactly as returned
+   • NEVER calculate prices here
+   • NEVER show out-of-stock services
+═══════════════════════════════════════════════════════════ */
+
+const PROXY = '/api/virtual';
+const SK    = 'mx_sess';
+const CACHE_KEY = 'mx_vcountries';
+const CACHE_TTL = 5 * 60 * 1000;
+
+/* ── STATE ── */
+let countries    = [];
+let services     = [];
+let selCountry   = null;
+let selSvc       = null;
+let rental       = null;   // { id, phone }
+let timerId      = null;
+let pollId       = null;
+let timerSecs    = 0;
+
+/* ── FORMAT (no calculations — just display) ── */
+const fUSD = n => '$'  + (+n||0).toFixed(2);
+const fNGN = n => '₦'  + (+n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fTime= s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+/* ── TOAST ── */
+function toast(msg, type='info'){
+  const c = document.getElementById('toastWrap');
+  const e = document.createElement('div');
+  e.className = `toast ${type}`;
+  const ic = {ok:'fa-check-circle',err:'fa-times-circle',warn:'fa-triangle-exclamation',info:'fa-circle-info'};
+  e.innerHTML = `<i class="fas ${ic[type]||ic.info}"></i><span>${msg}</span>`;
+  c.appendChild(e);
+  setTimeout(()=>{e.style.cssText='opacity:0;transition:.3s';setTimeout(()=>e.remove(),300);},3800);
+}
+
+/* ── AUTH + API ── */
+function getToken(){
+  try{return JSON.parse(localStorage.getItem(SK)||sessionStorage.getItem(SK)||'null')?.token||'';}
+  catch{return '';}
+}
+async function call(path, opts={}){
+  const h={'Content-Type':'application/json'};
+  const t=getToken(); if(t) h['Authorization']=`Bearer ${t}`;
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(PROXY+path,{...opts,signal:ctrl.signal,headers:{...h,...(opts.headers||{})}});
+    clearTimeout(tid);
+    const j=await r.json().catch(()=>({error:'Parse error'}));
+    if(!r.ok) throw new Error(j.error||`HTTP ${r.status}`);
+    return j;
+  }catch(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError') throw new Error('Request timed out (15s)');
+    throw e;
+  }
+}
+
+/* ── STEP BAR ── */
+function setStep(n){
+  [1,2,3].forEach(i=>{
+    const el=document.getElementById('step'+i);
+    el.className='step-dot'+(i<n?' done':i===n?' active':'');
+  });
+}
+
+/* ── DEBOUNCE ── */
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+
+/* ════════════════════════════════════════
+   FLAG MAP — 100+ countries
+════════════════════════════════════════ */
+const FLAGS = {
+  'afghanistan':'🇦🇫','albania':'🇦🇱','algeria':'🇩🇿','andorra':'🇦🇩','angola':'🇦🇴',
+  'argentina':'🇦🇷','armenia':'🇦🇲','australia':'🇦🇺','austria':'🇦🇹','azerbaijan':'🇦🇿',
+  'bahrain':'🇧🇭','bangladesh':'🇧🇩','belarus':'🇧🇾','belgium':'🇧🇪','belize':'🇧🇿',
+  'bolivia':'🇧🇴','bosnia':'🇧🇦','botswana':'🇧🇼','brazil':'🇧🇷','brunei':'🇧🇳',
+  'bulgaria':'🇧🇬','cambodia':'🇰🇭','cameroon':'🇨🇲','canada':'🇨🇦','chile':'🇨🇱',
+  'china':'🇨🇳','colombia':'🇨🇴','costa rica':'🇨🇷','croatia':'🇭🇷','cuba':'🇨🇺',
+  'cyprus':'🇨🇾','czech republic':'🇨🇿','czechia':'🇨🇿','denmark':'🇩🇰',
+  'dominican republic':'🇩🇴','ecuador':'🇪🇨','egypt':'🇪🇬','estonia':'🇪🇪',
+  'ethiopia':'🇪🇹','finland':'🇫🇮','france':'🇫🇷','georgia':'🇬🇪','germany':'🇩🇪',
+  'ghana':'🇬🇭','greece':'🇬🇷','guatemala':'🇬🇹','honduras':'🇭🇳','hong kong':'🇭🇰',
+  'hungary':'🇭🇺','iceland':'🇮🇸','india':'🇮🇳','indonesia':'🇮🇩','iran':'🇮🇷',
+  'iraq':'🇮🇶','ireland':'🇮🇪','israel':'🇮🇱','italy':'🇮🇹','jamaica':'🇯🇲',
+  'japan':'🇯🇵','jordan':'🇯🇴','kazakhstan':'🇰🇿','kenya':'🇰🇪','kuwait':'🇰🇼',
+  'kyrgyzstan':'🇰🇬','laos':'🇱🇦','latvia':'🇱🇻','lebanon':'🇱🇧','libya':'🇱🇾',
+  'lithuania':'🇱🇹','luxembourg':'🇱🇺','malaysia':'🇲🇾','mali':'🇲🇱','malta':'🇲🇹',
+  'mauritius':'🇲🇺','mexico':'🇲🇽','moldova':'🇲🇩','mongolia':'🇲🇳','morocco':'🇲🇦',
+  'mozambique':'🇲🇿','myanmar':'🇲🇲','nepal':'🇳🇵','netherlands':'🇳🇱',
+  'new zealand':'🇳🇿','nicaragua':'🇳🇮','nigeria':'🇳🇬','north korea':'🇰🇵',
+  'norway':'🇳🇴','oman':'🇴🇲','pakistan':'🇵🇰','panama':'🇵🇦','paraguay':'🇵🇾',
+  'peru':'🇵🇪','philippines':'🇵🇭','poland':'🇵🇱','portugal':'🇵🇹','qatar':'🇶🇦',
+  'romania':'🇷🇴','russia':'🇷🇺','rwanda':'🇷🇼','saudi arabia':'🇸🇦','senegal':'🇸🇳',
+  'serbia':'🇷🇸','singapore':'🇸🇬','slovakia':'🇸🇰','slovenia':'🇸🇮',
+  'south africa':'🇿🇦','south korea':'🇰🇷','spain':'🇪🇸','sri lanka':'🇱🇰',
+  'sweden':'🇸🇪','switzerland':'🇨🇭','taiwan':'🇹🇼','tajikistan':'🇹🇯',
+  'tanzania':'🇹🇿','thailand':'🇹🇭','tunisia':'🇹🇳','turkey':'🇹🇷',
+  'turkmenistan':'🇹🇲','uganda':'🇺🇬','ukraine':'🇺🇦',
+  'united arab emirates':'🇦🇪','uae':'🇦🇪',
+  'united kingdom':'🇬🇧','uk':'🇬🇧',
+  'united states':'🇺🇸','usa':'🇺🇸','u.s.a.':'🇺🇸',
+  'uruguay':'🇺🇾','uzbekistan':'🇺🇿','venezuela':'🇻🇪','vietnam':'🇻🇳',
+  'yemen':'🇾🇪','zambia':'🇿🇲','zimbabwe':'🇿🇼',
+};
+function getFlag(name){
+  if(!name) return '🌐';
+  const k=name.toLowerCase().trim();
+  if(FLAGS[k]) return FLAGS[k];
+  for(const [key,val] of Object.entries(FLAGS)) if(k.includes(key)||key.includes(k)) return val;
+  return '🌐';
+}
+
+/* ════════════════════════════════════════
+   SERVICE ICON MAP
+════════════════════════════════════════ */
+const SVC_STYLES = {
+  wa:  {icon:'fab fa-whatsapp',   bg:'#25d366'},
+  tg:  {icon:'fab fa-telegram',   bg:'#0088cc'},
+  go:  {icon:'fab fa-google',     bg:'#4285f4'},
+  fb:  {icon:'fab fa-facebook',   bg:'#1877f2'},
+  ig:  {icon:'fab fa-instagram',  bg:'linear-gradient(135deg,#833ab4,#fd1d1d)'},
+  tw:  {icon:'fab fa-twitter',    bg:'#1da1f2'},
+  tk:  {icon:'fab fa-tiktok',     bg:'#111'},
+  dc:  {icon:'fab fa-discord',    bg:'#5865f2'},
+  yt:  {icon:'fab fa-youtube',    bg:'#ff0000'},
+  ub:  {icon:'fab fa-uber',       bg:'#000'},
+  bn:  {icon:'fas fa-coins',      bg:'#f3a900'},
+  am:  {icon:'fab fa-amazon',     bg:'#ff9900'},
+  ap:  {icon:'fab fa-apple',      bg:'#555'},
+  li:  {icon:'fab fa-linkedin',   bg:'#0a66c2'},
+  sp:  {icon:'fab fa-spotify',    bg:'#1db954'},
+  sk:  {icon:'fab fa-skype',      bg:'#00aff0'},
+  pp:  {icon:'fab fa-paypal',     bg:'#003087'},
+  ms:  {icon:'fab fa-microsoft',  bg:'#00a4ef'},
+  sn:  {icon:'fab fa-snapchat',   bg:'#fffc00'},
+  pi:  {icon:'fab fa-pinterest',  bg:'#e60023'},
+  rd:  {icon:'fab fa-reddit',     bg:'#ff4500'},
+  wc:  {icon:'fas fa-comment',    bg:'#07c160'},
+  vi:  {icon:'fas fa-video',      bg:'#665cac'},
+  tn:  {icon:'fas fa-fire',       bg:'#fe3c72'},
+  bd:  {icon:'fas fa-comment',    bg:'#ff6b6b'},
+  bm:  {icon:'fas fa-heart',      bg:'#e91e63'},
+  ok:  {icon:'fas fa-circle',     bg:'#f47321'},
+  ai:  {icon:'fas fa-robot',      bg:'#10a37f'},
+  gp:  {icon:'fas fa-brain',      bg:'#10a37f'},
+  nf:  {icon:'fas fa-play-circle',bg:'#e50914'},
+  em:  {icon:'fas fa-envelope',   bg:'#ea4335'},
+  default:{icon:'fas fa-mobile-screen-button',bg:'#6b7280'},
+};
+function svcStyle(code){
+  const full=(code||'').toLowerCase();
+  if(SVC_STYLES[full]) return SVC_STYLES[full];
+  const k=full.slice(0,2);
+  return SVC_STYLES[k]||SVC_STYLES.default;
+}
+
+/* ════════════════════════════════════════
+   1. LOAD COUNTRIES  (sessionStorage cache 5 min TTL)
+════════════════════════════════════════ */
+async function loadCountries(){
+  const grid = document.getElementById('cGrid');
+  grid.innerHTML = Array(8).fill('<div class="skel skel-cc skeleton"></div>').join('');
+
+  try{
+    // Try cache first
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    const cacheTs= parseInt(sessionStorage.getItem(CACHE_KEY+'_ts')||'0');
+    if(cached && Date.now()-cacheTs < CACHE_TTL){
+      countries = JSON.parse(cached);
+      renderCountries(countries);
+      document.getElementById('cntBadge').textContent = countries.length+' countries';
+      return;
+    }
+
+    const data = await call('/countries');
+    // Normalise: backend may return object or array
+    const raw = Array.isArray(data) ? data : Object.values(data);
+    countries = raw
+      .map(c=>({id:c.id??parseInt(c.id??0), eng:c.eng||c.name||'Unknown', flag:c.flag||getFlag(c.eng||c.name)}))
+      .sort((a,b)=>a.eng.localeCompare(b.eng));
+
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(countries));
+    sessionStorage.setItem(CACHE_KEY+'_ts', String(Date.now()));
+    document.getElementById('cntBadge').textContent = countries.length+' countries';
+    renderCountries(countries);
+  }catch(e){
+    console.error('[countries]',e);
+    document.getElementById('cntBadge').textContent = 'Error';
+    document.getElementById('cntBadge').className = 'panel-badge pb-err';
+    grid.innerHTML = `<div class="state-err" style="grid-column:1/-1">
+      <i class="fas fa-exclamation-triangle"></i>
+      <p>Could not load countries</p>
+      <span>${e.message}</span>
+      <button class="btn-retry" onclick="loadCountries()"><i class="fas fa-rotate-right"></i> Retry</button>
+    </div>`;
+    toast('Failed to load countries: '+e.message,'err');
+  }
+}
+
+function renderCountries(list){
+  const grid = document.getElementById('cGrid');
+  if(!list.length){
+    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:20px;color:var(--t3);font-size:.8rem">No countries found</p>';
+    return;
+  }
+  grid.innerHTML = list.map(c=>`
+    <div class="c-card${selCountry?.id===c.id?' sel':''}"
+         onclick="selectCountry(${c.id},'${esc(c.eng)}','${c.flag}')">
+      <span class="c-flag">${c.flag}</span>
+      <span class="c-name">${c.eng}</span>
+      <span class="c-chk"><i class="fas fa-check" style="font-size:.42rem"></i></span>
+    </div>`).join('');
+}
+
+const filterCountries = debounce(()=>{
+  const q = document.getElementById('cSearch').value.toLowerCase().trim();
+  document.getElementById('cClr').classList.toggle('show',!!q);
+  renderCountries(q ? countries.filter(c=>c.eng.toLowerCase().includes(q)) : countries);
+},300);
+
+document.getElementById('cSearch').addEventListener('input', filterCountries);
+document.getElementById('cClr').addEventListener('click',()=>{
+  document.getElementById('cSearch').value='';
+  document.getElementById('cClr').classList.remove('show');
+  renderCountries(countries);
+});
+
+/* ════════════════════════════════════════
+   2. SELECT COUNTRY → LOAD SERVICES
+   Backend returns sellingUSD & sellingNGN (markup already applied)
+   Frontend ONLY displays those values
+════════════════════════════════════════ */
+async function selectCountry(id, name, flag){
+  selCountry = {id, eng:name, flag};
+  selSvc = null;
+  
+  // Re-render countries to show checkmark
+  const q = document.getElementById('cSearch').value.toLowerCase().trim();
+  renderCountries(q ? countries.filter(c=>c.eng.toLowerCase().includes(q)) : countries);
+  
+  setStep(2);
+
+  const sp = document.getElementById('pServices');
+  sp.style.display = 'block';
+  document.getElementById('svcSub').textContent = `In-stock services for ${name} ${flag}`;
+  document.getElementById('sSearch').value = '';
+  document.getElementById('svcList').innerHTML =
+    '<div class="skel skel-svc skeleton"></div><div class="skel skel-svc skeleton"></div><div class="skel skel-svc skeleton"></div>';
+  document.getElementById('svcBadge').textContent = 'Loading…';
+  document.getElementById('svcBadge').className = 'panel-badge pb-live';
+
+  resetOrderBody();
+
+  try{
+    const data = await call(`/services-with-prices?country=${id}`);
+    
+    // The backend now only returns in-stock services with REAL prices
+    services = data.services || [];
+    
+    document.getElementById('svcBadge').textContent = services.length + ' available';
+    document.getElementById('svcBadge').className = 'panel-badge pb-live';
+    
+    if (services.length === 0) {
+      document.getElementById('svcBadge').textContent = '0 available';
+      document.getElementById('svcBadge').className = 'panel-badge pb-warn';
+    }
+    
+    renderServices(services);
+    sp.scrollIntoView({behavior:'smooth',block:'nearest'});
+    
+    console.log(`✅ ${name}: ${services.length} services loaded`);
+  } catch(e){
+    console.error('[services]', e);
+    document.getElementById('svcBadge').textContent = 'Error';
+    document.getElementById('svcBadge').className = 'panel-badge pb-err';
+    document.getElementById('svcList').innerHTML = `<div class="state-err">
+      <i class="fas fa-exclamation-circle"></i>
+      <p>Could not load services</p>
+      <span>${e.message}</span>
+    </div>`;
+    toast('Failed to load services: '+e.message,'err');
+  }
+}
+
+function renderServices(list){
+  const el = document.getElementById('svcList');
+  if(!list.length){
+    el.innerHTML = `<div class="state-empty">
+      <i class="fas fa-box-open"></i>
+      <p>No services available</p>
+      <span>No in-stock services for this country right now. Try another country.</span>
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map(s=>{
+    const st  = svcStyle(s.code);
+    const sel = selSvc?.code === s.code;
+    const cnt = s.count ?? 0;
+    const cls = cnt < 10 ? 'av-lo' : 'av-hi';
+    const lbl = cnt > 0 ? `${cnt} available` : '';
+
+    return `<div class="svc-item${sel?' sel':''}"
+                 onclick="selectService('${esc(s.code)}','${esc(s.name)}',${cnt},${+s.sellingUSD||0},${+s.sellingNGN||0})">
+      <div class="svc-ic" style="background:${st.bg}"><i class="${st.icon}" style="color:#fff"></i></div>
+      <div class="svc-info">
+        <div class="svc-name">${s.name}</div>
+        <div class="svc-code">${s.code}</div>
+      </div>
+      <div class="svc-right">
+        <div class="svc-usd">${fUSD(s.sellingUSD)}</div>
+        <div class="svc-ngn">${fNGN(s.sellingNGN)}</div>
+        ${lbl?`<div class="svc-avail ${cls}">${lbl}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const filterServices = debounce(()=>{
+  const q = document.getElementById('sSearch').value.toLowerCase().trim();
+  document.getElementById('sClr').classList.toggle('show',!!q);
+  renderServices(q ? services.filter(s=>s.name.toLowerCase().includes(q)||s.code.toLowerCase().includes(q)) : services);
+},300);
+
+document.getElementById('sSearch').addEventListener('input', filterServices);
+document.getElementById('sClr').addEventListener('click',()=>{
+  document.getElementById('sSearch').value='';
+  document.getElementById('sClr').classList.remove('show');
+  renderServices(services);
+});
+
+/* ════════════════════════════════════════
+   3. SELECT SERVICE → UPDATE ORDER CARD
+   Display prices EXACTLY as returned by backend — no math here
+════════════════════════════════════════ */
+function selectService(code, name, count, sellingUSD, sellingNGN){
+  selSvc = {code, name, count, sellingUSD, sellingNGN};
+  filterServices();
+  setStep(3);
+
+  // Hero
+  document.getElementById('ocHero').classList.add('on');
+  document.getElementById('ocFlag').textContent    = selCountry?.flag || '🌐';
+  document.getElementById('ocCountry').textContent = selCountry?.eng  || '—';
+  document.getElementById('ocSvc').textContent     = name;
+  document.getElementById('pbUSD').textContent     = fUSD(sellingUSD);
+  document.getElementById('pbNGN').textContent     = fNGN(sellingNGN);
+
+  // Availability bar
+  const pct  = Math.min(100, Math.round((count/500)*100));
+  const fill = document.getElementById('availFill');
+  fill.style.width = pct+'%';
+  fill.className   = 'avail-fill'+(count<10?' cr':count<50?' lo':'');
+  document.getElementById('availLbl').textContent = count > 0 ? `${count} available` : 'Limited';
+
+  document.getElementById('ocEmpty').style.display = 'none';
+  document.getElementById('ocReady').style.display = 'block';
+  document.getElementById('rentBtn').disabled = false;
+}
+
+function resetOrderBody(){
+  selSvc = null;
+  document.getElementById('ocHero').classList.remove('on');
+  document.getElementById('ocEmpty').style.display = 'block';
+  document.getElementById('ocReady').style.display = 'none';
+  document.getElementById('actBanner').classList.remove('on');
+}
+
+function resetSelection(){
+  resetOrderBody();
+  setStep(1);
+  document.getElementById('pCountries').scrollIntoView({behavior:'smooth'});
+}
+
+/* ════════════════════════════════════════
+   4. RENT NUMBER
+════════════════════════════════════════ */
+async function rentNumber(){
+  if(!selCountry||!selSvc){toast('Select a service first','err');return;}
+  const btn=document.getElementById('rentBtn');
+  btn.disabled=true;
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Renting…';
+
+  try{
+    const data = await call('/order',{
+      method:'POST',
+      body:JSON.stringify({country:selCountry.id, service:selSvc.code})
+    });
+    rental={id:String(data.activationId||data.id||''), phone:data.phoneNumber||data.phone||'—'};
+    startRental();
+    toast('Number rented! Waiting for SMS…','ok');
+  }catch(e){
+    toast('Could not rent: '+e.message,'err');
+    btn.disabled=false;
+    btn.innerHTML='<i class="fas fa-sim-card"></i> Rent Number';
+  }
+}
+
+function startRental(){
+  const banner=document.getElementById('actBanner');
+  banner.classList.add('on');
+  document.getElementById('abPhone').textContent=rental.phone;
+  document.getElementById('abSms').innerHTML=
+    '<i class="fas fa-spinner fa-spin" style="opacity:.6;flex-shrink:0"></i><span>Waiting for SMS code…</span>';
+  document.getElementById('cxlBtn').disabled=true;
+  timerSecs=0;
+  clearInterval(timerId); clearInterval(pollId);
+  timerId=setInterval(tick,1000);
+  pollId=setInterval(poll,5000);
+  document.getElementById('orderCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function tick(){
+  timerSecs++;
+  const elapsed=timerSecs, remaining=1200-timerSecs;
+  document.getElementById('abTimer').textContent=`${fTime(elapsed)} / 20:00`;
+  if(elapsed>=300) document.getElementById('cxlBtn').disabled=false; // unlock cancel after 5 min
+  if(elapsed>=1200){
+    stopAll();
+    document.getElementById('abSms').innerHTML=
+      '<i class="fas fa-clock" style="opacity:.6;flex-shrink:0"></i><span>Timed out — auto-cancelled, refund issued</span>';
+    toast('No SMS received — auto-refund issued','warn');
+  }
+}
+
+async function poll(){
+  if(!rental?.id) return;
+  try{
+    const d=await call(`/status?id=${rental.id}`);
+    if(d.status==='STATUS_OK'||d.code){
+      const code=d.code||d.smsCode||'';
+      stopAll();
+      document.getElementById('abSms').innerHTML=`
+        <i class="fas fa-check-circle" style="color:#fff;flex-shrink:0"></i>
+        <span>Your code:&nbsp;</span>
+        <span class="ab-code">${code}</span>
+        <button class="ab-code-cp" onclick="copyCode('${esc(code)}')"><i class="fas fa-copy"></i></button>`;
+      toast('SMS code: '+code,'ok');
+      setTimeout(()=>call(`/finish?id=${rental.id}`,{method:'POST'}).catch(()=>{}),6000);
+    }
+  }catch(e){/* keep polling silently */}
+}
+
+function stopAll(){clearInterval(timerId);clearInterval(pollId);timerId=null;pollId=null;}
+
+function copyPhone(){
+  navigator.clipboard?.writeText(rental?.phone||'')
+    .then(()=>toast('Phone number copied','ok'))
+    .catch(()=>toast('Could not copy','err'));
+}
+function copyCode(code){
+  navigator.clipboard?.writeText(code)
+    .then(()=>toast('Code copied','ok'))
+    .catch(()=>toast('Could not copy','err'));
+}
+
+async function doRetry(){
+  if(!rental?.id){toast('No active rental','err');return;}
+  try{await call(`/retry?id=${rental.id}`,{method:'POST'});toast('Resend requested','info');}
+  catch(e){toast('Resend failed: '+e.message,'err');}
+}
+
+async function doCancel(){
+  if(!rental?.id){toast('No active rental','err');return;}
+  if(timerSecs<300){toast(`Wait ${Math.ceil((300-timerSecs)/60)} more minute(s) to cancel`,'warn');return;}
+  try{
+    await call(`/cancel?id=${rental.id}`,{method:'POST'});
+    stopAll();
+    document.getElementById('actBanner').classList.remove('on');
+    rental=null;
+    toast('Order cancelled — refund issued','ok');
+  }catch(e){toast('Cancel failed: '+e.message,'err');}
+}
+
+/* ════════════════════════════════════════
+   SIDEBAR / USER
+════════════════════════════════════════ */
+function initSidebar(){
+  const sb=document.getElementById('sb'),ov=document.getElementById('ov'),hbg=document.getElementById('hbg');
+  hbg?.addEventListener('click',()=>{sb.classList.toggle('open');ov.classList.toggle('on');});
+  ov?.addEventListener('click',()=>{sb.classList.remove('open');ov.classList.remove('on');});
+  window.addEventListener('resize',()=>{if(window.innerWidth>=1025){sb.classList.remove('open');ov.classList.remove('on');}});
+}
+function loadUser(){
+  try{
+    const u=JSON.parse(localStorage.getItem(SK)||sessionStorage.getItem(SK)||'null')?.user;
+    if(!u) return;
+    const name=u.username||u.full_name||u.email?.split('@')[0]||'User';
+    document.getElementById('sbName').textContent=name;
+    document.getElementById('sbEmail').textContent=u.email||'';
+    const init=name.charAt(0).toUpperCase();
+    ['sbAv','tbAv'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=init;});
+  }catch(e){}
+}
+function doLogout(){
+  localStorage.removeItem(SK);sessionStorage.removeItem(SK);location.href='signup.html';
+}
+
+/* ── UTIL ── */
+function esc(s){return(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+
+/* ── INIT ── */
+(function(){
+  initSidebar();
+  loadUser();
+  loadCountries();
+})();
+</script>
+</body>
+</html>

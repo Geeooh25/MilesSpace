@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>MilesSpace | Social Boosting</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+:root{
+  --p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;
+  --acc:#f59e0b;--acd:#d97706;--acl:#fef3c7;
+  --ok:#10b981;--okl:#d1fae5;
+  --err:#ef4444;--erl:#fee2e2;
+  --usd:#4f46e5;--usdl:#eef2ff;
+  --bg:#f4f6f8;--srf:#fff;--srf2:#f8f9fa;
+  --bdr:#e4e8ec;--t1:#0f1923;--t2:#4a6070;--t3:#92a8b4;
+  --sw:264px;--r:10px;--rl:16px;--rxl:20px;--rp:999px;
+  --s0:0 1px 4px rgba(0,0,0,.05);--s1:0 4px 14px rgba(0,0,0,.07);--s2:0 8px 28px rgba(0,0,0,.1);
+  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--ease:cubic-bezier(.25,.8,.25,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select{font-family:inherit}
+
+.ov{display:none;position:fixed;inset:0;background:rgba(10,20,28,.35);backdrop-filter:blur(4px);z-index:490}
+.ov.on{display:block}
+
+/* ─── SIDEBAR ─── */
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+@media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0!important}}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:.95rem;color:var(--t1);font-family:var(--fd)}
+.sb-lic{width:28px;height:28px;background:var(--acc);border-radius:7px;display:grid;place-items:center;font-size:.75rem;color:#fff;flex-shrink:0}
+.sb-sec{padding:14px 16px 4px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.sb-nav{padding:0 8px}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);color:var(--t2);font-size:.83rem;font-weight:500;transition:all .18s;margin-bottom:1px;text-decoration:none}
+.sb-lnk i{width:15px;text-align:center;font-size:.82rem;flex-shrink:0;opacity:.7}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
+.sb-lnk.active i{color:var(--p);opacity:1}
+.sb-lnk.proxy-lnk:hover{background:#f5f3ff;color:#7c3aed}
+.sb-foot{margin-top:auto;padding:10px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
+.sb-prof:hover{background:var(--bg)}
+.sb-av{width:30px;height:30px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.78rem;color:#fff;flex-shrink:0;overflow:hidden}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:.78rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.66rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:24px;height:24px;border-radius:5px;display:grid;place-items:center;color:var(--t3);font-size:.74rem;transition:all .18s;cursor:pointer}
+.sb-out:hover{background:var(--erl);color:var(--err)}
+
+.app{display:flex;min-height:100vh}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* ─── TOPBAR ─── */
+.topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 20px;height:58px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:10px}
+.tb-hbg{width:34px;height:34px;border-radius:9px;background:var(--pl);color:var(--p);font-size:.85rem;display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:all .2s}
+.tb-hbg:hover{background:var(--p);color:#fff}
+.tb-title{font-family:var(--fd);font-size:.88rem;font-weight:700;color:var(--t1);flex:1}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:7px;flex-shrink:0}
+.tb-btn{width:34px;height:34px;border-radius:8px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.82rem;cursor:pointer;transition:all .2s;text-decoration:none}
+.tb-btn:hover{background:var(--pl);color:var(--p)}
+.tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.76rem;color:#fff;border:2px solid var(--acc);cursor:pointer;overflow:hidden;flex-shrink:0}
+
+.content{padding:20px 22px;flex:1}
+
+/* ─── PAGE HEADER ─── */
+.page-header{margin-bottom:22px}
+.page-header-inner{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-header h1{font-family:var(--fd);font-size:1.25rem;font-weight:800;color:var(--t1);letter-spacing:-.3px;margin-bottom:4px}
+.page-header p{font-size:.8rem;color:var(--t3);max-width:380px;line-height:1.55}
+.header-pills{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;margin-top:2px}
+.hpill{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--rp);background:var(--srf2);border:1px solid var(--bdr);font-size:.7rem;font-weight:600;color:var(--t2)}
+.hpill i{font-size:.68rem;color:var(--p)}
+
+/* ─── PLATFORM FILTERS ─── */
+.plat-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.plat-row::-webkit-scrollbar{display:none}
+.plat-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--rp);border:1.5px solid var(--bdr);background:var(--srf);font-size:.73rem;font-weight:600;color:var(--t2);cursor:pointer;transition:all .18s;flex-shrink:0;white-space:nowrap}
+.plat-pill:hover:not(.active){border-color:var(--p);color:var(--p)}
+.plat-pill.active{color:#fff;border-color:transparent}
+.plat-pill.p-all.active{background:var(--p)}
+.plat-pill.p-ig.active{background:linear-gradient(135deg,#833ab4,#fd1d1d)}
+.plat-pill.p-tk.active{background:#111}
+.plat-pill.p-yt.active{background:#ff0000}
+.plat-pill.p-fb.active{background:#1877f2}
+.plat-pill.p-tw.active{background:#1da1f2}
+.plat-pill.p-wa.active{background:#25d366}
+.plat-pill.p-tg.active{background:#0088cc}
+.plat-pill.p-dc.active{background:#5865f2}
+.plat-pill.p-sp.active{background:#1db954}
+
+/* ─── LAYOUT ─── */
+.boost-layout{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+@media(max-width:960px){.boost-layout{grid-template-columns:1fr}}
+
+/* ─── SERVICE PANEL ─── */
+.panel{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0)}
+.panel-hd{padding:14px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:9px}
+.panel-hd-ic{width:30px;height:30px;border-radius:8px;background:var(--pl);display:grid;place-items:center;color:var(--p);font-size:.8rem;flex-shrink:0}
+.panel-hd h2{font-family:var(--fd);font-size:.84rem;font-weight:700;flex:1;color:var(--t1)}
+.svc-count{font-size:.68rem;font-weight:700;color:var(--pm);background:var(--pl);padding:2px 8px;border-radius:var(--rp)}
+.panel-bd{padding:14px}
+
+/* Search */
+.svc-search{position:relative;margin-bottom:11px}
+.svc-search i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.76rem;pointer-events:none}
+.svc-search input{width:100%;padding:8px 10px 8px 30px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.8rem;color:var(--t1);background:var(--srf2);outline:none;transition:all .18s}
+.svc-search input:focus{border-color:var(--p);background:var(--srf)}
+
+/* Service list */
+.svc-grid{display:flex;flex-direction:column;gap:5px;max-height:520px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.svc-grid::-webkit-scrollbar{width:3px}
+.svc-grid::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+.svc-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);cursor:pointer;transition:all .18s;background:var(--srf)}
+.svc-item:hover{border-color:var(--p);background:var(--pxl)}
+.svc-item.selected{border-color:var(--p);background:var(--pl)}
+.svc-plat-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:.85rem;color:#fff;flex-shrink:0}
+.svc-info{flex:1;min-width:0}
+.svc-name{font-size:.78rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.svc-meta{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.svc-badge{padding:1px 6px;border-radius:3px;font-size:.58rem;font-weight:700}
+.badge-refill{background:var(--okl);color:#065f46}
+.badge-fast{background:var(--pl);color:var(--pm)}
+.svc-range{font-size:.62rem;color:var(--t3)}
+.svc-delivery{font-size:.6rem;color:var(--acd);font-weight:600}
+.svc-prices{text-align:right;flex-shrink:0}
+.svc-price-ngn{font-size:.8rem;font-weight:800;color:var(--t1);display:block}
+.svc-price-usd{font-size:.62rem;color:var(--t3)}
+.svc-per{font-size:.58rem;color:var(--t3)}
+.svc-empty{text-align:center;padding:32px;color:var(--t3);font-size:.8rem}
+.svc-empty i{font-size:1.3rem;display:block;margin-bottom:8px;color:var(--bdr)}
+
+/* ─── ORDER FORM ─── */
+.order-form{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0);margin-top:14px}
+.of-hd{padding:14px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:9px}
+.of-hd-ic{width:30px;height:30px;border-radius:8px;background:var(--pl);display:grid;place-items:center;color:var(--p);font-size:.8rem;flex-shrink:0}
+.of-hd h2{font-family:var(--fd);font-size:.84rem;font-weight:700;color:var(--t1)}
+.of-bd{padding:16px}
+
+/* Selected chip */
+.sel-chip{display:flex;align-items:center;gap:9px;padding:9px 12px;border:1.5px solid var(--bdr);background:var(--srf2);border-radius:var(--r);margin-bottom:14px}
+.sel-chip.hidden{display:none}
+.sc-ic{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;font-size:.75rem;color:#fff;flex-shrink:0}
+.sc-nm{font-size:.78rem;font-weight:600;color:var(--t1);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-clr{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;color:var(--t3);cursor:pointer;font-size:.65rem;flex-shrink:0;transition:all .18s}
+.sc-clr:hover{background:var(--erl);color:var(--err)}
+
+/* Forms */
+.fg{margin-bottom:12px}
+.flbl{display:block;font-size:.67rem;font-weight:700;color:var(--t2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.fhint{font-size:.65rem;color:var(--t3);margin-top:3px}
+.finp{width:100%;padding:9px 11px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.84rem;color:var(--t1);background:var(--srf2);outline:none;transition:all .18s}
+.finp:focus{border-color:var(--p);background:var(--srf);box-shadow:0 0 0 3px rgba(12,61,74,.06)}
+.finp.err-inp{border-color:var(--err)}
+
+/* Qty presets */
+.qty-row{display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap}
+.qty-chip{padding:4px 10px;border-radius:var(--rp);border:1.5px solid var(--bdr);background:var(--srf2);font-size:.7rem;font-weight:600;color:var(--t2);cursor:pointer;transition:all .18s}
+.qty-chip:hover{border-color:var(--p);color:var(--p)}
+.qty-chip.active{background:var(--p);color:#fff;border-color:var(--p)}
+
+/* Price display */
+.price-display{background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--r);padding:12px;margin-bottom:12px;display:none}
+.price-display.show{display:block}
+.pd-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.76rem}
+.pd-row:last-child{margin-bottom:0;padding-top:8px;border-top:1px solid var(--bdr);margin-top:4px}
+.pd-lbl{color:var(--t2)}
+.pd-val{font-weight:600}
+.pd-total{font-family:var(--fd);font-size:.92rem;font-weight:800;color:var(--t1)}
+.pd-sub{color:var(--t3);font-size:.68rem;margin-left:4px}
+
+/* ─── WALLET SELECTOR ─── */
+/* Only shown once a service is selected and quantity entered */
+.wallet-section{margin-bottom:12px}
+.wallet-section-lbl{font-size:.67rem;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;display:block}
+.wal-sel{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.ws-opt{border:1.5px solid var(--bdr);border-radius:var(--r);padding:10px 11px;cursor:pointer;transition:all .2s;background:var(--srf2);position:relative}
+.ws-opt:hover:not(.selected){border-color:var(--t3)}
+.ws-opt.selected{border-color:var(--p);background:var(--srf)}
+.ws-opt.selected.usd-w{border-color:var(--usd)}
+.ws-top{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.ws-ic{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-size:.68rem;flex-shrink:0}
+.ws-nm{font-size:.76rem;font-weight:600;color:var(--t1)}
+.ws-bal-row{display:flex;align-items:center;justify-content:space-between}
+.ws-bal{font-family:var(--fd);font-size:.9rem;font-weight:800;color:var(--t2)}
+.ws-opt.selected .ws-bal{color:var(--p)}
+.ws-opt.selected.usd-w .ws-bal{color:var(--usd)}
+.ws-tick{width:14px;height:14px;border-radius:50%;background:var(--p);display:none;place-items:center;font-size:.48rem;color:#fff;flex-shrink:0}
+.ws-opt.selected .ws-tick{display:grid}
+.ws-opt.selected.usd-w .ws-tick{background:var(--usd)}
+.ws-insuf{font-size:.6rem;color:var(--err);font-weight:600;margin-top:4px;display:none}
+.ws-insuf.show{display:block}
+
+/* Balance notice */
+.bal-notice{padding:9px 11px;border-radius:var(--r);font-size:.74rem;margin-bottom:11px;display:none;align-items:flex-start;gap:7px;line-height:1.45}
+.bal-notice.show{display:flex}
+.bal-notice.ok{background:var(--okl);border:1px solid #a7f3d0;color:#065f46}
+.bal-notice.err{background:var(--erl);border:1px solid #fca5a5;color:#991b1b}
+.bal-notice i{flex-shrink:0;margin-top:1px;font-size:.78rem}
+
+/* Info box */
+.ibox{padding:8px 11px;border-radius:var(--r);margin-bottom:11px;display:flex;align-items:flex-start;gap:7px;font-size:.74rem;line-height:1.5}
+.ibox i{flex-shrink:0;margin-top:1px;font-size:.76rem}
+.ibox-info{background:#f0f7ff;border:1px solid #c3d9f5;color:#1e4a8a}
+
+/* Order button */
+.btn-order{width:100%;padding:11px;border-radius:var(--rp);background:var(--p);color:#fff;font-family:var(--fd);font-weight:700;font-size:.84rem;border:none;cursor:pointer;transition:all .22s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-order:hover:not(:disabled){background:var(--pm);transform:translateY(-1px);box-shadow:0 4px 14px rgba(12,61,74,.22)}
+.btn-order:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* ─── RIGHT COLUMN ─── */
+.right-col{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px;box-shadow:var(--s0)}
+.card-title{font-family:var(--fd);font-size:.82rem;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title i{color:var(--p);font-size:.8rem}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.stat-tile{background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--r);padding:11px;text-align:center}
+.stn{display:block;font-family:var(--fd);font-size:.95rem;font-weight:800;color:var(--t1);letter-spacing:-.3px;transition:all .3s}
+.stl{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px}
+.pop-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bdr);cursor:pointer;transition:all .18s}
+.pop-item:last-child{border-bottom:none;padding-bottom:0}
+.pop-item:hover{padding-left:3px}
+.pop-ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:.76rem;color:#fff;flex-shrink:0}
+.pop-info{flex:1;min-width:0}
+.pop-nm{font-size:.74rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop-pr{font-size:.64rem;color:var(--t3)}
+.pop-arr{color:var(--bdr);font-size:.68rem;flex-shrink:0;transition:all .18s}
+.pop-item:hover .pop-arr{color:var(--p);transform:translateX(2px)}
+
+/* ─── ORDERS TABLE ─── */
+.orders-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;margin-top:18px;box-shadow:var(--s0)}
+.oc-hd{padding:13px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.oc-hd h3{font-family:var(--fd);font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:6px}
+.oc-hd h3 i{color:var(--p);font-size:.78rem}
+.tbl-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:480px}
+th{padding:8px 13px;background:var(--srf2);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);text-align:left;border-bottom:1px solid var(--bdr)}
+td{padding:10px 13px;font-size:.76rem;border-bottom:1px solid var(--bdr);color:var(--t1)}
+tr:last-child td{border-bottom:none}
+.bdg{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+.bdg-ok{background:var(--okl);color:#065f46}
+.bdg-pend{background:#fef9c3;color:#854d0e}
+.bdg-proc{background:var(--pl);color:var(--pm)}
+.bdg-err{background:var(--erl);color:#991b1b}
+.amt-ngn{color:var(--p);font-weight:700}
+.amt-usd{color:var(--usd);font-weight:700}
+
+/* ─── MODAL ─── */
+.modal-overlay{position:fixed;inset:0;background:rgba(10,20,28,.5);backdrop-filter:blur(8px);z-index:800;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex;animation:mFade .25s ease}
+@keyframes mFade{from{opacity:0}to{opacity:1}}
+.confirm-modal{background:var(--srf);border-radius:var(--rxl);width:100%;max-width:540px;max-height:92vh;overflow-y:auto;box-shadow:0 28px 72px rgba(0,0,0,.3);animation:mSlide .28s var(--ease)}
+@keyframes mSlide{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.cm-header{background:linear-gradient(135deg,var(--ok),#059669);padding:24px;text-align:center}
+.cm-icon{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:1.7rem;margin:0 auto 10px;animation:bounce .5s .2s both}
+@keyframes bounce{0%{transform:scale(0)}80%{transform:scale(1.12)}100%{transform:scale(1)}}
+.cm-title{font-family:var(--fd);font-size:1rem;font-weight:800;color:#fff;margin-bottom:3px}
+.cm-sub{font-size:.74rem;color:rgba(255,255,255,.72)}
+.cm-body{padding:18px}
+.cm-summary{background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--rl);padding:13px;margin-bottom:14px}
+.cm-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--bdr);font-size:.77rem;gap:10px}
+.cm-row:last-child{border-bottom:none;padding-bottom:0}
+.cm-lbl{color:var(--t2);flex-shrink:0}
+.cm-val{color:var(--t1);font-weight:600;text-align:right}
+.cm-total{color:var(--p);font-family:var(--fd);font-size:.88rem;font-weight:800}
+.cm-rules{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.cm-section{border-radius:var(--r);padding:11px;font-size:.73rem;line-height:1.6}
+.cm-section h4{font-family:var(--fd);font-size:.74rem;font-weight:800;margin-bottom:5px}
+.cm-section ul{padding-left:13px;display:flex;flex-direction:column;gap:2px}
+.cm-section li{color:var(--t2)}
+.cm-warn{background:#fffbeb;border:1px solid #fde68a}
+.cm-warn h4{color:#92400e}.cm-warn li{color:#92400e}
+.cm-info{background:#f0f7ff;border:1px solid #c3d9f5}
+.cm-info h4,.cm-info li{color:#1e4a8a}
+.cm-ok{background:var(--okl);border:1px solid #a7f3d0}
+.cm-ok h4,.cm-ok li{color:#065f46}
+.cm-err{background:var(--erl);border:1px solid #fca5a5}
+.cm-err h4,.cm-err li{color:#991b1b}
+.btn-cm-close{width:100%;padding:11px;border-radius:var(--rp);background:var(--p);color:#fff;font-family:var(--fd);font-weight:700;font-size:.82rem;border:none;cursor:pointer;transition:all .22s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-cm-close:hover{background:var(--pm);transform:translateY(-1px)}
+
+/* ─── MOBILE NAV ─── */
+.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:54px;background:rgba(255,255,255,.88);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:17px;box-shadow:0 6px 22px rgba(12,61,74,.12);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+.mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.5rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1}
+.mni i{font-size:.84rem;padding:5px 6px;border-radius:9px;transition:all .18s}
+.mni.active{color:var(--p)}
+.mni.active i{background:var(--pl);color:var(--p)}
+
+/* ─── TOASTS ─── */
+.toasts{position:fixed;bottom:76px;right:14px;z-index:900;display:flex;flex-direction:column;gap:5px;max-width:290px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:var(--rp);box-shadow:var(--s2);font-size:.74rem;font-weight:500;pointer-events:auto;animation:tIn .2s ease}
+.toast.ok{background:var(--okl);color:#065f46}
+.toast.err{background:var(--erl);color:#991b1b}
+.toast.warn{background:#fffbeb;color:#92400e}
+.toast.info{background:var(--srf);color:var(--t1);border:1px solid var(--bdr)}
+@keyframes tIn{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:none}}
+
+@media(max-width:768px){
+  .content{padding:14px 13px 80px}
+  .topbar{height:54px}
+  .mnav{display:flex}
+  .boost-layout{grid-template-columns:1fr}
+  .right-col{flex-direction:row;flex-wrap:wrap}
+  .card{flex:1;min-width:200px}
+  .page-header-inner{flex-direction:column}
+  .header-pills{margin-top:6px}
+}
+@media(max-width:420px){.wal-sel{grid-template-columns:1fr}}
+
+.fu{animation:fadeUp .38s var(--ease) both}
+.d1{animation-delay:.03s}.d2{animation-delay:.07s}.d3{animation-delay:.11s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes statPop{0%,100%{transform:scale(1)}50%{transform:scale(1.14);color:var(--ok)}}
+.stat-pop{animation:statPop .35s ease}
+</style>
+</head>
+<body>
+<div class="ov" id="ov"></div>
+
+<!-- ─── CONFIRMATION MODAL ─── -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="confirm-modal">
+    <div class="cm-header">
+      <div class="cm-icon">✅</div>
+      <h2 class="cm-title">Order Confirmed — Boost Processing</h2>
+      <p class="cm-sub">Delivery has started. Read the guidelines below.</p>
+    </div>
+    <div class="cm-body">
+      <div class="cm-summary">
+        <div class="cm-row"><span class="cm-lbl">Order ID</span><span class="cm-val" id="cmOrderId">—</span></div>
+        <div class="cm-row"><span class="cm-lbl">Service</span><span class="cm-val" id="cmService">—</span></div>
+        <div class="cm-row"><span class="cm-lbl">Quantity</span><span class="cm-val" id="cmQty">—</span></div>
+        <div class="cm-row"><span class="cm-lbl">Amount Paid</span><span class="cm-val cm-total" id="cmAmount">—</span></div>
+        <div class="cm-row"><span class="cm-lbl">Est. Start</span><span class="cm-val" id="cmDelivery" style="color:var(--ok)">1–5 min</span></div>
+      </div>
+      <div class="cm-rules">
+        <div class="cm-section cm-warn">
+          <h4>⚠️ Account Requirements</h4>
+          <ul>
+            <li>Profile MUST be <strong>PUBLIC</strong> during delivery — private = no refund</li>
+            <li>Do not change username, photo or password during processing</li>
+            <li>No simultaneous boost orders on the same profile</li>
+          </ul>
+        </div>
+        <div class="cm-section cm-info">
+          <h4>⏱ Delivery Timeline</h4>
+          <ul>
+            <li>Start: <strong>1–5 minutes</strong> after confirmation</li>
+            <li>Followers / Likes: <strong>1–24 hrs</strong> gradual delivery</li>
+            <li>Views: <strong>1–12 hrs</strong> · Subscribers: <strong>24–72 hrs</strong></li>
+          </ul>
+        </div>
+        <div class="cm-section cm-ok">
+          <h4>📊 Status Guide</h4>
+          <ul>
+            <li><strong>Pending</strong> – queued &nbsp;·&nbsp; <strong>Processing</strong> – started</li>
+            <li><strong>Partial</strong> – in progress &nbsp;·&nbsp; <strong>Completed</strong> – done</li>
+            <li><strong>Refill</strong> – free 30-day top-up if drops occur</li>
+          </ul>
+        </div>
+        <div class="cm-section cm-err">
+          <h4>🛡 Refund Policy</h4>
+          <ul>
+            <li>30-day refill guarantee included</li>
+            <li>Refund only if delivery doesn't start within 48 hrs</li>
+            <li>No refund for private-account or partial delivery failures</li>
+          </ul>
+        </div>
+      </div>
+      <button class="btn-cm-close" onclick="closeModal()"><i class="fas fa-check"></i> Got It — View My Orders</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+<!-- ─── SIDEBAR ─── -->
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" style="width:28px;height:28px;border-radius:7px;flex-shrink:0">MilesSpace</div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html" class="sb-lnk active"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+    <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk"><i class="fas fa-shield-alt"></i> Buy Proxy</a>
+  </nav>
+  <div class="sb-foot">
+    <a href="profile.html" class="sb-prof">
+      <div class="sb-av" id="sbAv">U</div>
+      <div class="sb-ui"><p class="sb-un" id="sbName">User</p><p class="sb-ue" id="sbEmail"></p></div>
+      <button class="sb-out" onclick="event.preventDefault();doLogout()"><i class="fas fa-sign-out-alt"></i></button>
+    </a>
+  </div>
+</aside>
+
+<!-- ─── MAIN ─── -->
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+    <p class="tb-title">Social Media Boosting</p>
+    <div class="tb-right">
+      <a href="notifications.html" class="tb-btn"><i class="fas fa-bell"></i></a>
+      <div class="tb-av" id="tbAv">U</div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- ─── PAGE HEADER ─── -->
+    <div class="page-header fu d1">
+      <div class="page-header-inner">
+        <div>
+          <h1>Social Media Boosting</h1>
+          <p>Real followers, likes &amp; views across every platform. Gradual, natural-looking delivery with a 30-day refill guarantee.</p>
+        </div>
+        <div class="header-pills">
+          <span class="hpill"><i class="fas fa-bolt"></i> ~1 min start</span>
+          <span class="hpill"><i class="fas fa-rotate"></i> 30-day refill</span>
+          <span class="hpill"><i class="fas fa-headset"></i> 24/7 support</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PLATFORM FILTERS ─── -->
+    <div class="plat-row fu d2">
+      <button class="plat-pill p-all active" data-plat="all" onclick="filterPlat(this)"><i class="fas fa-th-large"></i> All</button>
+      <button class="plat-pill p-ig" data-plat="instagram" onclick="filterPlat(this)"><i class="fab fa-instagram"></i> Instagram</button>
+      <button class="plat-pill p-tk" data-plat="tiktok" onclick="filterPlat(this)"><i class="fab fa-tiktok"></i> TikTok</button>
+      <button class="plat-pill p-yt" data-plat="youtube" onclick="filterPlat(this)"><i class="fab fa-youtube"></i> YouTube</button>
+      <button class="plat-pill p-fb" data-plat="facebook" onclick="filterPlat(this)"><i class="fab fa-facebook"></i> Facebook</button>
+      <button class="plat-pill p-tw" data-plat="twitter" onclick="filterPlat(this)"><i class="fab fa-twitter"></i> Twitter/X</button>
+      <button class="plat-pill p-wa" data-plat="whatsapp" onclick="filterPlat(this)"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+      <button class="plat-pill p-tg" data-plat="telegram" onclick="filterPlat(this)"><i class="fab fa-telegram"></i> Telegram</button>
+      <button class="plat-pill p-dc" data-plat="discord" onclick="filterPlat(this)"><i class="fab fa-discord"></i> Discord</button>
+      <button class="plat-pill p-sp" data-plat="spotify" onclick="filterPlat(this)"><i class="fab fa-spotify"></i> Spotify</button>
+    </div>
+
+    <div class="boost-layout fu d3">
+
+      <!-- ─── LEFT: Services + Order Form ─── -->
+      <div>
+
+        <!-- Service list -->
+        <div class="panel">
+          <div class="panel-hd">
+            <div class="panel-hd-ic"><i class="fas fa-list-ul"></i></div>
+            <h2>Choose a Service</h2>
+            <span class="svc-count" id="svcCount">39</span>
+          </div>
+          <div class="panel-bd">
+            <div class="svc-search">
+              <i class="fas fa-search"></i>
+              <input type="text" id="svcSearch" placeholder="Search services — e.g. Instagram followers…" oninput="renderSvcs()"/>
+            </div>
+            <div class="svc-grid" id="svcGrid"></div>
+          </div>
+        </div>
+
+        <!-- Order form -->
+        <div class="order-form">
+          <div class="of-hd">
+            <div class="of-hd-ic"><i class="fas fa-bolt"></i></div>
+            <h2>Place Order</h2>
+          </div>
+          <div class="of-bd">
+
+            <!-- Chip -->
+            <div class="sel-chip hidden" id="selChip">
+              <div class="sc-ic" id="chipIc"><i class="fas fa-star"></i></div>
+              <span class="sc-nm" id="chipName">—</span>
+              <button class="sc-clr" onclick="clearSel()"><i class="fas fa-xmark"></i></button>
+            </div>
+
+            <!-- Empty hint -->
+            <div class="ibox ibox-info" id="pickHint">
+              <i class="fas fa-arrow-up"></i>
+              <span>Pick a service from the list above to begin your order.</span>
+            </div>
+
+            <!-- Fields (only visible after selecting) -->
+            <div id="orderFields" style="display:none">
+
+              <div class="fg">
+                <label class="flbl">Profile / Post URL</label>
+                <input type="url" class="finp" id="linkInp" placeholder="https://instagram.com/yourhandle"/>
+                <p class="fhint">Must be a public profile or post link</p>
+              </div>
+
+              <div class="fg">
+                <label class="flbl">Quantity</label>
+                <div class="qty-row" id="qtyRow"></div>
+                <input type="number" class="finp" id="qtyInp" placeholder="Enter quantity" min="1" oninput="calcPrice()"/>
+                <p class="fhint" id="qtyHint">Min: — · Max: —</p>
+              </div>
+
+              <!-- Price breakdown -->
+              <div class="price-display" id="priceDisplay">
+                <div class="pd-row"><span class="pd-lbl">Rate per 1,000</span><span class="pd-val" id="pdRate">—</span></div>
+                <div class="pd-row"><span class="pd-lbl">Quantity</span><span class="pd-val" id="pdQty">—</span></div>
+                <div class="pd-row">
+                  <span class="pd-lbl" style="font-weight:700">Total</span>
+                  <span><span class="pd-total" id="pdTotal">—</span><span class="pd-sub" id="pdSub"></span></span>
+                </div>
+              </div>
+
+              <!-- ═══════════════════════════════════════
+                   WALLET + BALANCE — only visible here,
+                   after service is selected & qty entered
+              ═══════════════════════════════════════ -->
+              <div class="wallet-section" id="walletSection" style="display:none">
+                <span class="wallet-section-lbl">Pay from wallet</span>
+                <div class="wal-sel">
+                  <div class="ws-opt selected" id="wsNGN" onclick="setWallet('NGN')">
+                    <div class="ws-top">
+                      <div class="ws-ic" style="background:var(--pl);color:var(--p)"><i class="fas fa-naira-sign"></i></div>
+                      <span class="ws-nm">Naira</span>
+                    </div>
+                    <div class="ws-bal-row">
+                      <span class="ws-bal" id="wsNGNbal">₦—</span>
+                      <span class="ws-tick"><i class="fas fa-check" style="font-size:.44rem"></i></span>
+                    </div>
+                    <p class="ws-insuf" id="wsNGNinsuf">Insufficient balance</p>
+                  </div>
+                  <div class="ws-opt" id="wsUSD" onclick="setWallet('USD')">
+                    <div class="ws-top">
+                      <div class="ws-ic" style="background:var(--usdl);color:var(--usd)"><i class="fas fa-dollar-sign"></i></div>
+                      <span class="ws-nm">Dollar</span>
+                    </div>
+                    <div class="ws-bal-row">
+                      <span class="ws-bal" id="wsUSDBal">$—</span>
+                      <span class="ws-tick"><i class="fas fa-check" style="font-size:.44rem"></i></span>
+                    </div>
+                    <p class="ws-insuf" id="wsUSDinsuf">Insufficient balance</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Balance notice -->
+              <div class="bal-notice" id="balNotice">
+                <i class="fas fa-circle-info"></i>
+                <span id="balNoticeMsg"></span>
+              </div>
+
+              <button class="btn-order" id="orderBtn" onclick="placeOrder()">
+                <i class="fas fa-bolt"></i> Place Boost Order
+              </button>
+              <p style="text-align:center;font-size:.66rem;color:var(--t3);margin-top:8px">
+                <i class="fas fa-lock" style="color:var(--p)"></i> Secure · Real accounts · 30-day refill
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── RIGHT COLUMN ─── -->
+      <div class="right-col">
+        <div class="card">
+          <p class="card-title"><i class="fas fa-chart-bar"></i> Your Stats</p>
+          <div class="stat-grid">
+            <div class="stat-tile"><span class="stn" id="statOrders">3</span><span class="stl">Total Orders</span></div>
+            <div class="stat-tile"><span class="stn" id="statDone">2</span><span class="stl">Completed</span></div>
+            <div class="stat-tile"><span class="stn" id="statNGN">₦8,420</span><span class="stl">NGN Spent</span></div>
+            <div class="stat-tile"><span class="stn" id="statUSD">$12.50</span><span class="stl">USD Spent</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <p class="card-title"><i class="fas fa-fire-flame-curved"></i> Popular</p>
+          <div onclick="quickPick('instagram','followers')" class="pop-item"><div class="pop-ic" style="background:linear-gradient(135deg,#833ab4,#fd1d1d)"><i class="fab fa-instagram"></i></div><div class="pop-info"><p class="pop-nm">Instagram Followers</p><p class="pop-pr">From ₦532</p></div><i class="fas fa-chevron-right pop-arr"></i></div>
+          <div onclick="quickPick('tiktok','likes')" class="pop-item"><div class="pop-ic" style="background:#111"><i class="fab fa-tiktok"></i></div><div class="pop-info"><p class="pop-nm">TikTok Likes</p><p class="pop-pr">From ₦138</p></div><i class="fas fa-chevron-right pop-arr"></i></div>
+          <div onclick="quickPick('youtube','views')" class="pop-item"><div class="pop-ic" style="background:#ff0000"><i class="fab fa-youtube"></i></div><div class="pop-info"><p class="pop-nm">YouTube Views</p><p class="pop-pr">From ₦47</p></div><i class="fas fa-chevron-right pop-arr"></i></div>
+          <div onclick="quickPick('twitter','followers')" class="pop-item"><div class="pop-ic" style="background:#1da1f2"><i class="fab fa-twitter"></i></div><div class="pop-info"><p class="pop-nm">Twitter/X Followers</p><p class="pop-pr">From ₦437</p></div><i class="fas fa-chevron-right pop-arr"></i></div>
+          <div onclick="quickPick('spotify','streams')" class="pop-item"><div class="pop-ic" style="background:#1db954"><i class="fab fa-spotify"></i></div><div class="pop-info"><p class="pop-nm">Spotify Streams</p><p class="pop-pr">From ₦29</p></div><i class="fas fa-chevron-right pop-arr"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── RECENT ORDERS ─── -->
+    <div class="orders-card fu">
+      <div class="oc-hd">
+        <h3><i class="fas fa-receipt"></i> Recent Orders</h3>
+        <a href="history.html" style="font-size:.72rem;font-weight:600;color:var(--pm)">View all →</a>
+      </div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>ID</th><th>Service</th><th>Qty</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<nav class="mnav">
+  <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="boost.html" class="mni active"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+  <a href="fund.html" class="mni"><i class="fas fa-wallet"></i><span>Fund</span></a>
+  <a href="market.html" class="mni"><i class="fas fa-store"></i><span>Market</span></a>
+  <a href="profile.html" class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
+</nav>
+<div class="toasts" id="toastWrap"></div>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════
+   STATE — simulated, no backend
+══════════════════════════════════ */
+const STATE = {
+  balNGN: 15000.00,
+  balUSD: 50.00,
+  orders: 3,
+  done:   2,
+  spentNGN: 8420,
+  spentUSD: 12.50,
+};
+const NGN_RATE = 1620;
+const MARKUP   = 1.18;
+
+let activeWallet = 'NGN';
+let selSvc       = null;
+let allSvcs      = [];
+let activePlat   = 'all';
+let balLoaded    = false; /* prevents showing ₦— before balances render */
+
+const fNGN = n => '₦'+(+n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fUSD = n => '$'+(+n||0).toFixed(2);
+function fmtDate(d){ return d.toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'numeric'}); }
+
+let orderHistory = [
+  {id:'MX-98231',name:'Instagram Followers — Real',qty:500,  amt:'₦2,156.40',currency:'NGN',status:'completed', date:fmtDate(new Date(Date.now()-86400000*2))},
+  {id:'MX-97104',name:'TikTok Likes — Instant',   qty:1000, amt:'₦1,534.80',currency:'NGN',status:'completed', date:fmtDate(new Date(Date.now()-86400000*5))},
+  {id:'MX-96002',name:'YouTube Views — Real HQ',  qty:500,  amt:'$12.50',   currency:'USD',status:'processing',date:fmtDate(new Date(Date.now()-86400000))},
+];
+
+/* ── TOAST ── */
+function toast(msg,type='info'){
+  const c=document.getElementById('toastWrap');
+  const e=document.createElement('div');
+  e.className=`toast ${type}`;
+  const ic={ok:'fa-check-circle',err:'fa-times-circle',warn:'fa-triangle-exclamation',info:'fa-circle-info'};
+  e.innerHTML=`<i class="fas ${ic[type]||ic.info}"></i><span>${msg}</span>`;
+  c.appendChild(e);
+  setTimeout(()=>{e.style.cssText='opacity:0;transition:all .3s';setTimeout(()=>e.remove(),300);},3400);
+}
+
+/* ══════════════════════════════════
+   WALLET — only displayed inside
+   order form after service selected
+══════════════════════════════════ */
+function showWalletSection(){
+  const ws = document.getElementById('walletSection');
+  if(!balLoaded){
+    // fill in balances first time
+    document.getElementById('wsNGNbal').textContent = fNGN(STATE.balNGN);
+    document.getElementById('wsUSDBal').textContent = fUSD(STATE.balUSD);
+    balLoaded = true;
+  }
+  ws.style.display = 'block';
+}
+
+function setWallet(w){
+  activeWallet = w;
+  const ngn=document.getElementById('wsNGN'), usd=document.getElementById('wsUSD');
+  ngn.classList.toggle('selected', w==='NGN'); ngn.classList.remove('usd-w');
+  usd.classList.toggle('selected', w==='USD');
+  if(w==='USD') usd.classList.add('usd-w'); else usd.classList.remove('usd-w');
+  checkBalance();
+}
+
+function checkBalance(){
+  if(!selSvc) return;
+  const qty=parseInt(document.getElementById('qtyInp').value)||0;
+  if(qty<1){ hideBalNotice(); return; }
+  const totalUSD=(selSvc.rateUSD*MARKUP/1000)*qty;
+  const totalNGN=totalUSD*NGN_RATE;
+  const notice=document.getElementById('balNotice');
+  const msg=document.getElementById('balNoticeMsg');
+  const btn=document.getElementById('orderBtn');
+  const nIns=document.getElementById('wsNGNinsuf');
+  const uIns=document.getElementById('wsUSDinsuf');
+
+  nIns.classList.toggle('show', STATE.balNGN<totalNGN);
+  uIns.classList.toggle('show', STATE.balUSD<totalUSD);
+
+  notice.className='bal-notice';
+  if(activeWallet==='NGN'){
+    if(totalNGN>STATE.balNGN){
+      notice.classList.add('show','err');
+      msg.innerHTML=`Insufficient Naira balance. Need <strong>${fNGN(totalNGN)}</strong> — you have <strong>${fNGN(STATE.balNGN)}</strong>. <a href="fund.html" style="color:inherit;font-weight:700;text-decoration:underline">Fund wallet →</a>`;
+      btn.disabled=true;
+    } else {
+      notice.classList.add('show','ok');
+      msg.innerHTML=`Balance sufficient — <strong>${fNGN(STATE.balNGN)}</strong> available.`;
+      btn.disabled=false;
+    }
+  } else {
+    if(totalUSD>STATE.balUSD){
+      notice.classList.add('show','err');
+      msg.innerHTML=`Insufficient Dollar balance. Need <strong>${fUSD(totalUSD)}</strong> — you have <strong>${fUSD(STATE.balUSD)}</strong>. <a href="fund.html?wallet=usd" style="color:inherit;font-weight:700;text-decoration:underline">Fund USD →</a>`;
+      btn.disabled=true;
+    } else {
+      notice.classList.add('show','ok');
+      msg.innerHTML=`Balance sufficient — <strong>${fUSD(STATE.balUSD)}</strong> available.`;
+      btn.disabled=false;
+    }
+  }
+}
+function hideBalNotice(){
+  document.getElementById('balNotice').className='bal-notice';
+  document.getElementById('orderBtn').disabled=false;
+}
+
+/* ══════════════════════════════════
+   39 SERVICES
+══════════════════════════════════ */
+const PLAT={
+  instagram:{icon:'fab fa-instagram',bg:'linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)'},
+  tiktok:   {icon:'fab fa-tiktok',   bg:'#111'},
+  youtube:  {icon:'fab fa-youtube',  bg:'#ff0000'},
+  facebook: {icon:'fab fa-facebook', bg:'#1877f2'},
+  twitter:  {icon:'fab fa-twitter',  bg:'#1da1f2'},
+  whatsapp: {icon:'fab fa-whatsapp', bg:'#25d366'},
+  telegram: {icon:'fab fa-telegram', bg:'#0088cc'},
+  discord:  {icon:'fab fa-discord',  bg:'#5865f2'},
+  spotify:  {icon:'fab fa-spotify',  bg:'#1db954'},
+  other:    {icon:'fas fa-star',     bg:'var(--p)'},
+};
+function getPI(name){ const n=name.toLowerCase(); for(const k of Object.keys(PLAT)) if(n.includes(k)) return PLAT[k]; return PLAT.other; }
+
+function buildServices(){
+  return[
+    {id:'ig-fol-real',name:'Instagram Followers — Real & Active',plat:'instagram',rateUSD:.44,min:100,  max:50000,   refill:true, delivery:'1–24 hrs'},
+    {id:'ig-fol-hq',  name:'Instagram Followers — High Quality', plat:'instagram',rateUSD:.52,min:100,  max:100000,  refill:true, delivery:'2–48 hrs'},
+    {id:'ig-lik-real',name:'Instagram Likes — Real',             plat:'instagram',rateUSD:.12,min:50,   max:100000,  refill:false,delivery:'~5 min'},
+    {id:'ig-lik-fast',name:'Instagram Likes — HQ Instant',       plat:'instagram',rateUSD:.08,min:50,   max:500000,  refill:false,delivery:'~1 min'},
+    {id:'ig-reel',    name:'Instagram Reel Views',               plat:'instagram',rateUSD:.06,min:100,  max:1000000, refill:false,delivery:'~2 min'},
+    {id:'ig-story',   name:'Instagram Story Views',              plat:'instagram',rateUSD:.04,min:100,  max:500000,  refill:false,delivery:'~5 min'},
+    {id:'ig-comments',name:'Instagram Comments — Random',        plat:'instagram',rateUSD:1.38,min:10,  max:500,     refill:false,delivery:'1–6 hrs'},
+    {id:'ig-saves',   name:'Instagram Post Saves',               plat:'instagram',rateUSD:.17,min:100,  max:10000,   refill:false,delivery:'~5 min'},
+    {id:'ig-visits',  name:'Instagram Profile Visits',           plat:'instagram',rateUSD:.03,min:1000, max:1000000, refill:false,delivery:'~3 min'},
+    {id:'tk-fol',     name:'TikTok Followers — Real',           plat:'tiktok',   rateUSD:.35,min:100,  max:50000,   refill:true, delivery:'1–12 hrs'},
+    {id:'tk-lik',     name:'TikTok Likes — Instant',            plat:'tiktok',   rateUSD:.10,min:100,  max:100000,  refill:false,delivery:'~1 min'},
+    {id:'tk-views',   name:'TikTok Views — Real Traffic',        plat:'tiktok',   rateUSD:.02,min:1000, max:5000000, refill:false,delivery:'~2 min'},
+    {id:'tk-shares',  name:'TikTok Shares',                      plat:'tiktok',   rateUSD:.58,min:100,  max:10000,   refill:false,delivery:'~5 min'},
+    {id:'tk-comments',name:'TikTok Comments',                    plat:'tiktok',   rateUSD:1.72,min:10,  max:500,     refill:false,delivery:'1–6 hrs'},
+    {id:'tk-live',    name:'TikTok Live Stream Views',           plat:'tiktok',   rateUSD:.92,min:100,  max:10000,   refill:false,delivery:'~5 min'},
+    {id:'yt-views',   name:'YouTube Views — Real HQ',            plat:'youtube',  rateUSD:.52,min:500,  max:100000,  refill:false,delivery:'1–12 hrs'},
+    {id:'yt-subs',    name:'YouTube Subscribers',                plat:'youtube',  rateUSD:1.25,min:100, max:10000,   refill:true, delivery:'24–72 hrs'},
+    {id:'yt-lik',     name:'YouTube Likes',                      plat:'youtube',  rateUSD:.29,min:100,  max:50000,   refill:false,delivery:'~5 min'},
+    {id:'yt-watch',   name:'YouTube Watch Hours',                plat:'youtube',  rateUSD:3.45,min:10,  max:5000,    refill:false,delivery:'2–7 days'},
+    {id:'yt-comments',name:'YouTube Comments',                   plat:'youtube',  rateUSD:2.88,min:10,  max:200,     refill:false,delivery:'1–12 hrs'},
+    {id:'fb-page',    name:'Facebook Page Likes — HQ',          plat:'facebook', rateUSD:.38,min:100,  max:50000,   refill:true, delivery:'1–24 hrs'},
+    {id:'fb-fol',     name:'Facebook Followers',                 plat:'facebook', rateUSD:.32,min:100,  max:50000,   refill:false,delivery:'1–24 hrs'},
+    {id:'fb-post',    name:'Facebook Post Likes',                plat:'facebook', rateUSD:.12,min:100,  max:100000,  refill:false,delivery:'~5 min'},
+    {id:'fb-video',   name:'Facebook Video Views',               plat:'facebook', rateUSD:.05,min:1000, max:1000000, refill:false,delivery:'~3 min'},
+    {id:'tw-fol',     name:'Twitter/X Followers — Active',      plat:'twitter',  rateUSD:.35,min:100,  max:50000,   refill:true, delivery:'1–12 hrs'},
+    {id:'tw-lik',     name:'Twitter/X Likes',                   plat:'twitter',  rateUSD:.12,min:100,  max:100000,  refill:false,delivery:'~5 min'},
+    {id:'tw-views',   name:'Twitter/X Impressions',             plat:'twitter',  rateUSD:.04,min:1000, max:1000000, refill:false,delivery:'~3 min'},
+    {id:'wa-channel', name:'WhatsApp Channel Subscribers',      plat:'whatsapp', rateUSD:.69,min:100,  max:10000,   refill:false,delivery:'1–12 hrs'},
+    {id:'wa-group',   name:'WhatsApp Group Members',            plat:'whatsapp', rateUSD:.92,min:50,   max:5000,    refill:false,delivery:'1–24 hrs'},
+    {id:'tg-members', name:'Telegram Channel Members',          plat:'telegram', rateUSD:.46,min:100,  max:100000,  refill:true, delivery:'1–12 hrs'},
+    {id:'tg-views',   name:'Telegram Post Views',               plat:'telegram', rateUSD:.06,min:500,  max:1000000, refill:false,delivery:'~5 min'},
+    {id:'dc-members', name:'Discord Server Members',            plat:'discord',  rateUSD:.80,min:50,   max:5000,    refill:false,delivery:'1–24 hrs'},
+    {id:'dc-online',  name:'Discord Online Members',            plat:'discord',  rateUSD:1.15,min:50,  max:2000,    refill:false,delivery:'1–6 hrs'},
+    {id:'sp-fol',     name:'Spotify Followers',                 plat:'spotify',  rateUSD:.58,min:100,  max:10000,   refill:false,delivery:'1–12 hrs'},
+    {id:'sp-streams', name:'Spotify Streams / Plays',           plat:'spotify',  rateUSD:.023,min:1000,max:1000000, refill:false,delivery:'~3 min'},
+    {id:'sp-listeners',name:'Spotify Monthly Listeners',        plat:'spotify',  rateUSD:1.15,min:100, max:10000,   refill:false,delivery:'24–72 hrs'},
+  ].map(s=>({...s, rateNGN:s.rateUSD*MARKUP*NGN_RATE}));
+}
+
+/* ── RENDER ── */
+function renderSvcs(){
+  const q = document.getElementById('svcSearch').value.toLowerCase().trim();
+  const list = allSvcs.filter(s=>(activePlat==='all'||s.plat===activePlat)&&(!q||s.name.toLowerCase().includes(q)));
+  document.getElementById('svcCount').textContent = list.length;
+  const grid = document.getElementById('svcGrid');
+  if(!list.length){ grid.innerHTML='<div class="svc-empty"><i class="fas fa-search"></i>No services found.</div>'; return; }
+  grid.innerHTML = list.map(s=>{
+    const pi=getPI(s.name), sel=selSvc&&selSvc.id===s.id;
+    return`<div class="svc-item ${sel?'selected':''}" onclick="selectSvc('${s.id}')">
+      <div class="svc-plat-ic" style="background:${pi.bg}"><i class="${pi.icon}"></i></div>
+      <div class="svc-info">
+        <p class="svc-name">${s.name}</p>
+        <div class="svc-meta">
+          ${s.refill?'<span class="svc-badge badge-refill">Refill</span>':''}
+          <span class="svc-badge badge-fast">Instant</span>
+          <span class="svc-range">${s.min.toLocaleString()}–${s.max.toLocaleString()}</span>
+          <span class="svc-delivery">⏱ ${s.delivery}</span>
+        </div>
+      </div>
+      <div class="svc-prices">
+        <span class="svc-price-ngn">${fNGN(s.rateNGN)}</span>
+        <span class="svc-price-usd">${fUSD(s.rateUSD*MARKUP)}</span>
+        <span class="svc-per">per 1,000</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterPlat(btn){
+  document.querySelectorAll('.plat-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  activePlat=btn.dataset.plat;
+  renderSvcs();
+}
+
+function quickPick(plat,kw){
+  const pill=document.querySelector(`.plat-pill[data-plat="${plat}"]`);
+  if(pill) filterPlat(pill);
+  document.getElementById('svcSearch').value=kw;
+  renderSvcs();
+  document.querySelector('.panel').scrollIntoView({behavior:'smooth'});
+}
+
+function selectSvc(id){
+  const s=allSvcs.find(x=>x.id===id); if(!s) return;
+  selSvc=s; renderSvcs();
+  const pi=getPI(s.name);
+  document.getElementById('chipIc').style.background=pi.bg;
+  document.getElementById('chipIc').innerHTML=`<i class="${pi.icon}"></i>`;
+  document.getElementById('chipName').textContent=s.name;
+  document.getElementById('selChip').classList.remove('hidden');
+  document.getElementById('pickHint').style.display='none';
+  document.getElementById('orderFields').style.display='block';
+  document.getElementById('walletSection').style.display='none'; // hide until qty entered
+  document.getElementById('qtyHint').textContent=`Min: ${s.min.toLocaleString()} · Max: ${s.max.toLocaleString()} · ${s.delivery}`;
+  document.getElementById('qtyInp').min=s.min;
+  document.getElementById('qtyInp').max=s.max;
+  document.getElementById('qtyInp').value='';
+  const presets=[100,500,1000,5000,10000].filter(p=>p>=s.min&&p<=s.max);
+  document.getElementById('qtyRow').innerHTML=presets.map(p=>`<button class="qty-chip" onclick="setQty(${p})">${p>=1000?(p/1000)+'k':p}</button>`).join('');
+  document.getElementById('priceDisplay').classList.remove('show');
+  hideBalNotice();
+  document.querySelector('.order-form').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function clearSel(){
+  selSvc=null;
+  document.getElementById('selChip').classList.add('hidden');
+  document.getElementById('pickHint').style.display='flex';
+  document.getElementById('orderFields').style.display='none';
+  document.getElementById('priceDisplay').classList.remove('show');
+  document.getElementById('walletSection').style.display='none';
+  hideBalNotice();
+  renderSvcs();
+}
+
+function setQty(val){
+  document.querySelectorAll('.qty-chip').forEach(c=>c.classList.remove('active'));
+  event?.target?.classList.add('active');
+  document.getElementById('qtyInp').value=val;
+  calcPrice();
+}
+
+/* ── PRICE CALC ── */
+function calcPrice(){
+  if(!selSvc) return;
+  const qty=parseInt(document.getElementById('qtyInp').value)||0;
+  const pd=document.getElementById('priceDisplay');
+  if(qty<1){
+    pd.classList.remove('show');
+    document.getElementById('walletSection').style.display='none';
+    hideBalNotice();
+    return;
+  }
+  const totalUSD=(selSvc.rateUSD*MARKUP/1000)*qty;
+  const totalNGN=totalUSD*NGN_RATE;
+  document.getElementById('pdRate').textContent=`${fNGN(selSvc.rateNGN)} / ${fUSD(selSvc.rateUSD*MARKUP)} per 1k`;
+  document.getElementById('pdQty').textContent=qty.toLocaleString();
+  document.getElementById('pdTotal').textContent=activeWallet==='USD'?fUSD(totalUSD):fNGN(totalNGN);
+  document.getElementById('pdSub').textContent=activeWallet==='USD'?`≈ ${fNGN(totalNGN)}`:`≈ ${fUSD(totalUSD)}`;
+  pd.classList.add('show');
+
+  // NOW show wallet section
+  showWalletSection();
+  checkBalance();
+}
+
+/* ── UPDATE PRICE TOTAL LABEL WHEN WALLET SWITCHES ── */
+function updatePriceTotals(){
+  if(!selSvc) return;
+  const qty=parseInt(document.getElementById('qtyInp').value)||0;
+  if(qty<1) return;
+  const totalUSD=(selSvc.rateUSD*MARKUP/1000)*qty;
+  const totalNGN=totalUSD*NGN_RATE;
+  document.getElementById('pdTotal').textContent=activeWallet==='USD'?fUSD(totalUSD):fNGN(totalNGN);
+  document.getElementById('pdSub').textContent=activeWallet==='USD'?`≈ ${fNGN(totalNGN)}`:`≈ ${fUSD(totalUSD)}`;
+}
+
+/* Override setWallet to also refresh price totals */
+const _origSetWallet = setWallet;
+setWallet = function(w){
+  _origSetWallet(w);
+  updatePriceTotals();
+};
+
+/* ── PLACE ORDER ── */
+async function placeOrder(){
+  if(!selSvc){ toast('Select a service first','err'); return; }
+  const link=document.getElementById('linkInp').value.trim();
+  const qty=parseInt(document.getElementById('qtyInp').value)||0;
+  if(!link){ toast('Enter the profile or post URL','err'); document.getElementById('linkInp').classList.add('err-inp'); return; }
+  if(!link.startsWith('http')){ toast('URL must start with https://','err'); return; }
+  if(qty<selSvc.min){ toast(`Minimum is ${selSvc.min.toLocaleString()}`,'err'); return; }
+  if(qty>selSvc.max){ toast(`Maximum is ${selSvc.max.toLocaleString()}`,'err'); return; }
+  const totalUSD=(selSvc.rateUSD*MARKUP/1000)*qty, totalNGN=totalUSD*NGN_RATE;
+  if(activeWallet==='NGN'&&totalNGN>STATE.balNGN){ toast(`Insufficient Naira balance`,'err'); return; }
+  if(activeWallet==='USD'&&totalUSD>STATE.balUSD){ toast(`Insufficient Dollar balance`,'err'); return; }
+
+  const btn=document.getElementById('orderBtn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Processing…';
+  await new Promise(r=>setTimeout(r,1400));
+
+  const orderId='MX-'+(Math.floor(Math.random()*90000)+10000);
+  const amtPaid=activeWallet==='NGN'?fNGN(totalNGN):fUSD(totalUSD);
+  if(activeWallet==='NGN'){ STATE.balNGN-=totalNGN; STATE.spentNGN+=totalNGN; }
+  else{ STATE.balUSD-=totalUSD; STATE.spentUSD+=totalUSD; }
+  STATE.orders++;
+
+  // refresh wallet balances shown in form
+  document.getElementById('wsNGNbal').textContent=fNGN(STATE.balNGN);
+  document.getElementById('wsUSDBal').textContent=fUSD(STATE.balUSD);
+
+  orderHistory.unshift({id:orderId,name:selSvc.name,qty,amt:amtPaid,currency:activeWallet,status:'processing',date:fmtDate(new Date())});
+  renderOrders();
+  refreshStats();
+
+  document.getElementById('cmOrderId').textContent='#'+orderId;
+  document.getElementById('cmService').textContent=selSvc.name;
+  document.getElementById('cmQty').textContent=qty.toLocaleString()+' units';
+  document.getElementById('cmAmount').textContent=amtPaid;
+  document.getElementById('cmDelivery').textContent=selSvc.delivery||'1–5 min';
+  document.getElementById('confirmModal').classList.add('open');
+  document.body.style.overflow='hidden';
+
+  document.getElementById('linkInp').value='';
+  document.getElementById('qtyInp').value='';
+  document.getElementById('priceDisplay').classList.remove('show');
+  document.getElementById('walletSection').style.display='none';
+  clearSel();
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-bolt"></i> Place Boost Order';
+
+  setTimeout(()=>{
+    const o=orderHistory.find(x=>x.id===orderId);
+    if(o){ o.status='completed'; STATE.done++; renderOrders(); refreshStats(); toast('✓ Boost order delivered!','ok'); }
+  },6000);
+}
+
+function closeModal(){
+  document.getElementById('confirmModal').classList.remove('open');
+  document.body.style.overflow='';
+  toast('✓ Order placed — delivery starting soon.','ok');
+}
+document.getElementById('confirmModal').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+
+/* ── STATS ── */
+function refreshStats(){
+  const ids=['statOrders','statDone','statNGN','statUSD'];
+  const vals=[STATE.orders,STATE.done,'₦'+STATE.spentNGN.toLocaleString('en-NG',{maximumFractionDigits:0}),fUSD(STATE.spentUSD)];
+  ids.forEach((id,i)=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.textContent=vals[i];
+    el.classList.remove('stat-pop'); void el.offsetWidth; el.classList.add('stat-pop');
+  });
+}
+
+/* ── ORDERS TABLE ── */
+function renderOrders(){
+  const SC={pending:'bdg-pend',processing:'bdg-proc',completed:'bdg-ok',partial:'bdg-pend'};
+  const tbody=document.getElementById('ordersBody');
+  if(!orderHistory.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:26px;color:var(--t3)"><i class="fas fa-inbox" style="font-size:1.3rem;display:block;margin-bottom:8px"></i>No orders yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML=orderHistory.map(o=>`<tr>
+    <td style="font-family:monospace;font-size:.7rem">#${o.id}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.name}</td>
+    <td>${o.qty.toLocaleString()}</td>
+    <td>${o.currency==='NGN'?`<span class="amt-ngn">${o.amt}</span>`:`<span class="amt-usd">${o.amt}</span>`}</td>
+    <td><span class="bdg ${SC[o.status]||'bdg-pend'}">${o.status}</span></td>
+    <td style="font-size:.68rem;color:var(--t3)">${o.date}</td>
+  </tr>`).join('');
+}
+
+/* ── SIDEBAR / USER ── */
+function initSidebar(){
+  const sb=document.getElementById('sb'),ov=document.getElementById('ov'),hbg=document.getElementById('hbg');
+  hbg?.addEventListener('click',()=>{sb.classList.toggle('open');ov.classList.toggle('on');});
+  ov?.addEventListener('click',()=>{sb.classList.remove('open');ov.classList.remove('on');});
+  window.addEventListener('resize',()=>{if(window.innerWidth>=1025){sb.classList.remove('open');ov.classList.remove('on');}});
+}
+
+function loadUser(){
+  const SK='mx_sess';
+  function getSess(){ try{return JSON.parse(localStorage.getItem(SK)||sessionStorage.getItem(SK)||'null');}catch{return null;} }
+  const u = getSess()?.user;
+  if(!u) return;
+  const name=u.username||u.full_name||u.email?.split('@')[0]||'User';
+  const init=name.charAt(0).toUpperCase();
+  document.getElementById('sbName').textContent=name;
+  document.getElementById('sbEmail').textContent=u.email||'';
+  ['sbAv','tbAv'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=init;});
+  if(u.wallet_ngn!==undefined) STATE.balNGN=parseFloat(u.wallet_ngn)||STATE.balNGN;
+  if(u.wallet_usd!==undefined) STATE.balUSD=parseFloat(u.wallet_usd)||STATE.balUSD;
+}
+function doLogout(){
+  const SK='mx_sess';
+  localStorage.removeItem(SK);sessionStorage.removeItem(SK);location.href='signup.html';
+}
+document.getElementById('linkInp')?.addEventListener('input',function(){this.classList.remove('err-inp');});
+
+/* ── INIT ── */
+(function(){
+  initSidebar();
+  loadUser();
+  allSvcs=buildServices();
+  renderSvcs();
+  renderOrders();
+  refreshStats();
+})();
+</script>
+</body>
+</html>

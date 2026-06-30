@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=yes" />
+  <title>MilesSpace | Notifications</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f0f4f7;
+      color: #0d2b33;
+    }
+    :root {
+      --primary: #0f4c5c;
+      --primary-light: #e8f4f8;
+      --unread-bg: #f0f9ff;
+      --border: #e2e8f0;
+      --radius: 14px;
+      --radius-lg: 22px;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 28px; }
+    .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--primary); text-decoration: none; margin-bottom: 24px; font-weight: 500; }
+    .back-link:hover { text-decoration: underline; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    h1 { font-family: 'Syne', sans-serif; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
+    .unread-count { background: var(--primary); color: #fff; font-size: 0.7rem; padding: 2px 10px; border-radius: 999px; }
+    .mark-all { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+    .mark-all:hover { text-decoration: underline; }
+    .notification-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 14px;
+      transition: all .2s;
+      align-items: flex-start;
+    }
+    .notification-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .notification-item.unread { background: var(--unread-bg); border-left: 3px solid var(--primary); }
+    .notif-icon { width: 40px; height: 40px; background: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0; }
+    .notif-content { flex: 1; min-width: 0; }
+    .notif-title { font-weight: 700; margin-bottom: 4px; }
+    .notif-message { font-size: .85rem; color: #4a6572; margin-bottom: 6px; word-wrap: break-word; }
+    .notif-time { font-size: .7rem; color: #8da4ae; }
+    .notif-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .mark-read-btn { background: none; border: none; color: var(--primary); font-size: .75rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: background .2s; }
+    .mark-read-btn:hover { background: var(--primary-light); }
+    .delete-btn { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: background .2s; }
+    .delete-btn:hover { background: #fee2e2; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #8da4ae; }
+    .empty-state i { font-size: 3rem; margin-bottom: 16px; display: block; color: #dde4e9; }
+    .loading-state { text-align: center; padding: 40px; color: #8da4ae; }
+    .loading-state i { font-size: 2rem; margin-bottom: 12px; display: block; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: #0d2b33; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.15); display: none; z-index: 999; max-width: 320px; }
+    .toast.show { display: flex; align-items: center; gap: 10px; animation: slideUp 0.3s ease; }
+    .toast.success { background: #10b981; }
+    .toast.error { background: #ef4444; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 600px) { .container { padding: 16px; } .notification-item { padding: 14px; flex-wrap: wrap; } .notif-actions { margin-top: 8px; width: 100%; justify-content: flex-end; } }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <a href="dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+  
+  <div class="header">
+    <h1>
+      <i class="fas fa-bell"></i> Notifications
+      <span class="unread-count" id="unreadCount">0</span>
+    </h1>
+    <button class="mark-all" id="markAllBtn"><i class="fas fa-check-double"></i> Mark all as read</button>
+  </div>
+
+  <div id="notificationsList">
+    <div class="loading-state">
+      <i class="fas fa-spinner fa-spin"></i>
+      Loading notifications...
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+const SESSION_KEY = 'mx_sess';
+const API_BASE = '/api';
+
+// ── SESSION HELPERS ──
+function getSession() {
+  try {
+    const data = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch(e) { return null; }
+}
+
+function getToken() {
+  const session = getSession();
+  return session?.token || '';
+}
+
+// ── AUTH CHECK ──
+const session = getSession();
+if (!session || !session.token) {
+  window.location.href = 'login.html';
+}
+
+// ── TOAST ──
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast show ' + type;
+  
+  // Add icon
+  const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : 'fa-info-circle';
+  toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+  
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3000);
+}
+
+// ── API CALL ──
+async function apiCall(path, options = {}) {
+  const token = getToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  try {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: { ...headers, ...options.headers }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  } catch (err) {
+    console.error('API Error:', err);
+    if (err.message.includes('401')) {
+      localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
+      window.location.href = 'login.html';
+    }
+    throw err;
+  }
+}
+
+// ── ESCAPE HTML ──
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+// ── LOAD NOTIFICATIONS ──
+async function loadNotifications() {
+  const container = document.getElementById('notificationsList');
+  
+  try {
+    const result = await apiCall('/notifications');
+    const notifications = result.data || [];
+    const unreadCount = notifications.filter(n => !n.read).length;
+    
+    // Update unread count
+    document.getElementById('unreadCount').textContent = unreadCount;
+    
+    if (!notifications.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-bell-slash"></i>
+          <h3>No notifications yet</h3>
+          <p>When you receive notifications, they'll appear here.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = notifications.map(n => `
+      <div class="notification-item ${!n.read ? 'unread' : ''}" data-id="${n.id}">
+        <div class="notif-icon">
+          <i class="fas ${n.type === 'wallet' ? 'fa-wallet' : n.type === 'order' ? 'fa-shopping-cart' : n.type === 'boost' ? 'fa-chart-line' : n.type === 'giftcard' ? 'fa-gift' : 'fa-bell'}"></i>
+        </div>
+        <div class="notif-content">
+          <div class="notif-title">${escapeHtml(n.title || 'Notification')}</div>
+          <div class="notif-message">${escapeHtml(n.message || '')}</div>
+          <div class="notif-time">
+            <i class="far fa-clock"></i> ${formatTime(n.created_at)}
+          </div>
+        </div>
+        <div class="notif-actions">
+          ${!n.read ? `<button class="mark-read-btn" onclick="markRead('${n.id}')" title="Mark as read"><i class="fas fa-check"></i></button>` : ''}
+          <button class="delete-btn" onclick="deleteNotif('${n.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    `).join('');
+    
+  } catch (err) {
+    console.error('Load notifications error:', err);
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3>Could not load notifications</h3>
+        <p>Please refresh the page to try again.</p>
+      </div>
+    `;
+  }
+}
+
+// ── FORMAT TIME ──
+function formatTime(dateStr) {
+  if (!dateStr) return 'Just now';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now - date;
+  
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  if (diff < 172800000) return 'Yesterday';
+  return date.toLocaleDateString('en-NG', { 
+    day: 'numeric', 
+    month: 'short', 
+    year: 'numeric' 
+  });
+}
+
+// ── MARK AS READ ──
+async function markRead(id) {
+  try {
+    await apiCall(`/notifications/${id}/read`, { method: 'PUT' });
+    await loadNotifications();
+    showToast('Notification marked as read', 'success');
+  } catch (err) {
+    showToast('Failed to mark as read', 'error');
+  }
+}
+
+// ── DELETE NOTIFICATION ──
+async function deleteNotif(id) {
+  if (!confirm('Delete this notification?')) return;
+  try {
+    await apiCall(`/notifications/${id}`, { method: 'DELETE' });
+    await loadNotifications();
+    showToast('Notification deleted', 'success');
+  } catch (err) {
+    showToast('Failed to delete notification', 'error');
+  }
+}
+
+// ── MARK ALL AS READ ──
+document.getElementById('markAllBtn').addEventListener('click', async () => {
+  try {
+    await apiCall('/notifications/read/all', { method: 'PUT' });
+    await loadNotifications();
+    showToast('All notifications marked as read', 'success');
+  } catch (err) {
+    showToast('Failed to mark all as read', 'error');
+  }
+});
+
+// ── AUTO-REFRESH EVERY 30 SECONDS ──
+let refreshInterval = setInterval(loadNotifications, 30000);
+
+// ── INIT ──
+loadNotifications();
+
+// Cleanup interval on page unload
+window.addEventListener('beforeunload', () => {
+  clearInterval(refreshInterval);
+});
+</script>
+</body>
+</html>

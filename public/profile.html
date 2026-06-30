@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>MilesSpace | Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+:root{
+  --p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;
+  --acc:#f59e0b;--acd:#d97706;--acl:#fef3c7;
+  --ok:#10b981;--okl:#d1fae5;
+  --err:#ef4444;--erl:#fee2e2;
+  --bg:#edf1f4;--srf:#fff;--srf2:#f7f9fb;
+  --bdr:#dde4e9;--t1:#0a2530;--t2:#456475;--t3:#8aa4ae;
+  --sw:264px;--r:12px;--rl:18px;--rxl:24px;--rp:999px;
+  --s0:0 1px 3px rgba(12,61,74,.05);--s1:0 2px 10px rgba(12,61,74,.08);
+  --s2:0 8px 28px rgba(12,61,74,.12);--s3:0 20px 56px rgba(12,61,74,.16);
+  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+  --ease:cubic-bezier(.25,.8,.25,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit}
+img{display:block;max-width:100%}
+
+/* OVERLAY */
+.ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.45);backdrop-filter:blur(6px);z-index:490}
+.ov.on{display:block}
+
+/* SIDEBAR */
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+@media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0!important}}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1)}
+.sb-lic{width:30px;height:30px;background:var(--acc);border-radius:8px;display:grid;place-items:center;font-size:.8rem;color:#fff;flex-shrink:0}
+.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.sb-nav{padding:0 8px}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:all .18s;margin-bottom:2px;text-decoration:none}
+.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
+.sb-lnk.active i{color:var(--p)}
+.sb-lnk.proxy-lnk:hover{background:#f5f3ff;color:#7c3aed}
+.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
+.sb-prof:hover{background:var(--bg)}
+.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden}
+.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:all .18s;cursor:pointer}
+.sb-out:hover{background:var(--erl);color:var(--err)}
+
+/* LAYOUT */
+.app{display:flex;min-height:100vh}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* TOPBAR */
+.topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 16px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:10px}
+.tb-hbg{width:38px;height:38px;border-radius:10px;background:var(--pl);color:var(--p);font-size:.9rem;display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:all .2s}
+.tb-hbg:hover{background:var(--p);color:#fff}
+.tb-title{font-family:var(--fd);font-size:.9rem;font-weight:700;color:var(--t1);flex:1}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-btn{width:36px;height:36px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.85rem;cursor:pointer;transition:all .2s;text-decoration:none}
+.tb-btn:hover{background:var(--pl);color:var(--p)}
+.tb-av{width:34px;height:34px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.8rem;color:#fff;border:2px solid var(--acc);cursor:pointer;overflow:hidden;flex-shrink:0}
+.tb-av img{width:100%;height:100%;object-fit:cover}
+
+/* CONTENT */
+.content{padding:16px;flex:1;width:100%;max-width:860px;margin:0 auto}
+@media(min-width:768px){.content{padding:20px 24px}}
+
+/* PROFILE HERO */
+.profile-hero{border-radius:var(--rxl);overflow:hidden;margin-bottom:20px;box-shadow:var(--s2)}
+.cover-wrap{position:relative;height:148px;background:linear-gradient(135deg,var(--p) 0%,#1a5f75 55%,#0a3340 100%);overflow:hidden}
+.cover-wrap::before{content:'';position:absolute;top:-40px;right:-20px;width:220px;height:220px;background:radial-gradient(circle,rgba(245,158,11,.22) 0%,transparent 65%);filter:blur(35px)}
+.cover-edit-btn{position:absolute;top:12px;right:12px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:var(--rp);color:#fff;font-size:.7rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);transition:all .2s}
+.cover-edit-btn:hover{background:rgba(255,255,255,.25)}
+.hero-body{background:var(--srf);padding:0 22px 22px}
+.avatar-zone{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:-46px;margin-bottom:14px}
+.avatar-stack{position:relative;flex-shrink:0}
+.avatar-ring{width:96px;height:96px;border-radius:50%;border:4px solid var(--srf);background:var(--bg);box-shadow:var(--s2);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.avatar-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;display:none;border-radius:50%}
+.avatar-init{font-family:var(--fd);font-size:2rem;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--p),var(--pm));width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.avatar-cam{position:absolute;bottom:0;right:0;width:28px;height:28px;border-radius:50%;background:var(--p);border:2px solid var(--srf);display:grid;place-items:center;color:#fff;font-size:.62rem;cursor:pointer;transition:all .2s}
+.avatar-cam:hover{background:var(--pm);transform:scale(1.1)}
+#avatarFileInput{display:none}
+.upload-ring{display:none;position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.45);place-items:center;flex-direction:column;gap:4px}
+.upload-ring.show{display:flex}
+.profile-meta{padding-top:10px}
+.profile-meta h1{font-family:var(--fd);font-size:1.25rem;font-weight:800;letter-spacing:-.5px;color:var(--t1);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-meta .handle{font-size:.8rem;color:var(--t3);margin-bottom:4px}
+.profile-meta .since{font-size:.7rem;color:var(--t3);display:flex;align-items:center;gap:5px}
+.profile-stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:2px}
+.pstat{text-align:center;min-width:48px}
+.pstat-num{font-family:var(--fd);font-size:1.1rem;font-weight:800;color:var(--t1)}
+.pstat-lbl{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:1px}
+
+/* SECTION CARD */
+.sc{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;margin-bottom:16px;box-shadow:var(--s0)}
+.sc-hd{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px}
+.sc-hd-ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:.82rem;flex-shrink:0}
+.ic-b{background:var(--pl);color:var(--p)}
+.ic-a{background:var(--acl);color:var(--acd)}
+.ic-g{background:var(--okl);color:var(--ok)}
+.ic-r{background:var(--erl);color:var(--err)}
+.sc-hd h2{font-family:var(--fd);font-size:.88rem;font-weight:700;color:var(--t1);margin-bottom:1px}
+.sc-hd p{font-size:.7rem;color:var(--t3)}
+.sc-body{padding:20px}
+
+/* FORMS */
+.fg{margin-bottom:14px}
+.flbl{display:block;font-size:.7rem;font-weight:700;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.finp{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.86rem;color:var(--t1);background:var(--srf2);outline:none;transition:all .2s}
+.finp:focus{border-color:var(--p);background:var(--srf);box-shadow:0 0 0 3px rgba(12,61,74,.07)}
+.finp:disabled{opacity:.6;cursor:not-allowed;background:var(--bg)}
+.fhint{font-size:.68rem;color:var(--t3);margin-top:3px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.fg2{grid-template-columns:1fr}}
+
+/* Phone input group with country code */
+.phone-group{display:flex;gap:10px;align-items:center}
+.country-code{width:100px;flex-shrink:0;background:var(--srf2);border:1.5px solid var(--bdr);border-radius:var(--r);padding:10px 8px;font-size:.86rem;color:var(--t1);font-family:var(--fb);cursor:pointer;outline:none}
+.country-code:focus{border-color:var(--p)}
+.phone-number{flex:1}
+
+/* password eye */
+.pw-wrap{position:relative}
+.pw-wrap .finp{padding-right:40px}
+.pw-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--t3);cursor:pointer;font-size:.85rem;transition:color .2s}
+.pw-eye:hover{color:var(--p)}
+
+/* strength bar */
+.str-bar{margin-top:6px;height:3px;border-radius:99px;background:var(--bdr);overflow:hidden}
+.str-fill{height:100%;border-radius:99px;transition:all .4s var(--ease);width:0}
+.str-fill.weak{background:var(--err);width:25%}
+.str-fill.fair{background:var(--acc);width:55%}
+.str-fill.good{background:#3b82f6;width:80%}
+.str-fill.strong{background:var(--ok);width:100%}
+.str-txt{font-size:.66rem;font-weight:600;margin-top:3px;color:var(--t3)}
+
+/* info row (Account ID removed) */
+.ir{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--bdr);font-size:.8rem}
+.ir:last-child{border-bottom:none}
+.ir-lbl{color:var(--t2);font-weight:500}
+.ir-val{color:var(--t1);font-weight:600;text-align:right}
+
+/* alert */
+.alert{padding:10px 12px;border-radius:var(--r);font-size:.77rem;font-weight:500;display:none;align-items:flex-start;gap:8px;margin-bottom:14px}
+.alert.show{display:flex}
+.alert.ok{background:var(--okl);border:1px solid #a7f3d0;color:#065f46}
+.alert.err{background:var(--erl);border:1px solid #fca5a5;color:#991b1b}
+.alert i{margin-top:1px;flex-shrink:0}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 18px;border-radius:var(--rp);font-family:var(--fb);font-weight:600;font-size:.84rem;transition:all .22s;cursor:pointer;border:1.5px solid transparent;white-space:nowrap;text-decoration:none}
+.btn-p{background:var(--p);color:#fff;border-color:var(--p)}
+.btn-p:hover{background:var(--pm);transform:translateY(-1px)}
+.btn-acc{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn-acc:hover{background:var(--acd);transform:translateY(-1px)}
+.btn-err{background:var(--err);color:#fff;border-color:var(--err)}
+.btn-err:hover{background:#dc2626;transform:translateY(-1px)}
+.btn-o{background:transparent;border-color:var(--bdr);color:var(--t2)}
+.btn-o:hover{border-color:var(--p);color:var(--p)}
+.btn-full{width:100%}
+.btn-lg{padding:12px 22px;font-size:.88rem}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+
+/* danger zone */
+.danger-box{border:1.5px solid #fca5a5;border-radius:var(--rl);padding:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dz-txt h3{font-size:.85rem;font-weight:700;color:var(--err);margin-bottom:2px}
+.dz-txt p{font-size:.74rem;color:var(--t2)}
+
+/* modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(10,37,48,.55);backdrop-filter:blur(7px);z-index:700;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:var(--srf);border-radius:var(--rxl);width:100%;max-width:420px;box-shadow:var(--s3);animation:mIn .3s var(--ease)}
+@keyframes mIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+.modal-hd{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.modal-hd h3{font-family:var(--fd);font-size:.92rem;font-weight:700}
+.modal-x{width:28px;height:28px;border-radius:7px;background:var(--srf2);display:grid;place-items:center;color:var(--t2);cursor:pointer;transition:all .2s}
+.modal-x:hover{background:var(--erl);color:var(--err)}
+.modal-bd{padding:20px}
+.modal-bd p{font-size:.82rem;color:var(--t2);margin-bottom:14px;line-height:1.6}
+.modal-acts{display:flex;gap:10px}
+.modal-acts .btn{flex:1}
+
+/* toasts */
+.toasts{position:fixed;bottom:20px;right:16px;z-index:999;display:flex;flex-direction:column;gap:7px;pointer-events:none;max-width:320px}
+.toast{display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:var(--rp);box-shadow:var(--s2);font-size:.78rem;font-weight:500;pointer-events:auto;animation:tin .25s var(--ease)}
+.toast.ok{background:var(--okl);color:#065f46}
+.toast.err{background:var(--erl);color:#991b1b}
+.toast.info{background:#fff;color:var(--t1)}
+.toast.warn{background:var(--acl);color:#92400e}
+@keyframes tin{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+
+/* mobile nav */
+.mnav{display:none;position:fixed;bottom:12px;left:50%;transform:translateX(-50%);width:calc(100% - 22px);max-width:410px;height:56px;background:rgba(255,255,255,.84);backdrop-filter:blur(28px);border:1px solid rgba(255,255,255,.7);border-radius:20px;box-shadow:0 8px 32px rgba(12,61,74,.18);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+.mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.53rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1}
+.mni i{font-size:.88rem;padding:5px 7px;border-radius:10px;transition:all .2s}
+.mni.active{color:var(--p)}
+.mni.active i{background:var(--pl);color:var(--p)}
+
+@media(max-width:768px){
+  .content{padding:14px 14px 82px}
+  .topbar{height:56px}
+  .mnav{display:flex}
+  .toasts{bottom:82px;right:10px}
+  .hero-body{padding:0 16px 18px}
+  .avatar-ring{width:80px;height:80px}
+  .avatar-init{font-size:1.7rem}
+  .phone-group{flex-direction:column;align-items:stretch;gap:8px}
+  .country-code{width:100%}
+}
+
+.fu{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both}
+.d1{animation-delay:.03s}.d2{animation-delay:.08s}.d3{animation-delay:.13s}.d4{animation-delay:.18s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="ov" id="ov"></div>
+<div class="app">
+
+<!-- SIDEBAR (same as original) -->
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" style="width:28px;height:28px;border-radius:7px;flex-shrink:0">MilesSpace</div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Wallet</a>
+    <a href="social-ads.html" class="sb-lnk"><i class="fas fa-ad"></i> Social Ads</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="profile.html" class="sb-lnk active"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+    <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk"><i class="fas fa-shield-alt"></i> Buy Proxy</a>
+  </nav>
+  <div class="sb-foot">
+    <a href="profile.html" class="sb-prof">
+      <div class="sb-av" id="sbAv">U</div>
+      <div class="sb-ui">
+        <p class="sb-un" id="sbName">Loading…</p>
+        <p class="sb-ue" id="sbEmail"></p>
+      </div>
+      <button class="sb-out" onclick="event.preventDefault();doLogout()"><i class="fas fa-sign-out-alt"></i></button>
+    </a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+    <p class="tb-title">Profile Settings</p>
+    <div class="tb-right">
+      <a href="notifications.html" class="tb-btn"><i class="fas fa-bell"></i></a>
+      <div class="tb-av" id="tbAv">U</div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- PROFILE HERO (unchanged) -->
+    <div class="profile-hero fu d1">
+      <div class="cover-wrap">
+        <label class="cover-edit-btn" for="avatarFileInput"><i class="fas fa-camera"></i> Change Photo</label>
+      </div>
+      <div class="hero-body">
+        <div class="avatar-zone">
+          <div class="avatar-stack">
+            <div class="avatar-ring">
+              <img id="avatarImg" class="avatar-img" alt=""/>
+              <div class="avatar-init" id="avatarInit">U</div>
+              <div class="upload-ring" id="uploadRing">
+                <i class="fas fa-spinner fa-spin" style="color:#fff;font-size:1.1rem"></i>
+              </div>
+            </div>
+            <label class="avatar-cam" for="avatarFileInput"><i class="fas fa-camera"></i></label>
+            <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp,image/gif"/>
+          </div>
+          <div class="profile-stats">
+            <div class="pstat"><div class="pstat-num" id="statOrders">0</div><div class="pstat-lbl">Orders</div></div>
+            <div class="pstat"><div class="pstat-num" id="statDone">0</div><div class="pstat-lbl">Completed</div></div>
+            <div class="pstat"><div class="pstat-num" id="statNGN">₦0</div><div class="pstat-lbl">NGN Bal</div></div>
+            <div class="pstat"><div class="pstat-num" id="statUSD">$0</div><div class="pstat-lbl">USD Bal</div></div>
+          </div>
+        </div>
+        <div class="profile-meta">
+          <h1 id="dispName">Loading…</h1>
+          <p class="handle" id="dispHandle">@—</p>
+          <p class="since"><i class="fas fa-calendar-alt"></i> Member since <span id="dispSince">—</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERSONAL INFO with country code + number-only field -->
+    <div class="sc fu d2">
+      <div class="sc-hd">
+        <div class="sc-hd-ic ic-b"><i class="fas fa-user-edit"></i></div>
+        <div><h2>Personal Information</h2><p>Update your username and contact details</p></div>
+      </div>
+      <div class="sc-body">
+        <div class="alert" id="profileAlert"></div>
+        <form id="profileForm">
+          <div class="fg2">
+            <div class="fg">
+              <label class="flbl">Username</label>
+              <input type="text" id="username" class="finp" placeholder="your_username" maxlength="30"/>
+            </div>
+            <div class="fg">
+              <label class="flbl">Phone Number</label>
+              <div class="phone-group">
+                <select id="countryCode" class="country-code">
+                  <option value="+234">🇳🇬 +234</option>
+                  <option value="+1">🇺🇸 +1</option>
+                  <option value="+44">🇬🇧 +44</option>
+                  <option value="+233">🇬🇭 +233</option>
+                  <option value="+27">🇿🇦 +27</option>
+                  <option value="+254">🇰🇪 +254</option>
+                  <option value="+971">🇦🇪 +971</option>
+                  <option value="+91">🇮🇳 +91</option>
+                </select>
+                <input type="text" id="phoneNumber" class="finp phone-number" placeholder="8012345678" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+              </div>
+              <p class="fhint">Only numbers allowed. We'll use this for order updates and support.</p>
+            </div>
+          </div>
+          <div class="fg">
+            <label class="flbl">Email Address</label>
+            <input type="email" id="email" class="finp" disabled/>
+            <p class="fhint">Email cannot be changed here. Contact support if needed.</p>
+          </div>
+          <button type="submit" class="btn btn-p btn-full btn-lg">
+            <i class="fas fa-save"></i> Save Changes
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- PROFILE PHOTO (same) -->
+    <div class="sc fu d2">
+      <div class="sc-hd">
+        <div class="sc-hd-ic ic-g"><i class="fas fa-image"></i></div>
+        <div><h2>Profile Photo</h2><p>JPG, PNG, WEBP or GIF · Max 2 MB</p></div>
+      </div>
+      <div class="sc-body" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+        <div class="avatar-ring" style="width:68px;height:68px;flex-shrink:0">
+          <img id="previewImg2" class="avatar-img" alt=""/>
+          <div class="avatar-init" id="previewInit2" style="font-size:1.4rem">U</div>
+        </div>
+        <div style="flex:1;min-width:180px">
+          <p style="font-size:.8rem;color:var(--t2);margin-bottom:12px">Upload a clear photo. Square images work best.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <label for="avatarFileInput" class="btn btn-p" style="cursor:pointer"><i class="fas fa-upload"></i> Upload Photo</label>
+            <button class="btn btn-o" onclick="removeAvatar()"><i class="fas fa-trash"></i> Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHANGE PASSWORD (same) -->
+    <div class="sc fu d3">
+      <div class="sc-hd">
+        <div class="sc-hd-ic ic-a"><i class="fas fa-lock"></i></div>
+        <div><h2>Change Password</h2><p>Keep your account secure with a strong password</p></div>
+      </div>
+      <div class="sc-body">
+        <div class="alert" id="pwdAlert"></div>
+        <form id="passwordForm" autocomplete="new-password">
+          <div class="fg">
+            <label class="flbl">Current Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="curPwd" class="finp" placeholder="Current password" autocomplete="current-password"/>
+              <i class="fas fa-eye pw-eye" onclick="togglePwd('curPwd',this)"></i>
+            </div>
+          </div>
+          <div class="fg2">
+            <div class="fg">
+              <label class="flbl">New Password</label>
+              <div class="pw-wrap">
+                <input type="password" id="newPwd" class="finp" placeholder="Min 8 characters" oninput="checkStrength()" autocomplete="new-password"/>
+                <i class="fas fa-eye pw-eye" onclick="togglePwd('newPwd',this)"></i>
+              </div>
+              <div class="str-bar"><div class="str-fill" id="strFill"></div></div>
+              <p class="str-txt" id="strTxt"></p>
+            </div>
+            <div class="fg">
+              <label class="flbl">Confirm New Password</label>
+              <div class="pw-wrap">
+                <input type="password" id="cfmPwd" class="finp" placeholder="Repeat new password" autocomplete="new-password"/>
+                <i class="fas fa-eye pw-eye" onclick="togglePwd('cfmPwd',this)"></i>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-acc btn-full btn-lg">
+            <i class="fas fa-key"></i> Update Password
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ACCOUNT SUMMARY – Account ID REMOVED -->
+    <div class="sc fu d3">
+      <div class="sc-hd">
+        <div class="sc-hd-ic ic-b"><i class="fas fa-chart-bar"></i></div>
+        <div><h2>Account Summary</h2><p>Your account details and activity</p></div>
+      </div>
+      <div class="sc-body">
+        <!-- Account ID line is removed -->
+        <div class="ir"><span class="ir-lbl">Username</span><span class="ir-val" id="infoUsername">—</span></div>
+        <div class="ir"><span class="ir-lbl">Email</span><span class="ir-val" id="infoEmail">—</span></div>
+        <div class="ir"><span class="ir-lbl">Phone</span><span class="ir-val" id="infoPhone">—</span></div>
+        <div class="ir"><span class="ir-lbl">Member Since</span><span class="ir-val" id="infoSince">—</span></div>
+        <div class="ir"><span class="ir-lbl">NGN Balance</span><span class="ir-val" style="color:var(--ok)" id="infoNGN">₦0.00</span></div>
+        <div class="ir"><span class="ir-lbl">USD Balance</span><span class="ir-val" style="color:#6366f1" id="infoUSD">$0.00</span></div>
+        <div class="ir"><span class="ir-lbl">Total Orders</span><span class="ir-val" id="infoOrders">0</span></div>
+        <div class="ir">
+          <span class="ir-lbl">Referral Code</span>
+          <span class="ir-val" style="display:flex;align-items:center;gap:8px">
+            <span id="infoRef" style="font-family:monospace;font-size:.82rem;color:var(--p)">—</span>
+            <button onclick="copyRef()" style="padding:3px 8px;background:var(--pl);color:var(--p);border-radius:6px;font-size:.65rem;font-weight:700;border:none;cursor:pointer"><i class="fas fa-copy"></i></button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DANGER ZONE (same) -->
+    <div class="sc fu d4" style="border-color:#fca5a5">
+      <div class="sc-hd" style="border-bottom-color:#fca5a5">
+        <div class="sc-hd-ic ic-r"><i class="fas fa-exclamation-triangle"></i></div>
+        <div><h2 style="color:var(--err)">Danger Zone</h2><p>Irreversible account actions</p></div>
+      </div>
+      <div class="sc-body">
+        <div class="danger-box">
+          <div class="dz-txt">
+            <h3>Delete Account</h3>
+            <p>Permanently delete your account, wallets, and all data. Cannot be undone.</p>
+          </div>
+          <button class="btn btn-err" onclick="openDeleteModal()"><i class="fas fa-trash-alt"></i> Delete Account</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-bg" id="deleteModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 style="color:var(--err)"><i class="fas fa-trash-alt"></i> Delete Account</h3>
+      <button class="modal-x" onclick="closeDeleteModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="modal-bd">
+      <p>This will permanently delete your account, wallet balances (NGN & USD), and all transaction history. <strong>This cannot be undone.</strong></p>
+      <div class="fg">
+        <label class="flbl">Type DELETE to confirm</label>
+        <input type="text" id="delConfInp" class="finp" placeholder="DELETE"/>
+      </div>
+      <div class="modal-acts">
+        <button class="btn btn-o" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-err" id="delBtn" onclick="deleteAccount()"><i class="fas fa-trash-alt"></i> Delete Forever</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="mnav">
+  <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+  <a href="fund.html" class="mni"><i class="fas fa-wallet"></i><span>Wallet</span></a>
+  <a href="market.html" class="mni"><i class="fas fa-store"></i><span>Market</span></a>
+  <a href="profile.html" class="mni active"><i class="fas fa-user"></i><span>Profile</span></a>
+</nav>
+<div class="toasts" id="toastWrap"></div>
+
+<script>
+'use strict';
+const SK = 'mx_sess';
+const API = '/api';
+
+function getSess() { try { return JSON.parse(localStorage.getItem(SK) || sessionStorage.getItem(SK) || 'null'); } catch { return null; } }
+function getToken() { return getSess()?.token || ''; }
+if (!getSess()?.token) location.href = 'signup.html';
+
+async function api(path, opts = {}) {
+  const h = {};
+  const t = getToken();
+  if (t) h['Authorization'] = `Bearer ${t}`;
+  if (!(opts.body instanceof FormData)) h['Content-Type'] = 'application/json';
+  const r = await fetch(API + path, { ...opts, headers: { ...h, ...(opts.headers || {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+
+const fNGN = n => '₦' + (+n || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fUSD = n => '$' + (+n || 0).toFixed(2);
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toastWrap');
+  const e = document.createElement('div');
+  e.className = `toast ${type}`;
+  const ic = { ok:'fa-check-circle', err:'fa-times-circle', warn:'fa-exclamation-triangle', info:'fa-info-circle' };
+  e.innerHTML = `<i class="fas ${ic[type] || ic.info}"></i><span>${msg}</span>`;
+  c.appendChild(e);
+  setTimeout(() => { e.style.cssText = 'opacity:0;transition:all .25s;transform:translateX(30px)'; setTimeout(() => e.remove(), 260); }, 3800);
+}
+
+function showAlert(id, msg, type = 'ok') {
+  const el = document.getElementById(id);
+  el.className = `alert show ${type}`;
+  el.innerHTML = `<i class="fas ${type === 'ok' ? 'fa-check-circle' : 'fa-times-circle'}"></i><span>${msg}</span>`;
+  setTimeout(() => { el.className = 'alert'; el.innerHTML = ''; }, 5000);
+}
+
+function setAvatarUI(url, initial) {
+  const img = document.getElementById('avatarImg');
+  const init = document.getElementById('avatarInit');
+  const p2img = document.getElementById('previewImg2');
+  const p2init = document.getElementById('previewInit2');
+  const sbAv = document.getElementById('sbAv');
+  const tbAv = document.getElementById('tbAv');
+  if (url) {
+    [img, p2img].forEach(el => { el.src = url; el.style.display = 'block'; });
+    [init, p2init].forEach(el => el.style.display = 'none');
+    sbAv.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`;
+    tbAv.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`;
+  } else {
+    [img, p2img].forEach(el => el.style.display = 'none');
+    [init, p2init].forEach(el => { el.style.display = 'flex'; el.textContent = initial; });
+    sbAv.textContent = initial;
+    tbAv.textContent = initial;
+  }
+}
+
+async function loadProfile() {
+  try {
+    const { data } = await api('/profile');
+    const name = data.username || data.email?.split('@')[0] || 'User';
+    const init = name.charAt(0).toUpperCase();
+    const handle = data.username ? `@${data.username}` : '@user';
+
+    document.getElementById('username').value = data.username || '';
+    const fullPhone = data.phone || '';
+    let savedCode = '+234';
+    let savedNum = '';
+    if (fullPhone.startsWith('+')) {
+      const match = fullPhone.match(/^(\+\d{1,3})(.*)$/);
+      if (match) { savedCode = match[1]; savedNum = match[2]; }
+    } else { savedNum = fullPhone; }
+    document.getElementById('countryCode').value = savedCode;
+    document.getElementById('phoneNumber').value = savedNum;
+    document.getElementById('email').value = data.email || '';
+
+    document.getElementById('dispName').textContent = name;
+    document.getElementById('dispHandle').textContent = handle;
+    document.getElementById('dispSince').textContent = data.created_at ? new Date(data.created_at).toLocaleDateString('en-NG', { year:'numeric', month:'short' }) : '—';
+    document.getElementById('statOrders').textContent = data.total_orders || 0;
+    document.getElementById('statDone').textContent = data.completed_orders || 0;
+    document.getElementById('statNGN').textContent = '₦' + (+data.wallet_ngn || 0).toLocaleString('en-NG', { maximumFractionDigits:0 });
+    document.getElementById('statUSD').textContent = '$' + (+data.wallet_usd || 0).toFixed(2);
+    document.getElementById('sbName').textContent = name;
+    document.getElementById('sbEmail').textContent = data.email || '';
+    document.getElementById('infoUsername').textContent = data.username || '—';
+    document.getElementById('infoEmail').textContent = data.email || '—';
+    document.getElementById('infoPhone').textContent = data.phone || '—';
+    document.getElementById('infoSince').textContent = data.created_at ? new Date(data.created_at).toLocaleDateString('en-NG', { year:'numeric', month:'long', day:'numeric' }) : '—';
+    document.getElementById('infoNGN').textContent = fNGN(data.wallet_ngn || 0);
+    document.getElementById('infoUSD').textContent = fUSD(data.wallet_usd || 0);
+    document.getElementById('infoOrders').textContent = data.total_orders || 0;
+    document.getElementById('infoRef').textContent = data.referral_code || '—';
+    setAvatarUI(data.avatar_url || '', init);
+  } catch (e) { console.warn(e); toast('Failed to load profile', 'warn'); }
+}
+
+document.getElementById('avatarFileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)) { toast('Only JPG, PNG, WEBP or GIF allowed', 'err'); return; }
+  if (file.size > 2 * 1024 * 1024) { toast('Image must be under 2 MB', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('avatarImg').src = ev.target.result;
+    document.getElementById('avatarImg').style.display = 'block';
+    document.getElementById('avatarInit').style.display = 'none';
+    document.getElementById('previewImg2').src = ev.target.result;
+    document.getElementById('previewImg2').style.display = 'block';
+    document.getElementById('previewInit2').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  const ring = document.getElementById('uploadRing');
+  ring.classList.add('show');
+  const fd = new FormData();
+  fd.append('avatar', file);
+  try {
+    const r = await fetch(`${API}/profile/avatar`, { method:'POST', headers:{ Authorization:`Bearer ${getToken()}` }, body: fd });
+    const d = await r.json();
+    ring.classList.remove('show');
+    if (d.success) { toast('Profile photo updated!', 'ok'); setAvatarUI(d.avatar_url, document.getElementById('avatarInit').textContent || 'U'); }
+    else toast(d.error || 'Upload failed', 'err');
+  } catch { ring.classList.remove('show'); toast('Upload failed', 'err'); }
+  e.target.value = '';
+});
+
+async function removeAvatar() {
+  if (!confirm('Remove your profile photo?')) return;
+  try {
+    await api('/profile/avatar', { method:'DELETE' });
+    const init = document.getElementById('username').value.charAt(0).toUpperCase() || 'U';
+    setAvatarUI('', init);
+    toast('Photo removed', 'ok');
+  } catch (e) { toast(e.message || 'Failed to remove photo', 'err'); }
+}
+
+document.getElementById('profileForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  const countryCode = document.getElementById('countryCode').value;
+  const phoneNumber = document.getElementById('phoneNumber').value.replace(/[^0-9]/g, '');
+  const fullPhone = phoneNumber ? `${countryCode}${phoneNumber}` : '';
+  try {
+    await api('/profile', { method:'PUT', body: JSON.stringify({
+      username: document.getElementById('username').value.trim(),
+      phone: fullPhone,
+    }) });
+    showAlert('profileAlert', 'Profile updated successfully!', 'ok');
+    loadProfile();
+  } catch (err) { showAlert('profileAlert', err.message || 'Update failed', 'err'); }
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+});
+
+function togglePwd(id, eye) {
+  const inp = document.getElementById(id);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  eye.className = `fas fa-eye${show ? '-slash' : ''} pw-eye`;
+}
+function checkStrength() {
+  const v = document.getElementById('newPwd').value;
+  const fill = document.getElementById('strFill');
+  const txt = document.getElementById('strTxt');
+  if (!v) { fill.className = 'str-fill'; txt.textContent = ''; return; }
+  let s = 0;
+  if (v.length >= 8) s++;
+  if (/[A-Z]/.test(v)) s++;
+  if (/[0-9]/.test(v)) s++;
+  if (/[^A-Za-z0-9]/.test(v)) s++;
+  const lvl = [['',''],['weak','Weak'],['fair','Fair'],['good','Good'],['strong','Strong!']];
+  fill.className = 'str-fill ' + lvl[s][0];
+  txt.textContent = lvl[s][1];
+  txt.style.color = s <= 1 ? 'var(--err)' : s === 2 ? 'var(--acc)' : s === 3 ? '#3b82f6' : 'var(--ok)';
+}
+document.getElementById('passwordForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const cur = document.getElementById('curPwd').value;
+  const nw = document.getElementById('newPwd').value;
+  const cf = document.getElementById('cfmPwd').value;
+  if (!cur) { showAlert('pwdAlert', 'Enter your current password', 'err'); return; }
+  if (nw.length < 6) { showAlert('pwdAlert', 'New password must be at least 6 characters', 'err'); return; }
+  if (nw !== cf) { showAlert('pwdAlert', 'New passwords do not match', 'err'); return; }
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating…';
+  try {
+    await api('/profile/password', { method:'PUT', body: JSON.stringify({ current_password: cur, new_password: nw }) });
+    showAlert('pwdAlert', 'Password changed successfully! 🎉', 'ok');
+    document.getElementById('passwordForm').reset();
+    document.getElementById('strFill').className = 'str-fill';
+    document.getElementById('strTxt').textContent = '';
+  } catch (err) { showAlert('pwdAlert', err.message || 'Failed to change password', 'err'); }
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-key"></i> Update Password';
+});
+
+function copyRef() {
+  const code = document.getElementById('infoRef').textContent;
+  if (code === '—') return;
+  navigator.clipboard.writeText(code).then(() => toast('Referral code copied!', 'ok'));
+}
+
+function openDeleteModal() { document.getElementById('deleteModal').classList.add('open'); }
+function closeDeleteModal() { document.getElementById('deleteModal').classList.remove('open'); document.getElementById('delConfInp').value = ''; }
+async function deleteAccount() {
+  if (document.getElementById('delConfInp').value !== 'DELETE') { toast('Type DELETE to confirm', 'err'); return; }
+  const btn = document.getElementById('delBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting…';
+  try {
+    await api('/profile/delete', { method:'DELETE' });
+    localStorage.removeItem(SK); sessionStorage.removeItem(SK);
+    toast('Account deleted', 'ok');
+    setTimeout(() => location.href = 'signup.html', 1500);
+  } catch (e) { toast(e.message || 'Delete failed', 'err'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete Forever'; }
+}
+
+function initSidebar() {
+  const sb = document.getElementById('sb');
+  const ov = document.getElementById('ov');
+  const hbg = document.getElementById('hbg');
+  hbg?.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('on'); });
+  ov?.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('on'); });
+  window.addEventListener('resize', () => { if (window.innerWidth >= 1025) { sb.classList.remove('open'); ov.classList.remove('on'); } });
+}
+function doLogout() { try { api('/auth/logout', { method:'POST' }); } catch {} localStorage.removeItem(SK); sessionStorage.removeItem(SK); location.href = 'signup.html'; }
+initSidebar();
+loadProfile();
+</script>
+</body>
+</html>  
