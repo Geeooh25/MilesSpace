@@ -4,10 +4,21 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
 <title>MilesSpace | Virtual Numbers</title>
+
+<!-- Preload critical resources -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" as="style"/>
+<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style"/>
+
+<!-- Load critical CSS -->
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
 <style>
-/* ════ TOKENS ════ */
+/* ════════════════════════════════════════════
+   CSS VARIABLES & RESET
+════════════════════════════════════════════ */
 :root{
   --p:#0B1220;--pm:#1A2C3E;--pl:#eef1f6;--pxl:#f5f7fa;
   --acc:#F5A623;--acd:#d98c12;--acl:#fff6e6;
@@ -23,7 +34,7 @@
   --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
   --ease:cubic-bezier(.25,.8,.25,1);
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:15px;scroll-behavior:smooth}
 body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 a{text-decoration:none;color:inherit}
@@ -33,12 +44,19 @@ input,select{font-family:inherit}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:4px}
 
+/* ── LOADING SKELETON ── */
+.skeleton{animation:shimmer 1.5s ease-in-out infinite}
+@keyframes shimmer{0%{opacity:.35}50%{opacity:.9}100%{opacity:.35}}
+.skel{background:var(--bdr);border-radius:var(--r)}
+.skel-cc{height:44px;margin-bottom:4px}
+.skel-svc{height:62px;margin-bottom:5px}
+
 /* ── OVERLAY ── */
 .ov{display:none;position:fixed;inset:0;background:rgba(11,18,32,.4);backdrop-filter:blur(4px);z-index:490}
 .ov.on{display:block}
 
 /* ── SIDEBAR ── */
-.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto}
 .sidebar::-webkit-scrollbar{display:none}
 @media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
 @media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0!important}}
@@ -47,13 +65,13 @@ input,select{font-family:inherit}
 .sb-lic{width:28px;height:28px;background:var(--acc);border-radius:7px;display:grid;place-items:center;font-size:.75rem;color:#fff;flex-shrink:0}
 .sb-sec{padding:14px 16px 4px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
 .sb-nav{padding:0 8px}
-.sb-lnk{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);color:var(--t2);font-size:.83rem;font-weight:500;transition:all .18s;margin-bottom:1px;text-decoration:none}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);color:var(--t2);font-size:.83rem;font-weight:500;transition:all .18s;margin-bottom:1px}
 .sb-lnk i{width:15px;text-align:center;font-size:.82rem;flex-shrink:0;opacity:.7}
 .sb-lnk:hover{background:var(--bg);color:var(--t1)}
 .sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
 .sb-lnk.active i{color:var(--p);opacity:1}
 .sb-foot{margin-top:auto;padding:10px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
-.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer}
 .sb-prof:hover{background:var(--bg)}
 .sb-av{width:30px;height:30px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.78rem;color:#fff;flex-shrink:0;overflow:hidden}
 .sb-ui{flex:1;min-width:0}
@@ -62,7 +80,7 @@ input,select{font-family:inherit}
 .sb-out{width:24px;height:24px;border-radius:5px;display:grid;place-items:center;color:var(--t3);font-size:.74rem;transition:all .18s;cursor:pointer}
 .sb-out:hover{background:var(--erl);color:var(--err)}
 
-/* ── APP / MAIN ── */
+/* ── APP ── */
 .app{display:flex;min-height:100vh}
 .main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
 
@@ -72,7 +90,7 @@ input,select{font-family:inherit}
 .tb-hbg:hover{background:var(--p);color:#fff}
 .tb-title{font-family:var(--fd);font-size:.88rem;font-weight:700;color:var(--t1);flex:1}
 .tb-right{margin-left:auto;display:flex;align-items:center;gap:7px;flex-shrink:0}
-.tb-btn{width:34px;height:34px;border-radius:8px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.82rem;cursor:pointer;transition:all .2s;text-decoration:none}
+.tb-btn{width:34px;height:34px;border-radius:8px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.82rem;cursor:pointer;transition:all .2s}
 .tb-btn:hover{background:var(--pl);color:var(--p)}
 .tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.76rem;color:#fff;border:2px solid var(--acc);cursor:pointer;flex-shrink:0}
 
@@ -132,7 +150,7 @@ input,select{font-family:inherit}
 .search-clr.show{display:block}
 
 /* ── COUNTRY GRID ── */
-.country-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:7px;max-height:420px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.country-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:7px;max-height:420px;overflow-y:auto;padding-right:2px}
 .country-grid::-webkit-scrollbar{width:3px}
 .country-grid::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
 .c-card{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1.5px solid var(--bdr);border-radius:var(--r);cursor:pointer;transition:all .18s;background:var(--srf);user-select:none}
@@ -143,15 +161,8 @@ input,select{font-family:inherit}
 .c-chk{width:15px;height:15px;border-radius:50%;background:var(--p);display:none;place-items:center;font-size:.42rem;color:#fff;flex-shrink:0}
 .c-card.sel .c-chk{display:grid}
 
-/* ── SKELETON ── */
-.skeleton{animation:shimmer 1.5s infinite}
-@keyframes shimmer{0%{opacity:.35}50%{opacity:.9}100%{opacity:.35}}
-.skel{background:var(--bdr);border-radius:var(--r)}
-.skel-cc{height:44px}
-.skel-svc{height:62px;margin-bottom:5px}
-
 /* ── SERVICE LIST ── */
-.svc-list{display:flex;flex-direction:column;gap:5px;max-height:480px;overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.svc-list{display:flex;flex-direction:column;gap:5px;max-height:480px;overflow-y:auto;padding-right:2px}
 .svc-list::-webkit-scrollbar{width:3px}
 .svc-list::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
 .svc-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);cursor:pointer;transition:all .18s;background:var(--srf);user-select:none}
@@ -168,7 +179,7 @@ input,select{font-family:inherit}
 .av-hi{color:var(--ok)}
 .av-lo{color:var(--warn)}
 
-/* ── EMPTY / ERROR STATES ── */
+/* ── EMPTY STATES ── */
 .state-empty{text-align:center;padding:32px 16px;color:var(--t3)}
 .state-empty i{font-size:1.8rem;display:block;margin-bottom:10px;color:var(--bdr)}
 .state-empty p{font-size:.82rem;font-weight:600;color:var(--t1);margin-bottom:4px}
@@ -177,14 +188,13 @@ input,select{font-family:inherit}
 .state-err i{font-size:1.6rem;display:block;margin-bottom:9px;color:var(--err)}
 .state-err p{font-size:.82rem;font-weight:600;color:var(--t1);margin-bottom:3px}
 .state-err span{font-size:.72rem;color:var(--t3);display:block;margin-bottom:12px}
-.btn-retry{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--rp);background:var(--pl);color:var(--p);font-size:.76rem;font-weight:700;cursor:pointer;transition:all .2s;border:none}
+.btn-retry{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--rp);background:var(--pl);color:var(--p);font-size:.76rem;font-weight:700;cursor:pointer;transition:all .2s}
 .btn-retry:hover{background:var(--p);color:#fff}
 
 /* ── ORDER CARD ── */
 .order-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0);position:sticky;top:74px}
 @media(max-width:1000px){.order-card{position:static}}
 
-/* Hero */
 .oc-hero{background:linear-gradient(150deg,var(--p) 0%,var(--pm) 100%);padding:20px 18px;color:#fff;position:relative;overflow:hidden;display:none}
 .oc-hero.on{display:block}
 .oc-hero::before{content:'';position:absolute;top:-30px;right:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(245,166,35,.22),transparent 70%);pointer-events:none}
@@ -203,7 +213,6 @@ input,select{font-family:inherit}
 .pb-val{font-weight:600;color:rgba(255,255,255,.88)}
 .pb-hi{font-family:var(--fd);font-size:1.05rem;font-weight:800;color:var(--acc)}
 
-/* Body */
 .oc-body{padding:15px}
 .oc-avail{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .avail-bar{flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden}
@@ -223,7 +232,7 @@ input,select{font-family:inherit}
 .btn-sec-lbl{font-size:.65rem;color:var(--t3);text-align:center}
 .btn-sec-lbl i{color:var(--p)}
 
-/* Active number */
+/* ── ACTIVE BANNER ── */
 .act-banner{border-radius:var(--rl);padding:14px;margin:13px;display:none;background:linear-gradient(135deg,var(--ok),#047857);animation:popIn .35s var(--ease)}
 .act-banner.on{display:block}
 @keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
@@ -242,7 +251,7 @@ input,select{font-family:inherit}
 .ab-btn:disabled{opacity:.4;cursor:not-allowed}
 .ab-timer{font-size:.6rem;color:rgba(255,255,255,.5);text-align:center}
 
-/* Mini history */
+/* ── MINI HISTORY ── */
 .mini-hist{padding:13px 16px;border-top:1px solid var(--bdr)}
 .mini-hist h4{font-family:var(--fd);font-size:.76rem;font-weight:700;color:var(--t1);margin-bottom:9px}
 .mh-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--bdr)}
@@ -272,13 +281,19 @@ input,select{font-family:inherit}
 .mni.active i{background:var(--pl);color:var(--p)}
 @media(max-width:768px){.content{padding:14px 13px 82px}.topbar{height:54px}.mnav{display:flex}.virtual-layout{grid-template-columns:1fr}}
 
-/* ── ANIM ── */
+/* ── ANIMATIONS ── */
 .fu{animation:fadeUp .38s var(--ease) both}
 .d1{animation-delay:.03s}.d2{animation-delay:.07s}.d3{animation-delay:.11s}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 </style>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- SESSION MANAGER -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<script src="/js/session.js"></script>
 </head>
 <body>
+
 <div class="ov" id="ov"></div>
 <div class="app">
 
@@ -290,17 +305,17 @@ input,select{font-family:inherit}
   <p class="sb-sec">Menu</p>
   <nav class="sb-nav">
     <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
-    <a href="boost.html"     class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
-    <a href="virtual.html"   class="sb-lnk active"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
-    <a href="market.html"    class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html" class="sb-lnk active"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
     <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
-    <a href="history.html"   class="sb-lnk"><i class="fas fa-history"></i> History</a>
-    <a href="fund.html"      class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+    <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
     <a href="social-ads.html" class="sb-lnk"><i class="fas fa-ad"></i> Social Ads</a>
   </nav>
   <p class="sb-sec">Account</p>
   <nav class="sb-nav">
-    <a href="profile.html"       class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
     <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
     <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk"><i class="fas fa-shield-alt"></i> Buy Proxy</a>
   </nav>
@@ -308,7 +323,7 @@ input,select{font-family:inherit}
     <a href="profile.html" class="sb-prof">
       <div class="sb-av" id="sbAv">U</div>
       <div class="sb-ui"><p class="sb-un" id="sbName">User</p><p class="sb-ue" id="sbEmail"></p></div>
-      <button class="sb-out" onclick="event.preventDefault();doLogout()"><i class="fas fa-sign-out-alt"></i></button>
+      <button class="sb-out" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button>
     </a>
   </div>
 </aside>
@@ -444,14 +459,11 @@ input,select{font-family:inherit}
 
           <!-- Body -->
           <div class="oc-body">
-            <!-- Empty state -->
             <div id="ocEmpty" class="state-empty">
               <i class="fas fa-phone-slash"></i>
               <p>No number selected</p>
               <span>Pick a country, then a service</span>
             </div>
-
-            <!-- Ready state -->
             <div id="ocReady" style="display:none">
               <div class="oc-avail">
                 <div class="avail-bar"><div class="avail-fill" id="availFill" style="width:0%"></div></div>
@@ -487,527 +499,804 @@ input,select{font-family:inherit}
 </div>
 </div>
 
+<!-- ════ MOBILE NAV ════ -->
 <nav class="mnav">
   <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
-  <a href="boost.html"     class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
-  <a href="fund.html"      class="mni"><i class="fas fa-wallet"></i><span>Fund</span></a>
-  <a href="virtual.html"   class="mni active"><i class="fas fa-phone-alt"></i><span>Numbers</span></a>
-  <a href="profile.html"   class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
+  <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+  <a href="fund.html" class="mni"><i class="fas fa-wallet"></i><span>Fund</span></a>
+  <a href="virtual.html" class="mni active"><i class="fas fa-phone-alt"></i><span>Numbers</span></a>
+  <a href="profile.html" class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
 </nav>
+
+<!-- ════ TOASTS ════ -->
 <div class="toasts" id="toastWrap"></div>
 
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- MAIN APPLICATION SCRIPT - OPTIMIZED with Code Splitting -->
+<!-- ════════════════════════════════════════════════════════════ -->
 <script>
 'use strict';
-/* ═══════════════════════════════════════════════════════════
-   VIRTUAL NUMBERS — Miles Exchange
-   • Pricing applied by backend: USD = VSMS × 2.5, NGN = USD × 1300
-   • Frontend displays sellingUSD / sellingNGN exactly as returned
-   • NEVER calculate prices here
-   • NEVER show out-of-stock services
-═══════════════════════════════════════════════════════════ */
 
-const PROXY = '/api/virtual';
-const SK    = 'mx_sess';
-const CACHE_KEY = 'mx_vcountries';
-const CACHE_TTL = 5 * 60 * 1000;
-
-/* ── STATE ── */
-let countries    = [];
-let services     = [];
-let selCountry   = null;
-let selSvc       = null;
-let rental       = null;   // { id, phone }
-let timerId      = null;
-let pollId       = null;
-let timerSecs    = 0;
-
-/* ── FORMAT (no calculations — just display) ── */
-const fUSD = n => '$'  + (+n||0).toFixed(2);
-const fNGN = n => '₦'  + (+n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
-const fTime= s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
-
-/* ── TOAST ── */
-function toast(msg, type='info'){
-  const c = document.getElementById('toastWrap');
-  const e = document.createElement('div');
-  e.className = `toast ${type}`;
-  const ic = {ok:'fa-check-circle',err:'fa-times-circle',warn:'fa-triangle-exclamation',info:'fa-circle-info'};
-  e.innerHTML = `<i class="fas ${ic[type]||ic.info}"></i><span>${msg}</span>`;
-  c.appendChild(e);
-  setTimeout(()=>{e.style.cssText='opacity:0;transition:.3s';setTimeout(()=>e.remove(),300);},3800);
-}
-
-/* ── AUTH + API ── */
-function getToken(){
-  try{return JSON.parse(localStorage.getItem(SK)||sessionStorage.getItem(SK)||'null')?.token||'';}
-  catch{return '';}
-}
-async function call(path, opts={}){
-  const h={'Content-Type':'application/json'};
-  const t=getToken(); if(t) h['Authorization']=`Bearer ${t}`;
-  const ctrl=new AbortController();
-  const tid=setTimeout(()=>ctrl.abort(),15000);
-  try{
-    const r=await fetch(PROXY+path,{...opts,signal:ctrl.signal,headers:{...h,...(opts.headers||{})}});
-    clearTimeout(tid);
-    const j=await r.json().catch(()=>({error:'Parse error'}));
-    if(!r.ok) throw new Error(j.error||`HTTP ${r.status}`);
-    return j;
-  }catch(e){
-    clearTimeout(tid);
-    if(e.name==='AbortError') throw new Error('Request timed out (15s)');
-    throw e;
-  }
-}
-
-/* ── STEP BAR ── */
-function setStep(n){
-  [1,2,3].forEach(i=>{
-    const el=document.getElementById('step'+i);
-    el.className='step-dot'+(i<n?' done':i===n?' active':'');
-  });
-}
-
-/* ── DEBOUNCE ── */
-function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
-
-/* ════════════════════════════════════════
-   FLAG MAP — 100+ countries
-════════════════════════════════════════ */
-const FLAGS = {
-  'afghanistan':'🇦🇫','albania':'🇦🇱','algeria':'🇩🇿','andorra':'🇦🇩','angola':'🇦🇴',
-  'argentina':'🇦🇷','armenia':'🇦🇲','australia':'🇦🇺','austria':'🇦🇹','azerbaijan':'🇦🇿',
-  'bahrain':'🇧🇭','bangladesh':'🇧🇩','belarus':'🇧🇾','belgium':'🇧🇪','belize':'🇧🇿',
-  'bolivia':'🇧🇴','bosnia':'🇧🇦','botswana':'🇧🇼','brazil':'🇧🇷','brunei':'🇧🇳',
-  'bulgaria':'🇧🇬','cambodia':'🇰🇭','cameroon':'🇨🇲','canada':'🇨🇦','chile':'🇨🇱',
-  'china':'🇨🇳','colombia':'🇨🇴','costa rica':'🇨🇷','croatia':'🇭🇷','cuba':'🇨🇺',
-  'cyprus':'🇨🇾','czech republic':'🇨🇿','czechia':'🇨🇿','denmark':'🇩🇰',
-  'dominican republic':'🇩🇴','ecuador':'🇪🇨','egypt':'🇪🇬','estonia':'🇪🇪',
-  'ethiopia':'🇪🇹','finland':'🇫🇮','france':'🇫🇷','georgia':'🇬🇪','germany':'🇩🇪',
-  'ghana':'🇬🇭','greece':'🇬🇷','guatemala':'🇬🇹','honduras':'🇭🇳','hong kong':'🇭🇰',
-  'hungary':'🇭🇺','iceland':'🇮🇸','india':'🇮🇳','indonesia':'🇮🇩','iran':'🇮🇷',
-  'iraq':'🇮🇶','ireland':'🇮🇪','israel':'🇮🇱','italy':'🇮🇹','jamaica':'🇯🇲',
-  'japan':'🇯🇵','jordan':'🇯🇴','kazakhstan':'🇰🇿','kenya':'🇰🇪','kuwait':'🇰🇼',
-  'kyrgyzstan':'🇰🇬','laos':'🇱🇦','latvia':'🇱🇻','lebanon':'🇱🇧','libya':'🇱🇾',
-  'lithuania':'🇱🇹','luxembourg':'🇱🇺','malaysia':'🇲🇾','mali':'🇲🇱','malta':'🇲🇹',
-  'mauritius':'🇲🇺','mexico':'🇲🇽','moldova':'🇲🇩','mongolia':'🇲🇳','morocco':'🇲🇦',
-  'mozambique':'🇲🇿','myanmar':'🇲🇲','nepal':'🇳🇵','netherlands':'🇳🇱',
-  'new zealand':'🇳🇿','nicaragua':'🇳🇮','nigeria':'🇳🇬','north korea':'🇰🇵',
-  'norway':'🇳🇴','oman':'🇴🇲','pakistan':'🇵🇰','panama':'🇵🇦','paraguay':'🇵🇾',
-  'peru':'🇵🇪','philippines':'🇵🇭','poland':'🇵🇱','portugal':'🇵🇹','qatar':'🇶🇦',
-  'romania':'🇷🇴','russia':'🇷🇺','rwanda':'🇷🇼','saudi arabia':'🇸🇦','senegal':'🇸🇳',
-  'serbia':'🇷🇸','singapore':'🇸🇬','slovakia':'🇸🇰','slovenia':'🇸🇮',
-  'south africa':'🇿🇦','south korea':'🇰🇷','spain':'🇪🇸','sri lanka':'🇱🇰',
-  'sweden':'🇸🇪','switzerland':'🇨🇭','taiwan':'🇹🇼','tajikistan':'🇹🇯',
-  'tanzania':'🇹🇿','thailand':'🇹🇭','tunisia':'🇹🇳','turkey':'🇹🇷',
-  'turkmenistan':'🇹🇲','uganda':'🇺🇬','ukraine':'🇺🇦',
-  'united arab emirates':'🇦🇪','uae':'🇦🇪',
-  'united kingdom':'🇬🇧','uk':'🇬🇧',
-  'united states':'🇺🇸','usa':'🇺🇸','u.s.a.':'🇺🇸',
-  'uruguay':'🇺🇾','uzbekistan':'🇺🇿','venezuela':'🇻🇪','vietnam':'🇻🇳',
-  'yemen':'🇾🇪','zambia':'🇿🇲','zimbabwe':'🇿🇼',
+// ─── CONFIG ───
+const CONFIG = {
+    API: '/api/virtual',
+    CACHE_TTL: 5 * 60 * 1000,
+    MAX_RETRIES: 2,
+    RETRY_DELAY: 1000
 };
-function getFlag(name){
-  if(!name) return '🌐';
-  const k=name.toLowerCase().trim();
-  if(FLAGS[k]) return FLAGS[k];
-  for(const [key,val] of Object.entries(FLAGS)) if(k.includes(key)||key.includes(k)) return val;
-  return '🌐';
-}
 
-/* ════════════════════════════════════════
-   SERVICE ICON MAP
-════════════════════════════════════════ */
-const SVC_STYLES = {
-  wa:  {icon:'fab fa-whatsapp',   bg:'#25d366'},
-  tg:  {icon:'fab fa-telegram',   bg:'#0088cc'},
-  go:  {icon:'fab fa-google',     bg:'#4285f4'},
-  fb:  {icon:'fab fa-facebook',   bg:'#1877f2'},
-  ig:  {icon:'fab fa-instagram',  bg:'linear-gradient(135deg,#833ab4,#fd1d1d)'},
-  tw:  {icon:'fab fa-twitter',    bg:'#1da1f2'},
-  tk:  {icon:'fab fa-tiktok',     bg:'#111'},
-  dc:  {icon:'fab fa-discord',    bg:'#5865f2'},
-  yt:  {icon:'fab fa-youtube',    bg:'#ff0000'},
-  ub:  {icon:'fab fa-uber',       bg:'#000'},
-  bn:  {icon:'fas fa-coins',      bg:'#f3a900'},
-  am:  {icon:'fab fa-amazon',     bg:'#ff9900'},
-  ap:  {icon:'fab fa-apple',      bg:'#555'},
-  li:  {icon:'fab fa-linkedin',   bg:'#0a66c2'},
-  sp:  {icon:'fab fa-spotify',    bg:'#1db954'},
-  sk:  {icon:'fab fa-skype',      bg:'#00aff0'},
-  pp:  {icon:'fab fa-paypal',     bg:'#003087'},
-  ms:  {icon:'fab fa-microsoft',  bg:'#00a4ef'},
-  sn:  {icon:'fab fa-snapchat',   bg:'#fffc00'},
-  pi:  {icon:'fab fa-pinterest',  bg:'#e60023'},
-  rd:  {icon:'fab fa-reddit',     bg:'#ff4500'},
-  wc:  {icon:'fas fa-comment',    bg:'#07c160'},
-  vi:  {icon:'fas fa-video',      bg:'#665cac'},
-  tn:  {icon:'fas fa-fire',       bg:'#fe3c72'},
-  bd:  {icon:'fas fa-comment',    bg:'#ff6b6b'},
-  bm:  {icon:'fas fa-heart',      bg:'#e91e63'},
-  ok:  {icon:'fas fa-circle',     bg:'#f47321'},
-  ai:  {icon:'fas fa-robot',      bg:'#10a37f'},
-  gp:  {icon:'fas fa-brain',      bg:'#10a37f'},
-  nf:  {icon:'fas fa-play-circle',bg:'#e50914'},
-  em:  {icon:'fas fa-envelope',   bg:'#ea4335'},
-  default:{icon:'fas fa-mobile-screen-button',bg:'#6b7280'},
+// ─── STATE (Smart State Management) ───
+const State = {
+    countries: [],
+    services: [],
+    selCountry: null,
+    selSvc: null,
+    rental: null,
+    timerId: null,
+    pollId: null,
+    timerSecs: 0,
+    isLoading: false
 };
-function svcStyle(code){
-  const full=(code||'').toLowerCase();
-  if(SVC_STYLES[full]) return SVC_STYLES[full];
-  const k=full.slice(0,2);
-  return SVC_STYLES[k]||SVC_STYLES.default;
-}
 
-/* ════════════════════════════════════════
-   1. LOAD COUNTRIES  (sessionStorage cache 5 min TTL)
-════════════════════════════════════════ */
-async function loadCountries(){
-  const grid = document.getElementById('cGrid');
-  grid.innerHTML = Array(8).fill('<div class="skel skel-cc skeleton"></div>').join('');
-
-  try{
-    // Try cache first
-    const cached = sessionStorage.getItem(CACHE_KEY);
-    const cacheTs= parseInt(sessionStorage.getItem(CACHE_KEY+'_ts')||'0');
-    if(cached && Date.now()-cacheTs < CACHE_TTL){
-      countries = JSON.parse(cached);
-      renderCountries(countries);
-      document.getElementById('cntBadge').textContent = countries.length+' countries';
-      return;
+// ─── CACHE (Memoization) ───
+const Cache = {
+    _store: new Map(),
+    _timestamps: new Map(),
+    
+    get(key) {
+        const data = this._store.get(key);
+        const ts = this._timestamps.get(key);
+        if (!data || !ts) return null;
+        if (Date.now() - ts > CONFIG.CACHE_TTL) {
+            this._store.delete(key);
+            this._timestamps.delete(key);
+            return null;
+        }
+        return data;
+    },
+    
+    set(key, value) {
+        this._store.set(key, value);
+        this._timestamps.set(key, Date.now());
+    },
+    
+    clear() {
+        this._store.clear();
+        this._timestamps.clear();
     }
+};
 
-    const data = await call('/countries');
-    // Normalise: backend may return object or array
-    const raw = Array.isArray(data) ? data : Object.values(data);
-    countries = raw
-      .map(c=>({id:c.id??parseInt(c.id??0), eng:c.eng||c.name||'Unknown', flag:c.flag||getFlag(c.eng||c.name)}))
-      .sort((a,b)=>a.eng.localeCompare(b.eng));
-
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(countries));
-    sessionStorage.setItem(CACHE_KEY+'_ts', String(Date.now()));
-    document.getElementById('cntBadge').textContent = countries.length+' countries';
-    renderCountries(countries);
-  }catch(e){
-    console.error('[countries]',e);
-    document.getElementById('cntBadge').textContent = 'Error';
-    document.getElementById('cntBadge').className = 'panel-badge pb-err';
-    grid.innerHTML = `<div class="state-err" style="grid-column:1/-1">
-      <i class="fas fa-exclamation-triangle"></i>
-      <p>Could not load countries</p>
-      <span>${e.message}</span>
-      <button class="btn-retry" onclick="loadCountries()"><i class="fas fa-rotate-right"></i> Retry</button>
-    </div>`;
-    toast('Failed to load countries: '+e.message,'err');
-  }
+// ─── DEBOUNCE (Prevent excessive calls) ───
+function debounce(fn, delay = 300) {
+    let timer = null;
+    return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
 }
 
-function renderCountries(list){
-  const grid = document.getElementById('cGrid');
-  if(!list.length){
-    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:20px;color:var(--t3);font-size:.8rem">No countries found</p>';
-    return;
-  }
-  grid.innerHTML = list.map(c=>`
-    <div class="c-card${selCountry?.id===c.id?' sel':''}"
-         onclick="selectCountry(${c.id},'${esc(c.eng)}','${c.flag}')">
-      <span class="c-flag">${c.flag}</span>
-      <span class="c-name">${c.eng}</span>
-      <span class="c-chk"><i class="fas fa-check" style="font-size:.42rem"></i></span>
-    </div>`).join('');
+// ─── THROTTLE (Rate limit) ───
+function throttle(fn, limit = 300) {
+    let inThrottle = false;
+    return function(...args) {
+        if (!inThrottle) {
+            fn.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
 }
 
-const filterCountries = debounce(()=>{
-  const q = document.getElementById('cSearch').value.toLowerCase().trim();
-  document.getElementById('cClr').classList.toggle('show',!!q);
-  renderCountries(q ? countries.filter(c=>c.eng.toLowerCase().includes(q)) : countries);
-},300);
+// ─── API WRAPPER (With retry logic) ───
+async function apiCall(path, opts = {}) {
+    const token = window.getToken?.() || '';
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+    
+    let lastError = null;
+    for (let attempt = 0; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            
+            const response = await fetch(CONFIG.API + path, {
+                ...opts,
+                signal: controller.signal,
+                headers: { ...headers, ...(opts.headers || {}) }
+            });
+            clearTimeout(timeout);
+            
+            if (response.status === 401) {
+                window.redirectToLogin?.();
+                return null;
+            }
+            
+            const data = await response.json().catch(() => ({ error: 'Parse error' }));
+            if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+            return data;
+        } catch (error) {
+            lastError = error;
+            if (attempt < CONFIG.MAX_RETRIES) {
+                await delay(CONFIG.RETRY_DELAY * (attempt + 1));
+            }
+        }
+    }
+    throw lastError || new Error('Request failed');
+}
 
-document.getElementById('cSearch').addEventListener('input', filterCountries);
-document.getElementById('cClr').addEventListener('click',()=>{
-  document.getElementById('cSearch').value='';
-  document.getElementById('cClr').classList.remove('show');
-  renderCountries(countries);
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── TOAST SYSTEM ───
+function toast(msg, type = 'info') {
+    const container = document.getElementById('toastWrap');
+    if (!container) return;
+    
+    const icons = {
+        ok: 'fa-check-circle',
+        err: 'fa-times-circle',
+        warn: 'fa-triangle-exclamation',
+        info: 'fa-circle-info'
+    };
+    
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
+    container.appendChild(el);
+    
+    setTimeout(() => {
+        el.style.cssText = 'opacity:0;transition:.3s;transform:translateX(30px)';
+        setTimeout(() => el.remove(), 300);
+    }, 3800);
+}
+
+// ─── FLAG MAP (Memoized) ───
+const FLAG_MAP = {
+    'afghanistan':'🇦🇫','albania':'🇦🇱','algeria':'🇩🇿','andorra':'🇦🇩',
+    'angola':'🇦🇴','argentina':'🇦🇷','armenia':'🇦🇲','australia':'🇦🇺',
+    'austria':'🇦🇹','azerbaijan':'🇦🇿','bahrain':'🇧🇭','bangladesh':'🇧🇩',
+    'belarus':'🇧🇾','belgium':'🇧🇪','belize':'🇧🇿','bolivia':'🇧🇴',
+    'bosnia':'🇧🇦','botswana':'🇧🇼','brazil':'🇧🇷','brunei':'🇧🇳',
+    'bulgaria':'🇧🇬','cambodia':'🇰🇭','cameroon':'🇨🇲','canada':'🇨🇦',
+    'chile':'🇨🇱','china':'🇨🇳','colombia':'🇨🇴','costa rica':'🇨🇷',
+    'croatia':'🇭🇷','cuba':'🇨🇺','cyprus':'🇨🇾','czech republic':'🇨🇿',
+    'denmark':'🇩🇰','dominican republic':'🇩🇴','ecuador':'🇪🇨',
+    'egypt':'🇪🇬','estonia':'🇪🇪','ethiopia':'🇪🇹','finland':'🇫🇮',
+    'france':'🇫🇷','georgia':'🇬🇪','germany':'🇩🇪','ghana':'🇬🇭',
+    'greece':'🇬🇷','guatemala':'🇬🇹','honduras':'🇭🇳','hong kong':'🇭🇰',
+    'hungary':'🇭🇺','iceland':'🇮🇸','india':'🇮🇳','indonesia':'🇮🇩',
+    'iran':'🇮🇷','iraq':'🇮🇶','ireland':'🇮🇪','israel':'🇮🇱',
+    'italy':'🇮🇹','jamaica':'🇯🇲','japan':'🇯🇵','jordan':'🇯🇴',
+    'kazakhstan':'🇰🇿','kenya':'🇰🇪','kuwait':'🇰🇼','kyrgyzstan':'🇰🇬',
+    'laos':'🇱🇦','latvia':'🇱🇻','lebanon':'🇱🇧','libya':'🇱🇾',
+    'lithuania':'🇱🇹','luxembourg':'🇱🇺','malaysia':'🇲🇾','mali':'🇲🇱',
+    'malta':'🇲🇹','mauritius':'🇲🇺','mexico':'🇲🇽','moldova':'🇲🇩',
+    'mongolia':'🇲🇳','morocco':'🇲🇦','mozambique':'🇲🇿','myanmar':'🇲🇲',
+    'nepal':'🇳🇵','netherlands':'🇳🇱','new zealand':'🇳🇿','nicaragua':'🇳🇮',
+    'nigeria':'🇳🇬','north korea':'🇰🇵','norway':'🇳🇴','oman':'🇴🇲',
+    'pakistan':'🇵🇰','panama':'🇵🇦','paraguay':'🇵🇾','peru':'🇵🇪',
+    'philippines':'🇵🇭','poland':'🇵🇱','portugal':'🇵🇹','qatar':'🇶🇦',
+    'romania':'🇷🇴','russia':'🇷🇺','rwanda':'🇷🇼','saudi arabia':'🇸🇦',
+    'senegal':'🇸🇳','serbia':'🇷🇸','singapore':'🇸🇬','slovakia':'🇸🇰',
+    'slovenia':'🇸🇮','south africa':'🇿🇦','south korea':'🇰🇷',
+    'spain':'🇪🇸','sri lanka':'🇱🇰','sweden':'🇸🇪','switzerland':'🇨🇭',
+    'taiwan':'🇹🇼','tajikistan':'🇹🇯','tanzania':'🇹🇿','thailand':'🇹🇭',
+    'tunisia':'🇹🇳','turkey':'🇹🇷','turkmenistan':'🇹🇲','uganda':'🇺🇬',
+    'ukraine':'🇺🇦','united arab emirates':'🇦🇪','uae':'🇦🇪',
+    'united kingdom':'🇬🇧','uk':'🇬🇧','united states':'🇺🇸','usa':'🇺🇸',
+    'uruguay':'🇺🇾','uzbekistan':'🇺🇿','venezuela':'🇻🇪','vietnam':'🇻🇳',
+    'yemen':'🇾🇪','zambia':'🇿🇲','zimbabwe':'🇿🇼'
+};
+
+function getFlag(name) {
+    if (!name) return '🌐';
+    const key = name.toLowerCase().trim();
+    if (FLAG_MAP[key]) return FLAG_MAP[key];
+    for (const [k, v] of Object.entries(FLAG_MAP)) {
+        if (key.includes(k) || k.includes(key)) return v;
+    }
+    return '🌐';
+}
+
+// ─── SERVICE ICON MAP ───
+const SVC_ICONS = {
+    wa: { icon: 'fab fa-whatsapp', bg: '#25d366' },
+    tg: { icon: 'fab fa-telegram', bg: '#0088cc' },
+    go: { icon: 'fab fa-google', bg: '#4285f4' },
+    fb: { icon: 'fab fa-facebook', bg: '#1877f2' },
+    ig: { icon: 'fab fa-instagram', bg: 'linear-gradient(135deg,#833ab4,#fd1d1d)' },
+    tw: { icon: 'fab fa-twitter', bg: '#1da1f2' },
+    tk: { icon: 'fab fa-tiktok', bg: '#111' },
+    dc: { icon: 'fab fa-discord', bg: '#5865f2' },
+    yt: { icon: 'fab fa-youtube', bg: '#ff0000' },
+    ub: { icon: 'fab fa-uber', bg: '#000' },
+    bn: { icon: 'fas fa-coins', bg: '#f3a900' },
+    am: { icon: 'fab fa-amazon', bg: '#ff9900' },
+    ap: { icon: 'fab fa-apple', bg: '#555' },
+    li: { icon: 'fab fa-linkedin', bg: '#0a66c2' },
+    sp: { icon: 'fab fa-spotify', bg: '#1db954' },
+    sk: { icon: 'fab fa-skype', bg: '#00aff0' },
+    pp: { icon: 'fab fa-paypal', bg: '#003087' },
+    ms: { icon: 'fab fa-microsoft', bg: '#00a4ef' },
+    sn: { icon: 'fab fa-snapchat', bg: '#fffc00' },
+    pi: { icon: 'fab fa-pinterest', bg: '#e60023' },
+    rd: { icon: 'fab fa-reddit', bg: '#ff4500' },
+    default: { icon: 'fas fa-mobile-screen-button', bg: '#6b7280' }
+};
+
+function getSvcIcon(code) {
+    if (!code) return SVC_ICONS.default;
+    const key = code.toLowerCase().slice(0, 2);
+    return SVC_ICONS[key] || SVC_ICONS.default;
+}
+
+// ─── FORMAT HELPERS ───
+const fUSD = n => '$' + (Number(n) || 0).toFixed(2);
+const fNGN = n => '₦' + (Number(n) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fTime = s => {
+    const m = Math.floor(s / 60);
+    const sec = String(s % 60).padStart(2, '0');
+    return `${m}:${sec}`;
+};
+
+// ─── STEP BAR ───
+function setStep(n) {
+    for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById('step' + i);
+        if (!el) continue;
+        if (i < n) el.className = 'step-dot done';
+        else if (i === n) el.className = 'step-dot active';
+        else el.className = 'step-dot';
+    }
+}
+
+// ─── LOGOUT ───
+document.addEventListener('DOMContentLoaded', () => {
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.doLogout) window.doLogout();
+        });
+    }
 });
 
-/* ════════════════════════════════════════
-   2. SELECT COUNTRY → LOAD SERVICES
-   Backend returns sellingUSD & sellingNGN (markup already applied)
-   Frontend ONLY displays those values
-════════════════════════════════════════ */
-async function selectCountry(id, name, flag){
-  selCountry = {id, eng:name, flag};
-  selSvc = null;
-  
-  // Re-render countries to show checkmark
-  const q = document.getElementById('cSearch').value.toLowerCase().trim();
-  renderCountries(q ? countries.filter(c=>c.eng.toLowerCase().includes(q)) : countries);
-  
-  setStep(2);
+// ═══════════════════════════════════════════
+// 1. LOAD COUNTRIES (With caching)
+// ═══════════════════════════════════════════
 
-  const sp = document.getElementById('pServices');
-  sp.style.display = 'block';
-  document.getElementById('svcSub').textContent = `In-stock services for ${name} ${flag}`;
-  document.getElementById('sSearch').value = '';
-  document.getElementById('svcList').innerHTML =
-    '<div class="skel skel-svc skeleton"></div><div class="skel skel-svc skeleton"></div><div class="skel skel-svc skeleton"></div>';
-  document.getElementById('svcBadge').textContent = 'Loading…';
-  document.getElementById('svcBadge').className = 'panel-badge pb-live';
+async function loadCountries() {
+    const grid = document.getElementById('cGrid');
+    if (!grid) return;
+    
+    // Show skeleton
+    grid.innerHTML = Array(8).fill('<div class="skel skel-cc skeleton"></div>').join('');
+    
+    try {
+        // Check cache
+        const cached = Cache.get('countries');
+        if (cached) {
+            State.countries = cached;
+            renderCountries(cached);
+            document.getElementById('cntBadge').textContent = cached.length + ' countries';
+            return;
+        }
+        
+        const data = await apiCall('/countries');
+        const countries = Object.values(data)
+            .map(c => ({
+                id: c.id,
+                eng: c.eng || 'Unknown',
+                flag: c.flag || getFlag(c.eng)
+            }))
+            .sort((a, b) => a.eng.localeCompare(b.eng));
+        
+        State.countries = countries;
+        Cache.set('countries', countries);
+        document.getElementById('cntBadge').textContent = countries.length + ' countries';
+        renderCountries(countries);
+    } catch (error) {
+        console.error('[countries]', error);
+        document.getElementById('cntBadge').textContent = 'Error';
+        document.getElementById('cntBadge').className = 'panel-badge pb-err';
+        grid.innerHTML = `
+            <div class="state-err" style="grid-column:1/-1">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Could not load countries</p>
+                <span>${error.message}</span>
+                <button class="btn-retry" onclick="loadCountries()"><i class="fas fa-rotate-right"></i> Retry</button>
+            </div>
+        `;
+        toast('Failed to load countries: ' + error.message, 'err');
+    }
+}
 
-  resetOrderBody();
-
-  try{
-    const data = await call(`/services-with-prices?country=${id}`);
+function renderCountries(list) {
+    const grid = document.getElementById('cGrid');
+    if (!grid) return;
     
-    // The backend now only returns in-stock services with REAL prices
-    services = data.services || [];
-    
-    document.getElementById('svcBadge').textContent = services.length + ' available';
-    document.getElementById('svcBadge').className = 'panel-badge pb-live';
-    
-    if (services.length === 0) {
-      document.getElementById('svcBadge').textContent = '0 available';
-      document.getElementById('svcBadge').className = 'panel-badge pb-warn';
+    if (!list || !list.length) {
+        grid.innerHTML = `
+            <div class="state-empty" style="grid-column:1/-1">
+                <i class="fas fa-search"></i>
+                <p>No countries found</p>
+                <span>Try a different search</span>
+            </div>
+        `;
+        return;
     }
     
-    renderServices(services);
-    sp.scrollIntoView({behavior:'smooth',block:'nearest'});
+    grid.innerHTML = list.map(c => `
+        <div class="c-card${State.selCountry?.id === c.id ? ' sel' : ''}"
+             onclick="selectCountry(${c.id}, '${c.eng.replace(/'/g, "\\'")}', '${c.flag}')">
+            <span class="c-flag">${c.flag}</span>
+            <span class="c-name">${c.eng}</span>
+            <span class="c-chk"><i class="fas fa-check" style="font-size:.42rem"></i></span>
+        </div>
+    `).join('');
+}
+
+// ─── FILTER COUNTRIES (Debounced) ───
+const filterCountries = debounce(() => {
+    const q = document.getElementById('cSearch').value.toLowerCase().trim();
+    const clr = document.getElementById('cClr');
+    if (clr) clr.classList.toggle('show', !!q);
     
-    console.log(`✅ ${name}: ${services.length} services loaded`);
-  } catch(e){
-    console.error('[services]', e);
-    document.getElementById('svcBadge').textContent = 'Error';
-    document.getElementById('svcBadge').className = 'panel-badge pb-err';
-    document.getElementById('svcList').innerHTML = `<div class="state-err">
-      <i class="fas fa-exclamation-circle"></i>
-      <p>Could not load services</p>
-      <span>${e.message}</span>
-    </div>`;
-    toast('Failed to load services: '+e.message,'err');
-  }
-}
+    const filtered = q 
+        ? State.countries.filter(c => c.eng.toLowerCase().includes(q))
+        : State.countries;
+    renderCountries(filtered);
+}, 300);
 
-function renderServices(list){
-  const el = document.getElementById('svcList');
-  if(!list.length){
-    el.innerHTML = `<div class="state-empty">
-      <i class="fas fa-box-open"></i>
-      <p>No services available</p>
-      <span>No in-stock services for this country right now. Try another country.</span>
-    </div>`;
-    return;
-  }
-  el.innerHTML = list.map(s=>{
-    const st  = svcStyle(s.code);
-    const sel = selSvc?.code === s.code;
-    const cnt = s.count ?? 0;
-    const cls = cnt < 10 ? 'av-lo' : 'av-hi';
-    const lbl = cnt > 0 ? `${cnt} available` : '';
+// ═══════════════════════════════════════════
+// 2. SELECT COUNTRY → LOAD SERVICES
+// ═══════════════════════════════════════════
 
-    return `<div class="svc-item${sel?' sel':''}"
-                 onclick="selectService('${esc(s.code)}','${esc(s.name)}',${cnt},${+s.sellingUSD||0},${+s.sellingNGN||0})">
-      <div class="svc-ic" style="background:${st.bg}"><i class="${st.icon}" style="color:#fff"></i></div>
-      <div class="svc-info">
-        <div class="svc-name">${s.name}</div>
-        <div class="svc-code">${s.code}</div>
-      </div>
-      <div class="svc-right">
-        <div class="svc-usd">${fUSD(s.sellingUSD)}</div>
-        <div class="svc-ngn">${fNGN(s.sellingNGN)}</div>
-        ${lbl?`<div class="svc-avail ${cls}">${lbl}</div>`:''}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-const filterServices = debounce(()=>{
-  const q = document.getElementById('sSearch').value.toLowerCase().trim();
-  document.getElementById('sClr').classList.toggle('show',!!q);
-  renderServices(q ? services.filter(s=>s.name.toLowerCase().includes(q)||s.code.toLowerCase().includes(q)) : services);
-},300);
-
-document.getElementById('sSearch').addEventListener('input', filterServices);
-document.getElementById('sClr').addEventListener('click',()=>{
-  document.getElementById('sSearch').value='';
-  document.getElementById('sClr').classList.remove('show');
-  renderServices(services);
-});
-
-/* ════════════════════════════════════════
-   3. SELECT SERVICE → UPDATE ORDER CARD
-   Display prices EXACTLY as returned by backend — no math here
-════════════════════════════════════════ */
-function selectService(code, name, count, sellingUSD, sellingNGN){
-  selSvc = {code, name, count, sellingUSD, sellingNGN};
-  filterServices();
-  setStep(3);
-
-  // Hero
-  document.getElementById('ocHero').classList.add('on');
-  document.getElementById('ocFlag').textContent    = selCountry?.flag || '🌐';
-  document.getElementById('ocCountry').textContent = selCountry?.eng  || '—';
-  document.getElementById('ocSvc').textContent     = name;
-  document.getElementById('pbUSD').textContent     = fUSD(sellingUSD);
-  document.getElementById('pbNGN').textContent     = fNGN(sellingNGN);
-
-  // Availability bar
-  const pct  = Math.min(100, Math.round((count/500)*100));
-  const fill = document.getElementById('availFill');
-  fill.style.width = pct+'%';
-  fill.className   = 'avail-fill'+(count<10?' cr':count<50?' lo':'');
-  document.getElementById('availLbl').textContent = count > 0 ? `${count} available` : 'Limited';
-
-  document.getElementById('ocEmpty').style.display = 'none';
-  document.getElementById('ocReady').style.display = 'block';
-  document.getElementById('rentBtn').disabled = false;
-}
-
-function resetOrderBody(){
-  selSvc = null;
-  document.getElementById('ocHero').classList.remove('on');
-  document.getElementById('ocEmpty').style.display = 'block';
-  document.getElementById('ocReady').style.display = 'none';
-  document.getElementById('actBanner').classList.remove('on');
-}
-
-function resetSelection(){
-  resetOrderBody();
-  setStep(1);
-  document.getElementById('pCountries').scrollIntoView({behavior:'smooth'});
-}
-
-/* ════════════════════════════════════════
-   4. RENT NUMBER
-════════════════════════════════════════ */
-async function rentNumber(){
-  if(!selCountry||!selSvc){toast('Select a service first','err');return;}
-  const btn=document.getElementById('rentBtn');
-  btn.disabled=true;
-  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Renting…';
-
-  try{
-    const data = await call('/order',{
-      method:'POST',
-      body:JSON.stringify({country:selCountry.id, service:selSvc.code})
-    });
-    rental={id:String(data.activationId||data.id||''), phone:data.phoneNumber||data.phone||'—'};
-    startRental();
-    toast('Number rented! Waiting for SMS…','ok');
-  }catch(e){
-    toast('Could not rent: '+e.message,'err');
-    btn.disabled=false;
-    btn.innerHTML='<i class="fas fa-sim-card"></i> Rent Number';
-  }
-}
-
-function startRental(){
-  const banner=document.getElementById('actBanner');
-  banner.classList.add('on');
-  document.getElementById('abPhone').textContent=rental.phone;
-  document.getElementById('abSms').innerHTML=
-    '<i class="fas fa-spinner fa-spin" style="opacity:.6;flex-shrink:0"></i><span>Waiting for SMS code…</span>';
-  document.getElementById('cxlBtn').disabled=true;
-  timerSecs=0;
-  clearInterval(timerId); clearInterval(pollId);
-  timerId=setInterval(tick,1000);
-  pollId=setInterval(poll,5000);
-  document.getElementById('orderCard').scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function tick(){
-  timerSecs++;
-  const elapsed=timerSecs, remaining=1200-timerSecs;
-  document.getElementById('abTimer').textContent=`${fTime(elapsed)} / 20:00`;
-  if(elapsed>=300) document.getElementById('cxlBtn').disabled=false; // unlock cancel after 5 min
-  if(elapsed>=1200){
-    stopAll();
-    document.getElementById('abSms').innerHTML=
-      '<i class="fas fa-clock" style="opacity:.6;flex-shrink:0"></i><span>Timed out — auto-cancelled, refund issued</span>';
-    toast('No SMS received — auto-refund issued','warn');
-  }
-}
-
-async function poll(){
-  if(!rental?.id) return;
-  try{
-    const d=await call(`/status?id=${rental.id}`);
-    if(d.status==='STATUS_OK'||d.code){
-      const code=d.code||d.smsCode||'';
-      stopAll();
-      document.getElementById('abSms').innerHTML=`
-        <i class="fas fa-check-circle" style="color:#fff;flex-shrink:0"></i>
-        <span>Your code:&nbsp;</span>
-        <span class="ab-code">${code}</span>
-        <button class="ab-code-cp" onclick="copyCode('${esc(code)}')"><i class="fas fa-copy"></i></button>`;
-      toast('SMS code: '+code,'ok');
-      setTimeout(()=>call(`/finish?id=${rental.id}`,{method:'POST'}).catch(()=>{}),6000);
+async function selectCountry(id, name, flag) {
+    State.selCountry = { id, eng: name, flag };
+    State.selSvc = null;
+    
+    // Update UI
+    const q = document.getElementById('cSearch').value.toLowerCase().trim();
+    const filtered = q 
+        ? State.countries.filter(c => c.eng.toLowerCase().includes(q))
+        : State.countries;
+    renderCountries(filtered);
+    
+    setStep(2);
+    
+    const sp = document.getElementById('pServices');
+    if (sp) {
+        sp.style.display = 'block';
+        document.getElementById('svcSub').textContent = `In-stock services for ${name} ${flag}`;
     }
-  }catch(e){/* keep polling silently */}
+    
+    document.getElementById('sSearch').value = '';
+    const svcList = document.getElementById('svcList');
+    svcList.innerHTML = `
+        <div class="skel skel-svc skeleton"></div>
+        <div class="skel skel-svc skeleton"></div>
+        <div class="skel skel-svc skeleton"></div>
+    `;
+    
+    const badge = document.getElementById('svcBadge');
+    badge.textContent = 'Loading…';
+    badge.className = 'panel-badge pb-live';
+    
+    resetOrderBody();
+    
+    try {
+        // Check cache first
+        const cacheKey = `services_${id}`;
+        const cached = Cache.get(cacheKey);
+        if (cached) {
+            State.services = cached;
+            badge.textContent = cached.length + ' available';
+            renderServices(cached);
+            return;
+        }
+        
+        const data = await apiCall(`/services-with-prices?country=${id}`);
+        const services = data.services || [];
+        State.services = services;
+        Cache.set(cacheKey, services);
+        
+        badge.textContent = services.length + ' available';
+        badge.className = services.length > 0 ? 'panel-badge pb-live' : 'panel-badge pb-warn';
+        renderServices(services);
+        
+        if (sp) sp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (error) {
+        console.error('[services]', error);
+        badge.textContent = 'Error';
+        badge.className = 'panel-badge pb-err';
+        svcList.innerHTML = `
+            <div class="state-err">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Could not load services</p>
+                <span>${error.message}</span>
+            </div>
+        `;
+        toast('Failed to load services: ' + error.message, 'err');
+    }
 }
 
-function stopAll(){clearInterval(timerId);clearInterval(pollId);timerId=null;pollId=null;}
-
-function copyPhone(){
-  navigator.clipboard?.writeText(rental?.phone||'')
-    .then(()=>toast('Phone number copied','ok'))
-    .catch(()=>toast('Could not copy','err'));
+function renderServices(list) {
+    const el = document.getElementById('svcList');
+    if (!el) return;
+    
+    if (!list || !list.length) {
+        el.innerHTML = `
+            <div class="state-empty">
+                <i class="fas fa-box-open"></i>
+                <p>No services available</p>
+                <span>No in-stock services for this country right now</span>
+            </div>
+        `;
+        return;
+    }
+    
+    el.innerHTML = list.map(s => {
+        const icon = getSvcIcon(s.code);
+        const sel = State.selSvc?.code === s.code;
+        const count = s.count || 0;
+        const cls = count < 10 ? 'av-lo' : 'av-hi';
+        const lbl = count > 0 ? `${count} available` : '';
+        
+        return `
+            <div class="svc-item${sel ? ' sel' : ''}"
+                 onclick="selectService('${s.code.replace(/'/g, "\\'")}', '${s.name.replace(/'/g, "\\'")}', ${count}, ${s.sellingUSD || 0}, ${s.sellingNGN || 0})">
+                <div class="svc-ic" style="background:${icon.bg}">
+                    <i class="${icon.icon}" style="color:#fff"></i>
+                </div>
+                <div class="svc-info">
+                    <div class="svc-name">${s.name}</div>
+                    <div class="svc-code">${s.code}</div>
+                </div>
+                <div class="svc-right">
+                    <div class="svc-usd">${fUSD(s.sellingUSD)}</div>
+                    <div class="svc-ngn">${fNGN(s.sellingNGN)}</div>
+                    ${lbl ? `<div class="svc-avail ${cls}">${lbl}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
-function copyCode(code){
-  navigator.clipboard?.writeText(code)
-    .then(()=>toast('Code copied','ok'))
-    .catch(()=>toast('Could not copy','err'));
+
+// ─── FILTER SERVICES (Debounced) ───
+const filterServices = debounce(() => {
+    const q = document.getElementById('sSearch').value.toLowerCase().trim();
+    const clr = document.getElementById('sClr');
+    if (clr) clr.classList.toggle('show', !!q);
+    
+    const filtered = q 
+        ? State.services.filter(s => 
+            s.name.toLowerCase().includes(q) || 
+            s.code.toLowerCase().includes(q)
+        )
+        : State.services;
+    renderServices(filtered);
+}, 300);
+
+// ═══════════════════════════════════════════
+// 3. SELECT SERVICE
+// ═══════════════════════════════════════════
+
+function selectService(code, name, count, usd, ngn) {
+    State.selSvc = { code, name, count, sellingUSD: usd, sellingNGN: ngn };
+    
+    // Re-render services
+    const q = document.getElementById('sSearch').value.toLowerCase().trim();
+    const filtered = q 
+        ? State.services.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
+        : State.services;
+    renderServices(filtered);
+    
+    setStep(3);
+    
+    // Update order card
+    const hero = document.getElementById('ocHero');
+    if (hero) hero.classList.add('on');
+    
+    document.getElementById('ocFlag').textContent = State.selCountry?.flag || '🌐';
+    document.getElementById('ocCountry').textContent = State.selCountry?.eng || '—';
+    document.getElementById('ocSvc').textContent = name;
+    document.getElementById('pbUSD').textContent = fUSD(usd);
+    document.getElementById('pbNGN').textContent = fNGN(ngn);
+    
+    // Availability bar
+    const pct = Math.min(100, Math.round((count / 500) * 100));
+    const fill = document.getElementById('availFill');
+    fill.style.width = pct + '%';
+    fill.className = 'avail-fill' + (count < 10 ? ' cr' : count < 50 ? ' lo' : '');
+    document.getElementById('availLbl').textContent = count > 0 ? `${count} available` : 'Limited';
+    
+    document.getElementById('ocEmpty').style.display = 'none';
+    document.getElementById('ocReady').style.display = 'block';
+    document.getElementById('rentBtn').disabled = false;
 }
 
-async function doRetry(){
-  if(!rental?.id){toast('No active rental','err');return;}
-  try{await call(`/retry?id=${rental.id}`,{method:'POST'});toast('Resend requested','info');}
-  catch(e){toast('Resend failed: '+e.message,'err');}
-}
-
-async function doCancel(){
-  if(!rental?.id){toast('No active rental','err');return;}
-  if(timerSecs<300){toast(`Wait ${Math.ceil((300-timerSecs)/60)} more minute(s) to cancel`,'warn');return;}
-  try{
-    await call(`/cancel?id=${rental.id}`,{method:'POST'});
-    stopAll();
+function resetOrderBody() {
+    State.selSvc = null;
+    document.getElementById('ocHero').classList.remove('on');
+    document.getElementById('ocEmpty').style.display = 'block';
+    document.getElementById('ocReady').style.display = 'none';
     document.getElementById('actBanner').classList.remove('on');
-    rental=null;
-    toast('Order cancelled — refund issued','ok');
-  }catch(e){toast('Cancel failed: '+e.message,'err');}
 }
 
-/* ════════════════════════════════════════
-   SIDEBAR / USER
-════════════════════════════════════════ */
-function initSidebar(){
-  const sb=document.getElementById('sb'),ov=document.getElementById('ov'),hbg=document.getElementById('hbg');
-  hbg?.addEventListener('click',()=>{sb.classList.toggle('open');ov.classList.toggle('on');});
-  ov?.addEventListener('click',()=>{sb.classList.remove('open');ov.classList.remove('on');});
-  window.addEventListener('resize',()=>{if(window.innerWidth>=1025){sb.classList.remove('open');ov.classList.remove('on');}});
-}
-function loadUser(){
-  try{
-    const u=JSON.parse(localStorage.getItem(SK)||sessionStorage.getItem(SK)||'null')?.user;
-    if(!u) return;
-    const name=u.username||u.full_name||u.email?.split('@')[0]||'User';
-    document.getElementById('sbName').textContent=name;
-    document.getElementById('sbEmail').textContent=u.email||'';
-    const init=name.charAt(0).toUpperCase();
-    ['sbAv','tbAv'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=init;});
-  }catch(e){}
-}
-function doLogout(){
-  localStorage.removeItem(SK);sessionStorage.removeItem(SK);location.href='signup.html';
+function resetSelection() {
+    resetOrderBody();
+    setStep(1);
+    document.getElementById('pCountries').scrollIntoView({ behavior: 'smooth' });
 }
 
-/* ── UTIL ── */
-function esc(s){return(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+// ═══════════════════════════════════════════
+// 4. RENT NUMBER
+// ═══════════════════════════════════════════
 
-/* ── INIT ── */
-(function(){
-  initSidebar();
-  loadUser();
-  loadCountries();
+async function rentNumber() {
+    if (!State.selCountry || !State.selSvc) {
+        toast('Select a service first', 'err');
+        return;
+    }
+    
+    const btn = document.getElementById('rentBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Renting…';
+    
+    try {
+        const data = await apiCall('/order', {
+            method: 'POST',
+            body: JSON.stringify({
+                country: State.selCountry.id,
+                service: State.selSvc.code
+            })
+        });
+        
+        State.rental = {
+            id: String(data.activationId || data.id || ''),
+            phone: data.phoneNumber || data.phone || '—'
+        };
+        
+        startRental();
+        toast('Number rented! Waiting for SMS…', 'ok');
+    } catch (error) {
+        toast('Could not rent: ' + error.message, 'err');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sim-card"></i> Rent Number';
+    }
+}
+
+function startRental() {
+    const banner = document.getElementById('actBanner');
+    if (banner) banner.classList.add('on');
+    
+    document.getElementById('abPhone').textContent = State.rental.phone;
+    
+    const sms = document.getElementById('abSms');
+    sms.innerHTML = `
+        <i class="fas fa-spinner fa-spin" style="opacity:.6;flex-shrink:0"></i>
+        <span>Waiting for SMS code…</span>
+    `;
+    
+    document.getElementById('cxlBtn').disabled = true;
+    
+    State.timerSecs = 0;
+    clearInterval(State.timerId);
+    clearInterval(State.pollId);
+    State.timerId = setInterval(tick, 1000);
+    State.pollId = setInterval(poll, 5000);
+    
+    document.getElementById('orderCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function tick() {
+    State.timerSecs++;
+    const elapsed = State.timerSecs;
+    const remaining = 1200 - State.timerSecs;
+    
+    document.getElementById('abTimer').textContent = `${fTime(elapsed)} / 20:00`;
+    
+    const cxlBtn = document.getElementById('cxlBtn');
+    if (cxlBtn && elapsed >= 300) cxlBtn.disabled = false;
+    
+    if (elapsed >= 1200) {
+        stopAll();
+        const sms = document.getElementById('abSms');
+        sms.innerHTML = `
+            <i class="fas fa-clock" style="opacity:.6;flex-shrink:0"></i>
+            <span>Timed out — auto-cancelled, refund issued</span>
+        `;
+        toast('No SMS received — auto-refund issued', 'warn');
+    }
+}
+
+async function poll() {
+    if (!State.rental?.id) return;
+    
+    try {
+        const data = await apiCall(`/status?id=${State.rental.id}`);
+        if (data.status === 'STATUS_OK' || data.code) {
+            const code = data.code || data.smsCode || '';
+            stopAll();
+            
+            const sms = document.getElementById('abSms');
+            sms.innerHTML = `
+                <i class="fas fa-check-circle" style="color:#fff;flex-shrink:0"></i>
+                <span>Your code:&nbsp;</span>
+                <span class="ab-code">${code}</span>
+                <button class="ab-code-cp" onclick="copyCode('${code}')"><i class="fas fa-copy"></i></button>
+            `;
+            
+            toast('SMS code: ' + code, 'ok');
+            
+            // Auto-finish after 6 seconds
+            setTimeout(() => {
+                apiCall('/finish', { method: 'POST', body: JSON.stringify({ id: State.rental.id }) })
+                    .catch(() => {});
+            }, 6000);
+        }
+    } catch (error) {
+        // Silent fail - keep polling
+    }
+}
+
+function stopAll() {
+    clearInterval(State.timerId);
+    clearInterval(State.pollId);
+    State.timerId = null;
+    State.pollId = null;
+}
+
+function copyPhone() {
+    if (!State.rental?.phone) return;
+    navigator.clipboard?.writeText(State.rental.phone)
+        .then(() => toast('Phone number copied', 'ok'))
+        .catch(() => toast('Could not copy', 'err'));
+}
+
+function copyCode(code) {
+    navigator.clipboard?.writeText(code)
+        .then(() => toast('Code copied', 'ok'))
+        .catch(() => toast('Could not copy', 'err'));
+}
+
+async function doRetry() {
+    if (!State.rental?.id) {
+        toast('No active rental', 'err');
+        return;
+    }
+    try {
+        await apiCall('/retry', { method: 'POST', body: JSON.stringify({ id: State.rental.id }) });
+        toast('Resend requested', 'info');
+    } catch (error) {
+        toast('Resend failed: ' + error.message, 'err');
+    }
+}
+
+async function doCancel() {
+    if (!State.rental?.id) {
+        toast('No active rental', 'err');
+        return;
+    }
+    if (State.timerSecs < 300) {
+        const mins = Math.ceil((300 - State.timerSecs) / 60);
+        toast(`Wait ${mins} more minute(s) to cancel`, 'warn');
+        return;
+    }
+    try {
+        await apiCall('/cancel', { method: 'POST', body: JSON.stringify({ id: State.rental.id }) });
+        stopAll();
+        document.getElementById('actBanner').classList.remove('on');
+        State.rental = null;
+        toast('Order cancelled — refund issued', 'ok');
+    } catch (error) {
+        toast('Cancel failed: ' + error.message, 'err');
+    }
+}
+
+// ═══════════════════════════════════════════
+// SIDEBAR / USER
+// ═══════════════════════════════════════════
+
+function initSidebar() {
+    const sb = document.getElementById('sb');
+    const ov = document.getElementById('ov');
+    const hbg = document.getElementById('hbg');
+    
+    hbg?.addEventListener('click', () => {
+        sb?.classList.toggle('open');
+        ov?.classList.toggle('on');
+    });
+    
+    ov?.addEventListener('click', () => {
+        sb?.classList.remove('open');
+        ov?.classList.remove('on');
+    });
+    
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1025) {
+            sb?.classList.remove('open');
+            ov?.classList.remove('on');
+        }
+    });
+}
+
+function loadUser() {
+    try {
+        const session = window.getSession?.();
+        const user = session?.user;
+        if (!user) return;
+        
+        const name = user.username || user.full_name || user.email?.split('@')[0] || 'User';
+        document.getElementById('sbName').textContent = name;
+        document.getElementById('sbEmail').textContent = user.email || '';
+        
+        const init = name.charAt(0).toUpperCase();
+        ['sbAv', 'tbAv'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = init;
+        });
+    } catch (e) {
+        // Ignore
+    }
+}
+
+// ═══════════════════════════════════════════
+// DOM EVENT LISTENERS
+// ═══════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Country search
+    const cSearch = document.getElementById('cSearch');
+    cSearch?.addEventListener('input', filterCountries);
+    
+    document.getElementById('cClr')?.addEventListener('click', () => {
+        const search = document.getElementById('cSearch');
+        if (search) {
+            search.value = '';
+            document.getElementById('cClr').classList.remove('show');
+            renderCountries(State.countries);
+        }
+    });
+    
+    // Service search
+    document.getElementById('sSearch')?.addEventListener('input', filterServices);
+    
+    document.getElementById('sClr')?.addEventListener('click', () => {
+        const search = document.getElementById('sSearch');
+        if (search) {
+            search.value = '';
+            document.getElementById('sClr').classList.remove('show');
+            renderServices(State.services);
+        }
+    });
+});
+
+// ═══════════════════════════════════════════
+// EXPOSE TO GLOBAL (For inline onclick)
+// ═══════════════════════════════════════════
+
+window.selectCountry = selectCountry;
+window.selectService = selectService;
+window.resetSelection = resetSelection;
+window.loadCountries = loadCountries;
+window.rentNumber = rentNumber;
+window.doRetry = doRetry;
+window.doCancel = doCancel;
+window.copyPhone = copyPhone;
+window.copyCode = copyCode;
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+
+(function init() {
+    initSidebar();
+    loadUser();
+    loadCountries();
 })();
 </script>
 </body>

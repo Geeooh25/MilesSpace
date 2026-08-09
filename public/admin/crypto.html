@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+<link rel="dns-prefetch" href="/api" />
+
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+<title>Crypto Operations Console — MilesSpace Admin</title>
+
+<style>
+  :root{
+    --p:#0b3242; --pm:#124a5f; --pl:#e6f2f5; --pxl:#f3f9fa;
+    --acc:#f0a233; --acd:#c97f1c; --acl:#fdf1de;
+    --ok:#1fa971; --okl:#e2f6ee;
+    --proc:#3b7dd8; --procl:#e8f1fc;
+    --pend:#e0a327; --pendl:#fbf1dc;
+    --err:#e2503f; --erl:#fbe9e7;
+    --cxl:#8792a2; --cxll:#eef0f3;
+    --purp:#7c5cd6; --purpl:#efe9fb;
+
+    --bg:#eef1f3; --srf:#fff; --srf2:#f7f8fa; --bdr:#e2e6ea;
+    --t1:#0d1b22; --t2:#526270; --t3:#95a3ac;
+
+    --sw:260px; --r:10px; --rl:14px; --rxl:20px;
+    --s0:0 1px 3px rgba(11,50,66,.06);
+    --s1:0 6px 18px rgba(11,50,66,.09);
+    --s2:0 14px 40px rgba(11,50,66,.16);
+
+    --fd:'Space Grotesk',sans-serif;
+    --fb:'Inter',sans-serif;
+    --fm:'JetBrains Mono',monospace;
+    --ease:cubic-bezier(.22,.8,.32,1);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{font-size:15px;scroll-behavior:smooth}
+  body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
+  a{text-decoration:none;color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select,textarea{font-family:inherit;outline:none}
+
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#c7d0d6;border-radius:3px}
+
+  .app{display:flex;min-height:100vh}
+  .main-content{margin-left:var(--sw);flex:1;min-width:0}
+  @media(max-width:1024px){.main-content{margin-left:0}}
+
+  /* SIDEBAR */
+  .sidebar{width:var(--sw);background:var(--p);color:#fff;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;padding:22px 14px 18px}
+  .sidebar::-webkit-scrollbar{display:none}
+  @media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}}
+  .sb-brand{padding:0 8px 20px;border-bottom:1px solid rgba(255,255,255,.12);flex-shrink:0}
+  .sb-logo{display:flex;align-items:center;gap:10px;font-family:var(--fd);font-weight:700;font-size:18px;color:#fff}
+  .sb-logo img{width:30px;height:30px;border-radius:8px;flex-shrink:0;object-fit:cover;background:var(--acc)}
+  .sb-logo .mark{width:30px;height:30px;border-radius:8px;background:var(--acc);display:grid;place-items:center;font-family:var(--fd);font-weight:800;color:var(--p);flex-shrink:0}
+  .sb-sec{padding:20px 10px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4)}
+  .sb-nav{padding:0 4px}
+  .sb-lnk{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:rgba(255,255,255,.72);font-size:13.5px;font-weight:500;transition:all .18s;margin-bottom:2px;width:100%;text-align:left}
+  .sb-lnk i{width:17px;text-align:center;font-size:14px;flex-shrink:0}
+  .sb-lnk:hover{background:rgba(255,255,255,.06);color:#fff}
+  .sb-lnk.active{background:var(--acc);color:var(--p);font-weight:700}
+  .sb-foot{margin-top:auto;padding:14px 6px 0;border-top:1px solid rgba(255,255,255,.12);flex-shrink:0}
+  .sb-prof{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:10px;cursor:pointer}
+  .sb-prof:hover{background:rgba(255,255,255,.06)}
+  .sb-av{width:32px;height:32px;border-radius:50%;background:var(--acc);display:grid;place-items:center;font-weight:700;font-size:12px;color:var(--p);flex-shrink:0}
+  .sb-un{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-ue{font-size:11px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-out{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;color:rgba(255,255,255,.6);font-size:14px}
+  .sb-out:hover{background:rgba(226,80,63,.2);color:#ffb4ab}
+
+  .scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:499}
+  .scrim.show{display:block}
+
+  /* TOPBAR */
+  .topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 22px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:12px}
+  .tb-hbg{display:none;width:34px;height:34px;border-radius:9px;background:var(--pl);color:var(--p);font-size:.88rem;place-items:center;flex-shrink:0;cursor:pointer}
+  @media(max-width:1024px){.tb-hbg{display:grid}}
+  .tb-title{font-family:var(--fd);font-size:.98rem;font-weight:700;color:var(--t1);flex:1;display:flex;align-items:center;gap:10px}
+  .tb-title .badge{font-size:10px;background:var(--okl);color:#0b6b46;padding:3px 10px;border-radius:99px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
+  .tb-title .badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .tb-btn{width:34px;height:34px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.85rem;cursor:pointer;position:relative}
+  .tb-btn:hover{background:var(--pl);color:var(--p);border-color:var(--p)}
+  .tb-btn.spinning i{animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .tb-btn .ping{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--err);border-radius:50%;border:2px solid var(--srf)}
+  .tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.78rem;color:#fff;border:2px solid var(--acc);flex-shrink:0}
+
+  .content{padding:20px 24px 44px;flex:1;max-width:1560px;margin:0 auto}
+  @media(max-width:768px){.content{padding:14px 13px 90px}}
+
+  .page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .page-header h1{font-family:var(--fd);font-size:1.5rem;font-weight:800;color:var(--t1);letter-spacing:-.4px}
+  .page-header p{font-size:.82rem;color:var(--t3);margin-top:3px}
+  .page-header .actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* TAB NAV for the console views */
+  .tab-nav{display:flex;gap:4px;overflow-x:auto;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--r);padding:5px;margin-bottom:16px}
+  .tab-btn{flex-shrink:0;padding:9px 15px;border-radius:8px;font-size:12.5px;font-weight:700;color:var(--t2);white-space:nowrap;display:inline-flex;align-items:center;gap:7px;transition:all .15s}
+  .tab-btn i{font-size:12px}
+  .tab-btn:hover{background:var(--srf2);color:var(--t1)}
+  .tab-btn.active{background:var(--p);color:#fff}
+  .tab-btn .cnt{background:rgba(0,0,0,.08);border-radius:99px;padding:1px 7px;font-size:10px}
+  .tab-btn.active .cnt{background:rgba(255,255,255,.2)}
+
+  .view-section{display:none}
+  .view-section.active{display:block;animation:fadein .25s var(--ease)}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+  .auto-refresh-bar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--r);margin-bottom:16px;flex-wrap:wrap}
+  .auto-refresh-bar label{font-size:12px;font-weight:600;color:var(--t2);display:flex;align-items:center;gap:6px;cursor:pointer}
+  .auto-refresh-bar input[type="checkbox"]{width:16px;height:16px;accent-color:var(--p);cursor:pointer}
+  .auto-refresh-bar select{padding:5px 9px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;background:var(--srf2);color:var(--t1)}
+  .auto-refresh-bar .status{font-size:12px;color:var(--t3);margin-left:auto}
+  .auto-refresh-bar .status b{color:var(--t2);font-weight:600}
+
+  .section-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:22px 0 12px}
+  .section-title-row h2{font-family:var(--fd);font-size:1.05rem;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px}
+  .section-title-row h2 i{color:var(--p);font-size:.95rem}
+  .section-title-row .hint{font-size:11.5px;color:var(--t3)}
+
+  /* STATUS STRIP */
+  .status-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+  @media(max-width:900px){.status-strip{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:480px){.status-strip{grid-template-columns:repeat(2,1fr)}}
+  .st-card{position:relative;background:var(--srf);border:1px solid var(--bdr);border-left:4px solid var(--sc,var(--p));border-radius:var(--r);padding:12px 14px;cursor:pointer;transition:all .18s}
+  .st-card:hover{transform:translateY(-2px);box-shadow:var(--s1)}
+  .st-card.active{background:var(--scl,var(--pl));border-color:var(--sc,var(--p))}
+  .st-card .st-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .st-card .st-label i{color:var(--sc,var(--p));font-size:11px}
+  .st-card .st-value{font-family:var(--fd);font-size:24px;font-weight:800;color:var(--t1);line-height:1}
+  .st-card.all{border-left-color:var(--p)}
+
+  /* KPI GRID */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px;margin-bottom:20px}
+  .kpi-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--r);padding:15px 16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+  .kpi-card:hover{transform:translateY(-2px);box-shadow:var(--s1);border-color:var(--pm)}
+  .kpi-card .label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
+  .kpi-card .value{font-family:var(--fd);font-size:23px;font-weight:800;color:var(--t1);line-height:1.15}
+  .kpi-card .sub{font-size:11px;color:var(--t3);margin-top:3px;display:flex;align-items:center;gap:6px}
+  .kpi-card .icon{position:absolute;right:14px;top:14px;font-size:19px;opacity:.13;color:var(--p)}
+  .trend-pill{font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:99px;display:inline-flex;align-items:center;gap:3px}
+  .trend-pill.up{color:#0b6b46;background:var(--okl)}
+  .trend-pill.down{color:#a4271b;background:var(--erl)}
+  .trend-pill.flat{color:var(--t3);background:var(--srf2)}
+
+  /* Generic metric grid used across new sections */
+  .metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+  .metric-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 15px}
+  .metric-card .m-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);margin-bottom:6px}
+  .metric-card .m-value{font-family:var(--fd);font-size:20px;font-weight:800;color:var(--t1)}
+  .metric-card .m-sub{font-size:11px;color:var(--t3);margin-top:4px}
+
+  .charts-section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+  @media(max-width:1024px){.charts-section{grid-template-columns:1fr}}
+  .chart-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px;cursor:default;transition:box-shadow .15s}
+  .chart-card.clickable{cursor:pointer}
+  .chart-card.clickable:hover{box-shadow:var(--s1)}
+  .chart-card .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .chart-card .chart-header h3{font-family:var(--fd);font-size:.95rem;font-weight:700;color:var(--t1)}
+  .chart-card .chart-header .hint{font-size:10.5px;color:var(--t3)}
+  .chart-card canvas{width:100%!important;max-height:250px}
+
+  /* Insights */
+  .insight-list{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:6px;margin-bottom:20px}
+  .insight-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-bottom:1px solid var(--bdr)}
+  .insight-item:last-child{border-bottom:none}
+  .insight-item .ic{width:30px;height:30px;border-radius:9px;background:var(--pl);color:var(--p);display:grid;place-items:center;font-size:13px;flex-shrink:0}
+  .insight-item .ic.warn{background:var(--pendl);color:#8a5a13}
+  .insight-item .ic.risk{background:var(--erl);color:#a4271b}
+  .insight-item .txt{font-size:13px;color:var(--t1);line-height:1.5}
+
+  /* Heatmap */
+  .heatmap-wrap{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px;margin-bottom:20px}
+  .heatmap-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .heatmap-row:last-child{margin-bottom:0}
+  .heatmap-row .hm-label{font-size:11px;font-weight:600;color:var(--t3);width:110px;flex-shrink:0}
+  .heatmap-cells{display:flex;gap:3px;flex:1}
+  .hm-cell{flex:1;height:22px;border-radius:4px;background:var(--pl)}
+  .hm-cell[data-lvl="0"]{background:var(--srf2)}
+  .hm-cell[data-lvl="1"]{background:#cfe6ec}
+  .hm-cell[data-lvl="2"]{background:#8fc3d0}
+  .hm-cell[data-lvl="3"]{background:#4c9ab0}
+  .hm-cell[data-lvl="4"]{background:var(--p)}
+
+  /* Feed */
+  .feed-section{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px;margin-bottom:20px}
+  .feed-section .feed-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .feed-section .feed-header h3{font-family:var(--fd);font-size:.95rem;font-weight:700;color:var(--t1)}
+  .feed-section .feed-header .feed-count{font-size:12px;color:var(--t3)}
+  .feed-list{max-height:400px;overflow-y:auto}
+  .feed-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)}
+  .feed-item:last-child{border-bottom:none}
+  .feed-item:hover{background:var(--srf2);margin:0 -8px;padding:10px 8px;border-radius:6px}
+  .feed-item .feed-icon{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:12px;flex-shrink:0}
+  .feed-item .feed-icon.success{background:var(--okl);color:#0b6b46}
+  .feed-item .feed-icon.error{background:var(--erl);color:#a4271b}
+  .feed-item .feed-icon.warning{background:var(--acl);color:#8a5a13}
+  .feed-item .feed-icon.info{background:var(--procl);color:var(--proc)}
+  .feed-item .feed-content{flex:1;min-width:0}
+  .feed-item .feed-content .text{font-size:13px;color:var(--t1);word-break:break-word}
+  .feed-item .feed-content .meta{font-size:11px;color:var(--t3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+  .status-badge{display:inline-block;padding:3px 11px;border-radius:99px;font-size:10px;font-weight:700;text-transform:capitalize;letter-spacing:.02em}
+  .status-badge.pending{background:var(--pendl);color:#8a5a13}
+  .status-badge.processing{background:var(--procl);color:var(--proc)}
+  .status-badge.completed{background:var(--okl);color:#0b6b46}
+  .status-badge.failed{background:var(--erl);color:#a4271b}
+  .status-badge.cancelled{background:var(--cxll);color:#5b6673}
+  .status-badge.online{background:var(--okl);color:#0b6b46}
+  .status-badge.degraded{background:var(--pendl);color:#8a5a13}
+  .status-badge.down{background:var(--erl);color:#a4271b}
+
+  .status-select{appearance:none;-webkit-appearance:none;border:1px solid var(--bdr);border-radius:99px;padding:4px 26px 4px 11px;font-size:10.5px;font-weight:700;text-transform:capitalize;cursor:pointer;background-repeat:no-repeat;background-position:right 9px center;background-size:9px;font-family:inherit}
+  .status-select:focus{border-color:var(--p)}
+  .status-select.pending{background-color:var(--pendl);color:#8a5a13}
+  .status-select.processing{background-color:var(--procl);color:var(--proc)}
+  .status-select.completed{background-color:var(--okl);color:#0b6b46}
+  .status-select.failed{background-color:var(--erl);color:#a4271b}
+  .status-select.cancelled{background-color:var(--cxll);color:#5b6673}
+  .status-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath fill='%23526270' d='M1 1l4 4 4-4'/%3E%3C/svg%3E")}
+
+  .coin-chip{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:12px}
+  .coin-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .coin-dot.BTC{background:#f7931a}
+  .coin-dot.USDT{background:#26a17b}
+  .coin-dot.USDC{background:#2775ca}
+
+  /* Coin performance cards */
+  .coin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px}
+  .coin-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:18px;position:relative;overflow:hidden}
+  .coin-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--cc,var(--p))}
+  .coin-card .cc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .coin-card .cc-name{display:flex;align-items:center;gap:9px;font-family:var(--fd);font-weight:800;font-size:17px}
+  .coin-card .cc-mark{width:34px;height:34px;border-radius:50%;background:var(--cc,var(--p));color:#fff;display:grid;place-items:center;font-size:12px;font-weight:800}
+  .coin-card .cc-rows{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:12px}
+  .coin-card .cc-row .l{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+  .coin-card .cc-row .v{font-family:var(--fd);font-size:16px;font-weight:800;color:var(--t1);margin-top:2px}
+  .coin-card .cc-bar{height:6px;border-radius:99px;background:var(--srf2);overflow:hidden;margin-top:6px}
+  .coin-card .cc-bar-fill{height:100%;background:var(--cc,var(--p));border-radius:99px}
+
+  /* Treasury / Market / Rate cards */
+  .treasury-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:20px}
+  .treasury-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px}
+  .treasury-card.low{border-color:var(--err);box-shadow:0 0 0 1px var(--err) inset}
+  .treasury-card .t-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .treasury-card .t-head .coin-chip{font-size:14px}
+  .treasury-card .t-rows{display:flex;flex-direction:column;gap:7px}
+  .treasury-card .t-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--t2)}
+  .treasury-card .t-row b{color:var(--t1);font-family:var(--fm);font-weight:600}
+  .low-badge{font-size:9.5px;font-weight:800;background:var(--erl);color:#a4271b;padding:2px 8px;border-radius:99px;text-transform:uppercase}
+
+  .market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px}
+  .market-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);padding:16px}
+  .market-card .mk-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .market-card .mk-price{font-family:var(--fd);font-size:21px;font-weight:800;color:var(--t1)}
+  .market-card .mk-change{font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:99px}
+  .market-card .mk-meta{font-size:11px;color:var(--t3);margin-top:8px;display:flex;justify-content:space-between}
+  .sparkline{width:100%;height:36px;margin-top:8px}
+
+  .rate-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .rate-table th{text-align:left;padding:9px 12px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);border-bottom:1px solid var(--bdr);background:var(--srf2)}
+  .rate-table td{padding:10px 12px;border-bottom:1px solid var(--bdr)}
+  .rate-table tr:last-child td{border-bottom:none}
+
+  /* Generic data table wrap (customers, risk, health, webhooks) */
+  .panel{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);overflow:hidden;margin-bottom:20px}
+  .panel .panel-head{padding:14px 16px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+  .panel .panel-head h3{font-family:var(--fd);font-size:.95rem;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px}
+  .panel .panel-body{padding:4px 0}
+  .data-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .data-table th{text-align:left;padding:9px 16px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);border-bottom:1px solid var(--bdr);background:var(--srf2)}
+  .data-table td{padding:10px 16px;border-bottom:1px solid var(--bdr)}
+  .data-table tr:last-child td{border-bottom:none}
+  .data-table tr:hover td{background:var(--pxl)}
+  .rank-badge{width:22px;height:22px;border-radius:50%;background:var(--pl);color:var(--p);display:inline-grid;place-items:center;font-size:10.5px;font-weight:800}
+  .rank-badge.gold{background:#fdeecb;color:#8a5a13}
+
+  .risk-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--bdr)}
+  .risk-row:last-child{border-bottom:none}
+  .risk-row .rk-sev{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .risk-row .rk-sev.high{background:var(--err)}
+  .risk-row .rk-sev.med{background:var(--pend)}
+  .risk-row .rk-sev.low{background:var(--cxl)}
+  .risk-row .rk-txt{flex:1;font-size:13px;color:var(--t1)}
+  .risk-row .rk-meta{font-size:11px;color:var(--t3)}
+
+  .health-row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--bdr)}
+  .health-row:last-child{border-bottom:none}
+  .health-row .hl-name{width:120px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .health-row .hl-name i{color:var(--t3);width:16px;text-align:center}
+  .health-row .hl-bars{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .health-row .hl-metric .l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
+  .health-row .hl-metric .v{font-family:var(--fm);font-size:12.5px;font-weight:600;color:var(--t1);margin-top:2px}
+
+  .notif-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--bdr)}
+  .notif-row:last-child{border-bottom:none}
+  .notif-row .nf-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:12px;flex-shrink:0}
+
+  /* Timeline (order drawer) */
+  .order-timeline{display:flex;flex-direction:column;padding-left:4px}
+  .tl-step{display:flex;gap:12px;position:relative;padding-bottom:18px}
+  .tl-step:last-child{padding-bottom:0}
+  .tl-step::before{content:'';position:absolute;left:9px;top:22px;bottom:0;width:2px;background:var(--bdr)}
+  .tl-step:last-child::before{display:none}
+  .tl-dot{width:20px;height:20px;border-radius:50%;background:var(--srf2);border:2px solid var(--bdr);display:grid;place-items:center;font-size:9px;color:var(--t3);flex-shrink:0;z-index:1}
+  .tl-step.done .tl-dot{background:var(--ok);border-color:var(--ok);color:#fff}
+  .tl-step.current .tl-dot{background:var(--proc);border-color:var(--proc);color:#fff}
+  .tl-step.failed .tl-dot{background:var(--err);border-color:var(--err);color:#fff}
+  .tl-label{font-size:12.5px;font-weight:600;color:var(--t3);padding-top:1px}
+  .tl-step.done .tl-label,.tl-step.current .tl-label{color:var(--t1)}
+
+  /* KPI detail modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(9,30,38,.55);z-index:1100;opacity:0;pointer-events:none;transition:opacity .25s;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal-overlay.open{opacity:1;pointer-events:auto}
+  .modal-card{background:var(--srf);border-radius:var(--rxl);width:560px;max-width:100%;max-height:88vh;overflow-y:auto;box-shadow:var(--s2);transform:scale(.96);transition:transform .25s var(--ease)}
+  .modal-overlay.open .modal-card{transform:scale(1)}
+  .modal-head{padding:18px 20px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+  .modal-head h2{font-family:var(--fd);font-size:1.05rem;font-weight:700}
+  .modal-head .close{font-size:20px;color:var(--t3);cursor:pointer;padding:4px 8px;border-radius:6px}
+  .modal-head .close:hover{background:var(--erl);color:var(--err)}
+  .modal-body{padding:20px}
+  .modal-hero{text-align:center;padding-bottom:16px;margin-bottom:16px;border-bottom:1px dashed var(--bdr)}
+  .modal-hero .mh-value{font-family:var(--fd);font-size:32px;font-weight:800;color:var(--t1)}
+  .modal-body .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .modal-body .kv-cell{background:var(--srf2);border-radius:9px;padding:10px 12px}
+  .modal-body .kv-cell .l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+  .modal-body .kv-cell .v{font-family:var(--fd);font-size:16px;font-weight:800;color:var(--t1);margin-top:2px}
+  .modal-body .coin-split{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+  .modal-body .cs-row{display:flex;align-items:center;gap:10px}
+  .modal-body .cs-row .cs-bar{flex:1;height:8px;border-radius:99px;background:var(--srf2);overflow:hidden}
+  .modal-body .cs-row .cs-fill{height:100%;border-radius:99px}
+
+  /* Export bar */
+  .export-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+
+  .table-section{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);overflow:hidden;margin-bottom:20px}
+  .table-section .table-toolbar{padding:13px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;border-bottom:1px solid var(--bdr)}
+  .table-section .table-toolbar .search-wrap{flex:1;min-width:200px;position:relative}
+  .table-section .table-toolbar .search-wrap input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;background:var(--srf2)}
+  .table-section .table-toolbar .search-wrap input:focus{border-color:var(--p);background:var(--srf)}
+  .table-section .table-toolbar .search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3)}
+  .table-section .table-toolbar .filters{display:flex;gap:6px;flex-wrap:wrap}
+  .table-section .table-toolbar .filters select{padding:8px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;background:var(--srf2);color:var(--t1)}
+  .table-section .table-toolbar .bulk-actions{display:flex;gap:4px;align-items:center}
+  .table-section .table-toolbar .bulk-actions select{padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;background:var(--srf2)}
+
+  .table-wrap{overflow-x:auto;padding:0 4px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead{background:var(--srf2)}
+  thead th{padding:11px 12px;text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);border-bottom:1px solid var(--bdr);position:sticky;top:0;background:var(--srf2);z-index:1;white-space:nowrap}
+  thead th .sort{cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  thead th .sort:hover{color:var(--t1)}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle;font-size:12.5px}
+  tbody tr:hover{background:var(--pxl)}
+  .copy-btn-small{background:var(--p);color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:9px;cursor:pointer;font-weight:600;white-space:nowrap;margin-left:4px}
+  .copy-btn-small:hover{background:var(--pm)}
+  .action-btn{padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer;border:1px solid transparent}
+  .action-btn:hover{background:var(--srf2)}
+  .action-btn.primary{color:var(--p)}
+  .action-btn.primary:hover{background:var(--pl)}
+
+  .table-footer{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--bdr);flex-wrap:wrap;gap:8px;font-size:13px;color:var(--t2)}
+  .table-footer .pagination{display:flex;gap:4px}
+  .table-footer .pagination button{padding:4px 10px;border:1px solid var(--bdr);border-radius:4px;font-size:12px;background:var(--srf)}
+  .table-footer .pagination button:hover:not(:disabled){background:var(--pl);border-color:var(--p)}
+  .table-footer .pagination button:disabled{opacity:.4;cursor:not-allowed}
+  .table-footer .pagination button.active{background:var(--p);color:#fff;border-color:var(--p)}
+
+  .empty-state{text-align:center;padding:44px 20px}
+  .empty-state .icon{font-size:44px;color:var(--t3);margin-bottom:12px}
+  .empty-state h3{font-family:var(--fd);font-size:1.05rem;color:var(--t1)}
+  .empty-state p{font-size:13px;color:var(--t3);margin-top:4px}
+  .empty-state.compact{padding:24px 16px}
+  .empty-state.compact .icon{font-size:26px;margin-bottom:8px}
+
+  .drawer-overlay{position:fixed;inset:0;background:rgba(9,30,38,.55);z-index:1000;opacity:0;pointer-events:none;transition:opacity .3s}
+  .drawer-overlay.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;width:500px;max-width:92vw;height:100%;background:var(--srf);z-index:1001;transform:translateX(100%);transition:transform .32s var(--ease);overflow-y:auto;padding:20px;box-shadow:var(--s2)}
+  .drawer.open{transform:translateX(0)}
+  .drawer .drawer-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--bdr);margin-bottom:16px}
+  .drawer .drawer-header h2{font-family:var(--fd);font-size:1.1rem;font-weight:700;color:var(--t1)}
+  .drawer .drawer-header .close{font-size:20px;cursor:pointer;color:var(--t3);padding:4px 8px;border-radius:6px}
+  .drawer .drawer-header .close:hover{background:var(--erl);color:var(--err)}
+  .drawer .drawer-section{margin-bottom:16px}
+  .drawer .drawer-section .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);margin-bottom:8px}
+  .drawer .drawer-section .detail-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px dashed var(--bdr)}
+  .drawer .drawer-section .detail-row:last-child{border-bottom:none}
+  .drawer .drawer-section .detail-row .label{color:var(--t3);font-weight:500}
+  .drawer .drawer-section .detail-row .value{color:var(--t1);font-weight:600;text-align:right;word-break:break-all;max-width:62%}
+  .status-update-box{display:flex;gap:8px;align-items:center;background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--r);padding:12px}
+  .status-update-box select{flex:1;padding:9px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-weight:600;background:var(--srf);text-transform:capitalize}
+  .drawer .drawer-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px;padding-top:16px;border-top:1px solid var(--bdr)}
+  .drawer .drawer-actions .btn{width:auto;padding:9px 14px;font-size:12px}
+
+  .toast-container{position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+  @media(max-width:640px){.toast-container{left:14px;right:14px;bottom:80px}}
+  .toast{padding:12px 18px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;box-shadow:var(--s2);opacity:0;transform:translateX(40px);transition:all .3s;max-width:400px}
+  .toast.show{opacity:1;transform:translateX(0)}
+  .toast.success{background:var(--ok)}
+  .toast.error{background:var(--err)}
+  .toast.info{background:var(--p)}
+  .toast.warning{background:var(--acd)}
+
+  .btn{padding:10px 16px;border-radius:var(--r);border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+  .btn-primary{background:var(--p);color:#fff}
+  .btn-primary:hover{background:var(--pm);transform:translateY(-1px)}
+  .btn-success{background:var(--ok);color:#fff}
+  .btn-success:hover{background:#178a5c}
+  .btn-ghost{background:var(--srf2);color:var(--t2);border:1px solid var(--bdr)}
+  .btn-ghost:hover{background:var(--bg);color:var(--t1)}
+  .btn-sm{padding:5px 10px;font-size:11px;border-radius:6px}
+
+  @media(max-width:768px){
+    .kpi-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+    .table-section .table-toolbar{flex-direction:column;align-items:stretch}
+    .drawer{width:100%;max-width:100%}
+    .page-header{flex-direction:column;align-items:flex-start}
+    .health-row{flex-direction:column;align-items:flex-start;gap:8px}
+    .health-row .hl-bars{grid-template-columns:repeat(2,1fr);width:100%}
+  }
+  @media(max-width:480px){
+    .kpi-grid{grid-template-columns:1fr 1fr}
+    .kpi-card .value{font-size:18px}
+    .content{padding:10px 8px 90px}
+  }
+
+  .mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:56px;background:rgba(255,255,255,.9);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:17px;box-shadow:0 6px 22px rgba(11,50,66,.16);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+  .mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.5rem;font-weight:600;color:var(--t3);flex:1}
+  .mni i{font-size:.84rem;padding:5px 6px;border-radius:9px}
+  .mni.active{color:var(--p)}
+  .mni.active i{background:var(--pl);color:var(--p)}
+  @media(max-width:768px){.mnav{display:flex}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" onerror="this.outerHTML='&lt;span class=&quot;mark&quot;&gt;M&lt;/span&gt;'"> MilesSpace</div>
+    </div>
+    <p class="sb-sec">Crypto Operations</p>
+    <nav class="sb-nav" id="viewNav">
+      <button class="sb-lnk active" data-view="executive"><i class="fas fa-chart-pie"></i> Executive</button>
+      <button class="sb-lnk" data-view="operations"><i class="fas fa-bolt"></i> Live Operations</button>
+      <button class="sb-lnk" data-view="coins"><i class="fas fa-coins"></i> Coin Analytics</button>
+      <button class="sb-lnk" data-view="treasury"><i class="fas fa-vault"></i> Treasury & Markets</button>
+      <button class="sb-lnk" data-view="customers"><i class="fas fa-user-shield"></i> Customers & Risk</button>
+      <button class="sb-lnk" data-view="health"><i class="fas fa-heart-pulse"></i> System Health</button>
+    </nav>
+    <p class="sb-sec">Management</p>
+    <nav class="sb-nav">
+      <a href="/admin/dashboard" class="sb-lnk"><i class="fas fa-home"></i> Main Dashboard</a>
+      <a href="/admin/users" class="sb-lnk"><i class="fas fa-users"></i> Customers</a>
+      <a href="/admin/settings" class="sb-lnk"><i class="fas fa-cog"></i> Settings</a>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-prof">
+        <div class="sb-av" id="sbAv">A</div>
+        <div class="sb-ui">
+          <p class="sb-un" id="sbName">Admin</p>
+          <p class="sb-ue" id="sbEmail">admin@milesspace.com</p>
+        </div>
+        <button class="sb-out" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i></button>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main-content">
+    <header class="topbar">
+      <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+      <div class="tb-title" id="viewTitle">Executive Dashboard <span class="badge">Live</span></div>
+      <div class="tb-right">
+        <button class="tb-btn" id="notifBtn" onclick="switchView('health')"><i class="fas fa-bell"></i><span class="ping" id="notifPing" style="display:none"></span></button>
+        <button class="tb-btn" id="refreshBtn" onclick="refreshAll()"><i class="fas fa-sync-alt"></i></button>
+        <div class="tb-av" id="tbAv">A</div>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="page-header">
+        <div>
+          <h1 id="pageH1">Crypto Operations Console</h1>
+          <p id="pageSub">Full visibility across orders, revenue, treasury and risk — BTC · USDT · USDC</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-sm" onclick="refreshAll()"><i class="fas fa-sync-alt"></i> Refresh</button>
+        </div>
+      </div>
+
+      <div class="tab-nav" id="tabNav">
+        <button class="tab-btn active" data-view="executive"><i class="fas fa-chart-pie"></i> Executive</button>
+        <button class="tab-btn" data-view="operations"><i class="fas fa-bolt"></i> Live Operations</button>
+        <button class="tab-btn" data-view="coins"><i class="fas fa-coins"></i> Coin Analytics</button>
+        <button class="tab-btn" data-view="treasury"><i class="fas fa-vault"></i> Treasury & Markets</button>
+        <button class="tab-btn" data-view="customers"><i class="fas fa-user-shield"></i> Customers & Risk</button>
+        <button class="tab-btn" data-view="health"><i class="fas fa-heart-pulse"></i> System Health <span class="cnt" id="healthAlertCnt" style="display:none">0</span></button>
+      </div>
+
+      <div class="auto-refresh-bar">
+        <label><input type="checkbox" id="autoRefreshToggle" checked /> Auto refresh</label>
+        <select id="refreshInterval">
+          <option value="10000">10s</option>
+          <option value="30000" selected>30s</option>
+          <option value="60000">1m</option>
+        </select>
+        <span class="status">Last updated: <b id="lastUpdate">just now</b></span>
+      </div>
+
+      <!-- ══════════ EXECUTIVE VIEW ══════════ -->
+      <section class="view-section active" id="view-executive">
+        <div class="status-strip" id="statusStrip"></div>
+        <div class="kpi-grid" id="kpiGrid"></div>
+
+        <div class="section-title-row"><h2><i class="fas fa-lightbulb"></i> Business Insights</h2><span class="hint">Auto-generated from today's activity</span></div>
+        <div class="insight-list" id="insightList"></div>
+
+        <div class="charts-section">
+          <div class="chart-card">
+            <div class="chart-header"><h3>Revenue Overview</h3><span class="hint">Last 7 days</span></div>
+            <canvas id="revenueChart"></canvas>
+          </div>
+          <div class="chart-card clickable" onclick="switchView('operations')" title="Click to open Live Operations filtered by status">
+            <div class="chart-header"><h3>Orders by Status</h3><span class="hint">click to inspect</span></div>
+            <canvas id="ordersChart"></canvas>
+          </div>
+          <div class="chart-card clickable" onclick="switchView('coins')" title="Click to open Coin Analytics">
+            <div class="chart-header"><h3>Coin Distribution</h3><span class="hint">click to inspect</span></div>
+            <canvas id="coinChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><h3>Daily Orders</h3></div>
+            <canvas id="dailyOrdersChart"></canvas>
+          </div>
+        </div>
+
+        <div class="section-title-row"><h2><i class="fas fa-fire"></i> Activity Heatmap</h2><span class="hint">Orders by hour &amp; day of week</span></div>
+        <div class="heatmap-wrap" id="heatmapWrap"></div>
+
+        <div class="section-title-row"><h2><i class="fas fa-sack-dollar"></i> Revenue &amp; Profit Breakdown</h2></div>
+        <div class="metric-grid" id="revenueBreakdownGrid"></div>
+        <div class="charts-section">
+          <div class="chart-card">
+            <div class="chart-header"><h3>Revenue vs Profit</h3></div>
+            <canvas id="revProfitChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><h3>Revenue by Coin</h3></div>
+            <canvas id="revByCoinChart"></canvas>
+          </div>
+        </div>
+
+        <div class="section-title-row"><h2><i class="fas fa-file-export"></i> Export Center</h2></div>
+        <div class="export-bar">
+          <button class="btn btn-primary btn-sm" onclick="exportOrders('csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportOrders('excel')"><i class="fas fa-file-excel"></i> Export Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportOrders('pdf')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+          <button class="btn btn-ghost btn-sm" onclick="scheduleReport()"><i class="fas fa-clock"></i> Schedule Report</button>
+        </div>
+      </section>
+
+      <!-- ══════════ LIVE OPERATIONS VIEW ══════════ -->
+      <section class="view-section" id="view-operations">
+        <div class="status-strip" id="statusStripOps"></div>
+
+        <div class="section-title-row"><h2><i class="fas fa-triangle-exclamation"></i> Pending Actions</h2><span class="hint">Needs admin attention</span></div>
+        <div class="metric-grid" id="pendingActionsGrid"></div>
+
+        <div class="feed-section">
+          <div class="feed-header"><h3>Live Order Monitor</h3><span class="feed-count" id="feedCount">0 events</span></div>
+          <div class="feed-list" id="feedList">
+            <div class="empty-state"><div class="icon"><i class="fas fa-satellite-dish"></i></div><h3>Waiting for activity</h3><p>Live events will appear here</p></div>
+          </div>
+        </div>
+
+        <div class="table-section">
+          <div class="table-toolbar">
+            <div class="search-wrap"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search order, user, wallet, reference..." /></div>
+            <div class="filters">
+              <select id="statusFilter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <select id="coinFilter">
+                <option value="">All Coins</option>
+                <option value="BTC">BTC</option>
+                <option value="USDT">USDT</option>
+                <option value="USDC">USDC</option>
+              </select>
+            </div>
+            <div class="bulk-actions">
+              <select id="bulkAction">
+                <option value="">Bulk: set status to...</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="applyBulkAction()">Apply</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:30px"><input type="checkbox" id="selectAll" onchange="toggleAllOrders()" /></th>
+                  <th class="sort" onclick="sortTable('id')">Order ID</th>
+                  <th class="sort" onclick="sortTable('user')">User</th>
+                  <th class="sort" onclick="sortTable('coin')">Coin</th>
+                  <th class="sort" onclick="sortTable('amount_ngn')">Amount NGN</th>
+                  <th class="sort" onclick="sortTable('crypto_amount')">Crypto</th>
+                  <th>Status</th>
+                  <th class="sort" onclick="sortTable('created_at')">Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody">
+                <tr><td colspan="9"><div class="empty-state"><div class="icon"><i class="fas fa-list"></i></div><h3>Loading orders...</h3><p>Please wait</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <span id="tableInfo">Showing 0 orders</span>
+            <div class="pagination" id="pagination"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════ COIN ANALYTICS VIEW ══════════ -->
+      <section class="view-section" id="view-coins">
+        <div class="section-title-row"><h2><i class="fas fa-coins"></i> Coin Performance</h2><span class="hint">BTC · USDT · USDC</span></div>
+        <div class="coin-grid" id="coinPerfGrid"></div>
+
+        <div class="charts-section">
+          <div class="chart-card">
+            <div class="chart-header"><h3>BTC vs USDT vs USDC — Orders</h3></div>
+            <canvas id="coinOrdersCompareChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><h3>BTC vs USDT vs USDC — Revenue</h3></div>
+            <canvas id="coinRevenueCompareChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><h3>Coin Popularity Trend (7d)</h3></div>
+            <canvas id="coinTrendChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><h3>Market Share</h3></div>
+            <canvas id="coinShareChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════ TREASURY & MARKETS VIEW ══════════ -->
+      <section class="view-section" id="view-treasury">
+        <div class="section-title-row"><h2><i class="fas fa-vault"></i> Crypto Treasury</h2><span class="hint">Internal inventory</span></div>
+        <div id="liquidityWarnings"></div>
+        <div class="treasury-grid" id="treasuryGrid"></div>
+
+        <div class="section-title-row"><h2><i class="fas fa-signal"></i> Live Market</h2><span class="hint">External reference prices</span></div>
+        <div class="market-grid" id="marketGrid"></div>
+
+        <div class="section-title-row"><h2><i class="fas fa-scale-balanced"></i> Exchange Rate Panel</h2><span class="hint">Internal pricing vs source</span></div>
+        <div class="panel">
+          <div class="panel-body">
+            <table class="rate-table" id="rateTable"></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════ CUSTOMERS & RISK VIEW ══════════ -->
+      <section class="view-section" id="view-customers">
+        <div class="section-title-row"><h2><i class="fas fa-users"></i> Customer Intelligence</h2></div>
+        <div class="metric-grid" id="customerMetricsGrid"></div>
+
+        <div class="panel">
+          <div class="panel-head"><h3><i class="fas fa-trophy"></i> Top 10 Customers</h3></div>
+          <div class="panel-body">
+            <table class="data-table">
+              <thead><tr><th>#</th><th>Customer</th><th>Orders</th><th>Lifetime Spend</th><th>Preferred Coin</th><th>Last Order</th></tr></thead>
+              <tbody id="topCustomersBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-title-row"><h2><i class="fas fa-shield-halved"></i> Fraud &amp; Risk Center</h2><span class="hint">Flags requiring manual review</span></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Risk Queue</h3><span class="hint" id="riskCount">0 flags</span></div>
+          <div class="panel-body" id="riskList"></div>
+        </div>
+      </section>
+
+      <!-- ══════════ SYSTEM HEALTH VIEW ══════════ -->
+      <section class="view-section" id="view-health">
+        <div class="section-title-row"><h2><i class="fas fa-satellite-dish"></i> Webhook Monitor</h2></div>
+        <div class="metric-grid" id="webhookGrid"></div>
+
+        <div class="section-title-row"><h2><i class="fas fa-server"></i> API Health</h2><span class="hint">Busha · CoinGecko · Paystack · Supabase</span></div>
+        <div class="panel">
+          <div class="panel-body" id="apiHealthList"></div>
+        </div>
+
+        <div class="section-title-row"><h2><i class="fas fa-bell"></i> Notifications Center</h2></div>
+        <div class="panel">
+          <div class="panel-body" id="notifList"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <nav class="mnav">
+    <a href="#" class="mni active" onclick="switchView('executive');return false;"><i class="fas fa-chart-pie"></i><span>Exec</span></a>
+    <a href="#" class="mni" onclick="switchView('operations');return false;"><i class="fas fa-bolt"></i><span>Ops</span></a>
+    <a href="#" class="mni" onclick="switchView('coins');return false;"><i class="fas fa-coins"></i><span>Coins</span></a>
+    <a href="#" class="mni" onclick="switchView('treasury');return false;"><i class="fas fa-vault"></i><span>Treasury</span></a>
+    <a href="#" class="mni" onclick="switchView('health');return false;"><i class="fas fa-heart-pulse"></i><span>Health</span></a>
+  </nav>
+</div>
+
+<!-- ORDER DRAWER -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <h2 id="drawerTitle">Order Details</h2>
+    <button class="close" onclick="closeDrawer()">&times;</button>
+  </div>
+  <div id="drawerContent">
+    <div class="empty-state"><div class="icon"><i class="fas fa-list"></i></div><h3>Select an order</h3><p>Click on any order row to view details</p></div>
+  </div>
+</div>
+
+<!-- KPI DETAIL MODAL -->
+<div class="modal-overlay" id="kpiModalOverlay" onclick="if(event.target===this)closeKpiModal()">
+  <div class="modal-card">
+    <div class="modal-head"><h2 id="kpiModalTitle">Metric</h2><span class="close" onclick="closeKpiModal()">&times;</span></div>
+    <div class="modal-body" id="kpiModalBody"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ══════════════════════════ HELPERS ══════════════════════════
+const debounce = (fn, delay = 300) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), delay); }; };
+const $ = (id) => document.getElementById(id);
+
+// Escape any DB-sourced string before it goes into innerHTML — a defense against
+// stored payloads in fields like wallet_address, tx_hash, bank_account, usernames, etc.
+const esc = (v) => {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+};
+
+const STATUSES = [
+  { key: 'pending',    label: 'Pending',    icon: 'fa-clock',        color: 'var(--pend)', colorLight: 'var(--pendl)', hex: '#e0a327' },
+  { key: 'processing', label: 'Processing', icon: 'fa-spinner',      color: 'var(--proc)', colorLight: 'var(--procl)', hex: '#3b7dd8' },
+  { key: 'completed',  label: 'Completed',  icon: 'fa-check-circle', color: 'var(--ok)',   colorLight: 'var(--okl)',   hex: '#1fa971' },
+  { key: 'failed',     label: 'Failed',     icon: 'fa-times-circle', color: 'var(--err)',  colorLight: 'var(--erl)',   hex: '#e2503f' },
+  { key: 'cancelled',  label: 'Cancelled',  icon: 'fa-ban',          color: 'var(--cxl)',  colorLight: 'var(--cxll)',  hex: '#8792a2' }
+];
+const COINS = ['BTC', 'USDT', 'USDC'];
+const COIN_HEX = { BTC: '#f7931a', USDT: '#26a17b', USDC: '#2775ca' };
+const TIMELINE_STAGES = ['Order Created','Quote Generated','Bank Account Generated','Payment Received','Payment Verified','Transfer Created','Crypto Broadcast','Blockchain Confirmed','Completed'];
+const STATUS_STAGE_INDEX = { pending: 2, processing: 6, completed: 9, failed: 4, cancelled: 1 };
+
+const CONFIG = { API_BASE: '/api', SESSION_KEY: 'admin_sess', PAGE_SIZE: 25 };
+
+const state = {
+  orders: [], currentPage: 1, totalPages: 1, totalOrders: 0,
+  sortField: 'created_at', sortDirection: 'desc',
+  selectedOrders: new Set(), charts: {}, activeStatusFilter: '', activeView: 'executive',
+  stats: {
+    total_orders: 0, today_orders: 0, today_revenue: 0, monthly_revenue: 0, lifetime_revenue: 0,
+    success_rate: 0, avg_order_value: 0, active_customers: 0,
+    coin_counts: { BTC: 0, USDT: 0, USDC: 0 },
+    status_counts: { pending: 0, processing: 0, completed: 0, failed: 0, cancelled: 0 }
+  },
+  revenueData: { daily: [], daily_orders: [] },
+  extra: {}, // holds treasury/market/rates/customers/risk/health/webhooks/coinStats — all real, may be null if not yet available
+  ChartLoaded: false, isRefreshing: false
+};
+
+const DOM = {
+  statusStrip: $('statusStrip'), statusStripOps: $('statusStripOps'), kpiGrid: $('kpiGrid'),
+  ordersTableBody: $('ordersTableBody'), searchInput: $('searchInput'), statusFilter: $('statusFilter'),
+  coinFilter: $('coinFilter'), bulkAction: $('bulkAction'), pagination: $('pagination'), tableInfo: $('tableInfo'),
+  feedList: $('feedList'), feedCount: $('feedCount'), drawer: $('drawer'), drawerOverlay: $('drawerOverlay'),
+  drawerContent: $('drawerContent'), drawerTitle: $('drawerTitle'), selectAll: $('selectAll'),
+  toastContainer: $('toastContainer'), lastUpdate: $('lastUpdate'), autoRefreshToggle: $('autoRefreshToggle'),
+  refreshInterval: $('refreshInterval'), sidebar: $('sidebar'), scrim: $('scrim'), hbg: $('hbg'),
+  sbName: $('sbName'), sbEmail: $('sbEmail'), sbAv: $('sbAv'), tbAv: $('tbAv'), refreshBtn: $('refreshBtn'),
+  viewTitle: $('viewTitle'), insightList: $('insightList'), heatmapWrap: $('heatmapWrap'),
+  revenueBreakdownGrid: $('revenueBreakdownGrid'), pendingActionsGrid: $('pendingActionsGrid'),
+  coinPerfGrid: $('coinPerfGrid'), treasuryGrid: $('treasuryGrid'), liquidityWarnings: $('liquidityWarnings'),
+  marketGrid: $('marketGrid'), rateTable: $('rateTable'), customerMetricsGrid: $('customerMetricsGrid'),
+  topCustomersBody: $('topCustomersBody'), riskList: $('riskList'), riskCount: $('riskCount'),
+  webhookGrid: $('webhookGrid'), apiHealthList: $('apiHealthList'), notifList: $('notifList'),
+  healthAlertCnt: $('healthAlertCnt'), notifPing: $('notifPing')
+};
+
+const emptyPanel = (icon, title, sub) => `<div class="empty-state compact"><div class="icon"><i class="fas ${icon}"></i></div><h3>${esc(title)}</h3><p>${esc(sub || '')}</p></div>`;
+
+const getSession = () => {
+  try {
+    const raw = localStorage.getItem(CONFIG.SESSION_KEY) || sessionStorage.getItem(CONFIG.SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+
+const apiRequest = async (endpoint, options = {}) => {
+  try {
+    const session = getSession();
+    if (!session || !session.token) {
+      showToast('Session expired. Please login again.', 'error');
+      setTimeout(() => { window.location.href = '/admin'; }, 1500);
+      return null;
+    }
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.token}` };
+    const resp = await fetch(`${CONFIG.API_BASE}${endpoint}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+    if (resp.status === 401 || resp.status === 403) {
+      showToast('Admin access required', 'error');
+      setTimeout(() => { window.location.href = '/admin'; }, 1500);
+      return null;
+    }
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  } catch (e) { console.warn('API error:', endpoint, e); return null; }
+};
+
+const showToast = (msg, type = 'info', duration = 3500) => {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  DOM.toastContainer.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, duration);
+};
+
+const formatNumber = (n) => {
+  if (!n) return '0';
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  return n.toLocaleString();
+};
+const formatCurrency = (n) => `₦${formatNumber(n)}`;
+const formatUsd = (n) => `$${formatNumber(n)}`;
+
+const copyToClipboard = (value, successMsg = 'Copied!') => {
+  if (!value) { showToast('Nothing to copy', 'error'); return; }
+  const copyFn = () => {
+    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement('textarea');
+      ta.value = value; ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ta.remove(); resolve(); } catch (e) { ta.remove(); reject(e); }
+    });
+  };
+  copyFn().then(() => showToast(successMsg, 'success')).catch(() => showToast('Could not copy', 'error'));
+};
+window.copyToClipboard = copyToClipboard;
+
+const doLogout = () => {
+  localStorage.removeItem(CONFIG.SESSION_KEY);
+  sessionStorage.removeItem(CONFIG.SESSION_KEY);
+  window.location.href = '/admin';
+};
+window.doLogout = doLogout;
+
+const updateUserUI = () => {
+  const s = getSession();
+  if (s?.user) {
+    const name = s.user.username || s.user.email || 'Admin';
+    const initial = name.charAt(0).toUpperCase();
+    DOM.sbName.textContent = name; DOM.sbEmail.textContent = s.user.email || '';
+    DOM.sbAv.textContent = initial; DOM.tbAv.textContent = initial;
+  }
+};
+
+DOM.hbg.addEventListener('click', () => { DOM.sidebar.classList.toggle('open'); DOM.scrim.classList.toggle('show'); });
+DOM.scrim.addEventListener('click', () => { DOM.sidebar.classList.remove('open'); DOM.scrim.classList.remove('show'); });
+
+// ══════════════════════════ VIEW SWITCHING ══════════════════════════
+const VIEW_META = {
+  executive: { title: 'Executive Dashboard', sub: 'KPIs, revenue, profit and business insights at a glance.' },
+  operations: { title: 'Live Operations', sub: 'Every order, every status, live — edit status inline.' },
+  coins: { title: 'Coin Analytics', sub: 'Performance and comparison across BTC, USDT and USDC.' },
+  treasury: { title: 'Treasury & Markets', sub: 'Inventory, liquidity, live prices and internal rate margins.' },
+  customers: { title: 'Customers & Risk', sub: 'Spending behaviour, top accounts and fraud review queue.' },
+  health: { title: 'System Health', sub: 'Webhook delivery, API uptime and platform notifications.' }
+};
+
+const switchView = (view) => {
+  state.activeView = view;
+  document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+  $(`view-${view}`)?.classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('#viewNav .sb-lnk').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.mni').forEach(b => b.classList.remove('active'));
+  const meta = VIEW_META[view] || VIEW_META.executive;
+  DOM.viewTitle.innerHTML = `${esc(meta.title)} <span class="badge">Live</span>`;
+  $('pageH1').textContent = meta.title;
+  $('pageSub').textContent = meta.sub;
+  DOM.sidebar.classList.remove('open'); DOM.scrim.classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  requestAnimationFrame(() => renderChartsForView(view));
+};
+window.switchView = switchView;
+
+document.querySelectorAll('.tab-btn, #viewNav .sb-lnk').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+// ══════════════════════════ STATUS STRIP ══════════════════════════
+const renderStatusStrip = (stats) => {
+  const sc = stats.status_counts || {};
+  const totalCard = `
+    <div class="st-card all ${state.activeStatusFilter === '' ? 'active' : ''}" onclick="filterByStatus('')" style="--sc:var(--p);--scl:var(--pl)">
+      <div class="st-label"><i class="fas fa-layer-group"></i> All Orders</div><div class="st-value">${stats.total_orders || 0}</div>
+    </div>`;
+  const cards = STATUSES.map(s => `
+    <div class="st-card ${state.activeStatusFilter === s.key ? 'active' : ''}" onclick="filterByStatus('${s.key}')" style="--sc:${s.color};--scl:${s.colorLight}">
+      <div class="st-label"><i class="fas ${s.icon}"></i> ${s.label}</div><div class="st-value">${sc[s.key] || 0}</div>
+    </div>`).join('');
+  const html = totalCard + cards;
+  DOM.statusStrip.innerHTML = html;
+  DOM.statusStripOps.innerHTML = html;
+};
+
+const filterByStatus = (key) => {
+  state.activeStatusFilter = key;
+  DOM.statusFilter.value = key;
+  state.currentPage = 1;
+  renderStatusStrip(state.stats);
+  switchView('operations');
+  loadOrders();
+};
+window.filterByStatus = filterByStatus;
+
+// ══════════════════════════ KPI GRID + DRILL-DOWN ══════════════════════════
+const pct = (a, b) => (b ? Math.round(((a - b) / b) * 100) : 0);
+
+const kpiDefs = () => {
+  const st = state.stats;
+  const yestRevenue = state.extra.yesterday_revenue;
+  const hasYesterday = yestRevenue !== undefined && yestRevenue !== null;
+  const growth = hasYesterday ? pct(st.today_revenue || 0, yestRevenue) : undefined;
+  return [
+    { key: 'today_orders', label: "Today's Orders", value: st.today_orders || 0, icon: 'fa-calendar-day', fmt: 'int' },
+    { key: 'today_revenue', label: "Today's Revenue", value: st.today_revenue || 0, icon: 'fa-money-bill-wave', fmt: 'ngn', trend: growth },
+    { key: 'monthly_revenue', label: 'Monthly Revenue', value: st.monthly_revenue || 0, icon: 'fa-chart-line', fmt: 'ngn' },
+    { key: 'lifetime_revenue', label: 'Lifetime Revenue', value: st.lifetime_revenue || 0, icon: 'fa-flag-checkered', fmt: 'ngn' },
+    { key: 'success_rate', label: 'Success Rate', value: st.success_rate || 0, icon: 'fa-percent', fmt: 'pct' },
+    { key: 'avg_order_value', label: 'Avg Order Value', value: st.avg_order_value || 0, icon: 'fa-calculator', fmt: 'ngn' },
+    { key: 'active_customers', label: 'Active Customers', value: st.active_customers || 0, icon: 'fa-users', fmt: 'int' }
+  ];
+};
+
+const fmtKpi = (v, fmt) => fmt === 'ngn' ? formatCurrency(v) : fmt === 'pct' ? `${v}%` : (v || 0).toLocaleString();
+
+const renderKPIs = () => {
+  DOM.kpiGrid.innerHTML = kpiDefs().map(k => `
+    <div class="kpi-card" onclick="openKpiModal('${k.key}')">
+      <div class="label">${k.label}</div>
+      <div class="value">${fmtKpi(k.value, k.fmt)}</div>
+      ${k.trend !== undefined ? `<div class="sub"><span class="trend-pill ${k.trend > 0 ? 'up' : k.trend < 0 ? 'down' : 'flat'}"><i class="fas fa-arrow-${k.trend >= 0 ? 'up' : 'down'}"></i> ${Math.abs(k.trend)}%</span> vs yesterday</div>` : `<div class="sub">Tap for breakdown</div>`}
+      <div class="icon"><i class="fas ${k.icon}"></i></div>
+    </div>
+  `).join('');
+};
+
+const openKpiModal = (key) => {
+  const k = kpiDefs().find(d => d.key === key);
+  if (!k) return;
+  const st = state.stats;
+  const cc = st.coin_counts || {};
+  const totalCoinOrders = COINS.reduce((a, c) => a + (cc[c] || 0), 0) || 1;
+
+  $('kpiModalTitle').textContent = k.label;
+  $('kpiModalBody').innerHTML = `
+    <div class="modal-hero">
+      <div class="mh-value">${fmtKpi(k.value, k.fmt)}</div>
+      ${k.trend !== undefined ? `<span class="trend-pill ${k.trend >= 0 ? 'up' : 'down'}" style="margin-top:8px"><i class="fas fa-arrow-${k.trend >= 0 ? 'up' : 'down'}"></i> ${Math.abs(k.trend)}% vs yesterday</span>` : ''}
+    </div>
+    <div class="kv-grid">
+      <div class="kv-cell"><div class="l">Average Order</div><div class="v">${formatCurrency(st.avg_order_value || 0)}</div></div>
+      <div class="kv-cell"><div class="l">Success Rate</div><div class="v">${st.success_rate || 0}%</div></div>
+      <div class="kv-cell"><div class="l">Total Orders</div><div class="v">${(st.total_orders || 0).toLocaleString()}</div></div>
+      <div class="kv-cell"><div class="l">Active Customers</div><div class="v">${(st.active_customers || 0).toLocaleString()}</div></div>
+    </div>
+    <div class="section-title" style="margin-bottom:8px">Coin Split</div>
+    <div class="coin-split">
+      ${COINS.map(c => { const share = Math.round(((cc[c] || 0) / totalCoinOrders) * 100); return `
+        <div class="cs-row">
+          <span class="coin-chip" style="width:56px"><span class="coin-dot ${c}"></span>${c}</span>
+          <div class="cs-bar"><div class="cs-fill" style="width:${share}%;background:${COIN_HEX[c]}"></div></div>
+          <span style="font-size:12px;font-weight:700;width:36px;text-align:right">${share}%</span>
+        </div>`; }).join('')}
+    </div>
+    <button class="btn btn-primary btn-sm" style="width:100%" onclick="exportOrders('csv');closeKpiModal()"><i class="fas fa-file-csv"></i> Export related orders (CSV)</button>
+  `;
+  $('kpiModalOverlay').classList.add('open');
+};
+window.openKpiModal = openKpiModal;
+const closeKpiModal = () => $('kpiModalOverlay').classList.remove('open');
+window.closeKpiModal = closeKpiModal;
+
+// ══════════════════════════ BUSINESS INSIGHTS ══════════════════════════
+const renderInsights = () => {
+  const st = state.stats;
+  const cc = st.coin_counts || {};
+  const totalCoinOrders = COINS.reduce((a, c) => a + (cc[c] || 0), 0);
+  const insights = [];
+
+  if (totalCoinOrders > 0) {
+    const topCoin = COINS.reduce((a, c) => (cc[c] || 0) > (cc[a] || 0) ? c : a, 'BTC');
+    const topCoinShare = Math.round(((cc[topCoin] || 0) / totalCoinOrders) * 100);
+    insights.push({ icon: 'fa-coins', txt: `${topCoin} accounts for <b>${topCoinShare}%</b> of purchases so far.` });
+  }
+
+  if (state.extra.yesterday_revenue !== undefined && state.extra.yesterday_revenue !== null) {
+    const growth = pct(st.today_revenue || 0, state.extra.yesterday_revenue);
+    insights.push({ icon: growth >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down', txt: `Revenue is ${growth >= 0 ? 'up' : 'down'} <b>${Math.abs(growth)}%</b> compared to yesterday.` });
+  }
+
+  if (st.avg_order_value) {
+    insights.push({ icon: 'fa-calculator', txt: `Average order size is <b>${formatCurrency(st.avg_order_value)}</b>.` });
+  }
+
+  const stuck = state.orders.filter(o => (o.status === 'pending' || o.status === 'processing') && o.created_at && (Date.now() - new Date(o.created_at).getTime()) > 30 * 60 * 1000).length;
+  if (stuck > 0) insights.push({ icon: 'fa-hourglass-half', txt: `<b>${stuck} order${stuck > 1 ? 's have' : ' has'}</b> been pending or processing for over 30 minutes and may need investigation.`, warn: true });
+
+  const degraded = (state.extra.apiHealth || []).filter(a => a.status !== 'online');
+  degraded.forEach(a => insights.push({ icon: 'fa-server', txt: `${esc(a.name)} is currently <b>${esc(a.status)}</b>.`, warn: true }));
+
+  DOM.insightList.innerHTML = insights.length
+    ? insights.map(i => `<div class="insight-item"><div class="ic ${i.warn ? 'warn' : ''}"><i class="fas ${i.icon}"></i></div><div class="txt">${i.txt}</div></div>`).join('')
+    : emptyPanel('fa-lightbulb', 'No insights yet', 'Insights appear once there is enough order activity today.');
+};
+
+// ══════════════════════════ HEATMAP ══════════════════════════
+const renderHeatmap = () => {
+  const orders = state.orders || [];
+  if (!orders.length) {
+    DOM.heatmapWrap.innerHTML = emptyPanel('fa-fire', 'No order activity yet', 'The heatmap fills in once orders start coming through.');
+    return;
+  }
+  const hours = new Array(24).fill(0);
+  const days = new Array(7).fill(0); // Mon..Sun
+  orders.forEach(o => {
+    if (!o.created_at) return;
+    const d = new Date(o.created_at);
+    hours[d.getHours()]++;
+    const jsDay = d.getDay(); // 0=Sun..6=Sat
+    days[(jsDay + 6) % 7]++;  // shift to Mon=0..Sun=6
+  });
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const lvl = (v, max) => { if (!max) return 0; const r = v / max; return r > .8 ? 4 : r > .55 ? 3 : r > .3 ? 2 : r > .08 ? 1 : 0; };
+  const hMax = Math.max(...hours, 1), dMax = Math.max(...days, 1);
+  DOM.heatmapWrap.innerHTML = `
+    <div class="heatmap-row"><span class="hm-label">Orders / hour</span><div class="heatmap-cells">${hours.map(v => `<div class="hm-cell" data-lvl="${lvl(v, hMax)}" title="${v} orders"></div>`).join('')}</div></div>
+    <div class="heatmap-row"><span class="hm-label">Orders / weekday</span><div class="heatmap-cells">${days.map((v, i) => `<div class="hm-cell" data-lvl="${lvl(v, dMax)}" title="${dayLabels[i]}: ${v} orders"></div>`).join('')}</div></div>
+  `;
+};
+
+// ══════════════════════════ REVENUE & PROFIT BREAKDOWN ══════════════════════════
+const renderRevenueBreakdown = () => {
+  const st = state.stats;
+  const gross = st.lifetime_revenue || 0;
+  const items = [
+    { l: 'Gross Revenue', v: formatCurrency(gross) },
+    { l: "Today's Revenue", v: formatCurrency(st.today_revenue || 0) },
+    { l: 'Monthly Revenue', v: formatCurrency(st.monthly_revenue || 0) },
+    { l: 'Average Order', v: formatCurrency(st.avg_order_value || 0) },
+    { l: 'Success Rate', v: `${st.success_rate || 0}%` },
+    { l: 'Total Orders', v: (st.total_orders || 0).toLocaleString() }
+  ];
+  DOM.revenueBreakdownGrid.innerHTML = items.map(i => `<div class="metric-card"><div class="m-label">${i.l}</div><div class="m-value">${i.v}</div></div>`).join('');
+};
+
+// ══════════════════════════ PENDING ACTIONS (Operations) ══════════════════════════
+const renderPendingActions = () => {
+  const now = Date.now();
+  const within = (o, ms) => o.created_at && (now - new Date(o.created_at).getTime()) > ms;
+  const awaitingPayment = state.orders.filter(o => o.status === 'pending').length;
+  const over30 = state.orders.filter(o => ['pending', 'processing'].includes(o.status) && within(o, 30 * 60 * 1000)).length;
+  const over2h = state.orders.filter(o => ['pending', 'processing'].includes(o.status) && within(o, 2 * 60 * 60 * 1000)).length;
+  const failedTransfers = state.orders.filter(o => o.status === 'failed').length;
+  const items = [
+    { l: 'Awaiting Payment', v: awaitingPayment, icon: 'fa-hand-holding-dollar' },
+    { l: 'Waiting Over 30 Min', v: over30, icon: 'fa-hourglass-half' },
+    { l: 'Waiting Over 2 Hours', v: over2h, icon: 'fa-triangle-exclamation' },
+    { l: 'Failed — Needs Review', v: failedTransfers, icon: 'fa-times-circle' },
+    { l: 'Manual Review Queue', v: state.extra.risk?.length || 0, icon: 'fa-user-shield' }
+  ];
+  DOM.pendingActionsGrid.innerHTML = items.map(i => `<div class="metric-card"><div class="m-label"><i class="fas ${i.icon}"></i> ${i.l}</div><div class="m-value">${i.v}</div></div>`).join('');
+};
+
+// ══════════════════════════ COIN ANALYTICS ══════════════════════════
+const renderCoinAnalytics = () => {
+  const cs = state.extra.coinStats;
+  if (!cs) {
+    DOM.coinPerfGrid.innerHTML = emptyPanel('fa-coins', 'No coin data yet', 'Per-coin breakdown appears once orders exist for BTC, USDT or USDC.');
+    return;
+  }
+  DOM.coinPerfGrid.innerHTML = COINS.map(c => {
+    const d = cs[c] || { orders: 0, revenue: 0, completed: 0, failed: 0, avg: 0, largest: 0, completionRate: 0 };
+    return `
+    <div class="coin-card" style="--cc:${COIN_HEX[c]}">
+      <div class="cc-head">
+        <div class="cc-name"><span class="cc-mark">${c === 'BTC' ? '₿' : c[0]}</span> ${c}</div>
+      </div>
+      <div class="cc-rows">
+        <div class="cc-row"><div class="l">Orders</div><div class="v">${d.orders}</div></div>
+        <div class="cc-row"><div class="l">Revenue</div><div class="v">${formatCurrency(d.revenue)}</div></div>
+        <div class="cc-row"><div class="l">Completed</div><div class="v">${d.completed}</div></div>
+        <div class="cc-row"><div class="l">Failed</div><div class="v">${d.failed}</div></div>
+        <div class="cc-row"><div class="l">Average Order</div><div class="v">${formatCurrency(d.avg)}</div></div>
+        <div class="cc-row"><div class="l">Largest Order</div><div class="v">${formatCurrency(d.largest)}</div></div>
+      </div>
+      <div class="cc-row"><div class="l">Completion Rate — ${d.completionRate}%</div><div class="cc-bar"><div class="cc-bar-fill" style="width:${d.completionRate}%"></div></div></div>
+    </div>`;
+  }).join('');
+};
+
+// ══════════════════════════ TREASURY, MARKET, RATES ══════════════════════════
+const renderTreasury = () => {
+  const t = state.extra.treasury;
+  if (!t) {
+    DOM.liquidityWarnings.innerHTML = '';
+    DOM.treasuryGrid.innerHTML = emptyPanel('fa-vault', 'Treasury tracking not connected', 'This requires wiring up your hot-wallet balances (Busha balance API) on the backend.');
+    return;
+  }
+  const warnings = COINS.filter(c => t[c]?.low);
+  DOM.liquidityWarnings.innerHTML = warnings.length ? `
+    <div class="insight-list" style="margin-bottom:14px">
+      ${warnings.map(c => `<div class="insight-item"><div class="ic risk"><i class="fas fa-triangle-exclamation"></i></div><div class="txt">Low liquidity warning — <b>${c}</b> inventory is running low. Consider topping up the hot wallet.</div></div>`).join('')}
+    </div>` : '';
+
+  DOM.treasuryGrid.innerHTML = COINS.map(c => {
+    const d = t[c] || {};
+    const usd = c === 'BTC' ? ((d.available || 0) * (state.extra.market?.[c]?.price || 0)) : (d.available || 0);
+    return `
+    <div class="treasury-card ${d.low ? 'low' : ''}">
+      <div class="t-head"><span class="coin-chip"><span class="coin-dot ${c}"></span>${c}</span>${d.low ? '<span class="low-badge">Low Balance</span>' : ''}</div>
+      <div class="t-rows">
+        <div class="t-row"><span>Available</span><b>${d.available ?? '—'} ${c}</b></div>
+        <div class="t-row"><span>Reserved</span><b>${d.reserved ?? '—'} ${c}</b></div>
+        <div class="t-row"><span>Pending Delivery</span><b>${d.pendingDelivery ?? '—'} ${c}</b></div>
+        <div class="t-row"><span>Delivered Today</span><b>${d.deliveredToday ?? '—'} ${c}</b></div>
+        <div class="t-row"><span>Est. Value</span><b>${formatUsd(Math.round(usd))}</b></div>
+      </div>
+    </div>`;
+  }).join('');
+};
+
+const renderMarket = () => {
+  const m = state.extra.market;
+  if (!m) {
+    DOM.marketGrid.innerHTML = emptyPanel('fa-signal', 'Live market not connected', 'Point this at your existing /api/busha/rates or /api/rates endpoint to show real prices.');
+    return;
+  }
+  DOM.marketGrid.innerHTML = COINS.map(c => {
+    const d = m[c] || {};
+    const up = (d.change24h || 0) >= 0;
+    return `
+    <div class="market-card">
+      <div class="mk-top"><span class="coin-chip"><span class="coin-dot ${c}"></span>${c}</span><span class="mk-change ${up ? 'trend-pill up' : 'trend-pill down'}"><i class="fas fa-arrow-${up ? 'up' : 'down'}"></i> ${Math.abs(d.change24h || 0)}%</span></div>
+      <div class="mk-price">${c === 'BTC' ? '$' + (d.price || 0).toLocaleString() : '$' + (d.price || 0).toFixed(4)}</div>
+      <div class="mk-meta"><span>24h Vol</span><span>${formatUsd(d.volume24h || 0)}</span></div>
+      <div class="mk-meta"><span>Updated</span><span>${new Date().toLocaleTimeString()}</span></div>
+    </div>`;
+  }).join('');
+};
+
+const renderRates = () => {
+  const r = state.extra.rates;
+  if (!r) {
+    DOM.rateTable.innerHTML = `<tr><td>${emptyPanel('fa-scale-balanced', 'Rate panel not connected', 'Wire this to your rates/busha endpoints to compare internal pricing against source.')}</td></tr>`;
+    return;
+  }
+  DOM.rateTable.innerHTML = `
+    <thead><tr><th>Coin</th><th>Source</th><th>Buy</th><th>Sell</th><th>Spread</th></tr></thead>
+    <tbody>
+      ${COINS.map(c => {
+        const d = r[c] || {};
+        const spread = (d.sell || 0) - (d.buy || 0);
+        return `<tr>
+          <td><span class="coin-chip"><span class="coin-dot ${c}"></span>${c}</span></td>
+          <td>${d.source != null ? (c === 'BTC' ? '$' + Number(d.source).toLocaleString() : '$' + Number(d.source).toFixed(4)) : '—'}</td>
+          <td>${d.buy != null ? '₦' + Number(d.buy).toLocaleString() : '—'}</td>
+          <td>${d.sell != null ? '₦' + Number(d.sell).toLocaleString() : '—'}</td>
+          <td>${d.buy != null && d.sell != null ? '₦' + spread.toLocaleString() : '—'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  `;
+};
+
+// ══════════════════════════ CUSTOMERS & RISK ══════════════════════════
+const renderCustomers = () => {
+  const c = state.extra.customers;
+  if (!c) {
+    DOM.customerMetricsGrid.innerHTML = emptyPanel('fa-users', 'No customer data yet', '');
+    DOM.topCustomersBody.innerHTML = `<tr><td colspan="6">${emptyPanel('fa-trophy', 'No customers yet', '')}</td></tr>`;
+    return;
+  }
+  const items = [
+    { l: 'New Customers Today', v: c.newToday ?? 0 },
+    { l: 'Returning Customers', v: c.returning ?? 0 },
+    { l: 'Average Spend', v: formatCurrency(c.avgSpend || 0) },
+    { l: 'Repeat Purchase Rate', v: `${c.repeatRate ?? 0}%` }
+  ];
+  DOM.customerMetricsGrid.innerHTML = items.map(i => `<div class="metric-card"><div class="m-label">${i.l}</div><div class="m-value">${i.v}</div></div>`).join('');
+
+  const top = c.top || [];
+  DOM.topCustomersBody.innerHTML = top.length ? top.map((cust, i) => `
+    <tr>
+      <td><span class="rank-badge ${i < 3 ? 'gold' : ''}">${i + 1}</span></td>
+      <td>${esc(cust.name)}</td>
+      <td>${cust.orders}</td>
+      <td>${formatCurrency(cust.spend)}</td>
+      <td><span class="coin-chip"><span class="coin-dot ${esc(cust.coin)}"></span>${esc(cust.coin)}</span></td>
+      <td>${cust.last ? new Date(cust.last).toLocaleString() : '—'}</td>
+    </tr>`).join('') : `<tr><td colspan="6">${emptyPanel('fa-trophy', 'No customers yet', '')}</td></tr>`;
+};
+
+const renderRisk = () => {
+  const risk = state.extra.risk;
+  if (!risk) {
+    DOM.riskCount.textContent = '—';
+    DOM.riskList.innerHTML = emptyPanel('fa-shield-halved', 'Risk data not available', '');
+    return;
+  }
+  DOM.riskCount.textContent = `${risk.length} flag${risk.length === 1 ? '' : 's'}`;
+  DOM.riskList.innerHTML = risk.length ? risk.map(r => `
+    <div class="risk-row"><span class="rk-sev ${esc(r.sev)}"></span><span class="rk-txt">${esc(r.txt)}</span><span class="rk-meta">${esc(r.meta)}</span></div>
+  `).join('') : emptyPanel('fa-shield-halved', 'No active risk flags', 'Nothing currently needs manual review.');
+};
+
+// ══════════════════════════ SYSTEM HEALTH ══════════════════════════
+const renderWebhooks = () => {
+  const w = state.extra.webhooks;
+  if (!w) {
+    DOM.webhookGrid.innerHTML = emptyPanel('fa-satellite-dish', 'Webhook monitor not connected', 'Requires logging webhook deliveries on the backend to populate this.');
+    return;
+  }
+  const items = [
+    { l: 'Success Rate', v: `${w.successRate}%` }, { l: 'Failed (24h)', v: w.failed24h },
+    { l: 'Retry Count', v: w.retries }, { l: 'Average Delay', v: w.avgDelay },
+    { l: 'Queue Length', v: w.queue }, { l: 'Last Error', v: esc(w.lastError) }
+  ];
+  DOM.webhookGrid.innerHTML = items.map(i => `<div class="metric-card"><div class="m-label">${i.l}</div><div class="m-value" style="font-size:${i.l==='Last Error'?'12px':'20px'}">${i.v}</div></div>`).join('');
+};
+
+const renderApiHealth = () => {
+  const health = state.extra.apiHealth;
+  if (!health) {
+    DOM.apiHealthList.innerHTML = emptyPanel('fa-server', 'API health monitor not connected', 'Requires a backend uptime check for Busha, CoinGecko, Paystack and Supabase.');
+    DOM.healthAlertCnt.style.display = 'none';
+    DOM.notifPing.style.display = 'none';
+    return;
+  }
+  const alerts = health.filter(h => h.status !== 'online').length;
+  DOM.healthAlertCnt.style.display = alerts ? 'inline-flex' : 'none';
+  DOM.healthAlertCnt.textContent = alerts;
+  DOM.notifPing.style.display = alerts ? 'block' : 'none';
+
+  DOM.apiHealthList.innerHTML = health.map(h => `
+    <div class="health-row">
+      <div class="hl-name"><i class="fas ${esc(h.icon)}"></i> ${esc(h.name)}</div>
+      <div class="hl-bars">
+        <div class="hl-metric"><div class="l">Status</div><div class="v"><span class="status-badge ${esc(h.status)}">${esc(h.status)}</span></div></div>
+        <div class="hl-metric"><div class="l">Latency</div><div class="v">${esc(h.latency)}</div></div>
+        <div class="hl-metric"><div class="l">Error Rate</div><div class="v">${esc(h.errRate)}</div></div>
+        <div class="hl-metric"><div class="l">Requests Today</div><div class="v">${esc(h.reqsToday)}</div></div>
+      </div>
+    </div>
+  `).join('');
+};
+
+const buildNotifications = () => {
+  const st = state.stats;
+  const notifs = [
+    { icon: 'fa-cart-plus', color: 'info', txt: `${st.today_orders || 0} new orders placed today.` },
+    { icon: 'fa-check', color: 'success', txt: `${st.status_counts?.completed || 0} orders completed successfully.` },
+  ];
+  if ((st.status_counts?.failed || 0) > 0) notifs.push({ icon: 'fa-times', color: 'error', txt: `${st.status_counts.failed} order(s) failed and may need review.` });
+  (state.extra.apiHealth || []).filter(h => h.status !== 'online').forEach(h => notifs.push({ icon: 'fa-server', color: 'warning', txt: `${esc(h.name)} API is ${esc(h.status)}.` }));
+  const t = state.extra.treasury || {};
+  COINS.filter(c => t[c]?.low).forEach(c => notifs.push({ icon: 'fa-battery-quarter', color: 'warning', txt: `${c} inventory is running low.` }));
+  return notifs;
+};
+
+const renderNotifications = () => {
+  const notifs = buildNotifications();
+  DOM.notifList.innerHTML = notifs.length ? notifs.map(n => `
+    <div class="notif-row"><div class="nf-ic feed-icon ${n.color}"><i class="fas ${n.icon}"></i></div><span style="font-size:13px">${n.txt}</span></div>
+  `).join('') : emptyPanel('fa-bell-slash', 'No notifications', '');
+};
+
+// ══════════════════════════ CHART.JS ══════════════════════════
+const loadChartJS = () => new Promise((resolve) => {
+  if (typeof Chart !== 'undefined') { state.ChartLoaded = true; resolve(Chart); return; }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  script.onload = () => { state.ChartLoaded = true; resolve(window.Chart); };
+  script.onerror = () => resolve(null);
+  document.head.appendChild(script);
+});
+
+const destroyChart = (key) => { if (state.charts[key]) { state.charts[key].destroy(); delete state.charts[key]; } };
+
+const renderChartsForView = (view) => {
+  const ChartLib = state.ChartLoaded ? Chart : window.Chart;
+  if (!ChartLib) return;
+  if (view === 'executive') {
+    renderRevenueChart(ChartLib); renderOrdersChart(ChartLib); renderCoinChart(ChartLib); renderDailyOrdersChart(ChartLib);
+    renderRevProfitChart(ChartLib); renderRevByCoinChart(ChartLib);
+  } else if (view === 'coins') {
+    renderCoinOrdersCompare(ChartLib); renderCoinRevenueCompare(ChartLib); renderCoinTrendChart(ChartLib); renderCoinShareChart(ChartLib);
+  }
+};
+
+const renderRevenueChart = (ChartLib) => {
+  const ctx = $('revenueChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('revenue');
+  const data = state.revenueData?.daily || [];
+  const labels = data.map(d => d.date || '');
+  const values = data.map(d => d.amount || 0);
+  state.charts.revenue = new ChartLib(ctx, { type: 'line', data: { labels, datasets: [{ label: 'Revenue (NGN)', data: values, borderColor: '#0b3242', backgroundColor: 'rgba(11,50,66,.1)', fill: true, tension: .4, pointRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `₦${(v/1000).toFixed(0)}K` } } } } });
+};
+
+const renderOrdersChart = (ChartLib) => {
+  const ctx = $('ordersChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('orders');
+  const sc = state.stats?.status_counts || {};
+  state.charts.orders = new ChartLib(ctx, { type: 'doughnut', data: { labels: STATUSES.map(s => s.label), datasets: [{ data: STATUSES.map(s => sc[s.key] || 0), backgroundColor: STATUSES.map(s => s.hex), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, cutout: '70%', onClick: (evt, els) => { if (els.length) filterByStatus(STATUSES[els[0].index].key); } } });
+};
+
+const renderCoinChart = (ChartLib) => {
+  const ctx = $('coinChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('coin');
+  const data = state.stats?.coin_counts || {};
+  state.charts.coin = new ChartLib(ctx, { type: 'bar', data: { labels: COINS, datasets: [{ label: 'Orders by Coin', data: COINS.map(c => data[c] || 0), backgroundColor: COINS.map(c => COIN_HEX[c]), borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, onClick: () => switchView('coins') } });
+};
+
+const renderDailyOrdersChart = (ChartLib) => {
+  const ctx = $('dailyOrdersChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('dailyOrders');
+  const data = state.revenueData?.daily_orders || [];
+  const labels = data.map(d => d.date || '');
+  const values = data.map(d => d.count || 0);
+  state.charts.dailyOrders = new ChartLib(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Orders', data: values, backgroundColor: 'rgba(11,50,66,.6)', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } });
+};
+
+const renderRevProfitChart = (ChartLib) => {
+  const ctx = $('revProfitChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('revProfit');
+  const data = state.revenueData?.daily || [];
+  const labels = data.map(d => d.date || '');
+  const revenue = data.map(d => d.amount || 0);
+  state.charts.revProfit = new ChartLib(ctx, { type: 'line', data: { labels, datasets: [
+    { label: 'Revenue', data: revenue, borderColor: '#3b7dd8', backgroundColor: 'rgba(59,125,216,.08)', fill: true, tension: .4 }
+  ]}, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `₦${(v/1000).toFixed(0)}K` } } } } });
+};
+
+const renderRevByCoinChart = (ChartLib) => {
+  const ctx = $('revByCoinChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('revByCoin');
+  const cs = state.extra.coinStats || {};
+  state.charts.revByCoin = new ChartLib(ctx, { type: 'pie', data: { labels: COINS, datasets: [{ data: COINS.map(c => cs[c]?.revenue || 0), backgroundColor: COINS.map(c => COIN_HEX[c]) }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } } });
+};
+
+const renderCoinOrdersCompare = (ChartLib) => {
+  const ctx = $('coinOrdersCompareChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('coinOrdersCompare');
+  const cs = state.extra.coinStats || {};
+  state.charts.coinOrdersCompare = new ChartLib(ctx, { type: 'bar', data: { labels: COINS, datasets: [
+    { label: 'Completed', data: COINS.map(c => cs[c]?.completed || 0), backgroundColor: '#1fa971' },
+    { label: 'Failed', data: COINS.map(c => cs[c]?.failed || 0), backgroundColor: '#e2503f' },
+    { label: 'Pending', data: COINS.map(c => cs[c]?.pending || 0), backgroundColor: '#e0a327' }
+  ]}, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } } });
+};
+
+const renderCoinRevenueCompare = (ChartLib) => {
+  const ctx = $('coinRevenueCompareChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('coinRevenueCompare');
+  const cs = state.extra.coinStats || {};
+  state.charts.coinRevenueCompare = new ChartLib(ctx, { type: 'bar', data: { labels: COINS, datasets: [{ label: 'Revenue', data: COINS.map(c => cs[c]?.revenue || 0), backgroundColor: COINS.map(c => COIN_HEX[c]), borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `₦${(v/1000).toFixed(0)}K` } } } } });
+};
+
+const renderCoinTrendChart = (ChartLib) => {
+  const ctx = $('coinTrendChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('coinTrend');
+  const daily = state.revenueData?.daily_orders || [];
+  const labels = daily.map(d => d.date || '');
+  // Without a per-coin daily series from the API this chart stays empty rather than fabricated —
+  // wire /admin/crypto/revenue to break totals down by coin to populate it.
+  state.charts.coinTrend = new ChartLib(ctx, { type: 'line', data: { labels, datasets: COINS.map(c => ({ label: c, data: labels.map(() => 0), borderColor: COIN_HEX[c], tension: .4 })) }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true } } } });
+};
+
+const renderCoinShareChart = (ChartLib) => {
+  const ctx = $('coinShareChart')?.getContext('2d'); if (!ctx) return;
+  destroyChart('coinShare');
+  const cc = state.stats.coin_counts || {};
+  state.charts.coinShare = new ChartLib(ctx, { type: 'doughnut', data: { labels: COINS, datasets: [{ data: COINS.map(c => cc[c] || 0), backgroundColor: COINS.map(c => COIN_HEX[c]), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } }, cutout: '65%' } });
+};
+
+// ══════════════════════════ ORDERS TABLE ══════════════════════════
+const statusOptionsHTML = (current) => STATUSES.map(s => `<option value="${s.key}" ${s.key === current ? 'selected' : ''}>${s.label}</option>`).join('');
+
+const changeOrderStatus = async (id, newStatus, opts = {}) => {
+  const resp = await apiRequest(`/admin/crypto/status/${id}`, { method: 'POST', body: JSON.stringify({ status: newStatus }) });
+  if (resp?.success) { showToast(`Order status updated to ${newStatus}`, 'success'); if (!opts.skipReload) loadOrders(); return true; }
+  showToast('Could not update status', 'error'); return false;
+};
+window.changeOrderStatus = changeOrderStatus;
+
+const onRowStatusChange = (selectEl, id) => { const s = selectEl.value; selectEl.className = `status-select ${s}`; changeOrderStatus(id, s); };
+window.onRowStatusChange = onRowStatusChange;
+
+const renderOrders = (orders) => {
+  if (!orders || orders.length === 0) {
+    DOM.ordersTableBody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon"><i class="fas fa-inbox"></i></div><h3>No orders found</h3><p>Try adjusting your filters</p></div></td></tr>`;
+    return;
+  }
+  DOM.ordersTableBody.innerHTML = orders.map(order => {
+    const coin = esc(order.coin || 'N/A'); const status = order.status || 'pending';
+    const userLabel = esc(order.profiles?.username || order.user_email || order.user?.email?.split('@')[0] || 'Unknown');
+    return `
+    <tr>
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="order-check" value="${esc(order.id)}" onchange="toggleOrder('${esc(order.id)}')" /></td>
+      <td onclick="openOrderDrawer('${esc(order.id)}')" style="cursor:pointer"><span style="font-family:var(--fm);font-size:11px;">#${esc(order.id?.slice(0, 8)) || 'N/A'}</span></td>
+      <td onclick="openOrderDrawer('${esc(order.id)}')" style="cursor:pointer">${userLabel}</td>
+      <td onclick="openOrderDrawer('${esc(order.id)}')" style="cursor:pointer"><span class="coin-chip"><span class="coin-dot ${coin}"></span>${coin}</span></td>
+      <td onclick="openOrderDrawer('${esc(order.id)}')" style="cursor:pointer">₦${(order.amount_ngn || 0).toLocaleString()}</td>
+      <td onclick="openOrderDrawer('${esc(order.id)}')" style="cursor:pointer">${(order.crypto_amount || 0).toFixed?.(4) ?? order.crypto_amount} ${coin}</td>
+      <td onclick="event.stopPropagation()"><select class="status-select ${status}" onchange="onRowStatusChange(this,'${esc(order.id)}')">${statusOptionsHTML(status)}</select></td>
+      <td onclick="openOrderDrawer('${esc(order.id)}')" style="cursor:pointer">${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="action-btn primary" onclick="openOrderDrawer('${esc(order.id)}')" title="View"><i class="fas fa-eye"></i></button>
+        <button class="copy-btn-small" onclick="copyToClipboard('${esc(order.id)}','Order ID copied')"><i class="fas fa-copy"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+};
+
+const updatePagination = () => {
+  const { currentPage, totalPages } = state;
+  if (totalPages <= 1) { DOM.pagination.innerHTML = ''; return; }
+  let html = `<button onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>`;
+  const start = Math.max(1, currentPage - 2), end = Math.min(totalPages, currentPage + 2);
+  for (let i = start; i <= end; i++) html += `<button onclick="goToPage(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+  html += `<button onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`;
+  DOM.pagination.innerHTML = html;
+};
+
+const updateTableInfo = () => {
+  const start = (state.currentPage - 1) * CONFIG.PAGE_SIZE + 1;
+  const end = Math.min(start + CONFIG.PAGE_SIZE - 1, state.totalOrders);
+  DOM.tableInfo.textContent = `Showing ${state.totalOrders ? start : 0}-${end} of ${state.totalOrders} orders`;
+};
+
+const goToPage = (page) => { if (page < 1 || page > state.totalPages || page === state.currentPage) return; state.currentPage = page; loadOrders(); };
+window.goToPage = goToPage;
+
+const sortTable = (field) => { if (state.sortField === field) state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc'; else { state.sortField = field; state.sortDirection = 'desc'; } loadOrders(); };
+window.sortTable = sortTable;
+
+const toggleOrder = (id) => { state.selectedOrders.has(id) ? state.selectedOrders.delete(id) : state.selectedOrders.add(id); };
+window.toggleOrder = toggleOrder;
+
+const toggleAllOrders = () => {
+  const checked = DOM.selectAll.checked;
+  state.orders.forEach(o => { checked ? state.selectedOrders.add(o.id) : state.selectedOrders.delete(o.id); });
+  document.querySelectorAll('.order-check').forEach(cb => cb.checked = checked);
+};
+window.toggleAllOrders = toggleAllOrders;
+
+const applyBulkAction = async () => {
+  const newStatus = DOM.bulkAction.value; const ids = Array.from(state.selectedOrders);
+  if (!newStatus || ids.length === 0) { showToast('Select orders and a status', 'warning'); return; }
+  const resp = await apiRequest('/admin/crypto/bulk', { method: 'POST', body: JSON.stringify({ action: 'set_status', status: newStatus, ids }) });
+  if (resp?.success) { showToast(`${ids.length} order(s) set to ${newStatus}`, 'success'); state.selectedOrders.clear(); loadOrders(); }
+  else showToast('Bulk update failed', 'error');
+};
+window.applyBulkAction = applyBulkAction;
+
+// ══════════════════════════ ORDER DRAWER + TIMELINE ══════════════════════════
+const buildTimelineHTML = (order) => {
+  const status = order.status || 'pending';
+  const current = STATUS_STAGE_INDEX[status] ?? 1;
+  const isFailed = status === 'failed' || status === 'cancelled';
+  return `<div class="order-timeline">${TIMELINE_STAGES.map((label, i) => {
+    const idx = i + 1;
+    let cls = '';
+    if (isFailed && idx === current) cls = 'failed';
+    else if (idx < current || (!isFailed && idx <= current)) cls = idx === current ? 'current' : 'done';
+    if (!isFailed && idx === current) cls = status === 'completed' ? 'done' : 'current';
+    return `<div class="tl-step ${cls}"><div class="tl-dot"><i class="fas ${cls === 'done' ? 'fa-check' : cls === 'failed' ? 'fa-xmark' : cls === 'current' ? 'fa-circle-notch' : ''}"></i></div><div class="tl-label">${label}</div></div>`;
+  }).join('')}</div>`;
+};
+
+const openOrderDrawer = async (id) => {
+  const resp = await apiRequest(`/admin/crypto/order/${id}`);
+  if (!resp?.success) { showToast('Could not load order details', 'error'); return; }
+  renderDrawer(resp.data);
+  DOM.drawer.classList.add('open'); DOM.drawerOverlay.classList.add('open');
+};
+window.openOrderDrawer = openOrderDrawer;
+
+const closeDrawer = () => { DOM.drawer.classList.remove('open'); DOM.drawerOverlay.classList.remove('open'); };
+window.closeDrawer = closeDrawer;
+
+const renderDrawer = (order) => {
+  DOM.drawerTitle.textContent = `Order #${order.id?.slice(0, 8) || 'N/A'}`;
+  const status = order.status || 'pending';
+  const walletAddr = esc(order.wallet_address) || 'N/A';
+  const txHash = esc(order.tx_hash) || 'N/A';
+  const bankAccount = esc(order.bank_account) || 'N/A';
+  const reference = esc(order.reference) || 'N/A';
+
+  DOM.drawerContent.innerHTML = `
+    <div class="drawer-section">
+      <div class="section-title">Change Status</div>
+      <div class="status-update-box"><select id="drawerStatusSelect">${statusOptionsHTML(status)}</select><button class="btn btn-primary btn-sm" onclick="saveDrawerStatus('${esc(order.id)}')"><i class="fas fa-check"></i> Update</button></div>
+    </div>
+    <div class="drawer-section"><div class="section-title">Order Timeline</div>${buildTimelineHTML(order)}</div>
+    <div class="drawer-section">
+      <div class="section-title">Order Summary</div>
+      <div class="detail-row"><span class="label">Status</span><span class="value"><span class="status-badge ${status}">${status}</span></span></div>
+      <div class="detail-row"><span class="label">Coin</span><span class="value"><span class="coin-chip"><span class="coin-dot ${esc(order.coin || '')}"></span>${esc(order.coin) || 'N/A'}</span></span></div>
+      <div class="detail-row"><span class="label">Network</span><span class="value">${esc(order.network) || 'N/A'}</span></div>
+      <div class="detail-row"><span class="label">Amount NGN</span><span class="value">₦${(order.amount_ngn || 0).toLocaleString()}</span></div>
+      <div class="detail-row"><span class="label">Crypto Amount</span><span class="value">${(order.crypto_amount || 0).toFixed?.(8) ?? order.crypto_amount} ${esc(order.coin) || ''}</span></div>
+      <div class="detail-row"><span class="label">Exchange Rate</span><span class="value">₦${Number(order.rate || 0).toFixed(2)}</span></div>
+      <div class="detail-row"><span class="label">Effective Rate</span><span class="value">₦${Number(order.effective_rate || 0).toFixed(2)}</span></div>
+      <div class="detail-row"><span class="label">Amount USD</span><span class="value">$${Number(order.amount_usd || 0).toFixed(2)}</span></div>
+    </div>
+    <div class="drawer-section">
+      <div class="section-title">Payment Details</div>
+      <div class="detail-row"><span class="label">Bank</span><span class="value">${esc(order.bank_name) || 'N/A'}</span></div>
+      <div class="detail-row"><span class="label">Account</span><span class="value">${bankAccount} ${order.bank_account ? `<button class="copy-btn-small" onclick="copyToClipboard('${bankAccount}','Account copied')"><i class="fas fa-copy"></i></button>` : ''}</span></div>
+      <div class="detail-row"><span class="label">Account Name</span><span class="value">${esc(order.account_name) || 'N/A'}</span></div>
+      <div class="detail-row"><span class="label">Reference</span><span class="value">${reference} ${order.reference ? `<button class="copy-btn-small" onclick="copyToClipboard('${reference}','Reference copied')"><i class="fas fa-copy"></i></button>` : ''}</span></div>
+    </div>
+    <div class="drawer-section">
+      <div class="section-title">Wallet &amp; Transaction Explorer</div>
+      <div class="detail-row"><span class="label">Address</span><span class="value" style="font-size:11px;font-family:var(--fm);word-break:break-all;">${walletAddr} ${order.wallet_address ? `<button class="copy-btn-small" onclick="copyToClipboard('${walletAddr}','Address copied')"><i class="fas fa-copy"></i></button>` : ''}</span></div>
+      <div class="detail-row"><span class="label">TX Hash</span><span class="value" style="font-size:11px;font-family:var(--fm);word-break:break-all;">${txHash} ${order.tx_hash ? `<button class="copy-btn-small" onclick="copyToClipboard('${txHash}','TX hash copied')"><i class="fas fa-copy"></i></button>` : ''}</span></div>
+      <div class="detail-row"><span class="label">Quote ID</span><span class="value">${esc(order.quote_id) || 'N/A'}</span></div>
+      <div class="detail-row"><span class="label">Transfer ID</span><span class="value">${esc(order.transfer_id) || 'N/A'}</span></div>
+    </div>
+    <div class="drawer-section">
+      <div class="section-title">Timestamps</div>
+      <div class="detail-row"><span class="label">Created</span><span class="value">${order.created_at ? new Date(order.created_at).toLocaleString() : 'N/A'}</span></div>
+      <div class="detail-row"><span class="label">Expires</span><span class="value">${order.expires_at ? new Date(order.expires_at).toLocaleString() : 'N/A'}</span></div>
+      <div class="detail-row"><span class="label">Completed</span><span class="value">${order.completed_at ? new Date(order.completed_at).toLocaleString() : 'N/A'}</span></div>
+    </div>
+    <div class="drawer-actions">
+      <button class="btn btn-ghost btn-sm" onclick="copyToClipboard('${esc(order.id)}','Order ID copied')"><i class="fas fa-copy"></i> Copy ID</button>
+      ${order.tx_hash ? `<button class="btn btn-ghost btn-sm" onclick="window.open('https://blockchair.com/search?q=${encodeURIComponent(order.tx_hash)}','_blank')"><i class="fas fa-external-link-alt"></i> Explorer</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="closeDrawer()">Close</button>
+    </div>
+  `;
+};
+
+const saveDrawerStatus = async (id) => {
+  const sel = $('drawerStatusSelect'); if (!sel) return;
+  const ok = await changeOrderStatus(id, sel.value, { skipReload: true });
+  if (ok) { closeDrawer(); loadOrders(); }
+};
+window.saveDrawerStatus = saveDrawerStatus;
+
+// ══════════════════════════ FEED ══════════════════════════
+const renderFeed = (events) => {
+  DOM.feedCount.textContent = `${events.length} events`;
+  if (!events || events.length === 0) { DOM.feedList.innerHTML = `<div class="empty-state"><div class="icon"><i class="fas fa-satellite-dish"></i></div><h3>Waiting for activity</h3><p>Live events will appear here</p></div>`; return; }
+  DOM.feedList.innerHTML = events.map(e => {
+    const iconClass = e.type === 'success' ? 'success' : e.type === 'error' ? 'error' : e.type === 'warning' ? 'warning' : 'info';
+    const icon = e.icon || (e.type === 'success' ? 'fa-check' : e.type === 'error' ? 'fa-times' : 'fa-info');
+    return `
+      <div class="feed-item" onclick="openOrderDrawer('${esc(e.order_id || e.id)}')" style="cursor:pointer">
+        <div class="feed-icon ${iconClass}"><i class="fas ${icon}"></i></div>
+        <div class="feed-content">
+          <div class="text">${esc(e.message || e.text || 'Activity event')}</div>
+          <div class="meta">
+            <span>${e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : 'Just now'}</span>
+            ${e.status ? `<span class="status-badge ${esc(e.status)}">${esc(e.status)}</span>` : ''}
+            ${e.coin ? `<span class="coin-chip"><span class="coin-dot ${esc(e.coin)}"></span>${esc(e.coin)}</span>` : ''}
+            ${e.amount ? `<span>₦${Number(e.amount).toLocaleString()}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+};
+
+// ══════════════════════════ EXPORT ══════════════════════════
+const exportOrders = (type) => {
+  if (type !== 'csv') { showToast(`${type.toUpperCase()} export is coming soon — CSV is available now.`, 'info'); return; }
+  const rows = [['Order ID','User','Coin','Amount NGN','Crypto Amount','Status','Created At']];
+  state.orders.forEach(o => rows.push([o.id, o.profiles?.username || o.user_email || '', o.coin, o.amount_ngn, o.crypto_amount, o.status, o.created_at]));
+  const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `crypto-orders-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV export downloaded', 'success');
+};
+window.exportOrders = exportOrders;
+
+const scheduleReport = () => showToast('Scheduled reports need a backend job — hook this button up to your reporting endpoint.', 'info');
+window.scheduleReport = scheduleReport;
+
+// ══════════════════════════ DATA LOADING (all real — no demo fallbacks) ══════════════════════════
+const loadOrders = async () => {
+  const search = DOM.searchInput.value || '', status = DOM.statusFilter.value || '', coin = DOM.coinFilter.value || '';
+  const resp = await apiRequest(`/admin/crypto/orders?page=${state.currentPage}&limit=${CONFIG.PAGE_SIZE}&search=${encodeURIComponent(search)}&status=${status}&coin=${coin}&sort=${state.sortField}&order=${state.sortDirection}`);
+  if (resp?.success) {
+    state.orders = resp.data || []; state.totalOrders = resp.total || 0; state.totalPages = resp.pages || 1;
+    renderOrders(state.orders); updatePagination(); updateTableInfo();
+    renderPendingActions();
+  } else {
+    state.orders = []; state.totalOrders = 0; state.totalPages = 1;
+    renderOrders([]); updatePagination(); updateTableInfo();
+  }
+};
+
+const loadData = async () => {
+  if (state.isRefreshing) return;
+  state.isRefreshing = true;
+  DOM.refreshBtn.classList.add('spinning');
+  try {
+    const session = getSession();
+    if (!session || !session.token) { window.location.href = '/admin'; return; }
+
+    await loadOrders();
+
+    const statsResp = await apiRequest('/admin/crypto/stats');
+    if (statsResp?.success) state.stats = statsResp.data || state.stats;
+
+    const feedResp = await apiRequest('/admin/crypto/feed?limit=20');
+    renderFeed(feedResp?.success ? (feedResp.data || []) : []);
+
+    const revenueResp = await apiRequest('/admin/crypto/revenue');
+    if (revenueResp?.success) state.revenueData = revenueResp.data || { daily: [], daily_orders: [] };
+
+    // Real endpoints only — each one is null in state.extra until the backend actually has data for it,
+    // and every render function above shows an honest empty state rather than fabricated numbers.
+    const [treasury, market, rates, customers, risk, webhooks, apiHealth, coinStats] = await Promise.all([
+      apiRequest('/admin/crypto/treasury'),
+      apiRequest('/admin/crypto/market'),
+      apiRequest('/admin/crypto/rates'),
+      apiRequest('/admin/crypto/customers'),
+      apiRequest('/admin/crypto/risk'),
+      apiRequest('/admin/crypto/webhooks'),
+      apiRequest('/admin/crypto/api-health'),
+      apiRequest('/admin/crypto/coin-stats')
+    ]);
+    state.extra = {
+      ...state.extra,
+      treasury: treasury?.success ? treasury.data : null,
+      market: market?.success ? market.data : null,
+      rates: rates?.success ? rates.data : null,
+      customers: customers?.success ? customers.data : null,
+      risk: risk?.success ? risk.data : null,
+      webhooks: webhooks?.success ? webhooks.data : null,
+      apiHealth: apiHealth?.success ? apiHealth.data : null,
+      coinStats: coinStats?.success ? coinStats.data : null
+    };
+
+    renderStatusStrip(state.stats);
+    renderKPIs();
+    renderInsights();
+    renderHeatmap();
+    renderRevenueBreakdown();
+    renderCoinAnalytics();
+    renderTreasury();
+    renderMarket();
+    renderRates();
+    renderCustomers();
+    renderRisk();
+    renderWebhooks();
+    renderApiHealth();
+    renderNotifications();
+
+    if (!state.ChartLoaded) await loadChartJS();
+    renderChartsForView(state.activeView);
+
+    DOM.lastUpdate.textContent = new Date().toLocaleTimeString();
+  } finally {
+    state.isRefreshing = false;
+    DOM.refreshBtn.classList.remove('spinning');
+  }
+};
+
+// ══════════════════════════ REFRESH / FILTERS / AUTO-REFRESH ══════════════════════════
+const refreshAll = () => { loadData(); showToast('Refreshing data...', 'info'); };
+window.refreshAll = refreshAll;
+
+const applyFilters = debounce(() => {
+  state.activeStatusFilter = DOM.statusFilter.value;
+  renderStatusStrip(state.stats);
+  state.currentPage = 1;
+  loadOrders();
+}, 300);
+DOM.searchInput.addEventListener('input', applyFilters);
+DOM.statusFilter.addEventListener('change', applyFilters);
+DOM.coinFilter.addEventListener('change', applyFilters);
+
+let autoRefreshInterval = null;
+const startAutoRefresh = () => {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  if (!DOM.autoRefreshToggle.checked) return;
+  autoRefreshInterval = setInterval(loadData, parseInt(DOM.refreshInterval.value) || 30000);
+};
+DOM.autoRefreshToggle.addEventListener('change', startAutoRefresh);
+DOM.refreshInterval.addEventListener('change', startAutoRefresh);
+
+// ══════════════════════════ INIT ══════════════════════════
+(async function init() {
+  const session = getSession();
+  if (!session) { window.location.href = '/admin'; return; }
+  renderStatusStrip(state.stats);
+  updateUserUI();
+  await loadChartJS();
+  await loadData();
+  startAutoRefresh();
+})();
+</script>
+
+</body>
+</html>

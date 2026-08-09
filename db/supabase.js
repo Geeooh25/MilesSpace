@@ -1,4 +1,4 @@
-// db/supabase.js
+// db/supabase.js - FIXED WebSocket Error
 const { createClient } = require('@supabase/supabase-js');
 const WebSocket = require('ws');
 require('dotenv').config();
@@ -12,19 +12,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   process.exit(1);
 }
 
-console.log('🔗 Trying to connect to:', supabaseUrl);
+console.log('🔗 Connecting to Supabase:', supabaseUrl);
 
-// WebSocket fix for Node.js 20
+// ✅ FIX: Provide WebSocket transport for Node.js 20+
 const wsOptions = {
   realtime: {
     transport: WebSocket
   }
 };
 
+// Public client (for frontend)
 const supabase = createClient(supabaseUrl, supabaseAnonKey, wsOptions);
 
+// Admin client (for backend operations)
 let supabaseAdmin = supabase;
-
 if (supabaseServiceKey) {
   supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     ...wsOptions,

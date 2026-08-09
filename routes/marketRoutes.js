@@ -13,19 +13,14 @@ const USD_NGN = 1600;
 ════════════════════════════════════════════════ */
 router.get('/products', async (req, res) => {
   try {
-    // Fetch products
     const { data: products, error } = await supabaseAdmin
       .from('products')
       .select('*')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Products query error:', error.message);
-      throw error;
-    }
+    if (error) throw error;
 
-    // Fetch categories for lookup
     const { data: categories } = await supabaseAdmin
       .from('categories')
       .select('id, name, slug, icon');
@@ -35,7 +30,6 @@ router.get('/products', async (req, res) => {
       catMap[c.id] = c;
     });
 
-    // Map products to frontend format
     const result = (products || []).map(p => {
       const cat = catMap[p.category_id] || {};
       const priceUSD = parseFloat(p.price_usd) || 0;
@@ -65,10 +59,10 @@ router.get('/products', async (req, res) => {
         tags,
         guarantee: p.guarantee || '48h',
         badge: p.badge || '',
+        delivered_data: p.delivered_data || ''
       };
     });
 
-    console.log('✅ Products returned:', result.length);
     res.json({ success: true, products: result });
   } catch (error) {
     console.error('GET /products error:', error);
@@ -77,7 +71,7 @@ router.get('/products', async (req, res) => {
 });
 
 /* ════════════════════════════════════════════════
-   POST /api/market/purchase
+   POST /api/market/purchase - TRIGGER COMPLIANT
 ════════════════════════════════════════════════ */
 router.post('/purchase', authMiddleware, async (req, res) => {
   try {
@@ -88,7 +82,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Product ID and wallet type required' });
     }
 
-    // Get product
+    // ─── Get product ───
     const { data: product, error: prodErr } = await supabaseAdmin
       .from('products')
       .select('*')
@@ -96,15 +90,22 @@ router.post('/purchase', authMiddleware, async (req, res) => {
       .eq('status', 'active')
       .single();
 
-    if (prodErr || !product) return res.status(404).json({ error: 'Product not found' });
-    if (product.quantity <= 0) return res.status(400).json({ error: 'Out of stock' });
+    if (prodErr || !product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
 
+    if (product.quantity <= 0) {
+      return res.status(400).json({ error: 'Out of stock' });
+    }
+
+    // ─── Determine currency and amounts ───
+    const isUSD = wallet_type === 'USD';
     const costUSD = parseFloat(product.price_usd || 0);
     const costNGN = parseFloat(product.price_ngn || costUSD * USD_NGN);
-    const requiredAmount = wallet_type === 'NGN' ? costNGN : costUSD;
-    const walletField = wallet_type === 'NGN' ? 'wallet_ngn' : 'wallet_usd';
+    const requiredAmount = isUSD ? costUSD : costNGN;
+    const walletField = isUSD ? 'wallet_usd' : 'wallet_ngn';
 
-    // Get balance
+    // ─── Get user balance ───
     const { data: userData } = await supabaseAdmin
       .from('profiles')
       .select(`${walletField}, total_spent_usd, total_orders, completed_orders`)
@@ -114,18 +115,22 @@ router.post('/purchase', authMiddleware, async (req, res) => {
     const balance = parseFloat(userData?.[walletField] || 0);
     if (balance < requiredAmount) {
       return res.status(400).json({
-        error: `Insufficient balance. Need ${wallet_type === 'NGN' ? '₦' : '$'}${requiredAmount.toLocaleString()}`
+        error: `Insufficient balance. Need ${isUSD ? '$' : '₦'}${requiredAmount.toLocaleString()}`
       });
     }
 
+    // ─── Generate order reference and download token ───
     const orderRef = 'ORD-' + Date.now().toString(36).toUpperCase();
     const downloadToken = crypto.randomBytes(32).toString('hex');
-
-    // Deduct balance
     const newBalance = balance - requiredAmount;
-    await supabaseAdmin.from('profiles').update({ [walletField]: newBalance }).eq('id', userId);
 
-    // Create order
+    // ─── Deduct wallet ───
+    await supabaseAdmin
+      .from('profiles')
+      .update({ [walletField]: newBalance })
+      .eq('id', userId);
+
+    // ─── Prepare delivered data ───
     const deliveredData = {
       login_format: product.login_format || '',
       login_instructions: product.login_instructions || '',
@@ -133,51 +138,110 @@ router.post('/purchase', authMiddleware, async (req, res) => {
       purchased_at: new Date().toISOString()
     };
 
-    const { data: order } = await supabaseAdmin.from('orders').insert({
-      user_id: userId,
-      product_id: product.id,
-      product_title: product.title,
-      category_name: 'marketplace',
-      quantity: 1,
-      price_usd: costUSD,
-      price_ngn: costNGN,
-      wallet_used: wallet_type,
-      status: 'completed',
-      order_ref: orderRef,
-      delivered_data: deliveredData,
-      download_token: downloadToken,
-      created_at: new Date().toISOString()
-    }).select().single();
+    // ─── Create order ───
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .insert({
+        user_id: userId,
+        product_id: product.id,
+        product_title: product.title,
+        category_name: 'marketplace',
+        quantity: 1,
+        price_usd: costUSD,
+        price_ngn: costNGN,
+        wallet_used: wallet_type,
+        status: 'completed',
+        order_ref: orderRef,
+        delivered_data: deliveredData,
+        download_token: downloadToken,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    // Save transaction
-    await supabaseAdmin.from('transactions').insert({
+    if (orderError) {
+      console.error('Order creation error:', orderError);
+      return res.status(500).json({ error: 'Failed to create order' });
+    }
+
+    // ─── ✅ FIXED: Create transaction record (TRIGGER COMPLIANT) ───
+    // When currency is NGN:
+    //   - amount_usd MUST be 0
+    //   - revenue_usd MUST be 0
+    // When currency is USD:
+    //   - amount_ngn MUST be 0
+    //   - revenue_ngn MUST be 0
+    
+    const transactionData = {
       user_id: userId,
       order_id: order.id,
-      type: 'purchase',
+      type: 'marketplace',
       category: 'debit',
       description: `Purchased: ${product.title}`,
-      amount_ngn: -costNGN,
-      amount_usd: -costUSD,
       currency: wallet_type,
       status: 'completed',
       ref: orderRef,
+      wallet_used: wallet_type,
+      meta: {
+        product_id: product.id,
+        product_name: product.title,
+        quantity: 1,
+        wallet_balance_before: balance,
+        wallet_balance_after: newBalance
+      },
       created_at: new Date().toISOString()
-    });
+    };
 
-    // Update stock
-    await supabaseAdmin.from('products').update({ quantity: product.quantity - 1 }).eq('id', product_id);
+    // ✅ Set amounts based on currency (ONLY ONE currency has values)
+    if (isUSD) {
+      // USD purchase: only USD fields have values
+      transactionData.amount_ngn = 0;
+      transactionData.amount_usd = -requiredAmount;
+      transactionData.revenue_ngn = 0;
+      transactionData.revenue_usd = requiredAmount;
+    } else {
+      // NGN purchase: only NGN fields have values
+      transactionData.amount_ngn = -requiredAmount;
+      transactionData.amount_usd = 0;
+      transactionData.revenue_ngn = requiredAmount;
+      transactionData.revenue_usd = 0;
+    }
 
-    // Update profile stats
+    const { error: txError } = await supabaseAdmin
+      .from('transactions')
+      .insert(transactionData);
+
+    if (txError) {
+      console.error('Transaction creation error:', txError);
+      // Don't fail the purchase, but log it
+    }
+
+    // ─── Update product stock ───
+    await supabaseAdmin
+      .from('products')
+      .update({ quantity: product.quantity - 1 })
+      .eq('id', product_id);
+
+    // ─── Update user stats ───
     const prevSpent = parseFloat(userData?.total_spent_usd || 0);
     const prevOrders = parseInt(userData?.total_orders || 0);
     const prevCompleted = parseInt(userData?.completed_orders || 0);
 
-    await supabaseAdmin.from('profiles').update({
-      total_spent_usd: prevSpent + costUSD,
-      total_orders: prevOrders + 1,
-      completed_orders: prevCompleted + 1
-    }).eq('id', userId);
+    await supabaseAdmin
+      .from('profiles')
+      .update({
+        total_spent_usd: prevSpent + costUSD,
+        total_orders: prevOrders + 1,
+        completed_orders: prevCompleted + 1
+      })
+      .eq('id', userId);
 
+    // ─── Invalidate dashboard cache ───
+    if (global.invalidateDashboardCache) {
+      global.invalidateDashboardCache();
+    }
+
+    // ─── Return success ───
     res.json({
       success: true,
       purchase: {
@@ -190,6 +254,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         delivered_data: deliveredData
       }
     });
+
   } catch (error) {
     console.error('Purchase error:', error);
     res.status(500).json({ error: error.message || 'Purchase failed' });
@@ -200,32 +265,58 @@ router.post('/purchase', authMiddleware, async (req, res) => {
    GET /api/market/download/:token
 ════════════════════════════════════════════════ */
 router.get('/download/:token', async (req, res) => {
-  const { data } = await supabaseAdmin
-    .from('orders')
-    .select('*')
-    .eq('download_token', req.params.token)
-    .single();
+  try {
+    const { data: order, error } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('download_token', req.params.token)
+      .single();
 
-  if (!data) return res.status(404).json({ error: 'Not found' });
+    if (error || !order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
 
-  const log = data.delivered_data || {};
-  const content = `ORDER: ${data.order_ref}\nPRODUCT: ${data.product_title}\nDATE: ${new Date(data.created_at).toLocaleString()}\n\nFORMAT: ${log.login_format || 'N/A'}\n\nINSTRUCTIONS:\n${log.login_instructions || 'N/A'}\n\nThank you for your purchase!`;
+    // Update download count
+    await supabaseAdmin
+      .from('orders')
+      .update({
+        download_count: (order.download_count || 0) + 1,
+        last_download_at: new Date().toISOString()
+      })
+      .eq('id', order.id);
 
-  res.setHeader('Content-Type', 'text/plain');
-  res.setHeader('Content-Disposition', `attachment; filename="order_${data.order_ref}.txt"`);
-  res.send(content);
-});
+    const log = order.delivered_data || {};
+    const content = [
+      '═══════════════════════════════════════════════',
+      '  📦 MILESPACE ORDER DETAILS',
+      '═══════════════════════════════════════════════',
+      '',
+      `Order ID:    ${order.order_ref}`,
+      `Product:     ${order.product_title}`,
+      `Date:        ${new Date(order.created_at).toLocaleString()}`,
+      `Wallet:      ${order.wallet_used || 'NGN'}`,
+      `Amount:      ${order.wallet_used === 'USD' ? '$' : '₦'}${(order.wallet_used === 'USD' ? order.price_usd : order.price_ngn).toFixed(2)}`,
+      `Downloads:   ${(order.download_count || 0) + 1}`,
+      '',
+      '────────── ACCOUNT LOGIN DETAILS ──────────',
+      '',
+      `Format:      ${log.login_format || 'N/A'}`,
+      '',
+      'Instructions:',
+      log.login_instructions || 'No instructions provided.',
+      '',
+      '───────────────────────────────────────────',
+      `Downloaded:  ${new Date().toISOString()}`,
+      '═══════════════════════════════════════════════'
+    ].join('\n');
 
-/* ════════════════════════════════════════════════
-   GET /api/market/purchases
-════════════════════════════════════════════════ */
-router.get('/purchases', authMiddleware, async (req, res) => {
-  const { data } = await supabaseAdmin
-    .from('orders')
-    .select('*')
-    .eq('user_id', req.user.id)
-    .order('created_at', { ascending: false });
-  res.json({ success: true, purchases: data || [] });
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename="order_${order.order_ref}.txt"`);
+    res.send(content);
+  } catch (error) {
+    console.error('Download error:', error);
+    res.status(500).json({ error: 'Download failed' });
+  }
 });
 
 module.exports = router;

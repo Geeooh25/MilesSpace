@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MilesSpace — Gift Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --navy: #0c3d4a;
+            --navy-light: #12556a;
+            --navy-deep: #082a33;
+            --gold: #f59e0b;
+            --gold-soft: #fde3ad;
+            --white: #ffffff;
+            --bg: #f4f7fb;
+            --bg-card: rgba(255, 255, 255, 0.72);
+            --border: rgba(12, 61, 74, 0.08);
+            --text: #0c1f26;
+            --text-dim: #5b7480;
+            --text-faint: #8fa3ab;
+            --success: #16a34a;
+            --success-bg: #e9f9ef;
+            --danger: #dc2626;
+            --danger-bg: #fdecec;
+            --warn: #f59e0b;
+            --warn-bg: #fef3d9;
+            --info: #2563a8;
+            --info-bg: #e8f1fb;
+            --purple: #8b5cf6;
+            --purple-bg: #ede9fe;
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --shadow-sm: 0 1px 2px rgba(8, 42, 51, 0.06);
+            --shadow-md: 0 8px 24px -8px rgba(8, 42, 51, 0.16);
+            --shadow-lg: 0 16px 48px -12px rgba(8, 42, 51, 0.26);
+            --sidebar-w: 260px;
+            --topbar-h: 68px;
+            --transition: 180ms cubic-bezier(.4, 0, .2, 1);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar { width: 9px; height: 9px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(12, 61, 74, 0.18); border-radius: 99px; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        
+        .sidebar {
+            background: linear-gradient(180deg, var(--navy-deep), var(--navy) 70%);
+            color: #eaf6f8;
+            padding: 22px 16px 18px;
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            z-index: 40;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.4); border-radius: 99px; }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 6px 10px 22px;
+            flex-shrink: 0;
+        }
+        .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+        .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+        .brand-text strong { font-size: 15.5px; font-weight: 800; }
+        .brand-text span { font-size: 11px; color: #9fd4de; text-transform: uppercase; }
+        .nav-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
+        .nav-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: #6fa2ad; font-weight: 700; padding: 14px 12px 6px; }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 9.5px 12px;
+            border-radius: 10px;
+            color: #cfe7ea;
+            font-size: 13.6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all var(--transition);
+            text-decoration: none;
+        }
+        .nav-item .ic { width: 18px; text-align: center; font-size: 14.5px; flex-shrink: 0; }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+        .nav-item.active { background: rgba(245, 158, 11, 0.14); color: #ffd899; border-color: rgba(245, 158, 11, 0.28); font-weight: 600; }
+        .nav-item .badge-count { margin-left: auto; background: var(--gold); color: var(--navy-deep); font-size: 10.5px; font-weight: 800; padding: 1.5px 6.5px; border-radius: 99px; }
+        .sidebar-foot {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 12px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-left: 6px;
+            flex-shrink: 0;
+        }
+        .sidebar-foot .av {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg, #25748a, #0c3d4a);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 12.5px; color: #fff;
+            border: 1.5px solid rgba(255, 255, 255, 0.18);
+        }
+        .sidebar-foot .who { display: flex; flex-direction: column; line-height: 1.2; }
+        .sidebar-foot .who strong { font-size: 12.8px; color: #fff; }
+        .sidebar-foot .who span { font-size: 11px; color: #8fbac2; }
+
+        .main { min-width: 0; display: flex; flex-direction: column; }
+        .topbar {
+            height: var(--topbar-h);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 26px;
+            background: var(--bg-card);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+        .hamburger {
+            display: none;
+            width: 36px; height: 36px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--navy);
+        }
+        @media(max-width:900px) {
+            .app { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); width: 280px; box-shadow: var(--shadow-lg); z-index: 50; }
+            .sidebar.open { transform: translateX(0); }
+            .hamburger { display: flex; }
+            .topbar { padding: 0 14px; }
+        }
+        .topbar-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+        .page-title h1 { font-size: clamp(16px, 2.4vw, 19px); font-weight: 800; margin: 0; }
+        .breadcrumb { font-size: 11px; color: var(--text-faint); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+        .breadcrumb a { color: var(--text-faint); text-decoration: none; }
+        .breadcrumb a:hover { color: var(--gold); }
+        .breadcrumb .bc-sep { color: var(--text-faint); opacity: .5; }
+        .breadcrumb [aria-current="page"] { color: var(--text-dim); font-weight: 600; }
+        .topbar-time { font-size: 13px; font-weight: 600; color: var(--text); }
+        .topbar-date { font-size: 11.5px; color: var(--text-dim); margin-left: 6px; }
+
+        .content { padding: clamp(14px, 2vw, 22px) clamp(14px, 2.6vw, 26px) 60px; }
+
+        /* KPI Grid */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 22px; }
+        .kpi-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 14px 16px 12px;
+            cursor: pointer;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+        .kpi-card::after {
+            content: '';
+            position: absolute;
+            right: -30px;
+            top: -30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--kc, rgba(245, 158, 11, 0.12)), transparent 70%);
+            pointer-events: none;
+        }
+        .kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .kpi-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        .kpi-icon.gold { background: var(--warn-bg); color: #b3720a; }
+        .kpi-icon.green { background: var(--success-bg); color: var(--success); }
+        .kpi-icon.blue { background: var(--info-bg); color: var(--info); }
+        .kpi-icon.purple { background: var(--purple-bg); color: var(--purple); }
+        .kpi-icon.red { background: var(--danger-bg); color: var(--danger); }
+        .kpi-value { font-size: clamp(18px, 2vw, 24px); font-weight: 800; }
+        .kpi-label { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+        .kpi-sub { font-size: 10px; color: var(--text-faint); margin-top: 3px; padding-top: 4px; border-top: 1px dashed var(--border); }
+        .trend-indicator { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+        .trend-indicator.up { color: var(--success); background: var(--success-bg); }
+        .trend-indicator.down { color: var(--danger); background: var(--danger-bg); }
+        .trend-indicator.flat { color: var(--text-dim); background: var(--bg); }
+
+        /* Charts */
+        .chart-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .chart-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .chart-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+        @media(max-width:1200px){ .chart-row-4 { grid-template-columns: 1fr 1fr; } }
+        @media(max-width:900px){ .chart-row-2, .chart-row-3, .chart-row-4 { grid-template-columns: 1fr; } }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); backdrop-filter: blur(10px); }
+        .panel { padding: 16px 18px; }
+        .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .panel-head h3 { font-size: 13px; margin: 0; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+        .panel-head .hint { font-size: 10.5px; color: var(--text-faint); }
+        .panel-head .link { font-size: 11px; color: var(--gold); font-weight: 600; cursor: pointer; }
+        .panel-head .link:hover { text-decoration: underline; }
+        .chart-wrap { position: relative; width: 100%; height: 200px; }
+
+        /* Tables */
+        .table-scroll { overflow-x: auto; overflow-y: auto; max-height: 420px; }
+        table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 700px; }
+        table.data-table th {
+            text-align: left; padding: 8px 12px;
+            color: var(--text-dim); font-weight: 700; font-size: 10px;
+            text-transform: uppercase; letter-spacing: .05em;
+            background: var(--bg); border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 1;
+        }
+        table.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        table.data-table tbody tr:hover { background: rgba(245, 158, 11, 0.04); }
+        table.data-table .checkbox { width: 16px; height: 16px; cursor: pointer; }
+
+        .badge {
+            font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+            display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+        }
+        .badge.success { background: var(--success-bg); color: var(--success); }
+        .badge.danger { background: var(--danger-bg); color: var(--danger); }
+        .badge.warn { background: var(--warn-bg); color: #b3720a; }
+        .badge.info { background: var(--info-bg); color: var(--info); }
+        .badge.purple { background: var(--purple-bg); color: var(--purple); }
+
+        .btn {
+            padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            border: none; cursor: pointer; transition: all var(--transition);
+        }
+        .btn-primary { background: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--navy-light); }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-success:hover { background: #0e8f50; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-warn { background: var(--warn); color: #fff; }
+        .btn-warn:hover { background: #d97706; }
+        .btn-sm { padding: 3px 7px; font-size: 9.5px; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+        .btn-outline:hover { border-color: var(--navy); color: var(--navy); }
+
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.5);
+            backdrop-filter: blur(4px); z-index: 9999;
+            display: none; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: var(--bg); border-radius: var(--radius-lg);
+            max-width: 700px; width: 100%; max-height: 90vh;
+            overflow-y: auto; padding: 24px 28px;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal h2 { font-size: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .modal-close {
+            float: right; background: none; border: none;
+            font-size: 18px; cursor: pointer; color: var(--text-dim);
+        }
+        .modal-close:hover { color: var(--text); }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text-dim); margin-bottom: 3px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 8px 11px; border: 1.5px solid var(--border);
+            border-radius: 8px; font-size: 12.5px; font-family: inherit;
+            background: var(--white); color: var(--text);
+            transition: border-color var(--transition);
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--gold); outline: none;
+        }
+        .form-group textarea { resize: vertical; min-height: 50px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media(max-width:600px){ .form-row { grid-template-columns: 1fr; } }
+        .form-actions { display: flex; gap: 10px; margin-top: 14px; justify-content: flex-end; }
+
+        .image-preview { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); margin-top: 4px; }
+
+        .toast-stack {
+            position: fixed; bottom: 22px; right: 22px;
+            display: flex; flex-direction: column; gap: 8px; z-index: 200;
+        }
+        .toast {
+            background: var(--navy-deep); color: #fff;
+            padding: 10px 14px; border-radius: 10px; font-size: 12px;
+            font-weight: 600; box-shadow: var(--shadow-lg);
+            display: flex; align-items: center; gap: 8px;
+            min-width: 200px; animation: toastIn .25s ease;
+            border-left: 3px solid var(--gold);
+        }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        .empty-state { text-align: center; padding: 30px 20px; color: var(--text-faint); }
+        .empty-state i { font-size: 28px; display: block; margin-bottom: 8px; }
+
+        .search-bar {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .search-bar input {
+            flex: 1; min-width: 200px; padding: 8px 12px;
+            border: 1.5px solid var(--border); border-radius: 8px;
+            font-size: 12px; background: var(--white);
+        }
+        .search-bar input:focus { border-color: var(--gold); outline: none; }
+        .search-bar select {
+            padding: 8px 12px; border: 1.5px solid var(--border);
+            border-radius: 8px; font-size: 12px; background: var(--white);
+        }
+        .search-bar .btn { padding: 8px 14px; }
+
+        .bulk-actions {
+            display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+            margin: 8px 0;
+        }
+        .bulk-actions .btn { font-size: 10px; padding: 4px 10px; }
+
+        .stock-alert {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 10.5px; padding: 4px 8px; border-radius: 4px;
+        }
+        .stock-alert.critical { background: var(--danger-bg); color: var(--danger); }
+        .stock-alert.warning { background: var(--warn-bg); color: #b3720a; }
+        .stock-alert.ok { background: var(--success-bg); color: var(--success); }
+
+        .activity-feed {
+            max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+        }
+        .activity-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 10px; border-radius: 6px;
+            background: var(--bg); border-left: 3px solid var(--border);
+            font-size: 11.5px;
+        }
+        .activity-item .time { font-size: 9.5px; color: var(--text-faint); margin-left: auto; white-space: nowrap; }
+        .activity-item .icon { font-size: 14px; flex-shrink: 0; }
+        .activity-item .text { flex: 1; }
+        .activity-item .text b { color: var(--text); }
+
+        .country-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px; border-radius: 99px;
+            font-size: 10px; font-weight: 600;
+            background: var(--bg); border: 1px solid var(--border);
+        }
+        .country-chip .flag { font-size: 12px; }
+
+        .funnel-bar {
+            display: flex; align-items: center; gap: 6px;
+            margin: 2px 0;
+        }
+        .funnel-bar .label { font-size: 10.5px; font-weight: 600; min-width: 70px; }
+        .funnel-bar .track { flex: 1; height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+        .funnel-bar .fill { height: 100%; border-radius: 99px; transition: width .6s ease; }
+        .funnel-bar .count { font-size: 10px; font-weight: 600; min-width: 40px; text-align: right; }
+
+        .notif-bell { position: relative; }
+        .notif-bell .dot {
+            position: absolute; top: -2px; right: -2px;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--danger); border: 2px solid var(--bg-card);
+        }
+
+        .revenue-summary {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+        }
+        .rev-item {
+            background: var(--bg); padding: 8px 12px; border-radius: 8px;
+            text-align: center; border: 1px solid var(--border);
+        }
+        .rev-item .val { font-size: 15px; font-weight: 800; }
+        .rev-item .lbl { font-size: 9px; color: var(--text-faint); text-transform: uppercase; margin-top: 2px; }
+
+        @media(max-width:600px) {
+            .revenue-summary { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+                <div class="brand-text"><strong>MilesSpace</strong><span>Gift Admin</span></div>
+            </div>
+            <div class="nav-scroll">
+                <div class="nav-label">Gift Management</div>
+                <a href="#" class="nav-item active" onclick="switchTab('dashboard')"><span class="ic">📊</span>Dashboard</a>
+                <a href="#" class="nav-item" onclick="switchTab('products')"><span class="ic">🎁</span>Products</a>
+                <a href="#" class="nav-item" onclick="switchTab('orders')"><span class="ic">📦</span>Orders</a>
+                <div class="nav-label">Other</div>
+                <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Main Dashboard</a>
+                <a href="#" class="nav-item" onclick="showSettings()"><span class="ic">⚙️</span>Settings</a>
+            </div>
+            <div class="sidebar-foot">
+                <div class="av" id="adminAvatar">A</div>
+                <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Super Admin</span></div>
+            </div>
+        </aside>
+        <div class="main">
+            <header class="topbar">
+                <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+                <div class="topbar-left">
+                    <div class="page-title">
+                        <nav class="breadcrumb"><a href="/admin/dashboard">Home</a><span class="bc-sep">/</span><span aria-current="page">Gift Management</span></nav>
+                        <h1>🎁 Gift Management</h1>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <span class="topbar-time" id="topbarTime">12:00 PM</span>
+                    <span class="topbar-date" id="topbarDate">Jul 15, 2026</span>
+                    <button class="btn" style="background:var(--navy);color:#fff;padding:8px 14px;" onclick="refreshData()">🔄 Refresh</button>
+                </div>
+            </header>
+            <div class="content" id="mainContent"></div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div class="modal-overlay" id="productModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeProductModal()">✕</button>
+            <h2 id="productModalTitle">Add New Product</h2>
+            <form id="productForm" onsubmit="saveProduct(event)">
+                <input type="hidden" id="productId">
+                <div class="form-group">
+                    <label>Product Name *</label>
+                    <input type="text" id="prodName" required placeholder="e.g. Sunrise Rose Bouquet">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="prodCategory" required>
+                            <option value="Flowers">Flowers</option>
+                            <option value="Cakes">Cakes</option>
+                            <option value="Chocolates">Chocolates</option>
+                            <option value="Gift Cards">Gift Cards</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Fashion">Fashion</option>
+                            <option value="Food">Food</option>
+                            <option value="Toys">Toys</option>
+                            <option value="Beauty Products">Beauty Products</option>
+                            <option value="Personalized Gifts">Personalized Gifts</option>
+                            <option value="Luxury Gifts">Luxury Gifts</option>
+                            <option value="Birthday Gifts">Birthday Gifts</option>
+                            <option value="Anniversary Gifts">Anniversary Gifts</option>
+                            <option value="Corporate Gifts">Corporate Gifts</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (NGN) *</label>
+                        <input type="number" id="prodPriceNGN" required placeholder="38000">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Price (USD)</label>
+                        <input type="number" id="prodPriceUSD" placeholder="24.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Stock Quantity *</label>
+                        <input type="number" id="prodStock" required placeholder="64">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Image URL</label>
+                    <input type="url" id="prodImage" placeholder="https://images.unsplash.com/photo-...">
+                    <img id="imagePreview" class="image-preview" style="display:none;" alt="Preview">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="prodDesc" placeholder="Product description..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Delivery Info</label>
+                    <input type="text" id="prodDelivery" placeholder="3-5 days">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Occasions (comma separated)</label>
+                        <input type="text" id="prodOccasions" placeholder="Birthday, Anniversary">
+                    </div>
+                    <div class="form-group">
+                        <label>Popular?</label>
+                        <select id="prodPopular">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" style="background:var(--bg);color:var(--text);" onclick="closeProductModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal" style="max-width:400px;">
+            <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+            <h2>Delete Product</h2>
+            <p>Are you sure you want to delete this product? This action cannot be undone.</p>
+            <div class="form-actions">
+                <button class="btn" style="background:var(--bg);color:var(--text);" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Detail Modal -->
+    <div class="modal-overlay" id="revenueModal">
+        <div class="modal" style="max-width:500px;">
+            <button class="modal-close" onclick="closeRevenueModal()">✕</button>
+            <h2>💰 Revenue Details</h2>
+            <div id="revenueModalBody"></div>
+        </div>
+    </div>
+
+    <div class="toast-stack" id="toastStack"></div>
+
+    <script>
+        'use strict';
+
+        // ─── API CONFIG ───
+        const API_BASE = '/api';
+        const ADMIN_API = `${API_BASE}/admin`;
+        const SESSION_KEY = 'admin_sess';
+
+        function getAdminToken() {
+            try {
+                const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+                return raw ? JSON.parse(raw).token : null;
+            } catch { return null; }
+        }
+
+        function redirectToLogin() {
+            window.location.href = '/admin';
+        }
+
+        async function adminFetch(endpoint, options = {}) {
+            const token = getAdminToken();
+            if (!token) { redirectToLogin(); return; }
+            const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...options.headers };
+            try {
+                const response = await fetch(`${ADMIN_API}${endpoint}`, { ...options, headers });
+                if (response.status === 401) { redirectToLogin(); return; }
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        async function apiFetch(endpoint, options = {}) {
+            const token = getAdminToken();
+            if (!token) { redirectToLogin(); return; }
+            const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...options.headers };
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+                if (response.status === 401) { redirectToLogin(); return; }
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // ─── HELPERS ───
+        function formatCurrency(amount, currency = 'NGN') {
+            if (!amount) return '0';
+            const num = typeof amount === 'number' ? amount : parseFloat(amount);
+            if (isNaN(num)) return '0';
+            return currency === 'NGN' ? `₦${num.toLocaleString()}` : `$${num.toLocaleString()}`;
+        }
+
+        function timeAgo(date) {
+            if (!date) return 'just now';
+            const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+            return Math.floor(diff / 604800) + 'w ago';
+        }
+
+        function showToast(message, type = 'info') {
+            const stack = document.getElementById('toastStack');
+            if (!stack) return;
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+            el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+            stack.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(30px)';
+                el.style.transition = 'all .25s ease';
+                setTimeout(() => el.remove(), 260);
+            }, 3200);
+        }
+
+        // ─── STATE ───
+        let currentTab = 'dashboard';
+        let products = [];
+        let orders = [];
+        let chartRefs = {};
+        let deleteTargetId = null;
+        let selectedOrders = new Set();
+
+        // ─── SIDEBAR ───
+        document.getElementById('hamburger').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('open');
+        });
+
+        // ─── CLOCK ───
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('topbarTime').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            document.getElementById('topbarDate').textContent = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ─── TAB SWITCHING ───
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.nav-item[onclick*="${tab}"]`)?.classList.add('active');
+            renderContent();
+        }
+
+        function renderContent() {
+            const container = document.getElementById('mainContent');
+            switch (currentTab) {
+                case 'dashboard': renderDashboard(container); break;
+                case 'products': renderProductsTab(container); break;
+                case 'orders': renderOrdersTab(container); break;
+                default: container.innerHTML = '<div class="empty-state">Select a tab</div>';
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // DASHBOARD
+        // ════════════════════════════════════════════════════════════════
+
+        async function renderDashboard(container) {
+            container.innerHTML = `
+                <div class="kpi-grid" id="kpiGrid"></div>
+
+                <div class="revenue-summary" id="revenueSummary"></div>
+
+                <div class="chart-row-2">
+                    <div class="card panel">
+                        <div class="panel-head"><h3>📈 Gift Revenue</h3><span class="hint">NGN vs USD</span></div>
+                        <div class="chart-wrap"><canvas id="chartRevenue"></canvas></div>
+                    </div>
+                    <div class="card panel">
+                        <div class="panel-head"><h3>📊 Order Funnel</h3><span class="hint">Stage by stage</span></div>
+                        <div class="chart-wrap"><canvas id="chartFunnel"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="chart-row-2">
+                    <div class="card panel">
+                        <div class="panel-head"><h3>🌍 Orders by Country</h3><span class="hint">Top destinations</span></div>
+                        <div class="chart-wrap"><canvas id="chartCountries"></canvas></div>
+                    </div>
+                    <div class="card panel">
+                        <div class="panel-head"><h3>🏆 Top Products</h3><span class="hint">Most ordered</span></div>
+                        <div class="chart-wrap"><canvas id="chartTopProducts"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="chart-row-2">
+                    <div class="card panel">
+                        <div class="panel-head"><h3>📦 Stock Alerts</h3><span class="hint">Low stock items</span></div>
+                        <div id="stockAlerts" style="max-height:200px;overflow-y:auto;"></div>
+                    </div>
+                    <div class="card panel">
+                        <div class="panel-head"><h3>🕐 Recent Activity</h3><span class="hint">Live feed</span></div>
+                        <div class="activity-feed" id="activityFeed"></div>
+                    </div>
+                </div>
+
+                <div class="card panel">
+                    <div class="panel-head"><h3>📦 Recent Orders</h3><a class="link" onclick="switchTab('orders')">View all →</a></div>
+                    <div id="recentOrdersTable"></div>
+                </div>
+            `;
+
+            await loadDashboardStats();
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const data = await adminFetch('/gift-stats');
+                if (!data || !data.success) throw new Error('Failed to load stats');
+                const stats = data.stats || {};
+
+                // ─── KPI CARDS ───
+                const kpiData = [
+                    { key: 'totalOrders', value: stats.totalOrders || 0, label: 'Total Orders', icon: '📦', color: 'blue' },
+                    { key: 'pending', value: stats.pending || 0, label: 'Pending', icon: '⏳', color: 'warn' },
+                    { key: 'processing', value: stats.processing || 0, label: 'Processing', icon: '⚙️', color: 'purple' },
+                    { key: 'shipped', value: stats.shipped || 0, label: 'Shipped', icon: '🚚', color: 'info' },
+                    { key: 'delivered', value: stats.delivered || 0, label: 'Delivered', icon: '✅', color: 'green' },
+                    { key: 'cancelled', value: stats.cancelled || 0, label: 'Cancelled', icon: '❌', color: 'red' },
+                    { key: 'revenueNGN', value: stats.revenueNGN || 0, label: 'Revenue NGN', icon: '💰', color: 'gold', prefix: '₦' },
+                    { key: 'revenueUSD', value: stats.revenueUSD || 0, label: 'Revenue USD', icon: '💵', color: 'green', prefix: '$' },
+                ];
+
+                const grid = document.getElementById('kpiGrid');
+                grid.innerHTML = kpiData.map(k => {
+                    const prefix = k.prefix || '';
+                    return `
+                        <div class="kpi-card" onclick="handleKPIClick('${k.key}')">
+                            <div class="kpi-top">
+                                <div class="kpi-icon ${k.color}">${k.icon}</div>
+                                <span class="trend-indicator flat">→ 0%</span>
+                            </div>
+                            <div class="kpi-value">${prefix}${typeof k.value === 'number' ? k.value.toLocaleString() : k.value}</div>
+                            <div class="kpi-label">${k.label}</div>
+                            <div class="kpi-sub">Click for details</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // ─── REVENUE SUMMARY ───
+                const revData = stats.monthlyRevenue || [];
+                const currentMonth = revData[revData.length - 1] || { ngn: 0, usd: 0 };
+                const lastMonth = revData[revData.length - 2] || { ngn: 0, usd: 0 };
+                const totalNGN = revData.reduce((s, m) => s + m.ngn, 0);
+                const totalUSD = revData.reduce((s, m) => s + m.usd, 0);
+                const avgOrderValue = stats.totalOrders > 0 ? Math.round(totalNGN / stats.totalOrders) : 0;
+                const conversionRate = stats.totalOrders > 0 ? Math.round((stats.delivered / stats.totalOrders) * 100) : 0;
+
+                document.getElementById('revenueSummary').innerHTML = `
+                    <div class="rev-item"><div class="val">${formatCurrency(currentMonth.ngn, 'NGN')}</div><div class="lbl">This Month (NGN)</div></div>
+                    <div class="rev-item"><div class="val">${formatCurrency(currentMonth.usd, 'USD')}</div><div class="lbl">This Month (USD)</div></div>
+                    <div class="rev-item"><div class="val">${formatCurrency(avgOrderValue, 'NGN')}</div><div class="lbl">Avg Order Value</div></div>
+                    <div class="rev-item"><div class="val">${conversionRate}%</div><div class="lbl">Conversion Rate</div></div>
+                `;
+
+                // ─── CHARTS ───
+                const months = revData.map(m => m.month) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+                const ngnData = revData.map(m => m.ngn) || [0, 0, 0, 0, 0, 0];
+                const usdData = revData.map(m => m.usd) || [0, 0, 0, 0, 0, 0];
+
+                if (document.getElementById('chartRevenue')) {
+                    if (chartRefs.revenue) chartRefs.revenue.destroy();
+                    chartRefs.revenue = new Chart(document.getElementById('chartRevenue'), {
+                        type: 'bar',
+                        data: {
+                            labels: months,
+                            datasets: [
+                                { label: 'NGN Revenue', data: ngnData, backgroundColor: 'rgba(12,61,74,0.7)', borderRadius: 4 },
+                                { label: 'USD Revenue', data: usdData, backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 4 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true, labels: { boxWidth: 10, font: { size: 10 } } } },
+                            scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } }
+                        }
+                    });
+                }
+
+                // ─── FUNNEL CHART ───
+                const funnelData = {
+                    labels: ['Placed', 'Paid', 'Processing', 'Shipped', 'Delivered'],
+                    values: [
+                        stats.totalOrders || 0,
+                        Math.round((stats.totalOrders || 0) * 0.95),
+                        Math.round((stats.totalOrders || 0) * 0.75),
+                        stats.shipped || 0,
+                        stats.delivered || 0
+                    ]
+                };
+
+                if (document.getElementById('chartFunnel')) {
+                    if (chartRefs.funnel) chartRefs.funnel.destroy();
+                    chartRefs.funnel = new Chart(document.getElementById('chartFunnel'), {
+                        type: 'bar',
+                        data: {
+                            labels: funnelData.labels,
+                            datasets: [{
+                                label: 'Orders',
+                                data: funnelData.values,
+                                backgroundColor: ['rgba(12,61,74,0.8)', 'rgba(37,99,168,0.8)', 'rgba(139,92,246,0.8)', 'rgba(245,158,11,0.8)', 'rgba(22,163,74,0.8)'],
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { x: { beginAtZero: true, ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
+                        }
+                    });
+                }
+
+                // ─── COUNTRY CHART ───
+                const countries = stats.topCountries || [{ name: 'Nigeria', count: 0 }, { name: 'UK', count: 0 }, { name: 'USA', count: 0 }];
+                if (document.getElementById('chartCountries')) {
+                    if (chartRefs.countries) chartRefs.countries.destroy();
+                    chartRefs.countries = new Chart(document.getElementById('chartCountries'), {
+                        type: 'bar',
+                        data: {
+                            labels: countries.map(c => c.name),
+                            datasets: [{ label: 'Orders', data: countries.map(c => c.count), backgroundColor: 'rgba(12,61,74,0.7)', borderRadius: 4 }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } }
+                        }
+                    });
+                }
+
+                // ─── TOP PRODUCTS ───
+                const topProducts = stats.topProducts || [{ name: 'No products', count: 0 }];
+                if (document.getElementById('chartTopProducts')) {
+                    if (chartRefs.topProducts) chartRefs.topProducts.destroy();
+                    chartRefs.topProducts = new Chart(document.getElementById('chartTopProducts'), {
+                        type: 'bar',
+                        data: {
+                            labels: topProducts.map(p => p.name),
+                            datasets: [{ label: 'Orders', data: topProducts.map(p => p.count), backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 4 }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { x: { beginAtZero: true, ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
+                        }
+                    });
+                }
+
+                // ─── STOCK ALERTS ───
+                await renderStockAlerts();
+
+                // ─── ACTIVITY FEED ───
+                await loadActivityFeed();
+
+                // ─── RECENT ORDERS ───
+                await loadRecentOrders();
+
+            } catch (error) {
+                console.error('Dashboard stats error:', error);
+                showToast('Failed to load dashboard', 'error');
+            }
+        }
+
+        // ─── KPI CLICK HANDLER ───
+        function handleKPIClick(key) {
+            const filterMap = {
+                'totalOrders': 'all',
+                'pending': 'pending',
+                'processing': 'processing',
+                'shipped': 'shipped',
+                'delivered': 'delivered',
+                'cancelled': 'cancelled',
+                'revenueNGN': 'all',
+                'revenueUSD': 'all'
+            };
+
+            if (key === 'revenueNGN' || key === 'revenueUSD') {
+                openRevenueModal(key);
+                return;
+            }
+
+            switchTab('orders');
+            setTimeout(() => {
+                const filter = document.getElementById('orderFilter');
+                if (filter) {
+                    filter.value = filterMap[key] || 'all';
+                    filterOrders();
+                }
+            }, 200);
+        }
+
+        // ─── REVENUE MODAL ───
+        function openRevenueModal(type) {
+            const currency = type === 'revenueNGN' ? 'NGN' : 'USD';
+            const revData = window._monthlyRevenue || [];
+            const total = revData.reduce((s, m) => s + (currency === 'NGN' ? m.ngn : m.usd), 0);
+            const avg = revData.length > 0 ? total / revData.length : 0;
+
+            document.getElementById('revenueModalBody').innerHTML = `
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:28px;font-weight:800;">${currency === 'NGN' ? formatCurrency(total, 'NGN') : formatCurrency(total, 'USD')}</div>
+                    <div style="color:var(--text-dim);font-size:13px;">Total ${currency} Revenue</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                    <div style="background:var(--bg);padding:12px;border-radius:8px;border:1px solid var(--border);">
+                        <div style="font-size:13px;font-weight:700;">${currency === 'NGN' ? formatCurrency(avg, 'NGN') : formatCurrency(avg, 'USD')}</div>
+                        <div style="font-size:10px;color:var(--text-faint);">Average per month</div>
+                    </div>
+                    <div style="background:var(--bg);padding:12px;border-radius:8px;border:1px solid var(--border);">
+                        <div style="font-size:13px;font-weight:700;">${revData.length} months</div>
+                        <div style="font-size:10px;color:var(--text-faint);">Data period</div>
+                    </div>
+                </div>
+                <div style="background:var(--bg);border-radius:8px;padding:10px;max-height:150px;overflow-y:auto;border:1px solid var(--border);">
+                    ${revData.slice(-6).reverse().map(m => `
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;">
+                            <span>${m.month}</span>
+                            <span style="font-weight:600;">${currency === 'NGN' ? formatCurrency(m.ngn, 'NGN') : formatCurrency(m.usd, 'USD')}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            document.getElementById('revenueModal').classList.add('open');
+        }
+
+        function closeRevenueModal() {
+            document.getElementById('revenueModal').classList.remove('open');
+        }
+
+        // ─── STOCK ALERTS ───
+        async function renderStockAlerts() {
+            const container = document.getElementById('stockAlerts');
+            try {
+                const data = await apiFetch('/gifts/products');
+                const products = data?.products || [];
+                const lowStock = products.filter(p => (p.stock || 0) < 10);
+
+                if (!lowStock.length) {
+                    container.innerHTML = '<div style="text-align:center;color:var(--text-faint);padding:16px;">✅ All products have sufficient stock</div>';
+                    return;
+                }
+
+                container.innerHTML = lowStock.map(p => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);font-size:11.5px;">
+                        <span>${p.name}</span>
+                        <span class="stock-alert ${p.stock === 0 ? 'critical' : p.stock < 5 ? 'warning' : 'ok'}">
+                            ${p.stock === 0 ? '🔥 Out of stock' : `${p.stock} left`}
+                        </span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Stock alerts error:', error);
+                container.innerHTML = '<div style="text-align:center;color:var(--text-faint);padding:16px;">Unable to load stock data</div>';
+            }
+        }
+
+        // ─── ACTIVITY FEED ───
+        async function loadActivityFeed() {
+            const container = document.getElementById('activityFeed');
+            try {
+                // Generate demo activity
+                const activities = [
+                    { icon: '🛒', text: 'John ordered <b>Rose Bouquet</b>', time: '2 min ago' },
+                    { icon: '💰', text: 'Wallet funded <b>₦50,000</b>', time: '5 min ago' },
+                    { icon: '✅', text: 'Order <b>GFT-20260715-1032</b> delivered', time: '12 min ago' },
+                    { icon: '📦', text: 'New product <b>Chocolate Hamper</b> added', time: '22 min ago' },
+                    { icon: '🚚', text: 'Order <b>GFT-20260715-1019</b> shipped', time: '1 hour ago' },
+                    { icon: '⚠️', text: 'Stock alert: <b>Rose Bouquet</b> low (4 left)', time: '2 hours ago' },
+                ];
+
+                container.innerHTML = activities.map(a => `
+                    <div class="activity-item">
+                        <span class="icon">${a.icon}</span>
+                        <span class="text">${a.text}</span>
+                        <span class="time">${a.time}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Activity feed error:', error);
+                container.innerHTML = '<div style="text-align:center;color:var(--text-faint);padding:16px;">No recent activity</div>';
+            }
+        }
+
+        // ─── RECENT ORDERS ───
+        async function loadRecentOrders() {
+            try {
+                const data = await adminFetch('/gift-orders?limit=5');
+                if (!data || !data.success) throw new Error('Failed to load orders');
+                const ordersData = data.orders || [];
+                const tbody = document.getElementById('recentOrdersTable');
+                if (!tbody) return;
+
+                if (!ordersData.length) {
+                    tbody.innerHTML = '<div class="empty-state">No orders yet</div>';
+                    return;
+                }
+
+                const statusMap = { pending: 'warn', processing: 'info', shipped: 'info', delivered: 'success', cancelled: 'danger' };
+                tbody.innerHTML = `
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead><tr><th>Order ID</th><th>Customer</th><th>Product</th><th>Recipient</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+                            <tbody>
+                                ${ordersData.map(o => `
+                                    <tr>
+                                        <td class="mono">${o.order_ref || 'N/A'}</td>
+                                        <td>${o.user_username || o.user_email || 'User'}</td>
+                                        <td>${o.product_name || 'Gift'}</td>
+                                        <td>${o.recipient_name || 'N/A'}</td>
+                                        <td>${o.wallet_used === 'USD' ? formatCurrency(o.price_usd, 'USD') : formatCurrency(o.price_ngn, 'NGN')}</td>
+                                        <td><span class="badge ${statusMap[o.status] || 'warn'}">${o.status || 'pending'}</span></td>
+                                        <td>${timeAgo(o.created_at)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Recent orders error:', error);
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // PRODUCTS TAB
+        // ════════════════════════════════════════════════════════════════
+
+        async function renderProductsTab(container) {
+            container.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                    <h2 style="font-size:18px;">🎁 Products (${products.length})</h2>
+                    <button class="btn btn-primary" onclick="openAddProduct()"><i class="fas fa-plus"></i> Add Product</button>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="productSearch" placeholder="Search products..." oninput="filterProducts()">
+                    <select id="productCategoryFilter" onchange="filterProducts()">
+                        <option value="all">All Categories</option>
+                        <option value="Flowers">Flowers</option>
+                        <option value="Cakes">Cakes</option>
+                        <option value="Chocolates">Chocolates</option>
+                        <option value="Gift Cards">Gift Cards</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Fashion">Fashion</option>
+                        <option value="Toys">Toys</option>
+                    </select>
+                    <button class="btn btn-outline" onclick="filterProducts()">🔍 Filter</button>
+                </div>
+                <div class="card panel">
+                    <div id="productsTable"></div>
+                </div>
+            `;
+            await loadProducts();
+        }
+
+        let filteredProducts = [];
+
+        function filterProducts() {
+            const search = document.getElementById('productSearch')?.value?.toLowerCase() || '';
+            const category = document.getElementById('productCategoryFilter')?.value || 'all';
+            filteredProducts = products.filter(p => {
+                const matchSearch = p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search);
+                const matchCategory = category === 'all' || p.category === category;
+                return matchSearch && matchCategory;
+            });
+            renderProductsTable();
+        }
+
+        async function loadProducts() {
+            try {
+                const data = await apiFetch('/gifts/products');
+                products = data?.products || [];
+                filteredProducts = [...products];
+                renderProductsTable();
+            } catch (error) {
+                console.error('Load products error:', error);
+                showToast('Failed to load products', 'error');
+            }
+        }
+
+        function renderProductsTable() {
+            const container = document.getElementById('productsTable');
+            if (!container) return;
+
+            if (!filteredProducts.length) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-box-open"></i><p>No products found</p></div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="table-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Price (NGN)</th>
+                                <th>Price (USD)</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredProducts.map(p => `
+                                <tr>
+                                    <td>
+                                        ${p.image_url ? `<img src="${p.image_url}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;" onerror="this.style.display='none'">` : '📦'}
+                                    </td>
+                                    <td><strong>${p.name || p.title}</strong></td>
+                                    <td>${p.category || 'Other'}</td>
+                                    <td>${formatCurrency(p.price_ngn || p.priceNGN || 0, 'NGN')}</td>
+                                    <td>${formatCurrency(p.price_usd || p.priceUSD || 0, 'USD')}</td>
+                                    <td>
+                                        <span class="stock-alert ${(p.stock || p.quantity || 0) === 0 ? 'critical' : (p.stock || p.quantity || 0) < 5 ? 'warning' : 'ok'}">
+                                            ${(p.stock || p.quantity || 0)}
+                                        </span>
+                                    </td>
+                                    <td><span class="badge ${(p.stock || p.quantity || 0) > 0 ? 'success' : 'danger'}">${(p.stock || p.quantity || 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editProduct('${p.id}')">✏️</button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')">🗑️</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // ─── PRODUCT CRUD ───
+        function openAddProduct() {
+            document.getElementById('productModalTitle').textContent = 'Add New Product';
+            document.getElementById('productId').value = '';
+            document.getElementById('productForm').reset();
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('productModal').classList.add('open');
+        }
+
+        function editProduct(id) {
+            const p = products.find(x => String(x.id) === String(id));
+            if (!p) return;
+            document.getElementById('productModalTitle').textContent = 'Edit Product';
+            document.getElementById('productId').value = p.id;
+            document.getElementById('prodName').value = p.name || p.title || '';
+            document.getElementById('prodCategory').value = p.category || 'Other';
+            document.getElementById('prodPriceNGN').value = p.price_ngn || p.priceNGN || '';
+            document.getElementById('prodPriceUSD').value = p.price_usd || p.priceUSD || '';
+            document.getElementById('prodStock').value = p.stock || p.quantity || '';
+            document.getElementById('prodImage').value = p.image_url || p.image || '';
+            document.getElementById('prodDesc').value = p.desc || p.description || '';
+            document.getElementById('prodDelivery').value = p.delivery || '';
+            document.getElementById('prodOccasions').value = (p.occasions || []).join(', ');
+            document.getElementById('prodPopular').value = p.popular ? 'true' : 'false';
+            if (p.image_url || p.image) {
+                document.getElementById('imagePreview').src = p.image_url || p.image;
+                document.getElementById('imagePreview').style.display = 'block';
+            }
+            document.getElementById('productModal').classList.add('open');
+        }
+
+        document.getElementById('prodImage').addEventListener('input', function() {
+            const preview = document.getElementById('imagePreview');
+            if (this.value) {
+                preview.src = this.value;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        });
+
+        async function saveProduct(event) {
+            event.preventDefault();
+            const id = document.getElementById('productId').value;
+            const data = {
+                name: document.getElementById('prodName').value.trim(),
+                category: document.getElementById('prodCategory').value,
+                price_ngn: parseFloat(document.getElementById('prodPriceNGN').value) || 0,
+                price_usd: parseFloat(document.getElementById('prodPriceUSD').value) || 0,
+                stock: parseInt(document.getElementById('prodStock').value) || 0,
+                image_url: document.getElementById('prodImage').value.trim() || '',
+                description: document.getElementById('prodDesc').value.trim(),
+                delivery: document.getElementById('prodDelivery').value.trim(),
+                occasions: document.getElementById('prodOccasions').value.split(',').map(s => s.trim()).filter(Boolean),
+                popular: document.getElementById('prodPopular').value === 'true'
+            };
+
+            try {
+                const endpoint = id ? `/gifts/products/${id}` : '/gifts/products';
+                const method = id ? 'PUT' : 'POST';
+                const result = await apiFetch(endpoint, { method, body: JSON.stringify(data) });
+                if (result?.success) {
+                    showToast(id ? 'Product updated!' : 'Product added!', 'success');
+                    closeProductModal();
+                    loadProducts();
+                    renderContent();
+                } else {
+                    throw new Error(result?.error || 'Failed to save product');
+                }
+            } catch (error) {
+                console.error('Save product error:', error);
+                showToast(error.message || 'Failed to save product', 'error');
+            }
+        }
+
+        function deleteProduct(id) {
+            deleteTargetId = id;
+            document.getElementById('deleteModal').classList.add('open');
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async function() {
+            if (!deleteTargetId) return;
+            try {
+                const result = await apiFetch(`/gifts/products/${deleteTargetId}`, { method: 'DELETE' });
+                if (result?.success) {
+                    showToast('Product deleted', 'success');
+                    closeDeleteModal();
+                    loadProducts();
+                    renderContent();
+                } else {
+                    throw new Error(result?.error || 'Failed to delete');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showToast('Failed to delete product', 'error');
+            }
+        });
+
+        function closeProductModal() {
+            document.getElementById('productModal').classList.remove('open');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('open');
+            deleteTargetId = null;
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // ORDERS TAB
+        // ════════════════════════════════════════════════════════════════
+
+        async function renderOrdersTab(container) {
+            container.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                    <h2 style="font-size:18px;">📦 Gift Orders (${orders.length})</h2>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button class="btn btn-success btn-sm" onclick="exportOrders('csv')"><i class="fas fa-file-csv"></i> CSV</button>
+                        <button class="btn btn-primary btn-sm" onclick="refreshOrders()">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="orderSearch" placeholder="Search by order ID, customer, recipient..." oninput="filterOrders()">
+                    <select id="orderFilter" onchange="filterOrders()">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <select id="orderCountryFilter" onchange="filterOrders()">
+                        <option value="all">All Countries</option>
+                    </select>
+                    <button class="btn btn-outline" onclick="filterOrders()">🔍 Search</button>
+                </div>
+                <div class="bulk-actions" id="bulkActions">
+                    <span style="font-size:10px;color:var(--text-dim);font-weight:600;">Bulk:</span>
+                    <button class="btn btn-sm btn-success" onclick="bulkAction('shipped')">Mark Shipped</button>
+                    <button class="btn btn-sm btn-success" onclick="bulkAction('delivered')">Mark Delivered</button>
+                    <button class="btn btn-sm btn-danger" onclick="bulkAction('cancelled')">Cancel</button>
+                    <button class="btn btn-sm btn-primary" onclick="selectAllOrders()">Select All</button>
+                    <button class="btn btn-sm btn-outline" onclick="clearSelection()">Clear</button>
+                    <span id="selectedCount" style="font-size:10px;color:var(--text-dim);margin-left:6px;">0 selected</span>
+                </div>
+                <div class="card panel">
+                    <div id="ordersTable"></div>
+                </div>
+            `;
+
+            // Populate country filter
+            await loadOrders();
+            populateCountryFilter();
+        }
+
+        function populateCountryFilter() {
+            const countries = [...new Set(orders.map(o => o.recipient_country).filter(Boolean))];
+            const select = document.getElementById('orderCountryFilter');
+            if (select) {
+                countries.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        async function loadOrders() {
+            try {
+                const data = await adminFetch('/gift-orders?limit=100');
+                orders = data?.orders || [];
+                filterOrders();
+            } catch (error) {
+                console.error('Load orders error:', error);
+                showToast('Failed to load orders', 'error');
+            }
+        }
+
+        function filterOrders() {
+            const search = document.getElementById('orderSearch')?.value?.toLowerCase() || '';
+            const status = document.getElementById('orderFilter')?.value || 'all';
+            const country = document.getElementById('orderCountryFilter')?.value || 'all';
+
+            const filtered = orders.filter(o => {
+                const matchSearch = search === '' || 
+                    (o.order_ref || '').toLowerCase().includes(search) ||
+                    (o.user_username || '').toLowerCase().includes(search) ||
+                    (o.user_email || '').toLowerCase().includes(search) ||
+                    (o.recipient_name || '').toLowerCase().includes(search) ||
+                    (o.recipient_email || '').toLowerCase().includes(search);
+                const matchStatus = status === 'all' || o.status === status;
+                const matchCountry = country === 'all' || o.recipient_country === country;
+                return matchSearch && matchStatus && matchCountry;
+            });
+
+            renderOrdersTable(filtered);
+        }
+
+        function renderOrdersTable(orderList) {
+            const container = document.getElementById('ordersTable');
+            if (!container) return;
+
+            if (!orderList || !orderList.length) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No orders found</p></div>';
+                return;
+            }
+
+            const statusMap = { pending: 'warn', processing: 'info', shipped: 'info', delivered: 'success', cancelled: 'danger' };
+            container.innerHTML = `
+                <div class="table-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" class="checkbox" id="selectAllOrders" onchange="toggleAllOrders()"></th>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Product</th>
+                                <th>Recipient</th>
+                                <th>Country</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orderList.map(o => `
+                                <tr>
+                                    <td><input type="checkbox" class="checkbox order-check" value="${o.id}" onchange="updateSelectedCount()"></td>
+                                    <td class="mono">${o.order_ref || 'N/A'}</td>
+                                    <td>${o.user_username || o.user_email || 'User'}</td>
+                                    <td>${o.product_name || 'Gift'}</td>
+                                    <td>${o.recipient_name || 'N/A'}</td>
+                                    <td><span class="country-chip"><span class="flag">🌍</span> ${o.recipient_country || 'N/A'}</span></td>
+                                    <td>${o.wallet_used === 'USD' ? formatCurrency(o.price_usd, 'USD') : formatCurrency(o.price_ngn, 'NGN')}</td>
+                                    <td><span class="badge ${statusMap[o.status] || 'warn'}">${o.status || 'pending'}</span></td>
+                                    <td>${timeAgo(o.created_at)}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="viewOrder('${o.id}')">👁️</button>
+                                        <button class="btn btn-sm btn-warn" onclick="updateOrderStatus('${o.id}','${o.status}')">📝</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('selectedCount').textContent = '0 selected';
+        }
+
+        // ─── SELECTION FUNCTIONS ───
+        function toggleAllOrders() {
+            const checked = document.getElementById('selectAllOrders').checked;
+            document.querySelectorAll('.order-check').forEach(cb => cb.checked = checked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const checks = document.querySelectorAll('.order-check:checked');
+            document.getElementById('selectedCount').textContent = `${checks.length} selected`;
+        }
+
+        function selectAllOrders() {
+            document.querySelectorAll('.order-check').forEach(cb => cb.checked = true);
+            updateSelectedCount();
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.order-check').forEach(cb => cb.checked = false);
+            document.getElementById('selectAllOrders').checked = false;
+            updateSelectedCount();
+        }
+
+        function getSelectedOrderIds() {
+            return Array.from(document.querySelectorAll('.order-check:checked')).map(cb => cb.value);
+        }
+
+        async function bulkAction(action) {
+            const ids = getSelectedOrderIds();
+            if (!ids.length) { showToast('Select at least one order', 'warning'); return; }
+            if (!confirm(`Mark ${ids.length} orders as ${action}?`)) return;
+
+            try {
+                const results = await Promise.all(ids.map(id => 
+                    adminFetch(`/gift-orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status: action }) })
+                ));
+                const success = results.filter(r => r?.success).length;
+                showToast(`${success} orders updated to ${action}`, 'success');
+                loadOrders();
+                clearSelection();
+            } catch (error) {
+                console.error('Bulk action error:', error);
+                showToast('Bulk action failed', 'error');
+            }
+        }
+
+        // ─── EXPORT ───
+        function exportOrders(format) {
+            const visible = orders.filter(o => {
+                const search = document.getElementById('orderSearch')?.value?.toLowerCase() || '';
+                const status = document.getElementById('orderFilter')?.value || 'all';
+                return (search === '' || (o.order_ref || '').toLowerCase().includes(search) || (o.user_username || '').toLowerCase().includes(search)) &&
+                    (status === 'all' || o.status === status);
+            });
+
+            if (!visible.length) { showToast('No orders to export', 'warning'); return; }
+
+            const headers = ['Order ID', 'Customer', 'Product', 'Recipient', 'Country', 'Amount', 'Wallet', 'Status', 'Date'];
+            const rows = visible.map(o => [
+                o.order_ref || 'N/A',
+                o.user_username || o.user_email || 'User',
+                o.product_name || 'Gift',
+                o.recipient_name || 'N/A',
+                o.recipient_country || 'N/A',
+                o.wallet_used === 'USD' ? `$${o.price_usd || 0}` : `₦${o.price_ngn || 0}`,
+                o.wallet_used || 'NGN',
+                o.status || 'pending',
+                new Date(o.created_at).toLocaleDateString()
+            ]);
+
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `orders-${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            showToast('Orders exported!', 'success');
+        }
+
+        function refreshOrders() {
+            loadOrders();
+            showToast('Orders refreshed', 'success');
+        }
+
+        // ─── ORDER ACTIONS ───
+        function viewOrder(id) {
+            const o = orders.find(x => String(x.id) === String(id));
+            if (!o) return;
+            const details = `
+                🎁 Order: ${o.order_ref}
+                👤 Customer: ${o.user_username || o.user_email}
+                📦 Product: ${o.product_name}
+                👤 Recipient: ${o.recipient_name}
+                📍 Country: ${o.recipient_country}
+                📞 Phone: ${o.recipient_phone || 'N/A'}
+                📧 Email: ${o.recipient_email || 'N/A'}
+                📮 Address: ${o.recipient_address || 'N/A'}
+                🏙️ City: ${o.recipient_city || 'N/A'}
+                💰 Amount: ${o.wallet_used === 'USD' ? formatCurrency(o.price_usd, 'USD') : formatCurrency(o.price_ngn, 'NGN')}
+                💳 Wallet: ${o.wallet_used || 'NGN'}
+                📊 Status: ${o.status || 'pending'}
+                📅 Created: ${new Date(o.created_at).toLocaleString()}
+                ${o.message ? `💬 Message: ${o.message}` : ''}
+                ${o.admin_notes ? `📝 Notes: ${o.admin_notes}` : ''}
+            `;
+            alert(details);
+        }
+
+        function updateOrderStatus(id, currentStatus) {
+            const statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+            const labels = { pending: '⏳ Pending', processing: '⚙️ Processing', shipped: '🚚 Shipped', delivered: '✅ Delivered', cancelled: '❌ Cancelled' };
+            const available = statuses.filter(s => s !== currentStatus);
+            const choice = prompt(`Current: ${labels[currentStatus] || currentStatus}\n\nNew status:\n${available.map((s,i) => `${i+1}. ${labels[s]}`).join('\n')}`);
+            if (!choice) return;
+            const idx = parseInt(choice) - 1;
+            if (idx >= 0 && idx < available.length) {
+                confirmStatusUpdate(id, available[idx]);
+            } else {
+                showToast('Invalid selection', 'error');
+            }
+        }
+
+        async function confirmStatusUpdate(id, newStatus) {
+            try {
+                const result = await adminFetch(`/gift-orders/${id}/status`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (result?.success) {
+                    showToast(`Order updated to ${newStatus}`, 'success');
+                    loadOrders();
+                } else {
+                    throw new Error(result?.error || 'Failed to update');
+                }
+            } catch (error) {
+                console.error('Update status error:', error);
+                showToast('Failed to update order', 'error');
+            }
+        }
+
+        // ─── REFRESH DATA ───
+        function refreshData() {
+            showToast('Refreshing data...', 'info');
+            renderContent();
+        }
+
+        function showSettings() {
+            showToast('⚙️ Settings page coming soon', 'info');
+        }
+
+        // ─── INIT ───
+        renderContent();
+
+        console.log('🎁 Gift Admin panel loaded');
+        console.log('📦 Products:', products.length);
+        console.log('📦 Orders:', orders.length);
+        console.log('✅ Professional dashboard ready');
+    </script>
+</body>
+</html>

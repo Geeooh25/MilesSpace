@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages - MilesSpace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --navy: #0c3d4a;
+            --navy-light: #12556a;
+            --gold: #f59e0b;
+            --bg: #f4f7fb;
+            --bg-card: #ffffff;
+            --border: rgba(12,61,74,0.08);
+            --text: #0c1f26;
+            --text-dim: #5b7480;
+            --text-faint: #8fa3ab;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --shadow-md: 0 8px 24px -8px rgba(8,42,51,0.16);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .header h1 { font-size: 24px; font-weight: 800; }
+        .header .stats { font-size: 13px; color: var(--text-dim); }
+        .btn-primary {
+            padding: 10px 20px;
+            background: var(--navy);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover { background: var(--navy-light); }
+        
+        .messages-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 20px;
+            height: calc(100vh - 180px);
+            min-height: 500px;
+        }
+        
+        .conversation-list {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .conversation-list .search {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .conversation-list .search input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+        }
+        .conversation-list .search input:focus { border-color: var(--navy); }
+        
+        .conversation-items {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        
+        .conv-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .conv-item:hover { background: var(--bg); }
+        .conv-item.active { background: #e8f1fb; border-left-color: var(--navy); }
+        .conv-item .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--navy);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .conv-item .info { flex: 1; min-width: 0; }
+        .conv-item .info .subject { font-weight: 600; font-size: 13px; }
+        .conv-item .info .preview {
+            font-size: 12px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conv-item .info .time {
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+        .conv-item .badge {
+            background: var(--danger);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 99px;
+        }
+        
+        .chat-area {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-header .subject { font-weight: 700; font-size: 16px; }
+        .chat-header .status {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-weight: 600;
+        }
+        .chat-header .status.open { background: #e9f9ef; color: var(--success); }
+        .chat-header .status.closed { background: var(--bg); color: var(--text-dim); }
+        
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .msg {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+        .msg.sent {
+            align-self: flex-end;
+            background: var(--navy);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .msg.received {
+            align-self: flex-start;
+            background: var(--bg);
+            border-bottom-left-radius: 4px;
+        }
+        .msg .sender {
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-dim);
+        }
+        .msg.sent .sender { color: rgba(255,255,255,0.7); }
+        .msg .text { font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+        .msg .time {
+            font-size: 10px;
+            color: var(--text-faint);
+            margin-top: 4px;
+            text-align: right;
+        }
+        .msg.sent .time { color: rgba(255,255,255,0.6); }
+        .msg .attachment {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .msg.sent .attachment { background: rgba(255,255,255,0.15); }
+        .msg .attachment a { color: inherit; text-decoration: none; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            color: var(--text-faint);
+            text-align: center;
+            padding: 40px;
+        }
+        .empty-state i { font-size: 48px; margin-bottom: 16px; }
+        
+        .input-area {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+        }
+        .input-area textarea {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            resize: none;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            min-height: 44px;
+            max-height: 120px;
+        }
+        .input-area textarea:focus { border-color: var(--navy); }
+        .input-area .btn-send {
+            padding: 10px 20px;
+            background: var(--navy);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            height: 44px;
+        }
+        .input-area .btn-send:hover { background: var(--navy-light); }
+        .input-area .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+        .modal .sub { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
+        .modal .form-group { margin-bottom: 16px; }
+        .modal .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-dim); }
+        .modal .form-group input, .modal .form-group select, .modal .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            font-family: inherit;
+        }
+        .modal .form-group textarea { min-height: 100px; resize: vertical; }
+        .modal .form-group input:focus, .modal .form-group select:focus, .modal .form-group textarea:focus {
+            border-color: var(--navy);
+        }
+        .modal .btn-primary { width: 100%; padding: 12px; background: var(--navy); color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .modal .btn-secondary { width: 100%; padding: 10px; background: transparent; color: var(--text-dim); border: none; cursor: pointer; margin-top: 8px; }
+        
+        .toast-stack {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 200;
+        }
+        .toast {
+            background: var(--navy);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 12.8px;
+            font-weight: 600;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toastIn 0.25s ease;
+        }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+        
+        @media(max-width: 768px) {
+            .messages-grid { grid-template-columns: 1fr; height: auto; }
+            .conversation-list { max-height: 300px; }
+            .chat-area { height: 500px; }
+            .container { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <h1>💬 Messages</h1>
+            <div class="stats" id="stats">Loading...</div>
+        </div>
+        <button class="btn-primary" onclick="openNewConversation()">
+            <i class="fas fa-plus"></i> New Conversation
+        </button>
+    </div>
+
+    <!-- Messages Grid -->
+    <div class="messages-grid">
+        <!-- Conversation List -->
+        <div class="conversation-list">
+            <div class="search">
+                <input type="text" id="searchInput" placeholder="Search conversations..." oninput="filterConversations()">
+            </div>
+            <div class="conversation-items" id="convList"></div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <div>
+                    <span class="subject" id="chatSubject">Select a conversation</span>
+                    <span class="status" id="chatStatus"></span>
+                </div>
+                <button onclick="refreshMessages()" style="background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:16px;">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+
+            <div class="messages" id="msgContainer">
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>Select a conversation to view messages</p>
+                </div>
+            </div>
+
+            <div class="input-area" id="inputArea" style="display:none;">
+                <textarea id="msgInput" placeholder="Type your message..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
+                <button class="btn-send" id="sendBtn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i> Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="newConvModal">
+    <div class="modal">
+        <h2>New Conversation</h2>
+        <p class="sub">Send a message to our support team</p>
+        <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="newSubject" placeholder="Brief subject...">
+        </div>
+        <div class="form-group">
+            <label>Category</label>
+            <select id="newCategory">
+                <option value="general">General</option>
+                <option value="wallet">Wallet</option>
+                <option value="giftcard">Gift Card</option>
+                <option value="account">Account</option>
+                <option value="technical">Technical</option>
+                <option value="fraud">Fraud Report</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Priority</label>
+            <select id="newPriority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Message</label>
+            <textarea id="newMessage" placeholder="Describe your issue..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="createConversation()">
+            <i class="fas fa-paper-plane"></i> Send Message
+        </button>
+        <button class="btn-secondary" onclick="closeNewConversation()">Cancel</button>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+'use strict';
+
+// ─── STATE ───
+let currentConversationId = null;
+let userId = null;
+let socket = null;
+
+// ─── API HELPERS ───
+async function apiCall(path, opts = {}) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login';
+        return;
+    }
+    
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    
+    const response = await fetch('/api' + path, {
+        ...opts,
+        headers: { ...headers, ...opts.headers }
+    });
+    
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
+    }
+    if (!response.ok) throw new Error(data.error || 'HTTP ' + response.status);
+    return data;
+}
+
+// ─── TOAST ───
+function showToast(message, type = 'info') {
+    const stack = document.getElementById('toastStack');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+    stack.appendChild(el);
+    setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(30px)';
+        setTimeout(() => el.remove(), 260);
+    }, 3500);
+}
+
+// ─── LOAD STATS ───
+async function loadStats() {
+    try {
+        const data = await apiCall('/messages/stats');
+        const stats = data.data || {};
+        document.getElementById('stats').textContent = 
+            `${stats.open || 0} open · ${stats.total || 0} total · ${stats.unread_messages || 0} unread`;
+    } catch(e) {
+        console.error('Load stats error:', e);
+    }
+}
+
+// ─── LOAD CONVERSATIONS ───
+async function loadConversations() {
+    try {
+        const data = await apiCall('/messages/conversations?limit=50');
+        const convs = data.data || [];
+        const list = document.getElementById('convList');
+        
+        if (!convs.length) {
+            list.innerHTML = `
+                <div class="empty-state" style="padding:40px 20px;">
+                    <i class="fas fa-comments"></i>
+                    <p>No conversations yet</p>
+                    <button onclick="openNewConversation()" style="margin-top:12px;padding:8px 20px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                        Start a conversation
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = convs.map(c => {
+            const isUnread = c.unread_count > 0;
+            const lastMsg = c.messages?.[0];
+            const preview = lastMsg ? lastMsg.message.substring(0, 60) + (lastMsg.message.length > 60 ? '...' : '') : 'No messages';
+            const displayName = c.admin?.username || c.admin?.email || 'Admin';
+            
+            return `
+                <div class="conv-item ${currentConversationId === c.id ? 'active' : ''}" 
+                     onclick="selectConversation('${c.id}')" 
+                     data-id="${c.id}">
+                    <div class="avatar">${displayName.charAt(0).toUpperCase()}</div>
+                    <div class="info">
+                        <div class="subject">${c.subject}</div>
+                        <div class="preview">${preview}</div>
+                        <div class="time">${new Date(c.last_message_at).toLocaleDateString()}</div>
+                    </div>
+                    ${isUnread ? `<div class="badge">${c.unread_count}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        if (!currentConversationId && convs.length) {
+            selectConversation(convs[0].id);
+        }
+
+        await loadStats();
+
+    } catch(e) {
+        console.error('Load conversations error:', e);
+        showToast('Failed to load conversations', 'error');
+    }
+}
+
+// ─── SELECT CONVERSATION ───
+async function selectConversation(convId) {
+    currentConversationId = convId;
+    
+    document.querySelectorAll('.conv-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === convId);
+    });
+    
+    document.getElementById('inputArea').style.display = 'flex';
+    await loadMessages();
+}
+
+// ─── LOAD MESSAGES ───
+async function loadMessages() {
+    if (!currentConversationId) return;
+
+    try {
+        const data = await apiCall(`/messages/conversations/${currentConversationId}/messages?limit=100`);
+        const messages = data.data || [];
+        const conversation = data.conversation || {};
+        
+        document.getElementById('chatSubject').textContent = conversation.subject || 'Conversation';
+        const statusEl = document.getElementById('chatStatus');
+        if (conversation.status === 'open') {
+            statusEl.textContent = '● Open';
+            statusEl.className = 'status open';
+        } else {
+            statusEl.textContent = '● Closed';
+            statusEl.className = 'status closed';
+        }
+        
+        const container = document.getElementById('msgContainer');
+        
+        if (!messages.length) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-comment-dots"></i>
+                    <p>No messages yet</p>
+                    <p style="font-size:12px;color:var(--text-faint);">Send the first message</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = messages.map(m => {
+            const isSent = m.sender_id === userId;
+            const senderName = m.sender?.username || m.sender?.email || (isSent ? 'You' : 'Support');
+            
+            return `
+                <div class="msg ${isSent ? 'sent' : 'received'}">
+                    <div class="sender">${senderName} ${isSent ? '(You)' : ''}</div>
+                    <div class="text">${m.message}</div>
+                    ${m.attachment_url ? `
+                        <div class="attachment">
+                            <i class="fas fa-paperclip"></i>
+                            <a href="${m.attachment_url}" target="_blank">View Attachment</a>
+                        </div>
+                    ` : ''}
+                    <div class="time">${new Date(m.created_at).toLocaleString()}</div>
+                </div>
+            `;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+        loadConversations();
+
+    } catch(e) {
+        console.error('Load messages error:', e);
+        showToast('Failed to load messages', 'error');
+    }
+}
+
+// ─── SEND MESSAGE ───
+async function sendMessage() {
+    const input = document.getElementById('msgInput');
+    const message = input.value.trim();
+    if (!message || !currentConversationId) return;
+
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+        const data = await apiCall(`/messages/conversations/${currentConversationId}/messages`, {
+            method: 'POST',
+            body: JSON.stringify({ message })
+        });
+
+        input.value = '';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+
+        await loadMessages();
+        showToast('Message sent', 'success');
+
+    } catch(e) {
+        console.error('Send message error:', e);
+        showToast(e.message || 'Failed to send message', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+    }
+}
+
+// ─── HANDLE KEY DOWN ───
+function handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+// ─── FILTER CONVERSATIONS ───
+function filterConversations() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.conv-item').forEach(el => {
+        const text = el.textContent.toLowerCase();
+        el.style.display = text.includes(query) ? '' : 'none';
+    });
+}
+
+// ─── NEW CONVERSATION ───
+function openNewConversation() {
+    document.getElementById('newConvModal').classList.add('show');
+    document.getElementById('newSubject').value = '';
+    document.getElementById('newMessage').value = '';
+}
+
+function closeNewConversation() {
+    document.getElementById('newConvModal').classList.remove('show');
+}
+
+async function createConversation() {
+    const subject = document.getElementById('newSubject').value.trim();
+    const category = document.getElementById('newCategory').value;
+    const priority = document.getElementById('newPriority').value;
+    const message = document.getElementById('newMessage').value.trim();
+
+    if (!subject || !message) {
+        showToast('Subject and message are required', 'warning');
+        return;
+    }
+
+    const btn = document.querySelector('.modal .btn-primary');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    try {
+        const data = await apiCall('/messages/conversations', {
+            method: 'POST',
+            body: JSON.stringify({ subject, category, priority, message })
+        });
+
+        closeNewConversation();
+        showToast('Conversation created!', 'success');
+        await loadConversations();
+        
+        if (data.data?.conversation?.id) {
+            selectConversation(data.data.conversation.id);
+        }
+
+    } catch(e) {
+        console.error('Create conversation error:', e);
+        showToast(e.message || 'Failed to create conversation', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+    }
+}
+
+// ─── REFRESH ───
+function refreshMessages() {
+    if (currentConversationId) {
+        loadMessages();
+        showToast('Refreshed', 'info');
+    }
+}
+
+// ─── AUTO-RESIZE TEXTAREA ───
+document.getElementById('msgInput').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// ─── CLOSE MODAL ON OVERLAY ───
+document.getElementById('newConvModal').addEventListener('click', function(e) {
+    if (e.target === this) closeNewConversation();
+});
+
+// ─── GET USER ID FROM TOKEN ───
+function getUserIdFromToken() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return null;
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.userId || payload.sub || payload.id;
+    } catch(e) {
+        return null;
+    }
+}
+
+// ─── INIT ───
+(async function init() {
+    userId = getUserIdFromToken();
+    if (!userId) {
+        window.location.href = '/login';
+        return;
+    }
+
+    console.log('💬 Messages page loaded');
+    await loadStats();
+    await loadConversations();
+
+    // Setup Socket.IO for real-time updates
+    try {
+        const socket = io('/');
+        socket.on('message:new', function(data) {
+            if (data.conversation_id === currentConversationId) {
+                loadMessages();
+            }
+            loadConversations();
+        });
+        socket.on('notification:receive', function(data) {
+            if (data.type === 'info' || data.type === 'success') {
+                showToast(data.message || 'New notification', data.type);
+            }
+        });
+    } catch(e) {
+        console.log('Socket.IO not available');
+    }
+})();
+
+// ─── GLOBAL FUNCTIONS ───
+window.openNewConversation = openNewConversation;
+window.closeNewConversation = closeNewConversation;
+window.createConversation = createConversation;
+window.selectConversation = selectConversation;
+window.sendMessage = sendMessage;
+window.handleKeyDown = handleKeyDown;
+window.filterConversations = filterConversations;
+window.refreshMessages = refreshMessages;
+window.showToast = showToast;
+</script>
+</body>
+</html>

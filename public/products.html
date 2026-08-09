@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>MilesSpace | Products</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://api.milesspace.com"/>
+<link rel="dns-prefetch" href="https://api.milesspace.com"/>
+
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+<style>
+/* ─── SAME DESIGN SYSTEM AS DASHBOARD.HTML — DO NOT CHANGE VARS ─── */
+:root{
+  --p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;
+  --acc:#f59e0b;--acd:#d97706;--acl:#fef3c7;
+  --ok:#10b981;--okl:#d1fae5;
+  --err:#ef4444;--erl:#fee2e2;
+  --usd:#1652f0;--usdl:#dbeafe;
+  --bg:#edf1f4;--srf:#fff;--srf2:#f7f9fb;
+  --bdr:#dde4e9;--t1:#0a2530;--t2:#456475;--t3:#8aa4ae;
+  --sw:264px;--r:12px;--rl:18px;--rxl:24px;--rp:999px;
+  --s0:0 1px 3px rgba(0,0,0,.04);
+  --s1:0 4px 14px rgba(0,0,0,.07);
+  --s2:0 8px 28px rgba(0,0,0,.1);
+  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+  --ease:cubic-bezier(.25,.8,.25,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+
+/* ─── SIDEBAR / TOPBAR / MOBILE NAV ─── */
+.ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.4);backdrop-filter:blur(5px);z-index:490}
+.ov.on{display:block}
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+@media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0!important}}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd)}
+.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.sb-nav{padding:0 8px}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:all .18s;margin-bottom:2px;text-decoration:none}
+.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
+.sb-lnk.active i{color:var(--p)}
+.sb-lnk.proxy-lnk:hover{background:#f5f3ff;color:#7c3aed}
+.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
+.sb-prof:hover{background:var(--bg)}
+.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden}
+.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:all .18s;cursor:pointer;border:none;background:none}
+.sb-out:hover{background:var(--erl);color:var(--err)}
+.app{display:flex;min-height:100vh}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 16px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:10px}
+.tb-hbg{width:38px;height:38px;border-radius:10px;background:var(--pl);color:var(--p);font-size:.9rem;display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:all .2s;border:none}
+.tb-hbg:hover{background:var(--p);color:#fff}
+.tb-back{width:38px;height:38px;border-radius:10px;background:var(--srf2);border:1px solid var(--bdr);color:var(--t2);font-size:.85rem;display:grid;place-items:center;flex-shrink:0;cursor:pointer;transition:all .2s}
+.tb-back:hover{background:var(--pl);color:var(--p);border-color:var(--p)}
+.tb-brand{font-family:var(--fd);font-size:.9rem;font-weight:700;color:var(--t1);flex:1}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-icon-btn{width:36px;height:36px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.85rem;cursor:pointer;transition:all .2s;position:relative;text-decoration:none}
+.tb-icon-btn:hover{background:var(--pl);color:var(--p)}
+.notif-dot{position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--err);border:2px solid var(--srf)}
+.tb-av{width:34px;height:34px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.8rem;color:#fff;border:2px solid var(--acc);cursor:pointer;overflow:hidden;flex-shrink:0}
+.tb-av img{width:100%;height:100%;object-fit:cover}
+.content{padding:16px;flex:1;max-width:640px}
+@media(min-width:768px){.content{padding:20px 22px}}
+.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:52px;background:rgba(255,255,255,.86);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.8);border-radius:18px;box-shadow:0 6px 24px rgba(12,61,74,.15);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+.mni{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:.48rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1}
+.mni i{font-size:.78rem;padding:4px 6px;border-radius:8px;transition:all .18s}
+.mni.active{color:var(--p)}
+.mni.active i{background:var(--pl);color:var(--p)}
+@media(max-width:768px){.content{padding:12px 10px 78px}.topbar{height:52px}.mnav{display:flex}}
+
+/* ─── PAGE TITLE ─── */
+.page-title-row{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.page-title-row h1{font-family:var(--fd);font-size:1.05rem;font-weight:800;color:var(--t1)}
+
+/* ─── SEARCH ─── */
+.plist-search{display:flex;align-items:center;gap:8px;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rp);padding:9px 14px;margin-bottom:20px;box-shadow:var(--s0)}
+.plist-search i{color:var(--t3);font-size:.8rem}
+.plist-search input{border:none;outline:none;background:transparent;font-size:.78rem;color:var(--t1);width:100%}
+.plist-search input::placeholder{color:var(--t3)}
+
+/* ─── PRODUCT LIST ─── */
+.plist-sec{margin-bottom:20px}
+.plist-hd{font-family:var(--fd);font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;padding:0 2px}
+.plist-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0)}
+.plist-row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .15s;text-decoration:none}
+.plist-row:last-child{border-bottom:none}
+.plist-row:hover{background:var(--srf2)}
+.plist-row:active{background:var(--pl)}
+.plist-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:.85rem;flex-shrink:0}
+.plist-info{flex:1;min-width:0}
+.plist-name{font-size:.78rem;font-weight:600;color:var(--t1)}
+.plist-sub{font-size:.62rem;color:var(--t3);margin-top:1px}
+.plist-chev{color:var(--t3);font-size:.72rem;flex-shrink:0}
+.plist-empty{text-align:center;padding:24px;color:var(--t3);font-size:.75rem}
+
+/* ─── BADGE NEW ─── */
+.badge-new{
+  display:inline-block;
+  font-size:.5rem;
+  font-weight:700;
+  text-transform:uppercase;
+  padding:1px 6px;
+  border-radius:var(--rp);
+  background:var(--okl);
+  color:#065f46;
+  margin-left:6px;
+  vertical-align:middle;
+  letter-spacing:.02em;
+}
+</style>
+
+<script src="/js/session.js"></script>
+<script src="/js/presence.js"></script>
+</head>
+<body>
+<div class="ov" id="ov"></div>
+<div class="app">
+
+<!-- ════════════════ SIDEBAR ════════════════ -->
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" style="width:28px;height:28px;border-radius:7px;flex-shrink:0">MilesSpace</div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html"     class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html"   class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html"    class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="cashback.html"  class="sb-lnk"><i class="fas fa-coins"></i> Cashback</a>
+    <a href="history.html"   class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html"      class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="products.html"      class="sb-lnk active"><i class="fas fa-th-large"></i> All Products</a>
+    <a href="profile.html"       class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+    <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk">
+      <i class="fas fa-shield-alt"></i> Buy Proxy
+    </a>
+  </nav>
+  <div class="sb-foot">
+    <a href="profile.html" class="sb-prof">
+      <div class="sb-av" id="sbAv">U</div>
+      <div class="sb-ui">
+        <p class="sb-un"  id="sbName">Loading…</p>
+        <p class="sb-ue"  id="sbEmail"></p>
+      </div>
+      <button class="sb-out" id="logoutBtn" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </a>
+  </div>
+</aside>
+
+<!-- ════════════════ MAIN ════════════════ -->
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+    <button class="tb-back" id="backBtn" title="Back"><i class="fas fa-arrow-left"></i></button>
+    <span class="tb-brand">Products</span>
+    <div class="tb-right">
+      <a href="notifications.html" class="tb-icon-btn">
+        <i class="fas fa-bell"></i><span class="notif-dot"></span>
+      </a>
+      <a href="profile.html" class="tb-av" id="tbAv">U</a>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <div class="page-title-row">
+      <h1>All Products</h1>
+    </div>
+
+    <div class="plist-search">
+      <i class="fas fa-search"></i>
+      <input type="text" id="prodSearch" placeholder="Search products…" autocomplete="off"/>
+    </div>
+
+    <!-- ══ PRODUCTS ══ -->
+    <div class="plist-sec" data-sec>
+      <p class="plist-hd">Products</p>
+      <div class="plist-card">
+        <a href="/giftcards.html" class="plist-row" data-name="buy gift card">
+          <div class="plist-ic" style="background:var(--acl);color:var(--acd)"><i class="fas fa-gift"></i></div>
+          <div class="plist-info"><p class="plist-name">Buy Gift Card</p><p class="plist-sub">Amazon, iTunes, Steam &amp; more</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/giftcards.html" class="plist-row" data-name="sell gift card">
+          <div class="plist-ic" style="background:var(--acl);color:var(--acd)"><i class="fas fa-gift"></i></div>
+          <div class="plist-info"><p class="plist-name">Sell Gift Card</p><p class="plist-sub">Trade cards for cash</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/coin.html" class="plist-row" data-name="buy crypto">
+          <div class="plist-ic" style="background:#fef3c7;color:#d97706"><i class="fas fa-coins"></i></div>
+          <div class="plist-info"><p class="plist-name">Buy Crypto</p><p class="plist-sub">BTC, USDT, ETH, LTC</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/market.html" class="plist-row" data-name="marketplace">
+          <div class="plist-ic" style="background:var(--pl);color:var(--p)"><i class="fas fa-store"></i></div>
+          <div class="plist-info"><p class="plist-name">Marketplace</p><p class="plist-sub">Buy verified accounts</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/virtual.html" class="plist-row" data-name="virtual numbers">
+          <div class="plist-ic" style="background:#ede9fe;color:#7c3aed"><i class="fas fa-phone-alt"></i></div>
+          <div class="plist-info"><p class="plist-name">Virtual Numbers</p><p class="plist-sub">OTP from 120+ countries</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- ══ TOOLS ══ -->
+    <div class="plist-sec" data-sec>
+      <p class="plist-hd">Tools</p>
+      <div class="plist-card">
+        <a href="/checker.html" class="plist-row" data-name="wallet checker bitcoin ethereum litecoin dogecoin balance">
+          <div class="plist-ic" style="background:var(--pl);color:var(--p)"><i class="fas fa-search"></i></div>
+          <div class="plist-info">
+            <p class="plist-name">Wallet Checker <span class="badge-new">New</span></p>
+            <p class="plist-sub">Check BTC, ETH, LTC, DOGE balances</p>
+          </div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- ══ BILLS ══ -->
+    <div class="plist-sec" data-sec>
+      <p class="plist-hd">Bills</p>
+      <div class="plist-card">
+        <a href="cashback.html" class="plist-row" data-name="buy airtime">
+          <div class="plist-ic" style="background:var(--okl);color:#065f46"><i class="fas fa-mobile-alt"></i></div>
+          <div class="plist-info"><p class="plist-name">Buy Airtime</p><p class="plist-sub">MTN, Glo, Airtel, 9mobile</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/cashback.html" class="plist-row" data-name="buy data">
+          <div class="plist-ic" style="background:var(--usdl);color:var(--usd)"><i class="fas fa-wifi"></i></div>
+          <div class="plist-info"><p class="plist-name">Buy Data</p><p class="plist-sub">Data plans, all networks</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/cashback.html" class="plist-row" data-name="pay electricity">
+          <div class="plist-ic" style="background:var(--acl);color:var(--acd)"><i class="fas fa-bolt"></i></div>
+          <div class="plist-info"><p class="plist-name">Pay Electricity</p><p class="plist-sub">IKEDC, EKEDC, AEDC, IBEDC</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- ══ OTHERS ══ -->
+    <div class="plist-sec" data-sec>
+      <p class="plist-hd">Others</p>
+      <div class="plist-card">
+        <a href="Sendgift.html" class="plist-row" data-name="send gift">
+          <div class="plist-ic" style="background:#fce4ec;color:#c2185b"><i class="fas fa-paper-plane"></i></div>
+          <div class="plist-info"><p class="plist-name">Send Gift</p><p class="plist-sub">Flowers, watches, food &amp; more</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="boost.html" class="plist-row" data-name="social boosting">
+          <div class="plist-ic" style="background:var(--pl);color:var(--p)"><i class="fas fa-chart-line"></i></div>
+          <div class="plist-info"><p class="plist-name">Social Boosting</p><p class="plist-sub">Followers, likes &amp; views</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/cashback.html" class="plist-row" data-name="cashback">
+          <div class="plist-ic" style="background:var(--acl);color:var(--acd)"><i class="fas fa-coins"></i></div>
+          <div class="plist-info"><p class="plist-name">Cashback</p><p class="plist-sub">Earn &amp; spend rewards</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="/fund.html" class="plist-row" data-name="fund account">
+          <div class="plist-ic" style="background:var(--okl);color:#065f46"><i class="fas fa-wallet"></i></div>
+          <div class="plist-info"><p class="plist-name">Fund Account</p><p class="plist-sub">Paystack, bank, crypto</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+        <a href="history.html" class="plist-row" data-name="transaction history">
+          <div class="plist-ic" style="background:var(--srf2);color:var(--t2)"><i class="fas fa-history"></i></div>
+          <div class="plist-info"><p class="plist-name">Transaction History</p><p class="plist-sub">All your past activity</p></div>
+          <i class="fas fa-chevron-right plist-chev"></i>
+        </a>
+      </div>
+    </div>
+
+    <p class="plist-empty" id="noResults" style="display:none">No products match your search</p>
+
+  </main>
+</div>
+</div>
+
+<!-- ══ MOBILE NAV ══ -->
+<nav class="mnav">
+  <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="boost.html"     class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+  <a href="cashback.html"  class="mni"><i class="fas fa-coins"></i><span>Cashback</span></a>
+  <a href="products.html"  class="mni active"><i class="fas fa-th-large"></i><span>Products</span></a>
+  <a href="profile.html"   class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
+</nav>
+
+<script>
+'use strict';
+
+/* ══ SIDEBAR TOGGLE (same pattern as dashboard.html) ══ */
+function initSidebar() {
+  const sb = document.getElementById('sb');
+  const ov = document.getElementById('ov');
+  const hbg = document.getElementById('hbg');
+  const isMobile = () => window.innerWidth < 1025;
+
+  if (hbg) {
+    hbg.addEventListener('click', function() {
+      if (!isMobile()) return;
+      const open = sb.classList.toggle('open');
+      ov.classList.toggle('on', open);
+    });
+  }
+  if (ov) {
+    ov.addEventListener('click', function() {
+      sb.classList.remove('open');
+      ov.classList.remove('on');
+    });
+  }
+  window.addEventListener('resize', function() {
+    if (!isMobile()) {
+      sb.classList.remove('open');
+      ov.classList.remove('on');
+    }
+  });
+}
+
+/* ══ BACK BUTTON ══ */
+document.getElementById('backBtn')?.addEventListener('click', function() {
+  if (window.history.length > 1) window.history.back();
+  else window.location.href = 'dashboard.html';
+});
+
+/* ══ SEARCH FILTER — client-side, no API involved ══ */
+const searchInput = document.getElementById('prodSearch');
+if (searchInput) {
+  searchInput.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    let anyVisible = false;
+    document.querySelectorAll('[data-sec]').forEach(sec => {
+      let secHasMatch = false;
+      sec.querySelectorAll('.plist-row').forEach(row => {
+        const match = !q || (row.dataset.name || '').includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) secHasMatch = true;
+      });
+      sec.style.display = secHasMatch ? '' : 'none';
+      if (secHasMatch) anyVisible = true;
+    });
+    const noResults = document.getElementById('noResults');
+    if (noResults) noResults.style.display = anyVisible ? 'none' : 'block';
+  });
+}
+
+/* ══ LOAD USER — same /api/auth/me pattern as dashboard.html ══ */
+async function loadUser() {
+  try {
+    const token = window.getToken ? window.getToken() : '';
+    if (!token) return;
+    const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    const u = json.data;
+    if (!u) return;
+    const name = u.username || u.full_name || u.email?.split('@')[0] || 'User';
+    const init = name.charAt(0).toUpperCase();
+    document.getElementById('sbName')?.replaceChildren(document.createTextNode(name));
+    document.getElementById('sbEmail')?.replaceChildren(document.createTextNode(u.email || ''));
+    ['sbAv', 'tbAv'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (u.avatar_url) el.innerHTML = `<img src="${u.avatar_url}" alt=""/>`;
+      else el.textContent = init;
+    });
+  } catch(e) {
+    console.warn('loadUser error:', e.message);
+  }
+}
+
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.doLogout) window.doLogout();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  initSidebar();
+  loadUser();
+});
+</script>
+</body>
+</html>

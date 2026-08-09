@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, viewport-fit=cover">
+<title>Settings · MilesSpace Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6FA;--surface:#FFFFFF;--ink:#171B26;--ink-soft:#6B7280;--ink-faint:#9CA3AF;
+  --sidebar-bg:#12162A;--sidebar-bg-2:#171C33;--sidebar-ink:#AAB0C6;--sidebar-ink-dim:#6E7490;
+  --accent:#E8A33D;--teal:#1FA7A0;--teal-dark:#168A84;
+  --danger:#E5484D;--danger-bg:#FDECEC;--warning:#E8A33D;--warning-bg:#FBF1DE;
+  --success:#2AA876;--success-bg:#E7F6EF;--info:#4C7EF3;--info-bg:#EAF0FE;--neutral-bg:#EEF0F5;
+  --border:#E7E9F1;--border-soft:#F0F1F6;
+  --radius-lg:16px;--radius-md:12px;--radius-sm:8px;
+  --shadow-sm:0 1px 2px rgba(18,22,42,0.05);--shadow-md:0 6px 20px rgba(18,22,42,0.08);--shadow-lg:0 16px 40px rgba(18,22,42,0.14);
+  --sidebar-w:264px;--topbar-h:68px;
+  --transition:0.25s cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);display:flex;min-height:100vh;-webkit-font-smoothing:antialiased;}
+h1,h2,h3,h4,.font-display{font-family:'Plus Jakarta Sans',sans-serif;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#D6D9E4;border-radius:8px;}
+::-webkit-scrollbar-track{background:transparent;}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}
+
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,var(--sidebar-bg) 0%,var(--sidebar-bg-2) 100%);color:var(--sidebar-ink);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100;transition:transform var(--transition);}
+.sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;display:none;}
+.sidebar-backdrop.show{display:block;}
+.brand{display:flex;align-items:center;gap:12px;padding:24px 22px 20px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent),#F4C265);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 4px 12px rgba(232,163,61,0.35);}
+.brand-text strong{display:block;color:#fff;font-size:15px;font-weight:800;}
+.brand-text span{font-size:11px;color:var(--sidebar-ink-dim);text-transform:uppercase;letter-spacing:.4px;}
+.nav-scroll{flex:1;overflow-y:auto;padding:16px 12px 12px;}
+.nav-group{margin-bottom:18px;}
+.nav-label{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--sidebar-ink-dim);padding:0 10px 8px;}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9.5px 10px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--sidebar-ink);margin-bottom:2px;transition:background .15s,color .15s;text-decoration:none;position:relative;}
+.nav-item .ic{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.nav-item.active{background:rgba(31,167,160,0.16);color:#fff;}
+.nav-item.active::before{content:'';position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:3px;height:18px;border-radius:3px;background:var(--teal);}
+.nav-item.dashboard-link{border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;padding-top:12px;color:var(--accent);}
+.nav-item.dashboard-link:hover{background:rgba(232,163,61,0.12);color:#fff;}
+.sidebar-foot{padding:16px 18px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;}
+.av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),#3FC9C2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12.5px;flex-shrink:0;}
+.who strong{display:block;color:#fff;font-size:13px;font-weight:600;}
+.who span{font-size:11px;color:var(--sidebar-ink-dim);}
+
+/* Main */
+.main{margin-left:var(--sidebar-w);flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:50;gap:8px;}
+.topbar-left{display:flex;align-items:center;gap:16px;min-width:0;}
+.menu-toggle{display:none;background:none;border:none;font-size:20px;color:var(--ink);padding:8px;border-radius:8px;width:40px;height:40px;align-items:center;justify-content:center;}
+.menu-toggle:hover{background:var(--neutral-bg);}
+.crumb{font-size:13px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.crumb strong{color:var(--ink);font-weight:600;}
+.topbar-search{display:flex;align-items:center;gap:8px;background:var(--neutral-bg);border-radius:10px;padding:8px 14px;flex:1;max-width:320px;border:1px solid transparent;transition:border-color .15s,background .15s;}
+.topbar-search:focus-within{border-color:var(--teal);background:var(--surface);}
+.topbar-search input{border:none;background:none;outline:none;font-size:13px;width:100%;color:var(--ink);}
+.topbar-search input::placeholder{color:var(--ink-faint);}
+.topbar-right{display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink-soft);transition:background .15s,transform .1s;}
+.icon-btn:hover{background:var(--neutral-bg);}
+.icon-btn:active{transform:scale(.94);}
+.av-mini{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),#3FC9C2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0;}
+
+/* Content */
+.content{padding:26px 28px 60px;max-width:1440px;width:100%;margin:0 auto;}
+.page-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:22px;}
+.page-head h1{font-size:23px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:10px;}
+.page-head p{font-size:13.5px;color:var(--ink-soft);margin-top:4px;}
+
+/* Settings Layout */
+.settings-layout{display:flex;gap:24px;align-items:flex-start;}
+.settings-sidebar{width:240px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;position:sticky;top:calc(var(--topbar-h)+20px);max-height:calc(100vh-var(--topbar-h)-60px);overflow-y:auto;}
+.settings-sidebar .nav-item{padding:8px 12px;font-size:13px;border-radius:8px;margin-bottom:1px;color:var(--ink-soft);display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s;text-decoration:none;}
+.settings-sidebar .nav-item:hover{background:var(--neutral-bg);color:var(--ink);}
+.settings-sidebar .nav-item.active{background:var(--teal);color:#fff;}
+.settings-content{flex:1;min-width:0;display:flex;flex-direction:column;gap:20px;}
+
+/* Settings Panel */
+.settings-panel{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+.settings-panel.active{display:block;animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.panel-header{padding:20px 24px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.panel-header h2{font-size:17px;font-weight:700;}
+.panel-header p{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+.panel-body{padding:24px;}
+
+/* Form Elements */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.form-grid .full{grid-column:1/-1;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{font-size:12.5px;font-weight:600;color:var(--ink);}
+.field .hint{font-size:11.5px;color:var(--ink-faint);font-weight:400;}
+.field input,.field select,.field textarea{padding:10px 12px;border-radius:9px;border:1px solid var(--border);font-size:13px;outline:none;background:var(--surface);transition:border-color .15s;width:100%;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(31,167,160,0.12);}
+.field textarea{resize:vertical;min-height:80px;}
+.field .preview-img{width:80px;height:80px;border-radius:10px;border:1px solid var(--border);object-fit:cover;margin-top:4px;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--neutral-bg);overflow:hidden;}
+.field .preview-img img{width:100%;height:100%;object-fit:cover;}
+.field .upload-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-weight:600;background:var(--surface);color:var(--ink-soft);margin-top:6px;cursor:pointer;}
+.field .upload-btn:hover{background:var(--neutral-bg);}
+
+/* Toggles */
+.toggle-wrap{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border-soft);gap:16px;}
+.toggle-wrap:last-child{border-bottom:none;}
+.toggle-wrap .info{flex:1;}
+.toggle-wrap .info .t{font-size:13px;font-weight:600;}
+.toggle-wrap .info .d{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle .slider{position:absolute;inset:0;background:var(--border);border-radius:99px;cursor:pointer;transition:background .2s;}
+.toggle .slider::before{content:"";position:absolute;width:18px;height:18px;left:4px;bottom:4px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+.toggle input:checked+.slider{background:var(--teal);}
+.toggle input:checked+.slider::before{transform:translateX(18px);}
+
+/* Checkbox Grid */
+.checkbox-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:8px 0;}
+.checkbox-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px;border-radius:6px;transition:background .15s;}
+.checkbox-item:hover{background:var(--neutral-bg);}
+.checkbox-item input[type="checkbox"]{width:16px;height:16px;accent-color:var(--teal);}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;border:1px solid transparent;transition:all .15s;white-space:nowrap;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--teal);color:#fff;box-shadow:0 4px 12px rgba(31,167,160,0.28);}
+.btn-primary:hover{background:var(--teal-dark);transform:translateY(-1px);}
+.btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--border);}
+.btn-ghost:hover{background:var(--neutral-bg);}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-danger:hover{background:#c0392b;}
+.btn-success{background:var(--success);color:#fff;}
+.btn-success:hover{background:#238e63;}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:8px;}
+.panel-actions{display:flex;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--border-soft);flex-wrap:wrap;}
+
+/* API Key Display */
+.api-key-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-soft);gap:12px;}
+.api-key-row:last-child{border-bottom:none;}
+.api-key-row .key-info{flex:1;}
+.api-key-row .key-info .name{font-size:13px;font-weight:600;}
+.api-key-row .key-info .key{font-size:12px;font-family:'Courier New',monospace;color:var(--ink-faint);}
+.api-key-row .key-actions{display:flex;gap:6px;}
+
+/* Log Table */
+.log-table{width:100%;border-collapse:collapse;font-size:13px;}
+.log-table th{text-align:left;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;padding:10px 12px;border-bottom:1px solid var(--border);}
+.log-table td{padding:10px 12px;border-bottom:1px solid var(--border-soft);}
+.log-table tr:hover{background:var(--neutral-bg);}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,18,32,0.5);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.modal-overlay.open{display:flex;animation:fadeIn .18s ease;}
+.modal{background:var(--surface);border-radius:18px;width:100%;max-width:440px;box-shadow:var(--shadow-lg);animation:modalPop .22s cubic-bezier(.2,.9,.3,1.2);}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;border-bottom:1px solid var(--border-soft);}
+.modal-head h3{font-size:16px;font-weight:800;}
+.modal-close{width:32px;height:32px;border-radius:9px;border:none;background:var(--neutral-bg);font-size:15px;color:var(--ink-soft);}
+.modal-body{padding:22px;}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px;border-top:1px solid var(--border-soft);}
+
+/* Toast */
+.toast-stack{position:fixed;bottom:24px;right:24px;z-index:1200;display:flex;flex-direction:column;gap:10px;max-width:380px;}
+.toast{background:var(--ink);color:#fff;padding:13px 18px;border-radius:11px;font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;animation:toastIn .25s ease;width:100%;}
+.toast.success::before{content:'✓';background:var(--success);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.toast.danger::before{content:'✕';background:var(--danger);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.toast.info::before{content:'ℹ️';font-size:12px;flex-shrink:0;}
+
+/* Responsive */
+@media (max-width:1200px){
+  .settings-sidebar{width:200px;}
+  .form-grid{grid-template-columns:1fr;}
+  .checkbox-grid{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:992px){
+  .settings-layout{flex-direction:column;}
+  .settings-sidebar{width:100%;position:static;max-height:none;display:flex;flex-wrap:wrap;gap:4px;padding:10px 12px;overflow-x:auto;}
+  .settings-sidebar .nav-item{flex:1;min-width:100px;justify-content:center;padding:8px 12px;font-size:12px;white-space:nowrap;}
+  .settings-sidebar::-webkit-scrollbar{height:4px;}
+}
+@media (max-width:768px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-backdrop.show{display:block;}
+  .main{margin-left:0;}
+  .menu-toggle{display:flex;}
+  .topbar-search{display:none;}
+  .topbar{padding:0 16px;}
+  .crumb{font-size:12px;}
+  .page-head h1{font-size:19px;}
+  .content{padding:16px 14px 50px;}
+  .panel-header{padding:16px 18px;}
+  .panel-header h2{font-size:15px;}
+  .panel-body{padding:16px;}
+  .checkbox-grid{grid-template-columns:1fr 1fr;}
+  .settings-sidebar .nav-item{min-width:80px;font-size:11px;padding:6px 10px;}
+  .toggle-wrap{padding:10px 0;}
+  .api-key-row{flex-wrap:wrap;}
+  .api-key-row .key-actions{margin-left:auto;}
+}
+@media (max-width:480px){
+  .page-head{flex-direction:column;align-items:flex-start;}
+  .page-head h1{font-size:17px;}
+  .settings-sidebar .nav-item{min-width:100%;justify-content:flex-start;}
+  .checkbox-grid{grid-template-columns:1fr;}
+  .panel-actions{flex-direction:column;}
+  .panel-actions .btn{width:100%;justify-content:center;}
+  .form-grid{gap:12px;}
+  .field input,.field select,.field textarea{font-size:12px;padding:8px 10px;}
+  .toast-stack{left:16px;right:16px;bottom:16px;}
+  .toast{font-size:12px;padding:10px 14px;}
+}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes modalPop{from{opacity:0;transform:scale(.94) translateY(8px);}to{opacity:1;transform:scale(1) translateY(0);}}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+</style>
+</head>
+<body>
+
+<!-- Sidebar Backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-mark">⚙️</div>
+    <div class="brand-text"><strong>MilesSpace</strong><span>Admin Console</span></div>
+  </div>
+  <div class="nav-scroll">
+    <div class="nav-group">
+      <div class="nav-label">Main</div>
+      <a href="dashboard.html" class="nav-item dashboard-link"><span class="ic">📊</span>Dashboard</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Management</div>
+      <a href="#" class="nav-item"><span class="ic">📢</span>Campaigns</a>
+      <a href="#" class="nav-item"><span class="ic">🎁</span>Gift Cards</a>
+      <a href="#" class="nav-item active"><span class="ic">⚙️</span>Settings</a>
+    </div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="av">DA</div>
+    <div class="who"><strong>Dara Adisa</strong><span>Super Admin</span></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <div class="crumb">Settings / <strong id="crumbActive">General</strong></div>
+    </div>
+    <div class="topbar-search"><span>🔍</span><input type="text" placeholder="Search settings..." id="settingsSearch"></div>
+    <div class="topbar-right">
+      <button class="icon-btn" title="Refresh" id="refreshBtn">⟳</button>
+      <div class="av-mini">DA</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-head">
+      <div><h1>⚙️ Settings</h1><p>Configure and manage your platform</p></div>
+    </div>
+
+    <div class="settings-layout">
+      <!-- Settings Sidebar -->
+      <div class="settings-sidebar" id="settingsSidebar">
+        <div class="nav-item active" data-section="general">📋 General</div>
+        <div class="nav-item" data-section="company">🏢 Company</div>
+        <div class="nav-item" data-section="profile">👤 Profile</div>
+        <div class="nav-item" data-section="security">🔐 Security</div>
+        <div class="nav-item" data-section="roles">🛡️ Roles</div>
+        <div class="nav-item" data-section="wallet">💰 Wallet</div>
+        <div class="nav-item" data-section="payments">💳 Payments</div>
+        <div class="nav-item" data-section="currency">💱 Currency</div>
+        <div class="nav-item" data-section="exchange">📊 Exchange Rates</div>
+        <div class="nav-item" data-section="campaigns">📢 Campaigns</div>
+        <div class="nav-item" data-section="giftcards">🎁 Gift Cards</div>
+        <div class="nav-item" data-section="referrals">🤝 Referrals</div>
+        <div class="nav-item" data-section="notifications">🔔 Notifications</div>
+        <div class="nav-item" data-section="email">📧 Email</div>
+        <div class="nav-item" data-section="sms">📱 SMS</div>
+        <div class="nav-item" data-section="api">🔑 API Keys</div>
+        <div class="nav-item" data-section="integrations">🔗 Integrations</div>
+        <div class="nav-item" data-section="system">🖥️ System</div>
+        <div class="nav-item" data-section="maintenance">🔧 Maintenance</div>
+        <div class="nav-item" data-section="logs">📝 Logs</div>
+        <div class="nav-item" data-section="backup">💾 Backup</div>
+        <div class="nav-item" data-section="developer">🛠️ Developer</div>
+      </div>
+
+      <!-- Settings Content -->
+      <div class="settings-content" id="settingsContent">
+
+        <!-- ==================== GENERAL ==================== -->
+        <div class="settings-panel active" id="panel-general">
+          <div class="panel-header"><div><h2>General Settings</h2><p>Basic platform configuration</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Platform Name</label><input type="text" id="genPlatformName" value="MilesSpace"></div>
+              <div class="field"><label>Company Name</label><input type="text" id="genCompanyName" value="MilesSpace Ltd"></div>
+              <div class="field"><label>Website URL</label><input type="url" id="genWebsite" value="https://milesspace.com"></div>
+              <div class="field"><label>Support Email</label><input type="email" id="genSupportEmail" value="support@milesspace.com"></div>
+              <div class="field"><label>Support Phone</label><input type="tel" id="genSupportPhone" value="+234 800 000 0000"></div>
+              <div class="field"><label>Timezone</label><select id="genTimezone"><option>Africa/Lagos</option><option>UTC</option><option>America/New_York</option><option>Europe/London</option></select></div>
+              <div class="field"><label>Date Format</label><select id="genDateFormat"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select></div>
+              <div class="field"><label>Default Language</label><select id="genLanguage"><option>English</option><option>French</option><option>Yoruba</option><option>Hausa</option></select></div>
+              <div class="field"><label>Default Currency</label><select id="genCurrency"><option value="NGN">NGN</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="EUR">EUR</option></select></div>
+              <div class="field"><label>Platform Logo</label><input type="file" accept="image/*" id="genLogo"><div class="preview-img" id="genLogoPreview">🚀</div></div>
+              <div class="field"><label>Theme</label><select id="genTheme"><option>Light Mode</option><option>Dark Mode</option><option>System Default</option></select></div>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn-primary" onclick="saveSettings('general')">💾 Save Changes</button>
+              <button class="btn btn-ghost" onclick="resetSettings('general')">↺ Restore Defaults</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== COMPANY ==================== -->
+        <div class="settings-panel" id="panel-company">
+          <div class="panel-header"><div><h2>Company Information</h2><p>Business details</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Business Name</label><input type="text" id="compName" value="MilesSpace Ltd"></div>
+              <div class="field"><label>Business Email</label><input type="email" id="compEmail" value="info@milesspace.com"></div>
+              <div class="field"><label>Business Phone</label><input type="tel" id="compPhone" value="+234 800 000 0000"></div>
+              <div class="field"><label>Country</label><select id="compCountry"><option>Nigeria</option><option>USA</option><option>UK</option><option>Ghana</option></select></div>
+              <div class="field"><label>State/Region</label><input type="text" id="compState" value="Lagos"></div>
+              <div class="field"><label>City</label><input type="text" id="compCity" value="Ikeja"></div>
+              <div class="field full"><label>Business Address</label><textarea id="compAddress" rows="2">123 Main Street, Ikeja, Lagos</textarea></div>
+              <div class="field"><label>Zip Code</label><input type="text" id="compZip" value="100001"></div>
+              <div class="field"><label>CAC Registration</label><input type="text" id="compCac" value="RC-1234567"></div>
+              <div class="field"><label>Tax Number</label><input type="text" id="compTax" value="TAX-9876543"></div>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn-primary" onclick="saveSettings('company')">💾 Save Changes</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== PROFILE ==================== -->
+        <div class="settings-panel" id="panel-profile">
+          <div class="panel-header"><div><h2>Admin Profile</h2><p>Your personal settings</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Profile Picture</label><input type="file" accept="image/*" id="profAvatar"><div class="preview-img" id="profPreview" style="border-radius:50%;width:80px;height:80px;">DA</div></div>
+              <div class="field"><label>Full Name</label><input type="text" id="profName" value="Dara Adisa"></div>
+              <div class="field"><label>Username</label><input type="text" id="profUsername" value="dara_admin"></div>
+              <div class="field"><label>Email</label><input type="email" id="profEmail" value="dara@milesspace.com"></div>
+              <div class="field"><label>Phone Number</label><input type="tel" id="profPhone" value="+234 803 456 7890"></div>
+              <div class="field"><label>Preferred Language</label><select id="profLang"><option>English</option><option>French</option><option>Yoruba</option></select></div>
+              <div class="field"><label>Theme</label><select id="profTheme"><option>Light</option><option>Dark</option><option>System</option></select></div>
+              <div class="field"><label>Two-Factor Authentication</label><select id="prof2fa"><option>Disabled</option><option>Email</option><option>Authenticator App</option></select></div>
+            </div>
+            <div class="field" style="margin-top:12px;"><label>Change Password</label><input type="password" id="profPassword" placeholder="New password (leave empty to keep current)"></div>
+            <div class="panel-actions">
+              <button class="btn btn-primary" onclick="saveSettings('profile')">💾 Save Profile</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== SECURITY ==================== -->
+        <div class="settings-panel" id="panel-security">
+          <div class="panel-header"><div><h2>Security Settings</h2><p>Protect your platform</p></div></div>
+          <div class="panel-body">
+            <div class="toggle-wrap"><div class="info"><div class="t">Two-Factor Authentication</div><div class="d">Require 2FA for admin accounts</div></div><label class="toggle"><input type="checkbox" checked id="sec2fa"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Email Verification</div><div class="d">Verify admin emails on login</div></div><label class="toggle"><input type="checkbox" checked id="secEmailVerify"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Session Timeout</div><div class="d">Auto-logout after inactivity</div></div><select id="secSessionTimeout" style="width:auto;padding:6px 12px;border-radius:6px;border:1px solid var(--border);"><option>1 hour</option><option selected>4 hours</option><option>8 hours</option><option>12 hours</option><option>24 hours</option></select></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Login Notifications</div><div class="d">Email alerts for new admin logins</div></div><label class="toggle"><input type="checkbox" checked id="secLoginNotif"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Failed Login Lock</div><div class="d">Lock account after too many attempts</div></div><select id="secLockAttempts" style="width:auto;padding:6px 12px;border-radius:6px;border:1px solid var(--border);"><option>3 attempts</option><option selected>5 attempts</option><option>10 attempts</option></select></div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('security')">💾 Save Security Settings</button></div>
+            <div style="margin-top:16px;"><h4 style="font-size:14px;font-weight:700;margin-bottom:10px;">Active Sessions</h4>
+              <div class="log-table"><table><thead><tr><th>Device</th><th>Location</th><th>IP</th><th>Last Activity</th><th></th></tr></thead><tbody>
+                <tr><td>Chrome · Windows</td><td>Lagos, NG</td><td>192.168.1.1</td><td>Now</td><td><button class="btn btn-danger btn-sm" onclick="showToast('Session terminated','danger')">Terminate</button></td></tr>
+                <tr><td>Safari · iPhone</td><td>Abuja, NG</td><td>10.0.0.1</td><td>2 hours ago</td><td><button class="btn btn-danger btn-sm" onclick="showToast('Session terminated','danger')">Terminate</button></td></tr>
+              </tbody></table></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== ROLES ==================== -->
+        <div class="settings-panel" id="panel-roles">
+          <div class="panel-header"><div><h2>Roles & Permissions</h2><p>Manage admin access levels</p></div><button class="btn btn-primary" onclick="showToast('Role creation form opened','info')">＋ New Role</button></div>
+          <div class="panel-body">
+            <div class="log-table"><table><thead><tr><th>Role</th><th>Users</th><th>Permissions</th><th></th></tr></thead><tbody>
+              <tr><td><strong>Super Admin</strong></td><td>1</td><td>Full access</td><td><button class="btn btn-ghost btn-sm">✎</button></td></tr>
+              <tr><td><strong>Finance Manager</strong></td><td>2</td><td>Wallet, Transactions, Reports</td><td><button class="btn btn-ghost btn-sm">✎</button></td></tr>
+              <tr><td><strong>Campaign Manager</strong></td><td>4</td><td>Campaigns, Approvals</td><td><button class="btn btn-ghost btn-sm">✎</button></td></tr>
+              <tr><td><strong>Support Staff</strong></td><td>6</td><td>Users, Tickets, Notifications</td><td><button class="btn btn-ghost btn-sm">✎</button></td></tr>
+              <tr><td><strong>Gift Card Manager</strong></td><td>3</td><td>Gift Cards, Rates</td><td><button class="btn btn-ghost btn-sm">✎</button></td></tr>
+            </tbody></table></div>
+            <div style="margin-top:16px;"><h4 style="font-size:14px;font-weight:700;margin-bottom:10px;">Permissions Matrix</h4>
+              <div class="checkbox-grid">
+                <label class="checkbox-item"><input type="checkbox" checked> Dashboard</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Campaigns</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Gift Cards</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Wallets</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Users</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Reports</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Settings</label>
+                <label class="checkbox-item"><input type="checkbox"> Analytics</label>
+                <label class="checkbox-item"><input type="checkbox"> Audit Logs</label>
+              </div>
+            </div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="showToast('Permissions updated','success')">💾 Save Permissions</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== WALLET ==================== -->
+        <div class="settings-panel" id="panel-wallet">
+          <div class="panel-header"><div><h2>Wallet & Finance Settings</h2><p>Configure wallet behavior</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>NGN Wallet Status</label><select id="walNgnStatus"><option selected>Active</option><option>Inactive</option><option>Maintenance</option></select></div>
+              <div class="field"><label>USD Wallet Status</label><select id="walUsdStatus"><option selected>Active</option><option>Inactive</option><option>Maintenance</option></select></div>
+              <div class="field"><label>Minimum Deposit (NGN)</label><input type="number" id="walMinDeposit" value="1000"></div>
+              <div class="field"><label>Maximum Deposit (NGN)</label><input type="number" id="walMaxDeposit" value="10000000"></div>
+              <div class="field"><label>Minimum Withdrawal (NGN)</label><input type="number" id="walMinWithdrawal" value="5000"></div>
+              <div class="field"><label>Maximum Withdrawal (NGN)</label><input type="number" id="walMaxWithdrawal" value="5000000"></div>
+              <div class="field"><label>Withdrawal Fee (NGN)</label><input type="number" id="walWithdrawalFee" value="50"></div>
+              <div class="field"><label>Deposit Fee (%)</label><input type="number" id="walDepositFee" value="1.5" step="0.1"></div>
+            </div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Automatic Wallet Credit</div><div class="d">Automatically credit user wallets after payment</div></div><label class="toggle"><input type="checkbox" checked id="walAutoCredit"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Manual Wallet Credit</div><div class="d">Allow admin to manually credit wallets</div></div><label class="toggle"><input type="checkbox" checked id="walManualCredit"><span class="slider"></span></label></div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('wallet')">💾 Save Wallet Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== PAYMENTS ==================== -->
+        <div class="settings-panel" id="panel-payments">
+          <div class="panel-header"><div><h2>Payment Settings</h2><p>Configure payment gateways</p></div></div>
+          <div class="panel-body">
+            <div class="toggle-wrap"><div class="info"><div class="t">Paystack</div><div class="d">Card payments via Paystack</div></div><label class="toggle"><input type="checkbox" checked id="payPaystack"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Flutterwave</div><div class="d">Bank transfers and cards</div></div><label class="toggle"><input type="checkbox" checked id="payFlutterwave"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Bank Transfer</div><div class="d">Manual bank transfers</div></div><label class="toggle"><input type="checkbox" checked id="payBank"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Stripe</div><div class="d">International card payments</div></div><label class="toggle"><input type="checkbox" id="payStripe"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Crypto Payments</div><div class="d">BTC, USDT, ETH</div></div><label class="toggle"><input type="checkbox" id="payCrypto"><span class="slider"></span></label></div>
+            <div class="form-grid" style="margin-top:12px;">
+              <div class="field"><label>Paystack Public Key</label><input type="text" id="payPkKey" value="pk_test_xxxx"></div>
+              <div class="field"><label>Paystack Secret Key</label><input type="password" id="payPkSecret" value="sk_test_xxxx"></div>
+              <div class="field"><label>Flutterwave Public Key</label><input type="text" id="payFlKey" value="FLWPUBK-xxxx"></div>
+              <div class="field"><label>Flutterwave Secret Key</label><input type="password" id="payFlSecret" value="FLWSECK-xxxx"></div>
+            </div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('payments')">💾 Save Payment Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== CURRENCY ==================== -->
+        <div class="settings-panel" id="panel-currency">
+          <div class="panel-header"><div><h2>Currency Settings</h2><p>Configure supported currencies</p></div></div>
+          <div class="panel-body">
+            <div class="checkbox-grid">
+              <label class="checkbox-item"><input type="checkbox" checked> NGN (₦)</label>
+              <label class="checkbox-item"><input type="checkbox" checked> USD ($)</label>
+              <label class="checkbox-item"><input type="checkbox" checked> GBP (£)</label>
+              <label class="checkbox-item"><input type="checkbox"> EUR (€)</label>
+              <label class="checkbox-item"><input type="checkbox"> CAD (C$)</label>
+              <label class="checkbox-item"><input type="checkbox"> AUD (A$)</label>
+            </div>
+            <div class="form-grid" style="margin-top:12px;">
+              <div class="field"><label>Default Currency</label><select id="curDefault"><option>NGN</option><option selected>USD</option><option>GBP</option><option>EUR</option></select></div>
+              <div class="field"><label>Currency Symbol Position</label><select id="curPosition"><option selected>Before amount</option><option>After amount</option></select></div>
+              <div class="field"><label>Decimal Places</label><select id="curDecimals"><option selected>2</option><option>0</option><option>3</option><option>4</option></select></div>
+            </div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('currency')">💾 Save Currency Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== EXCHANGE RATES ==================== -->
+        <div class="settings-panel" id="panel-exchange">
+          <div class="panel-header"><div><h2>Exchange Rates</h2><p>Manual exchange rate management</p><span style="font-size:11px;color:var(--ink-faint);">Last updated: Today, 2:15 PM</span></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>USD → NGN</label><input type="number" id="exUsdNgn" value="1620" step="0.01"></div>
+              <div class="field"><label>GBP → NGN</label><input type="number" id="exGbpNgn" value="2050" step="0.01"></div>
+              <div class="field"><label>EUR → NGN</label><input type="number" id="exEurNgn" value="1750" step="0.01"></div>
+              <div class="field"><label>CAD → NGN</label><input type="number" id="exCadNgn" value="1200" step="0.01"></div>
+            </div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="showToast('Exchange rates updated','success')">💾 Update Rates</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== CAMPAIGNS ==================== -->
+        <div class="settings-panel" id="panel-campaigns">
+          <div class="panel-header"><div><h2>Campaign Settings</h2><p>Configure campaign defaults</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Minimum Budget (NGN)</label><input type="number" id="campMinBudget" value="10000"></div>
+              <div class="field"><label>Maximum Budget (NGN)</label><input type="number" id="campMaxBudget" value="10000000"></div>
+              <div class="field"><label>Default Currency</label><select id="campCurrency"><option>NGN</option><option selected>USD</option></select></div>
+              <div class="field"><label>Campaign Approval</label><select id="campApproval"><option selected>Manual Approval</option><option>Automatic Approval</option></select></div>
+              <div class="field"><label>Default Duration (days)</label><input type="number" id="campDuration" value="14"></div>
+              <div class="field"><label>Default Campaign Manager</label><select id="campManager"><option>Dara Adisa</option><option>Tunde A.</option><option>Grace O.</option></select></div>
+            </div>
+            <div style="margin-top:12px;"><h4 style="font-size:14px;font-weight:700;margin-bottom:8px;">Allowed Platforms</h4>
+              <div class="checkbox-grid">
+                <label class="checkbox-item"><input type="checkbox" checked> Facebook</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Instagram</label>
+                <label class="checkbox-item"><input type="checkbox" checked> TikTok</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Google</label>
+                <label class="checkbox-item"><input type="checkbox"> LinkedIn</label>
+                <label class="checkbox-item"><input type="checkbox"> Snapchat</label>
+                <label class="checkbox-item"><input type="checkbox"> Twitter/X</label>
+                <label class="checkbox-item"><input type="checkbox"> Pinterest</label>
+              </div>
+            </div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('campaigns')">💾 Save Campaign Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== GIFT CARDS ==================== -->
+        <div class="settings-panel" id="panel-giftcards">
+          <div class="panel-header"><div><h2>Gift Card Settings</h2><p>Configure gift card trading</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Minimum Trade (USD)</label><input type="number" id="gcMinTrade" value="10"></div>
+              <div class="field"><label>Maximum Trade (USD)</label><input type="number" id="gcMaxTrade" value="500"></div>
+              <div class="field"><label>Approval Mode</label><select id="gcApproval"><option selected>Manual Approval</option><option>Auto Approval</option></select></div>
+            </div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Enable Trading</div><div class="d">Allow gift card trading on the platform</div></div><label class="toggle"><input type="checkbox" checked id="gcEnabled"><span class="slider"></span></label></div>
+            <div style="margin-top:12px;"><h4 style="font-size:14px;font-weight:700;margin-bottom:8px;">Supported Gift Cards</h4>
+              <div class="checkbox-grid">
+                <label class="checkbox-item"><input type="checkbox" checked> Amazon</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Steam</label>
+                <label class="checkbox-item"><input type="checkbox" checked> iTunes</label>
+                <label class="checkbox-item"><input type="checkbox" checked> Xbox</label>
+                <label class="checkbox-item"><input type="checkbox" checked> PlayStation</label>
+                <label class="checkbox-item"><input type="checkbox"> Netflix</label>
+                <label class="checkbox-item"><input type="checkbox"> Google Play</label>
+                <label class="checkbox-item"><input type="checkbox"> Walmart</label>
+              </div>
+            </div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('giftcards')">💾 Save Gift Card Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== REFERRALS ==================== -->
+        <div class="settings-panel" id="panel-referrals">
+          <div class="panel-header"><div><h2>Referral Settings</h2><p>Configure referral program</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Referral Bonus (NGN)</label><input type="number" id="refBonus" value="500"></div>
+              <div class="field"><label>Signup Bonus (NGN)</label><input type="number" id="refSignupBonus" value="200"></div>
+              <div class="field"><label>Referral Commission (%)</label><input type="number" id="refCommission" value="5" step="0.5"></div>
+              <div class="field"><label>Maximum Reward (NGN)</label><input type="number" id="refMaxReward" value="5000"></div>
+            </div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Enable Referral System</div><div class="d">Allow users to refer others</div></div><label class="toggle"><input type="checkbox" checked id="refEnabled"><span class="slider"></span></label></div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('referrals')">💾 Save Referral Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== NOTIFICATIONS ==================== -->
+        <div class="settings-panel" id="panel-notifications">
+          <div class="panel-header"><div><h2>Notification Settings</h2><p>Configure what notifications to send</p></div></div>
+          <div class="panel-body">
+            <div class="toggle-wrap"><div class="info"><div class="t">New User Registration</div><div class="d">Notify when a new user signs up</div></div><label class="toggle"><input type="checkbox" checked id="notifNewUser"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">New Deposit</div><div class="d">Notify when a user deposits funds</div></div><label class="toggle"><input type="checkbox" checked id="notifDeposit"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Withdrawal Request</div><div class="d">Notify when a user requests withdrawal</div></div><label class="toggle"><input type="checkbox" checked id="notifWithdrawal"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Campaign Request</div><div class="d">Notify when a campaign is submitted</div></div><label class="toggle"><input type="checkbox" checked id="notifCampaign"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Gift Card Submission</div><div class="d">Notify when a gift card is submitted</div></div><label class="toggle"><input type="checkbox" checked id="notifGiftcard"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Wallet Credit/Debit</div><div class="d">Notify on wallet changes</div></div><label class="toggle"><input type="checkbox" checked id="notifWallet"><span class="slider"></span></label></div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('notifications')">💾 Save Notification Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== EMAIL ==================== -->
+        <div class="settings-panel" id="panel-email">
+          <div class="panel-header"><div><h2>Email Settings</h2><p>Configure SMTP</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>SMTP Host</label><input type="text" id="smtpHost" value="smtp.gmail.com"></div>
+              <div class="field"><label>SMTP Port</label><input type="number" id="smtpPort" value="587"></div>
+              <div class="field"><label>SMTP Username</label><input type="text" id="smtpUser" value="admin@milesspace.com"></div>
+              <div class="field"><label>SMTP Password</label><input type="password" id="smtpPass" value="********"></div>
+              <div class="field"><label>Encryption</label><select id="smtpEncrypt"><option selected>TLS</option><option>SSL</option><option>None</option></select></div>
+              <div class="field"><label>Sender Name</label><input type="text" id="smtpSenderName" value="MilesSpace"></div>
+              <div class="field"><label>Sender Email</label><input type="email" id="smtpSenderEmail" value="noreply@milesspace.com"></div>
+            </div>
+            <div class="panel-actions">
+              <button class="btn btn-primary" onclick="saveSettings('email')">💾 Save Email Settings</button>
+              <button class="btn btn-success" onclick="showToast('Test email sent to admin@milesspace.com','success')">📧 Send Test Email</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== SMS ==================== -->
+        <div class="settings-panel" id="panel-sms">
+          <div class="panel-header"><div><h2>SMS Settings</h2><p>Configure SMS provider</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>API Key</label><input type="password" id="smsApiKey" value="sk_live_xxxx"></div>
+              <div class="field"><label>Sender ID</label><input type="text" id="smsSenderId" value="MilesSpace"></div>
+            </div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Enable SMS</div><div class="d">Send SMS notifications</div></div><label class="toggle"><input type="checkbox" checked id="smsEnabled"><span class="slider"></span></label></div>
+            <div class="panel-actions">
+              <button class="btn btn-primary" onclick="saveSettings('sms')">💾 Save SMS Settings</button>
+              <button class="btn btn-success" onclick="showToast('Test SMS sent to +234 803 456 7890','success')">📱 Send Test SMS</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== API KEYS ==================== -->
+        <div class="settings-panel" id="panel-api">
+          <div class="panel-header"><div><h2>API Keys</h2><p>Manage API credentials</p></div></div>
+          <div class="panel-body">
+            <div class="api-key-row"><div class="key-info"><div class="name">Gift Card API</div><div class="key">gc_live_••••••••••</div></div><div class="key-actions"><button class="btn btn-ghost btn-sm">👁️</button><button class="btn btn-ghost btn-sm">📋</button><button class="btn btn-danger btn-sm" onclick="confirmAction('Regenerate this API key?')">🔄</button></div></div>
+            <div class="api-key-row"><div class="key-info"><div class="name">Campaign API</div><div class="key">camp_live_••••••••••</div></div><div class="key-actions"><button class="btn btn-ghost btn-sm">👁️</button><button class="btn btn-ghost btn-sm">📋</button><button class="btn btn-danger btn-sm" onclick="confirmAction('Regenerate this API key?')">🔄</button></div></div>
+            <div class="api-key-row"><div class="key-info"><div class="name">Payment API</div><div class="key">pay_live_••••••••••</div></div><div class="key-actions"><button class="btn btn-ghost btn-sm">👁️</button><button class="btn btn-ghost btn-sm">📋</button><button class="btn btn-danger btn-sm" onclick="confirmAction('Regenerate this API key?')">🔄</button></div></div>
+            <div class="api-key-row"><div class="key-info"><div class="name">Exchange Rate API</div><div class="key">ex_live_••••••••••</div></div><div class="key-actions"><button class="btn btn-ghost btn-sm">👁️</button><button class="btn btn-ghost btn-sm">📋</button><button class="btn btn-danger btn-sm" onclick="confirmAction('Regenerate this API key?')">🔄</button></div></div>
+            <div class="api-key-row"><div class="key-info"><div class="name">Virtual SMS API</div><div class="key">sms_live_••••••••••</div></div><div class="key-actions"><button class="btn btn-ghost btn-sm">👁️</button><button class="btn btn-ghost btn-sm">📋</button><button class="btn btn-danger btn-sm" onclick="confirmAction('Regenerate this API key?')">🔄</button></div></div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="showToast('API keys updated','success')">💾 Save API Keys</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== INTEGRATIONS ==================== -->
+        <div class="settings-panel" id="panel-integrations">
+          <div class="panel-header"><div><h2>Integrations</h2><p>Enable or disable third-party integrations</p></div></div>
+          <div class="panel-body">
+            <div class="toggle-wrap"><div class="info"><div class="t">Facebook Ads</div><div class="d">Connect to Facebook/Meta Ads Manager</div></div><label class="toggle"><input type="checkbox" checked id="intFb"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Instagram</div><div class="d">Connect to Instagram Ads</div></div><label class="toggle"><input type="checkbox" checked id="intIg"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">TikTok</div><div class="d">Connect to TikTok Ads Manager</div></div><label class="toggle"><input type="checkbox" checked id="intTt"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Google Ads</div><div class="d">Connect to Google Ads</div></div><label class="toggle"><input type="checkbox" id="intGads"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Slack</div><div class="d">Send notifications to Slack</div></div><label class="toggle"><input type="checkbox" id="intSlack"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Discord</div><div class="d">Send notifications to Discord</div></div><label class="toggle"><input type="checkbox" id="intDiscord"><span class="slider"></span></label></div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('integrations')">💾 Save Integration Settings</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== SYSTEM ==================== -->
+        <div class="settings-panel" id="panel-system">
+          <div class="panel-header"><div><h2>System Preferences</h2><p>Platform behavior settings</p></div></div>
+          <div class="panel-body">
+            <div class="toggle-wrap"><div class="info"><div class="t">Dark Mode</div><div class="d">Enable dark theme</div></div><label class="toggle"><input type="checkbox" id="sysDark"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Animations</div><div class="d">Enable UI animations</div></div><label class="toggle"><input type="checkbox" checked id="sysAnim"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Auto Refresh</div><div class="d">Auto-refresh dashboards</div></div><label class="toggle"><input type="checkbox" checked id="sysRefresh"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Real-Time Dashboard</div><div class="d">Live updates on dashboard</div></div><label class="toggle"><input type="checkbox" checked id="sysRealtime"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Compact Tables</div><div class="d">Denser table layout</div></div><label class="toggle"><input type="checkbox" id="sysCompact"><span class="slider"></span></label></div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('system')">💾 Save System Preferences</button></div>
+          </div>
+        </div>
+
+        <!-- ==================== MAINTENANCE ==================== -->
+        <div class="settings-panel" id="panel-maintenance">
+          <div class="panel-header"><div><h2>Maintenance Mode</h2><p>Put your platform on maintenance</p></div></div>
+          <div class="panel-body">
+            <div class="toggle-wrap"><div class="info"><div class="t">Enable Maintenance Mode</div><div class="d">Take the platform offline for maintenance</div></div><label class="toggle"><input type="checkbox" id="maintEnabled"><span class="slider"></span></label></div>
+            <div class="field" style="margin-top:12px;"><label>Maintenance Message</label><textarea id="maintMessage" rows="3" placeholder="We're currently performing scheduled maintenance. Please check back soon.">We're currently performing scheduled maintenance. Please check back soon.</textarea></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Allow Admin Bypass</div><div class="d">Admins can still access the platform</div></div><label class="toggle"><input type="checkbox" checked id="maintBypass"><span class="slider"></span></label></div>
+            <div class="panel-actions">
+              <button class="btn btn-primary" onclick="showToast('Maintenance mode updated','success')">💾 Update Maintenance Settings</button>
+              <button class="btn btn-danger" onclick="confirmAction('Enable maintenance mode? All users will be blocked.')">⚠️ Enable Maintenance</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== LOGS ==================== -->
+        <div class="settings-panel" id="panel-logs">
+          <div class="panel-header"><div><h2>Logs & Activity</h2><p>System activity logs</p><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="showToast('Logs exported','success')">📥 Export</button><input type="date" id="logDate" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;"></div></div></div>
+          <div class="panel-body">
+            <div class="log-table"><table><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>IP</th></tr></thead><tbody>
+              <tr><td>10:30 AM</td><td>Dara Adisa</td><td>Updated General Settings</td><td>192.168.1.1</td></tr>
+              <tr><td>09:15 AM</td><td>Tunde A.</td><td>Approved Campaign #CMP-3456</td><td>10.0.0.1</td></tr>
+              <tr><td>08:45 AM</td><td>Grace O.</td><td>Updated Exchange Rates</td><td>172.16.0.1</td></tr>
+              <tr><td>Yesterday 5:20 PM</td><td>Femi Alade</td><td>Modified Gift Card Rates</td><td>192.168.1.1</td></tr>
+              <tr><td>Yesterday 2:10 PM</td><td>Dara Adisa</td><td>Added New API Key</td><td>192.168.1.1</td></tr>
+            </tbody></table></div>
+          </div>
+        </div>
+
+        <!-- ==================== BACKUP ==================== -->
+        <div class="settings-panel" id="panel-backup">
+          <div class="panel-header"><div><h2>Backup & Restore</h2><p>Manage database backups</p></div></div>
+          <div class="panel-body">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+              <button class="btn btn-primary" onclick="showToast('Backup started...','info')">🔄 Create Backup</button>
+              <button class="btn btn-ghost" onclick="showToast('Backup download starting...','info')">📥 Download Backup</button>
+              <button class="btn btn-danger" onclick="confirmAction('Restore from backup? This will overwrite current data.')">📤 Restore Backup</button>
+            </div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Automatic Daily Backup</div><div class="d">Backup every day at 2:00 AM</div></div><label class="toggle"><input type="checkbox" checked id="backupDaily"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Automatic Weekly Backup</div><div class="d">Backup every Sunday at 3:00 AM</div></div><label class="toggle"><input type="checkbox" checked id="backupWeekly"><span class="slider"></span></label></div>
+            <div style="margin-top:16px;"><h4 style="font-size:14px;font-weight:700;margin-bottom:10px;">Backup History</h4>
+              <div class="log-table"><table><thead><tr><th>Date</th><th>Size</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>
+                <tr><td>Today, 2:00 AM</td><td>124 MB</td><td>Full</td><td>✅ Success</td><td><button class="btn btn-ghost btn-sm">📥</button><button class="btn btn-danger btn-sm">🗑️</button></td></tr>
+                <tr><td>Yesterday, 2:00 AM</td><td>122 MB</td><td>Full</td><td>✅ Success</td><td><button class="btn btn-ghost btn-sm">📥</button><button class="btn btn-danger btn-sm">🗑️</button></td></tr>
+                <tr><td>Jan 15, 2:00 AM</td><td>121 MB</td><td>Full</td><td>✅ Success</td><td><button class="btn btn-ghost btn-sm">📥</button><button class="btn btn-danger btn-sm">🗑️</button></td></tr>
+              </tbody></table></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== DEVELOPER ==================== -->
+        <div class="settings-panel" id="panel-developer">
+          <div class="panel-header"><div><h2>Developer Settings</h2><p>Advanced configuration</p></div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Environment</label><select id="devEnv"><option>Production</option><option selected>Development</option><option>Staging</option></select></div>
+              <div class="field"><label>Debug Mode</label><select id="devDebug"><option>Disabled</option><option selected>Enabled</option></select></div>
+            </div>
+            <div class="toggle-wrap"><div class="info"><div class="t">API Debug</div><div class="d">Log all API requests and responses</div></div><label class="toggle"><input type="checkbox" checked id="devApiDebug"><span class="slider"></span></label></div>
+            <div class="toggle-wrap"><div class="info"><div class="t">Error Logs</div><div class="d">Detailed error logging</div></div><label class="toggle"><input type="checkbox" checked id="devErrorLogs"><span class="slider"></span></label></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;">
+              <button class="btn btn-ghost" onclick="showToast('Cache cleared','success')">🗑️ Clear Cache</button>
+              <button class="btn btn-ghost" onclick="showToast('Database optimized','success')">🔧 Optimize Database</button>
+              <button class="btn btn-danger" onclick="confirmAction('Restart services? This may cause temporary downtime.')">🔄 Restart Services</button>
+            </div>
+            <div class="panel-actions"><button class="btn btn-primary" onclick="saveSettings('developer')">💾 Save Developer Settings</button></div>
+          </div>
+        </div>
+
+      </div><!-- /settings-content -->
+    </div><!-- /settings-layout -->
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="confirmTitle">Confirm Action</h3><button class="modal-close" id="confirmClose">✕</button></div>
+    <div class="modal-body" id="confirmBody"><p id="confirmMessage">Are you sure you want to proceed?</p></div>
+    <div class="modal-foot"><button class="btn btn-ghost" id="confirmCancel">Cancel</button><button class="btn btn-danger" id="confirmOk">Confirm</button></div>
+  </div>
+</div>
+
+<!-- Toast Stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* =====================================================================
+   SETTINGS NAVIGATION
+===================================================================== */
+const sections = document.querySelectorAll('.settings-sidebar .nav-item');
+const panels = document.querySelectorAll('.settings-panel');
+const crumb = document.getElementById('crumbActive');
+
+sections.forEach(item => {
+  item.addEventListener('click', () => {
+    sections.forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    const section = item.dataset.section;
+    panels.forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + section).classList.add('active');
+    crumb.textContent = item.textContent.trim();
+    document.getElementById('settingsSidebar').scrollTop = 0;
+  });
+});
+
+/* =====================================================================
+   SIDEBAR TOGGLE (Mobile)
+===================================================================== */
+const menuToggle = document.getElementById('menuToggle');
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+menuToggle.addEventListener('click', () => {
+  sidebar.classList.toggle('open');
+  sidebarBackdrop.classList.toggle('show');
+});
+
+sidebarBackdrop.addEventListener('click', () => {
+  sidebar.classList.remove('open');
+  sidebarBackdrop.classList.remove('show');
+});
+
+// Close sidebar on window resize to desktop
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    sidebar.classList.remove('open');
+    sidebarBackdrop.classList.remove('show');
+  }
+});
+
+/* =====================================================================
+   SEARCH SETTINGS
+===================================================================== */
+document.getElementById('settingsSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  sections.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    const parent = item.parentElement;
+    if (!q || text.includes(q)) {
+      item.style.display = 'flex';
+      parent.style.display = 'block';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+});
+
+/* =====================================================================
+   SAVE SETTINGS
+===================================================================== */
+function saveSettings(section) {
+  showToast('✅ ' + section.charAt(0).toUpperCase() + section.slice(1) + ' settings saved successfully!', 'success');
+}
+
+function resetSettings(section) {
+  if (confirm('Restore default settings for ' + section + '?')) {
+    showToast('↺ ' + section.charAt(0).toUpperCase() + section.slice(1) + ' settings restored to defaults', 'info');
+  }
+}
+
+/* =====================================================================
+   CONFIRM MODAL
+===================================================================== */
+const confirmModal = document.getElementById('confirmModal');
+const confirmMessage = document.getElementById('confirmMessage');
+let confirmCallback = null;
+
+function confirmAction(message, callback) {
+  confirmMessage.textContent = message || 'Are you sure you want to proceed?';
+  confirmModal.classList.add('open');
+  confirmCallback = callback || null;
+}
+
+document.getElementById('confirmClose').addEventListener('click', () => confirmModal.classList.remove('open'));
+document.getElementById('confirmCancel').addEventListener('click', () => confirmModal.classList.remove('open'));
+document.getElementById('confirmOk').addEventListener('click', () => {
+  confirmModal.classList.remove('open');
+  if (confirmCallback) confirmCallback();
+  else showToast('Action confirmed', 'success');
+});
+
+confirmModal.addEventListener('click', (e) => { if (e.target === confirmModal) confirmModal.classList.remove('open'); });
+
+/* =====================================================================
+   TOAST
+===================================================================== */
+function showToast(msg, type = 'info') {
+  const stack = document.getElementById('toastStack');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(30px)';
+    el.style.transition = 'all .3s ease';
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
+}
+
+/* =====================================================================
+   REFRESH
+===================================================================== */
+document.getElementById('refreshBtn').addEventListener('click', function() {
+  this.textContent = '⟳';
+  this.style.transform = 'rotate(360deg)';
+  this.style.transition = 'transform .5s';
+  setTimeout(() => {
+    this.style.transform = 'rotate(0deg)';
+    this.textContent = '⟳';
+  }, 500);
+  showToast('🔄 Settings refreshed', 'info');
+});
+
+/* =====================================================================
+   PROFILE IMAGE PREVIEW
+===================================================================== */
+document.getElementById('profAvatar').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const preview = document.getElementById('profPreview');
+      preview.innerHTML = '';
+      preview.style.backgroundImage = 'url(' + ev.target.result + ')';
+      preview.style.backgroundSize = 'cover';
+      preview.style.backgroundPosition = 'center';
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+document.getElementById('genLogo').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const preview = document.getElementById('genLogoPreview');
+      preview.innerHTML = '';
+      preview.style.backgroundImage = 'url(' + ev.target.result + ')';
+      preview.style.backgroundSize = 'cover';
+      preview.style.backgroundPosition = 'center';
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+/* =====================================================================
+   DARK MODE TOGGLE (System settings)
+===================================================================== */
+document.getElementById('sysDark').addEventListener('change', function() {
+  if (this.checked) {
+    document.documentElement.style.setProperty('--bg', '#0a0e1a');
+    document.documentElement.style.setProperty('--surface', '#141828');
+    document.documentElement.style.setProperty('--ink', '#eaf0f5');
+    document.documentElement.style.setProperty('--ink-soft', '#9aa8b8');
+    document.documentElement.style.setProperty('--neutral-bg', '#1e2338');
+    document.documentElement.style.setProperty('--border', '#2a2f45');
+    document.documentElement.style.setProperty('--border-soft', '#1e2338');
+  } else {
+    document.documentElement.style.removeProperty('--bg');
+    document.documentElement.style.removeProperty('--surface');
+    document.documentElement.style.removeProperty('--ink');
+    document.documentElement.style.removeProperty('--ink-soft');
+    document.documentElement.style.removeProperty('--neutral-bg');
+    document.documentElement.style.removeProperty('--border');
+    document.documentElement.style.removeProperty('--border-soft');
+  }
+});
+
+console.log('⚙️ Settings page loaded successfully');
+</script>
+</body>
+</html>

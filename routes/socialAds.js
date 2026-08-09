@@ -18,7 +18,7 @@ cloudinary.config({
 });
 
 // =============================================
-// MULTER CONFIG — Memory storage for Cloudinary
+// MULTER CONFIG
 // =============================================
 const storage = multer.memoryStorage();
 
@@ -36,7 +36,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter
 });
 
@@ -64,9 +64,6 @@ const uploadToCloudinary = (fileBuffer, options = {}) => {
   });
 };
 
-// =============================================
-// DELETE FROM CLOUDINARY HELPER
-// =============================================
 const deleteFromCloudinary = async (publicId) => {
   try {
     if (!publicId) return null;
@@ -85,115 +82,137 @@ const deleteFromCloudinary = async (publicId) => {
   }
 };
 
-// =============================================
-// HELPER: Generate order reference
-// =============================================
 function generateRef() {
   return 'ADS-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
-// =============================================
-// HELPER: Log audit trail
-// =============================================
+// ─── HELPER: Create transaction ───
+async function createTransaction(userId, orderId, type, description, amountNGN, amountUSD, currency, status, ref, meta = {}) {
+  try {
+    const isUSD = currency === 'USD';
+    const transactionData = {
+      user_id: userId,
+      order_id: orderId,
+      type: type,
+      category: 'debit',
+      description: description,
+      currency: currency,
+      status: status,
+      ref: ref,
+      wallet_used: currency,
+      meta: meta,
+      created_at: new Date().toISOString()
+    };
+
+    if (isUSD) {
+      transactionData.amount_ngn = 0;
+      transactionData.amount_usd = -amountUSD;
+      transactionData.revenue_ngn = 0;
+      transactionData.revenue_usd = amountUSD;
+    } else {
+      transactionData.amount_ngn = -amountNGN;
+      transactionData.amount_usd = 0;
+      transactionData.revenue_ngn = amountNGN;
+      transactionData.revenue_usd = 0;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('transactions')
+      .insert(transactionData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Transaction creation error:', error);
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.error('Transaction error:', error);
+    return null;
+  }
+}
+
+// ─── HELPER: Create notification ───
+async function createNotification(userId, title, message, type = 'info', link = null) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        title: title,
+        message: message,
+        type: type,
+        icon: getNotificationIcon(type),
+        link: link,
+        is_read: false,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Notification creation error:', error);
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.error('Notification error:', error);
+    return null;
+  }
+}
+
+function getNotificationIcon(type) {
+  const icons = {
+    'campaign_created': '📢',
+    'campaign_submitted': '✅',
+    'campaign_approved': '🎯',
+    'campaign_rejected': '❌',
+    'campaign_completed': '🏆',
+    'info': '📌',
+    'success': '✅',
+    'error': '❌',
+    'warning': '⚠️'
+  };
+  return icons[type] || '📌';
+}
+
+// ─── HELPER: Log audit ───
 async function logAudit(userId, action, entityType, entityId, oldData, newData, req) {
   try {
-    await supabaseAdmin.from('audit_logs').insert({
+    await supabaseAdmin.from('admin_activity').insert({
       user_id: userId,
       action,
       entity_type: entityType,
       entity_id: entityId,
       old_data: oldData || null,
       new_data: newData || null,
-      ip_address: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-      user_agent: req.headers['user-agent'] || '',
+      ip_address: req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || 'unknown',
+      user_agent: req?.headers?.['user-agent'] || '',
       created_at: new Date().toISOString()
     });
   } catch (e) { console.error('Audit log error:', e.message); }
 }
 
 // =============================================
-// HELPER: Send notification
-// =============================================
-async function sendNotification(userId, type, title, message, data = {}) {
-  try {
-    await supabaseAdmin.from('notifications').insert({
-      user_id: userId,
-      type,
-      title,
-      message,
-      data,
-      created_at: new Date().toISOString()
-    });
-  } catch (e) { console.error('Notification error:', e.message); }
-}
-
-// =============================================
-// HELPER: Validate campaign ownership
-// =============================================
-async function getCampaign(campaignId, userId) {
-  const { data, error } = await supabaseAdmin
-    .from('campaigns')
-    .select('*')
-    .eq('id', campaignId)
-    .eq('user_id', userId)
-    .single();
-  
-  if (error || !data) return null;
-  return data;
-}
-
-// =============================================
-// GET /api/ads/wallet/balances — Fast wallet balances
+// GET /api/ads/wallet/balances
 // =============================================
 router.get('/wallet/balances', authMiddleware, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('wallet_ngn, wallet_usd, email, avatar_url, username, phone')
+      .select('wallet_ngn, wallet_usd, email, username')
       .eq('id', req.user.id)
       .maybeSingle();
 
-    if (error) {
-      console.error('Profile fetch error:', error);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to fetch profile'
-      });
-    }
-
-    // If profile doesn't exist, create it
-    if (!profile) {
-      const username = req.user.email?.split('@')[0] || 'user_' + Math.random().toString(36).substr(2, 6);
-      const { data: newProfile, error: createError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          id: req.user.id,
-          email: req.user.email,
-          username: username,
-          wallet_ngn: 0,
-          wallet_usd: 0,
-          created_at: new Date().toISOString(),
-          last_login: new Date().toISOString()
-        })
-        .select('wallet_ngn, wallet_usd, email, avatar_url, username, phone')
-        .single();
-
-      if (createError) {
-        console.error('Profile creation error:', createError);
-        return res.status(500).json({ 
-          success: false, 
-          error: 'Failed to create user profile'
-        });
-      }
-
+    if (error || !profile) {
       return res.json({
         success: true,
-        ngn_balance: parseFloat(newProfile.wallet_ngn || 0),
-        usd_balance: parseFloat(newProfile.wallet_usd || 0),
-        full_name: newProfile.username || '',
-        email: newProfile.email || req.user.email || '',
-        avatar_url: newProfile.avatar_url || null,
-        username: newProfile.username || ''
+        ngn_balance: 0,
+        usd_balance: 0,
+        full_name: '',
+        email: req.user.email || '',
+        username: ''
       });
     }
 
@@ -203,30 +222,21 @@ router.get('/wallet/balances', authMiddleware, async (req, res) => {
       usd_balance: parseFloat(profile.wallet_usd || 0),
       full_name: profile.username || '',
       email: profile.email || '',
-      avatar_url: profile.avatar_url || null,
       username: profile.username || ''
     });
   } catch (error) {
     console.error('Wallet balances error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch wallet balances'
-    });
+    res.status(500).json({ success: false, error: 'Failed to fetch wallet balances' });
   }
 });
 
 // =============================================
-// GET /api/ads/platforms — Available platforms (cached)
+// GET /api/ads/platforms
 // =============================================
-const PLATFORMS_CACHE = {
-  data: null,
-  timestamp: null,
-  ttl: 3600000 // 1 hour
-};
+const PLATFORMS_CACHE = { data: null, timestamp: null, ttl: 3600000 };
 
 router.get('/platforms', async (req, res) => {
   try {
-    // Check cache
     if (PLATFORMS_CACHE.data && (Date.now() - PLATFORMS_CACHE.timestamp < PLATFORMS_CACHE.ttl)) {
       return res.json({ success: true, data: PLATFORMS_CACHE.data });
     }
@@ -251,7 +261,7 @@ router.get('/platforms', async (req, res) => {
 });
 
 // =============================================
-// GET /api/ads/estimate — Price estimate
+// GET /api/ads/estimate
 // =============================================
 router.get('/estimate', async (req, res) => {
   try {
@@ -270,7 +280,6 @@ router.get('/estimate', async (req, res) => {
     const baseCost = (costMap[platform]?.[goal]) || 200;
     const yourPrice = baseCost * 2;
     const estimatedViews = Math.floor((budgetNum / yourPrice) * 1000);
-    const estimatedClicks = Math.floor(estimatedViews * 0.02);
 
     res.json({
       success: true,
@@ -282,7 +291,7 @@ router.get('/estimate', async (req, res) => {
         platformCost: baseCost,
         markup: '2×',
         estimatedViews,
-        estimatedClicks,
+        estimatedClicks: Math.floor(estimatedViews * 0.02),
         estimatedCTR: '2%',
         duration: '3-7 days',
       }
@@ -293,18 +302,15 @@ router.get('/estimate', async (req, res) => {
 });
 
 // =============================================
-// POST /api/ads/campaign — Create campaign
+// POST /api/ads/campaign - CREATE CAMPAIGN
+// ✅ FIXED: Creates transaction + notification
 // =============================================
 router.post('/campaign', authMiddleware, async (req, res) => {
   try {
     const {
-      platform, username, goal,
-      destination_type, destination_value, destination_message,
-      target_country, target_state, target_city,
-      target_age_min, target_age_max, target_gender,
-      target_interests, target_languages, target_devices, target_placements,
-      budget_total, budget_daily, wallet_type, profile_url, campaign_name,
-      headline, primary_text, description, call_to_action
+      platform, goal, budget_total, wallet_type = 'NGN',
+      campaign_name, profile_url, target_country, target_interests,
+      target_age_min, target_age_max, target_gender
     } = req.body;
 
     if (!platform || !goal || !budget_total) {
@@ -315,44 +321,43 @@ router.post('/campaign', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Minimum budget is ₦10,000' });
     }
 
-    const walletField = wallet_type === 'USD' ? 'wallet_usd' : 'wallet_ngn';
-    const { data: profile } = await supabaseAdmin
+    const isUSD = wallet_type === 'USD';
+    const walletField = isUSD ? 'wallet_usd' : 'wallet_ngn';
+    const USD_RATE = 1620;
+    
+    // Convert budget to USD if needed
+    const requiredAmount = isUSD ? budget_total / USD_RATE : budget_total;
+
+    // ─── Get user balance ───
+    const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select(walletField)
+      .select(`${walletField}, email, username`)
       .eq('id', req.user.id)
       .single();
 
-    if (!profile) {
+    if (profileErr) {
       return res.status(404).json({ success: false, error: 'Profile not found' });
     }
 
     const balance = parseFloat(profile[walletField] || 0);
-    const required = wallet_type === 'USD' ? (budget_total / 1600) : budget_total;
-
-    if (balance < required) {
+    if (balance < requiredAmount) {
       return res.status(400).json({
         success: false,
-        error: `Insufficient balance. Need ${wallet_type === 'USD' ? '$' : '₦'}${required.toLocaleString()}`,
-        balance,
-        required
+        error: `Insufficient balance. Need ${isUSD ? '$' : '₦'}${requiredAmount.toFixed(2)}`
       });
     }
 
-    // Start transaction
-    const { error: updateError } = await supabaseAdmin
+    // ─── Deduct wallet ───
+    const newBalance = balance - requiredAmount;
+    await supabaseAdmin
       .from('profiles')
-      .update({ [walletField]: balance - required })
+      .update({ [walletField]: newBalance })
       .eq('id', req.user.id);
 
-    if (updateError) {
-      console.error('Wallet update error:', updateError);
-      return res.status(500).json({ success: false, error: 'Failed to update wallet' });
-    }
-
+    // ─── Create campaign ───
     const orderRef = generateRef();
     const name = campaign_name || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Campaign`;
 
-    // Handle target_interests as array for PostgreSQL
     let interestsArray = target_interests;
     if (typeof target_interests === 'string') {
       try {
@@ -365,7 +370,7 @@ router.post('/campaign', authMiddleware, async (req, res) => {
       interestsArray = [];
     }
 
-    const { data: campaign, error: campaignError } = await supabaseAdmin
+    const { data: campaign, error: campaignErr } = await supabaseAdmin
       .from('campaigns')
       .insert({
         user_id: req.user.id,
@@ -374,71 +379,62 @@ router.post('/campaign', authMiddleware, async (req, res) => {
         campaign_name: name,
         goal,
         status: 'pending_review',
-        destination_type: destination_type || 'profile',
-        destination_value: destination_value || null,
-        destination_message: destination_message || null,
         target_country: target_country || 'all',
-        target_state: target_state || null,
-        target_city: target_city || null,
         target_age_min: target_age_min || 18,
         target_age_max: target_age_max || 65,
         target_gender: target_gender || 'all',
         target_interests: interestsArray,
-        target_languages: target_languages || [],
-        target_devices: target_devices || [],
-        target_placements: target_placements || [],
-        budget_total,
-        budget_daily: budget_daily || Math.floor(budget_total / 7),
+        budget_total: budget_total,
         budget_spent: 0,
-        wallet_used: wallet_type || 'NGN',
+        wallet_used: wallet_type,
         profile_url: profile_url || null,
-        headline: headline || null,
-        primary_text: primary_text || null,
-        description: description || null,
-        call_to_action: call_to_action || 'Learn More',
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    if (campaignError) {
+    if (campaignErr) {
       // Refund wallet on error
-      await supabaseAdmin.from('profiles')
+      await supabaseAdmin
+        .from('profiles')
         .update({ [walletField]: balance })
         .eq('id', req.user.id);
       
-      console.error('Campaign creation error:', campaignError);
+      console.error('Campaign creation error:', campaignErr);
       return res.status(500).json({ success: false, error: 'Failed to create campaign' });
     }
 
-    // Save transaction asynchronously (don't block response)
-    supabaseAdmin.from('transactions').insert({
-      user_id: req.user.id,
-      type: 'social_ads',
-      category: 'debit',
-      description: `Ad Campaign: ${name} on ${platform}`,
-      amount_ngn: wallet_type === 'NGN' ? -budget_total : -(budget_total),
-      amount_usd: wallet_type === 'USD' ? -(budget_total / 1600) : -(budget_total / 1600),
-      currency: wallet_type || 'NGN',
-      status: 'completed',
-      ref: orderRef,
-      meta: { campaign_id: campaign.id, platform, goal },
-      created_at: new Date().toISOString()
-    }).catch(e => console.error('Transaction save error:', e));
+    // ─── ✅ CREATE TRANSACTION ───
+    await createTransaction(
+      req.user.id,
+      campaign.id,
+      'campaign',
+      `Ad Campaign: ${name} on ${platform}`,
+      isUSD ? 0 : requiredAmount,
+      isUSD ? requiredAmount : 0,
+      wallet_type,
+      'completed',
+      orderRef,
+      { campaign_id: campaign.id, platform, goal, budget_total }
+    );
 
-    // Log audit asynchronously
-    logAudit(req.user.id, 'CREATE', 'campaign', campaign.id, null, { platform, goal, budget_total }, req)
-      .catch(e => console.error('Audit log error:', e));
-
-    // Send notification asynchronously
-    sendNotification(
-      req.user.id, 'campaign_created', 'Campaign Created! 🚀',
+    // ─── ✅ CREATE NOTIFICATION ───
+    await createNotification(
+      req.user.id,
+      'Campaign Created! 🚀',
       `Your ${platform} campaign "${name}" has been submitted for review.`,
-      { campaign_id: campaign.id, order_ref: orderRef }
-    ).catch(e => console.error('Notification error:', e));
+      'campaign_created',
+      `/social-ads?campaign=${campaign.id}`
+    );
+
+    // ─── Log audit ───
+    await logAudit(req.user.id, 'CREATE', 'campaign', campaign.id, null, { platform, goal, budget_total }, req);
+
+    // ─── Invalidate dashboard cache ───
+    if (global.invalidateDashboardCache) {
+      global.invalidateDashboardCache();
+    }
 
     res.status(201).json({
       success: true,
@@ -446,7 +442,7 @@ router.post('/campaign', authMiddleware, async (req, res) => {
       data: {
         campaign,
         order_ref: orderRef,
-        new_balance: balance - required
+        new_balance: newBalance
       }
     });
 
@@ -457,7 +453,7 @@ router.post('/campaign', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// GET /api/ads/campaigns — User's campaigns (fast)
+// GET /api/ads/campaigns
 // =============================================
 router.get('/campaigns', authMiddleware, async (req, res) => {
   try {
@@ -474,14 +470,12 @@ router.get('/campaigns', authMiddleware, async (req, res) => {
       query = query.eq('status', status);
     }
 
-    // Add pagination
     query = query.range(offset, offset + limit - 1);
 
     const { data, error, count } = await query;
 
     if (error) throw error;
 
-    // Calculate additional stats per campaign
     const enrichedData = (data || []).map(c => ({
       ...c,
       remaining: c.budget_total - (c.budget_spent || 0),
@@ -503,39 +497,22 @@ router.get('/campaigns', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// GET /api/ads/campaign/:id — Single campaign
+// GET /api/ads/campaign/:id
 // =============================================
 router.get('/campaign/:id', authMiddleware, async (req, res) => {
   try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) {
+    const { data: campaign, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !campaign) {
       return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
-    // Get creatives
-    const { data: creatives } = await supabaseAdmin
-      .from('campaign_creatives')
-      .select('*')
-      .eq('campaign_id', campaign.id)
-      .order('created_at', { ascending: false });
-
-    // Get daily reports (last 30 days)
-    const { data: reports } = await supabaseAdmin
-      .from('campaign_reports')
-      .select('*')
-      .eq('campaign_id', campaign.id)
-      .order('report_date', { ascending: false })
-      .limit(30);
-
-    res.json({
-      success: true,
-      data: {
-        ...campaign,
-        creatives: creatives || [],
-        reports: reports || []
-      }
-    });
-
+    res.json({ success: true, data: campaign });
   } catch (error) {
     console.error('Fetch campaign error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch campaign' });
@@ -543,12 +520,18 @@ router.get('/campaign/:id', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// PUT /api/ads/campaign/:id — Update campaign
+// PUT /api/ads/campaign/:id
 // =============================================
 router.put('/campaign/:id', authMiddleware, async (req, res) => {
   try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) {
+    const { data: campaign, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !campaign) {
       return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
@@ -557,11 +540,9 @@ router.put('/campaign/:id', authMiddleware, async (req, res) => {
     }
 
     const allowedFields = [
-      'campaign_name', 'target_country', 'target_state', 'target_city',
-      'target_age_min', 'target_age_max', 'target_gender',
-      'target_interests', 'target_languages', 'target_devices', 'target_placements',
-      'destination_type', 'destination_value', 'destination_message',
-      'budget_daily', 'headline', 'primary_text', 'description', 'call_to_action'
+      'campaign_name', 'target_country', 'target_age_min', 'target_age_max',
+      'target_gender', 'target_interests', 'budget_daily',
+      'headline', 'primary_text', 'description', 'call_to_action'
     ];
 
     const updates = {};
@@ -577,21 +558,18 @@ router.put('/campaign/:id', authMiddleware, async (req, res) => {
 
     updates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabaseAdmin
+    const { data, error: updateErr } = await supabaseAdmin
       .from('campaigns')
       .update(updates)
       .eq('id', campaign.id)
-      .eq('user_id', req.user.id)
       .select()
       .single();
 
-    if (error) throw error;
+    if (updateErr) throw updateErr;
 
-    logAudit(req.user.id, 'UPDATE', 'campaign', campaign.id, campaign, data, req)
-      .catch(e => console.error('Audit log error:', e));
+    await logAudit(req.user.id, 'UPDATE', 'campaign', campaign.id, campaign, data, req);
 
     res.json({ success: true, message: 'Campaign updated', data });
-
   } catch (error) {
     console.error('Update campaign error:', error);
     res.status(500).json({ success: false, error: 'Failed to update campaign' });
@@ -599,12 +577,18 @@ router.put('/campaign/:id', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// DELETE /api/ads/campaign/:id — Delete campaign
+// DELETE /api/ads/campaign/:id
 // =============================================
 router.delete('/campaign/:id', authMiddleware, async (req, res) => {
   try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) {
+    const { data: campaign, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !campaign) {
       return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
@@ -612,23 +596,10 @@ router.delete('/campaign/:id', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Can only delete pending campaigns' });
     }
 
-    // Get creatives to delete from Cloudinary
-    const { data: creatives } = await supabaseAdmin
-      .from('campaign_creatives')
-      .select('file_public_id')
-      .eq('campaign_id', campaign.id);
-
-    // Delete from Cloudinary (async, don't block)
-    for (const creative of creatives || []) {
-      if (creative.file_public_id) {
-        deleteFromCloudinary(creative.file_public_id).catch(e => console.error('Cloudinary delete error:', e));
-      }
-    }
-
-    const walletField = campaign.wallet_used === 'USD' ? 'wallet_usd' : 'wallet_ngn';
-    const refundAmount = campaign.wallet_used === 'USD' 
-      ? (campaign.budget_total / 1600) 
-      : campaign.budget_total;
+    // Refund wallet
+    const isUSD = campaign.wallet_used === 'USD';
+    const walletField = isUSD ? 'wallet_usd' : 'wallet_ngn';
+    const refundAmount = isUSD ? campaign.budget_total / 1620 : campaign.budget_total;
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
@@ -636,19 +607,24 @@ router.delete('/campaign/:id', authMiddleware, async (req, res) => {
       .eq('id', req.user.id)
       .single();
 
-    // Refund wallet
-    await supabaseAdmin.from('profiles')
+    await supabaseAdmin
+      .from('profiles')
       .update({ [walletField]: (profile[walletField] || 0) + refundAmount })
       .eq('id', req.user.id);
 
-    // Delete campaign (cascade will delete creatives from DB)
-    await supabaseAdmin.from('campaigns').delete().eq('id', campaign.id);
+    // Delete campaign
+    await supabaseAdmin
+      .from('campaigns')
+      .delete()
+      .eq('id', campaign.id);
 
-    logAudit(req.user.id, 'DELETE', 'campaign', campaign.id, campaign, null, req)
-      .catch(e => console.error('Audit log error:', e));
+    await logAudit(req.user.id, 'DELETE', 'campaign', campaign.id, campaign, null, req);
+
+    if (global.invalidateDashboardCache) {
+      global.invalidateDashboardCache();
+    }
 
     res.json({ success: true, message: 'Campaign deleted and refunded' });
-
   } catch (error) {
     console.error('Delete campaign error:', error);
     res.status(500).json({ success: false, error: 'Failed to delete campaign' });
@@ -656,12 +632,18 @@ router.delete('/campaign/:id', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// POST /api/ads/campaign/:id/submit — Submit for review
+// POST /api/ads/campaign/:id/submit
 // =============================================
 router.post('/campaign/:id/submit', authMiddleware, async (req, res) => {
   try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) {
+    const { data: campaign, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !campaign) {
       return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
@@ -669,7 +651,8 @@ router.post('/campaign/:id/submit', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Campaign already submitted' });
     }
 
-    const { data } = await supabaseAdmin.from('campaigns')
+    const { data } = await supabaseAdmin
+      .from('campaigns')
       .update({ 
         status: 'pending_review', 
         submitted_at: new Date().toISOString(),
@@ -679,9 +662,13 @@ router.post('/campaign/:id/submit', authMiddleware, async (req, res) => {
       .select()
       .single();
 
-    sendNotification(req.user.id, 'campaign_submitted', 'Campaign Submitted ✅',
-      `Your campaign "${campaign.campaign_name}" has been submitted for review.`)
-      .catch(e => console.error('Notification error:', e));
+    await createNotification(
+      req.user.id,
+      'Campaign Submitted ✅',
+      `Your campaign "${campaign.campaign_name}" has been submitted for review.`,
+      'campaign_submitted',
+      `/social-ads?campaign=${campaign.id}`
+    );
 
     res.json({ success: true, message: 'Campaign submitted for review', data });
   } catch (error) {
@@ -691,15 +678,22 @@ router.post('/campaign/:id/submit', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// POST /api/ads/campaign/:id/pause — Pause campaign
+// POST /api/ads/campaign/:id/pause
 // =============================================
 router.post('/campaign/:id/pause', authMiddleware, async (req, res) => {
   try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) return res.status(404).json({ success: false, error: 'Campaign not found' });
+    const { data: campaign, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !campaign) return res.status(404).json({ success: false, error: 'Campaign not found' });
     if (campaign.status !== 'running') return res.status(400).json({ success: false, error: 'Only running campaigns can be paused' });
 
-    const { data } = await supabaseAdmin.from('campaigns')
+    const { data } = await supabaseAdmin
+      .from('campaigns')
       .update({ 
         status: 'paused', 
         paused_at: new Date().toISOString(),
@@ -717,15 +711,22 @@ router.post('/campaign/:id/pause', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// POST /api/ads/campaign/:id/resume — Resume campaign
+// POST /api/ads/campaign/:id/resume
 // =============================================
 router.post('/campaign/:id/resume', authMiddleware, async (req, res) => {
   try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) return res.status(404).json({ success: false, error: 'Campaign not found' });
+    const { data: campaign, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !campaign) return res.status(404).json({ success: false, error: 'Campaign not found' });
     if (campaign.status !== 'paused') return res.status(400).json({ success: false, error: 'Only paused campaigns can be resumed' });
 
-    const { data } = await supabaseAdmin.from('campaigns')
+    const { data } = await supabaseAdmin
+      .from('campaigns')
       .update({ 
         status: 'running', 
         resumed_at: new Date().toISOString(),
@@ -743,12 +744,18 @@ router.post('/campaign/:id/resume', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// POST /api/ads/campaign/:id/upload — Upload creative to Cloudinary
+// POST /api/ads/campaign/:id/upload
 // =============================================
 router.post('/campaign/:id/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) {
+    const { data: campaign, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !campaign) {
       return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
@@ -756,11 +763,9 @@ router.post('/campaign/:id/upload', authMiddleware, upload.single('file'), async
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    // Determine file type
     const isVideo = req.file.mimetype.startsWith('video');
     const resourceType = isVideo ? 'video' : 'image';
     
-    // Upload to Cloudinary
     const result = await uploadToCloudinary(req.file.buffer, {
       resource_type: resourceType,
       folder: `milesspace/campaigns/${campaign.id}`,
@@ -768,27 +773,29 @@ router.post('/campaign/:id/upload', authMiddleware, upload.single('file'), async
       transformation: isVideo ? [] : [{ quality: 'auto', fetch_format: 'auto' }]
     });
 
-    // Save to database
-    const { data, error } = await supabaseAdmin.from('campaign_creatives').insert({
-      campaign_id: campaign.id,
-      user_id: req.user.id,
-      type: isVideo ? 'video' : 'image',
-      title: req.body.title || 'Creative',
-      description: req.body.description || '',
-      file_url: result.secure_url,
-      file_public_id: result.public_id,
-      file_size: req.file.size,
-      mime_type: req.file.mimetype,
-      width: result.width || null,
-      height: result.height || null,
-      duration: result.duration || null,
-      format: result.format || null,
-      call_to_action: req.body.call_to_action || 'Learn More',
-      status: 'active',
-      created_at: new Date().toISOString()
-    }).select().single();
+    const { data, error: creativeErr } = await supabaseAdmin
+      .from('campaign_creatives')
+      .insert({
+        campaign_id: campaign.id,
+        user_id: req.user.id,
+        type: isVideo ? 'video' : 'image',
+        title: req.body.title || 'Creative',
+        description: req.body.description || '',
+        file_url: result.secure_url,
+        file_public_id: result.public_id,
+        file_size: req.file.size,
+        mime_type: req.file.mimetype,
+        width: result.width || null,
+        height: result.height || null,
+        duration: result.duration || null,
+        format: result.format || null,
+        status: 'active',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    if (error) throw error;
+    if (creativeErr) throw creativeErr;
 
     res.status(201).json({ 
       success: true, 
@@ -799,19 +806,14 @@ router.post('/campaign/:id/upload', authMiddleware, upload.single('file'), async
         cloudinary_id: result.public_id
       }
     });
-
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to upload creative',
-      details: error.message 
-    });
+    res.status(500).json({ success: false, error: 'Failed to upload creative' });
   }
 });
 
 // =============================================
-// DELETE /api/ads/creative/:id — Delete creative
+// DELETE /api/ads/creative/:id
 // =============================================
 router.delete('/creative/:id', authMiddleware, async (req, res) => {
   try {
@@ -826,12 +828,10 @@ router.delete('/creative/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Creative not found' });
     }
 
-    // Delete from Cloudinary
     if (creative.file_public_id) {
       await deleteFromCloudinary(creative.file_public_id);
     }
 
-    // Delete from database
     await supabaseAdmin.from('campaign_creatives').delete().eq('id', creative.id);
 
     res.json({ success: true, message: 'Creative deleted successfully' });
@@ -842,108 +842,12 @@ router.delete('/creative/:id', authMiddleware, async (req, res) => {
 });
 
 // =============================================
-// PUT /api/ads/campaign/:id/report — Update campaign stats (manual)
-// =============================================
-router.put('/campaign/:id/report', authMiddleware, async (req, res) => {
-  try {
-    const campaign = await getCampaign(req.params.id, req.user.id);
-    if (!campaign) return res.status(404).json({ success: false, error: 'Campaign not found' });
-
-    const { impressions, reach, clicks, conversions, spend } = req.body;
-
-    const updates = {
-      impressions: (campaign.impressions || 0) + (impressions || 0),
-      reach: (campaign.reach || 0) + (reach || 0),
-      clicks: (campaign.clicks || 0) + (clicks || 0),
-      conversions: (campaign.conversions || 0) + (conversions || 0),
-      budget_spent: (campaign.budget_spent || 0) + (spend || 0),
-      updated_at: new Date().toISOString()
-    };
-
-    if (updates.impressions > 0 && updates.clicks > 0) {
-      updates.ctr = +((updates.clicks / updates.impressions) * 100).toFixed(2);
-    }
-    if (updates.clicks > 0 && updates.budget_spent > 0) {
-      updates.cpc = +(updates.budget_spent / updates.clicks).toFixed(2);
-    }
-    if (updates.impressions > 0 && updates.budget_spent > 0) {
-      updates.cpm = +((updates.budget_spent / updates.impressions) * 1000).toFixed(2);
-    }
-
-    const { data } = await supabaseAdmin.from('campaigns')
-      .update(updates)
-      .eq('id', campaign.id)
-      .select()
-      .single();
-
-    // Save daily report
-    await supabaseAdmin.from('campaign_reports').upsert({
-      campaign_id: campaign.id,
-      user_id: req.user.id,
-      report_date: new Date().toISOString().split('T')[0],
-      impressions: impressions || 0,
-      reach: reach || 0,
-      clicks: clicks || 0,
-      conversions: conversions || 0,
-      spend: spend || 0,
-      ctr: updates.ctr || 0,
-      cpc: updates.cpc || 0,
-      cpm: updates.cpm || 0,
-      notes: req.body.notes || '',
-      created_at: new Date().toISOString()
-    }, { onConflict: 'campaign_id,report_date' });
-
-    res.json({ success: true, message: 'Report updated', data });
-  } catch (error) {
-    console.error('Update report error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update report' });
-  }
-});
-
-// =============================================
-// GET /api/ads/notifications — User notifications
-// =============================================
-router.get('/notifications', authMiddleware, async (req, res) => {
-  try {
-    const { data } = await supabaseAdmin
-      .from('notifications')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    res.json({ success: true, data: data || [] });
-  } catch (error) {
-    console.error('Fetch notifications error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch notifications' });
-  }
-});
-
-// =============================================
-// PUT /api/ads/notifications/:id/read — Mark notification as read
-// =============================================
-router.put('/notifications/:id/read', authMiddleware, async (req, res) => {
-  try {
-    await supabaseAdmin.from('notifications')
-      .update({ is_read: true })
-      .eq('id', req.params.id)
-      .eq('user_id', req.user.id);
-
-    res.json({ success: true, message: 'Marked as read' });
-  } catch (error) {
-    console.error('Mark notification read error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update notification' });
-  }
-});
-
-// =============================================
-// GET /api/ads/stats — Dashboard stats (fast)
+// GET /api/ads/stats
 // =============================================
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Run queries in parallel for speed
     const [campaignsResult, balanceResult] = await Promise.all([
       supabaseAdmin
         .from('campaigns')

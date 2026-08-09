@@ -1,0 +1,1391 @@
+<!-- widgets/miles-widget.html -->
+<!-- Include this file on any page where you want the support widget -->
+
+<style>
+    /* ─── MILES SUPPORT WIDGET STYLES ─── */
+    .miles-support-widget {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .miles-toggle-btn {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0c3d4a, #12556a);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(12, 61, 74, 0.35);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        position: relative;
+        animation: milesPulse 2s ease-in-out infinite;
+    }
+
+    .miles-toggle-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 28px rgba(12, 61, 74, 0.45);
+    }
+
+    .miles-toggle-btn .label {
+        position: absolute;
+        right: 72px;
+        background: #0c3d4a;
+        color: #fff;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        opacity: 0;
+        transform: translateX(8px);
+        transition: all 0.3s ease;
+        pointer-events: none;
+    }
+
+    .miles-toggle-btn:hover .label {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .miles-toggle-btn .badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        min-width: 22px;
+        height: 22px;
+        border-radius: 99px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 6px;
+        border: 2px solid #fff;
+        animation: badgePop 0.3s ease;
+    }
+
+    @keyframes milesPulse {
+        0%, 100% { box-shadow: 0 4px 20px rgba(12, 61, 74, 0.35); }
+        50% { box-shadow: 0 4px 30px rgba(12, 61, 74, 0.55); }
+    }
+
+    @keyframes badgePop {
+        0% { transform: scale(0); }
+        60% { transform: scale(1.3); }
+        100% { transform: scale(1); }
+    }
+
+    .miles-panel {
+        position: fixed;
+        bottom: 100px;
+        right: 24px;
+        width: 420px;
+        height: 600px;
+        max-height: calc(100vh - 120px);
+        background: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 8px 48px rgba(0, 0, 0, 0.18);
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        animation: milesSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .miles-panel.open {
+        display: flex;
+    }
+
+    @keyframes milesSlideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .miles-header {
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #0c3d4a, #12556a);
+        color: #fff;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+    }
+
+    .miles-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .miles-header-left .icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+
+    .miles-header-left .info h3 {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.3px;
+    }
+
+    .miles-header-left .info .status {
+        font-size: 11px;
+        opacity: 0.8;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .miles-header-left .info .status .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .miles-header-left .info .status .dot.online {
+        background: #22c55e;
+        animation: dotPulse 1.5s infinite;
+    }
+
+    @keyframes dotPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .miles-header-actions {
+        display: flex;
+        gap: 6px;
+    }
+
+    .miles-header-actions button {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .miles-header-actions button:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .miles-tabs {
+        display: flex;
+        border-bottom: 1px solid #e4e8ec;
+        background: #f8fafc;
+        flex-shrink: 0;
+        padding: 0 16px;
+    }
+
+    .miles-tabs .tab {
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #5b7480;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        background: none;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        font-family: inherit;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .miles-tabs .tab:hover {
+        color: #0c3d4a;
+    }
+
+    .miles-tabs .tab.active {
+        color: #0c3d4a;
+        border-bottom-color: #0c3d4a;
+    }
+
+    .miles-tabs .tab .tab-badge {
+        background: #ef4444;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 7px;
+        border-radius: 99px;
+        min-width: 18px;
+        text-align: center;
+    }
+
+    .miles-content {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .miles-tab-content {
+        display: none;
+        height: 100%;
+        overflow-y: auto;
+        padding: 16px 20px;
+        background: #f8fafc;
+    }
+
+    .miles-tab-content.active {
+        display: block;
+    }
+
+    .miles-tab-content::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .miles-tab-content::-webkit-scrollbar-thumb {
+        background: #d1d9e0;
+        border-radius: 99px;
+    }
+
+    .miles-welcome {
+        text-align: center;
+        padding: 8px 0 16px;
+    }
+
+    .miles-welcome .greeting {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0c1f26;
+        margin-bottom: 4px;
+    }
+
+    .miles-welcome .sub {
+        font-size: 14px;
+        color: #5b7480;
+    }
+
+    .miles-suggestions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .miles-suggestion {
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid #e4e8ec;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 500;
+        color: #0c1f26;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .miles-suggestion:hover {
+        border-color: #0c3d4a;
+        background: #f0f7fa;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .miles-suggestion .icon {
+        font-size: 16px;
+    }
+
+    .miles-messages {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .miles-message-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .miles-msg {
+        max-width: 85%;
+        padding: 10px 14px;
+        border-radius: 12px;
+        animation: milesMsgIn 0.3s ease;
+        word-wrap: break-word;
+        line-height: 1.5;
+        font-size: 13px;
+    }
+
+    .miles-msg.user {
+        align-self: flex-end;
+        background: #0c3d4a;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+    }
+
+    .miles-msg.miles {
+        align-self: flex-start;
+        background: #fff;
+        color: #0c1f26;
+        border: 1px solid #e4e8ec;
+        border-bottom-left-radius: 4px;
+    }
+
+    .miles-msg.system {
+        align-self: center;
+        background: #f1f3f5;
+        color: #5b7480;
+        font-size: 12px;
+        max-width: 90%;
+        border-radius: 20px;
+        padding: 6px 16px;
+    }
+
+    .miles-msg .time {
+        font-size: 10px;
+        opacity: 0.6;
+        margin-top: 4px;
+        text-align: right;
+    }
+
+    .miles-msg.user .time {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    @keyframes milesMsgIn {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .miles-typing {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        background: #fff;
+        border: 1px solid #e4e8ec;
+        border-radius: 12px;
+        align-self: flex-start;
+        max-width: 70px;
+    }
+
+    .miles-typing.active {
+        display: flex;
+    }
+
+    .miles-typing .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #5b7480;
+        animation: typingDot 1.4s infinite;
+    }
+
+    .miles-typing .dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    .miles-typing .dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes typingDot {
+        0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.3;
+        }
+        30% {
+            transform: translateY(-6px);
+            opacity: 1;
+        }
+    }
+
+    .miles-input-area {
+        padding: 12px 16px;
+        border-top: 1px solid #e4e8ec;
+        background: #fff;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        flex-shrink: 0;
+    }
+
+    .miles-input-area textarea {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #e4e8ec;
+        border-radius: 10px;
+        resize: none;
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        min-height: 40px;
+        max-height: 100px;
+        background: #f8fafc;
+        transition: border-color 0.2s;
+        line-height: 1.4;
+    }
+
+    .miles-input-area textarea:focus {
+        border-color: #0c3d4a;
+        background: #fff;
+    }
+
+    .miles-input-area .send-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #0c3d4a;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .miles-input-area .send-btn:hover {
+        background: #12556a;
+        transform: scale(1.05);
+    }
+
+    .miles-input-area .send-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .miles-input-area .attach-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid #e4e8ec;
+        background: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #5b7480;
+        transition: all 0.2s;
+        flex-shrink: 0;
+        position: relative;
+    }
+
+    .miles-input-area .attach-btn:hover {
+        border-color: #0c3d4a;
+        color: #0c3d4a;
+    }
+
+    .miles-input-area .attach-btn input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .miles-help-search {
+        margin-bottom: 16px;
+        position: relative;
+    }
+
+    .miles-help-search input {
+        width: 100%;
+        padding: 10px 14px 10px 40px;
+        border: 1px solid #e4e8ec;
+        border-radius: 10px;
+        font-size: 13px;
+        outline: none;
+        background: #fff;
+    }
+
+    .miles-help-search input:focus {
+        border-color: #0c3d4a;
+    }
+
+    .miles-help-search .icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #5b7480;
+        font-size: 14px;
+    }
+
+    .miles-help-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .miles-help-item {
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid #e4e8ec;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .miles-help-item:hover {
+        border-color: #0c3d4a;
+        background: #f0f7fa;
+    }
+
+    .miles-help-item .icon {
+        font-size: 16px;
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .miles-help-item .text {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 500;
+        color: #0c1f26;
+    }
+
+    .miles-help-item .text .sub {
+        font-size: 11px;
+        font-weight: 400;
+        color: #5b7480;
+        display: block;
+        margin-top: 2px;
+    }
+
+    .miles-escalation {
+        background: #fef3d9;
+        border: 1px solid #f59e0b;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        text-align: center;
+        font-size: 13px;
+        color: #b3720a;
+    }
+
+    .miles-escalation .btn-continue {
+        margin-top: 8px;
+        padding: 8px 20px;
+        background: #0c3d4a;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.2s;
+    }
+
+    .miles-escalation .btn-continue:hover {
+        background: #12556a;
+    }
+
+    @media (max-width: 480px) {
+        .miles-panel {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            max-height: 100vh;
+            border-radius: 0;
+            bottom: 0;
+            right: 0;
+        }
+
+        .miles-toggle-btn {
+            width: 56px;
+            height: 56px;
+            font-size: 22px;
+            bottom: 16px;
+            right: 16px;
+        }
+
+        .miles-toggle-btn .label {
+            display: none;
+        }
+
+        .miles-suggestions {
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .miles-suggestion {
+            padding: 10px 12px;
+            font-size: 12px;
+        }
+    }
+
+    @media (min-width: 481px) and (max-width: 768px) {
+        .miles-panel {
+            width: 100%;
+            max-width: 420px;
+            right: 16px;
+            bottom: 90px;
+            height: 550px;
+        }
+    }
+</style>
+
+<div class="miles-support-widget" id="milesWidget">
+    <button class="miles-toggle-btn" id="milesToggle">
+        💬
+        <span class="label">Miles AI</span>
+        <span class="badge" id="milesBadge" style="display:none;">0</span>
+    </button>
+
+    <div class="miles-panel" id="milesPanel">
+        <div class="miles-header">
+            <div class="miles-header-left">
+                <div class="icon">🤖</div>
+                <div class="info">
+                    <h3>Miles AI</h3>
+                    <div class="status">
+                        <span class="dot online"></span>
+                        Online · <span id="milesStatusText">Ready to help</span>
+                    </div>
+                </div>
+            </div>
+            <div class="miles-header-actions">
+                <button onclick="window.MilesWidget?.minimize()" title="Minimize">−</button>
+                <button onclick="window.MilesWidget?.close()" title="Close">✕</button>
+            </div>
+        </div>
+
+        <div class="miles-tabs">
+            <button class="tab active" data-tab="home" onclick="window.MilesWidget?.switchTab('home')">
+                🏠 Home
+            </button>
+            <button class="tab" data-tab="messages" onclick="window.MilesWidget?.switchTab('messages')">
+                💬 Messages
+                <span class="tab-badge" id="milesTabBadge" style="display:none;">0</span>
+            </button>
+            <button class="tab" data-tab="help" onclick="window.MilesWidget?.switchTab('help')">
+                ❓ Help
+            </button>
+        </div>
+
+        <div class="miles-content">
+            <div class="miles-tab-content active" id="tab-home">
+                <div class="miles-welcome">
+                    <div class="greeting" id="milesGreeting">👋 Hi there!</div>
+                    <div class="sub">How can Miles help you today?</div>
+                </div>
+                <div class="miles-suggestions" id="milesSuggestions">
+                    <div class="miles-suggestion" data-query="wallet balance">
+                        <span class="icon">💰</span> Wallet
+                    </div>
+                    <div class="miles-suggestion" data-query="crypto orders">
+                        <span class="icon">🪙</span> Crypto
+                    </div>
+                    <div class="miles-suggestion" data-query="gift card orders">
+                        <span class="icon">🎁</span> Gift Cards
+                    </div>
+                    <div class="miles-suggestion" data-query="marketplace orders">
+                        <span class="icon">🛒</span> Marketplace
+                    </div>
+                    <div class="miles-suggestion" data-query="withdrawals">
+                        <span class="icon">📤</span> Withdrawals
+                    </div>
+                    <div class="miles-suggestion" data-query="account verification">
+                        <span class="icon">🔐</span> Account
+                    </div>
+                    <div class="miles-suggestion" data-query="talk to support">
+                        <span class="icon">👨‍💻</span> Talk to Support
+                    </div>
+                    <div class="miles-suggestion" data-query="how does cashback work">
+                        <span class="icon">🔄</span> Cashback
+                    </div>
+                </div>
+            </div>
+
+            <div class="miles-tab-content" id="tab-messages">
+                <div class="miles-messages">
+                    <div class="miles-message-list" id="milesMessageList"></div>
+                    <div class="miles-typing" id="milesTyping">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                    <div class="miles-input-area">
+                        <button class="attach-btn">
+                            📎
+                            <input type="file" id="milesFileInput" accept="image/*,.pdf,.txt,.doc,.docx" multiple>
+                        </button>
+                        <textarea id="milesInput" placeholder="Ask Miles anything..." rows="1"></textarea>
+                        <button class="send-btn" id="milesSendBtn">➤</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="miles-tab-content" id="tab-help">
+                <div class="miles-help-search">
+                    <span class="icon">🔍</span>
+                    <input type="text" id="milesHelpSearch" placeholder="Search help articles...">
+                </div>
+                <div class="miles-help-list" id="milesHelpList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── MILES SUPPORT WIDGET ───
+class MilesWidget {
+    constructor(config = {}) {
+        this.apiUrl = config.apiUrl || '/api/support';
+        this.userId = config.userId || null;
+        this.token = config.token || null;
+        this.username = config.username || 'User';
+        this.conversationId = config.conversationId || null;
+        this.isOpen = false;
+        this.isMinimized = false;
+        this.messages = [];
+        this.typingTimeout = null;
+        this.pollingInterval = null;
+        this.currentTab = 'home';
+        this.isProcessing = false;
+        this.escalationPending = false;
+
+        this.init();
+    }
+
+    init() {
+        this.renderInitialMessage();
+        this.loadConversation();
+        this.setupEventListeners();
+        this.setupAutoResize();
+        this.setupFileUpload();
+        this.setupSuggestions();
+        this.startPolling();
+        this.setGreeting();
+        this.loadHelpArticles();
+
+        console.log('🤖 Miles AI Widget initialized');
+    }
+
+    setGreeting() {
+        const hour = new Date().getHours();
+        let greeting = '👋 Hi there!';
+        if (hour < 12) greeting = '🌅 Good morning!';
+        else if (hour < 17) greeting = '☀️ Good afternoon!';
+        else greeting = '🌙 Good evening!';
+
+        const el = document.getElementById('milesGreeting');
+        if (el) el.textContent = `${greeting} ${this.username}!`;
+    }
+
+    renderInitialMessage() {
+        const list = document.getElementById('milesMessageList');
+        if (!list) return;
+        if (this.messages.length > 0) return;
+
+        const welcomeMsg = {
+            sender_type: 'miles',
+            message: `👋 Hi ${this.username}! I'm Miles, your MilesSpace assistant.\n\nI can help you with:\n• 💰 Wallet balance & transactions\n• 🪙 Crypto orders & purchases\n• 🎁 Gift cards & send gifts\n• 🛒 Marketplace orders\n• 📤 Withdrawals\n• 🔐 Account & verification\n\nJust type your question or tap one of the suggestions below!`,
+            created_at: new Date().toISOString()
+        };
+
+        this.messages.push(welcomeMsg);
+        this.renderMessages();
+    }
+
+    async loadConversation() {
+        if (!this.conversationId) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/conversations/${this.conversationId}`, {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+
+            const data = await response.json();
+            if (data.success && data.data?.messages) {
+                this.messages = data.data.messages;
+                this.renderMessages();
+                this.scrollToBottom();
+            }
+        } catch (error) {
+            console.error('Load conversation error:', error);
+        }
+    }
+
+    renderMessages() {
+        const list = document.getElementById('milesMessageList');
+        if (!list) return;
+
+        list.innerHTML = this.messages.map(msg => {
+            const isUser = msg.sender_type === 'user';
+            const isSystem = msg.sender_type === 'system';
+            const senderClass = isUser ? 'user' : (isSystem ? 'system' : 'miles');
+            const time = new Date(msg.created_at).toLocaleTimeString();
+            const formattedMessage = this.formatMessage(msg.message);
+
+            return `
+                <div class="miles-msg ${senderClass}">
+                    ${formattedMessage}
+                    <div class="time">${time}</div>
+                </div>
+            `;
+        }).join('');
+
+        if (this.escalationPending) {
+            const notice = document.createElement('div');
+            notice.className = 'miles-escalation';
+            notice.innerHTML = `
+                🔴 This conversation has been escalated to support.
+                <br>
+                <button class="btn-continue" onclick="window.MilesWidget?.continueWithSupport()">
+                    Continue with Admin
+                </button>
+            `;
+            list.appendChild(notice);
+        }
+
+        this.scrollToBottom();
+        this.updateBadge();
+    }
+
+    formatMessage(message) {
+        return message
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/•/g, '•');
+    }
+
+    async sendMessage() {
+        const input = document.getElementById('milesInput');
+        const message = input.value.trim();
+
+        if (!message || this.isProcessing) return;
+
+        this.isProcessing = true;
+        input.value = '';
+        input.disabled = true;
+        document.getElementById('milesSendBtn').disabled = true;
+
+        this.addMessage({
+            sender_type: 'user',
+            message: message,
+            created_at: new Date().toISOString()
+        });
+
+        this.showTyping();
+
+        try {
+            const response = await fetch(`${this.apiUrl}/ask`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    message: message,
+                    conversation_id: this.conversationId
+                })
+            });
+
+            const data = await response.json();
+            this.hideTyping();
+
+            if (data.success) {
+                this.conversationId = data.data.conversation_id;
+
+                this.addMessage({
+                    sender_type: data.data.response_type === 'system' ? 'system' : 'miles',
+                    message: data.data.response,
+                    created_at: new Date().toISOString()
+                });
+
+                if (data.data.escalation_needed) {
+                    this.escalationPending = true;
+                    this.renderMessages();
+                }
+
+                this.updateStatus(data.data.status);
+
+            } else {
+                this.addMessage({
+                    sender_type: 'system',
+                    message: '❌ ' + (data.error || 'Something went wrong. Please try again.'),
+                    created_at: new Date().toISOString()
+                });
+            }
+
+        } catch (error) {
+            console.error('Send message error:', error);
+            this.hideTyping();
+            this.addMessage({
+                sender_type: 'system',
+                message: '❌ Connection error. Please check your internet connection.',
+                created_at: new Date().toISOString()
+            });
+        }
+
+        this.isProcessing = false;
+        input.disabled = false;
+        document.getElementById('milesSendBtn').disabled = false;
+        input.focus();
+        this.scrollToBottom();
+    }
+
+    addMessage(msg) {
+        this.messages.push(msg);
+        this.renderMessages();
+        this.updateBadge();
+    }
+
+    showTyping() {
+        document.getElementById('milesTyping').classList.add('active');
+        document.getElementById('milesStatusText').textContent = 'Miles is typing...';
+        this.scrollToBottom();
+    }
+
+    hideTyping() {
+        document.getElementById('milesTyping').classList.remove('active');
+        document.getElementById('milesStatusText').textContent = 'Ready to help';
+    }
+
+    scrollToBottom() {
+        const list = document.getElementById('milesMessageList');
+        if (list) {
+            setTimeout(() => {
+                list.scrollTop = list.scrollHeight;
+            }, 100);
+        }
+    }
+
+    toggle() {
+        if (this.isMinimized) {
+            this.minimize();
+            return;
+        }
+
+        this.isOpen = !this.isOpen;
+        const panel = document.getElementById('milesPanel');
+        panel.classList.toggle('open', this.isOpen);
+
+        if (this.isOpen) {
+            this.switchTab('messages');
+            document.getElementById('milesInput').focus();
+            this.scrollToBottom();
+            this.markAsRead();
+        }
+    }
+
+    close() {
+        this.isOpen = false;
+        document.getElementById('milesPanel').classList.remove('open');
+        this.stopPolling();
+    }
+
+    minimize() {
+        this.isMinimized = !this.isMinimized;
+        const panel = document.getElementById('milesPanel');
+        if (this.isMinimized) {
+            panel.style.height = '60px';
+            panel.style.overflow = 'hidden';
+            document.querySelector('.miles-content').style.display = 'none';
+            document.querySelector('.miles-input-area').style.display = 'none';
+        } else {
+            panel.style.height = '';
+            panel.style.overflow = '';
+            document.querySelector('.miles-content').style.display = '';
+            document.querySelector('.miles-input-area').style.display = '';
+        }
+    }
+
+    switchTab(tab) {
+        this.currentTab = tab;
+        document.querySelectorAll('.miles-tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.miles-tabs .tab').forEach(el => el.classList.remove('active'));
+
+        const targetTab = document.getElementById(`tab-${tab}`);
+        if (targetTab) targetTab.classList.add('active');
+
+        const targetBtn = document.querySelector(`.miles-tabs .tab[data-tab="${tab}"]`);
+        if (targetBtn) targetBtn.classList.add('active');
+
+        if (tab === 'messages') {
+            this.scrollToBottom();
+            this.markAsRead();
+        }
+    }
+
+    updateStatus(status) {
+        const statusMap = {
+            'active': 'Ready to help',
+            'ai_handling': 'Miles is thinking...',
+            'waiting_admin': 'Waiting for support agent...',
+            'admin_handling': 'Support agent online',
+            'resolved': 'Conversation resolved',
+            'closed': 'Conversation closed'
+        };
+        document.getElementById('milesStatusText').textContent = statusMap[status] || 'Ready to help';
+    }
+
+    updateBadge() {
+        const unread = this.messages.filter(m => 
+            m.sender_type !== 'user' && !m.is_read
+        ).length;
+
+        const badge = document.getElementById('milesBadge');
+        const tabBadge = document.getElementById('milesTabBadge');
+
+        if (unread > 0 && !this.isOpen) {
+            badge.style.display = 'flex';
+            badge.textContent = unread;
+            tabBadge.style.display = 'flex';
+            tabBadge.textContent = unread;
+        } else {
+            badge.style.display = 'none';
+            tabBadge.style.display = 'none';
+        }
+    }
+
+    markAsRead() {
+        if (!this.conversationId) return;
+        fetch(`${this.apiUrl}/conversations/${this.conversationId}/read`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${this.token}` }
+        }).catch(() => {});
+    }
+
+    startPolling() {
+        if (this.pollingInterval) return;
+        this.pollingInterval = setInterval(() => {
+            this.checkForUpdates();
+        }, 5000);
+    }
+
+    stopPolling() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+        }
+    }
+
+    async checkForUpdates() {
+        if (!this.conversationId || !this.isOpen) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/conversations/${this.conversationId}`, {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+
+            const data = await response.json();
+            if (data.success && data.data?.messages) {
+                const newMessages = data.data.messages.slice(this.messages.length);
+                if (newMessages.length > 0) {
+                    newMessages.forEach(msg => {
+                        if (msg.sender_type !== 'user') {
+                            this.addMessage(msg);
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            // Silent fail
+        }
+    }
+
+    setupSuggestions() {
+        document.querySelectorAll('.miles-suggestion').forEach(el => {
+            el.addEventListener('click', () => {
+                const query = el.dataset.query;
+                if (query === 'talk to support') {
+                    this.requestHumanSupport();
+                    return;
+                }
+                document.getElementById('milesInput').value = query;
+                this.switchTab('messages');
+                setTimeout(() => this.sendMessage(), 300);
+            });
+        });
+    }
+
+    async requestHumanSupport() {
+        if (!this.conversationId) {
+            await this.sendMessageToStart();
+        }
+
+        try {
+            const response = await fetch(`${this.apiUrl}/escalate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({
+                    conversation_id: this.conversationId,
+                    reason: 'User requested human support'
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.escalationPending = true;
+                this.addMessage({
+                    sender_type: 'system',
+                    message: '🔴 A support agent has been notified. They will join this conversation shortly.',
+                    created_at: new Date().toISOString()
+                });
+                this.updateStatus('waiting_admin');
+            }
+        } catch (error) {
+            console.error('Request support error:', error);
+        }
+    }
+
+    continueWithSupport() {
+        this.escalationPending = false;
+        this.updateStatus('admin_handling');
+        this.addMessage({
+            sender_type: 'system',
+            message: '👨‍💻 Support agent is now in the conversation. Please continue here.',
+            created_at: new Date().toISOString()
+        });
+        this.renderMessages();
+    }
+
+    async loadHelpArticles() {
+        try {
+            const response = await fetch(`${this.apiUrl}/faq?limit=10`, {
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.renderHelpArticles(data.data || []);
+            }
+        } catch (error) {
+            console.error('Load help articles error:', error);
+        }
+    }
+
+    renderHelpArticles(articles) {
+        const list = document.getElementById('milesHelpList');
+        if (!list) return;
+
+        if (!articles.length) {
+            list.innerHTML = `
+                <div style="text-align:center;padding:40px 0;color:#5b7480;">
+                    <div style="font-size:32px;margin-bottom:8px;">📚</div>
+                    <p>No help articles found.</p>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = articles.map(article => `
+            <div class="miles-help-item" onclick="window.MilesWidget?.askQuestion('${article.question.replace(/'/g, "\\'")}')">
+                <span class="icon">📌</span>
+                <div class="text">
+                    ${article.question}
+                    <span class="sub">${article.category?.name || 'General'}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    searchHelp(query) {
+        if (!query.trim()) {
+            this.loadHelpArticles();
+            return;
+        }
+
+        fetch(`${this.apiUrl}/faq?q=${encodeURIComponent(query)}&limit=10`, {
+            headers: { 'Authorization': `Bearer ${this.token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                this.renderHelpArticles(data.data || []);
+            }
+        })
+        .catch(() => {});
+    }
+
+    askQuestion(question) {
+        document.getElementById('milesInput').value = question;
+        this.switchTab('messages');
+        setTimeout(() => this.sendMessage(), 300);
+    }
+
+    setupFileUpload() {
+        const input = document.getElementById('milesFileInput');
+        input.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.uploadFiles(e.target.files);
+            }
+            e.target.value = '';
+        });
+    }
+
+    async uploadFiles(files) {
+        const formData = new FormData();
+        for (let file of files) {
+            formData.append('files', file);
+        }
+        formData.append('conversation_id', this.conversationId || '');
+
+        try {
+            this.showTyping();
+            const response = await fetch(`${this.apiUrl}/upload`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${this.token}` },
+                body: formData
+            });
+
+            const data = await response.json();
+            this.hideTyping();
+
+            if (data.success) {
+                this.addMessage({
+                    sender_type: 'system',
+                    message: `📎 ${data.files?.length || 0} file(s) uploaded successfully.`,
+                    created_at: new Date().toISOString()
+                });
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.hideTyping();
+            this.addMessage({
+                sender_type: 'system',
+                message: '❌ Failed to upload files. Please try again.',
+                created_at: new Date().toISOString()
+            });
+        }
+    }
+
+    setupEventListeners() {
+        document.getElementById('milesInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        document.getElementById('milesToggle').addEventListener('click', () => {
+            this.toggle();
+        });
+
+        document.getElementById('milesHelpSearch').addEventListener('input', (e) => {
+            this.searchHelp(e.target.value);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.isOpen) {
+                this.close();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            const widget = document.getElementById('milesWidget');
+            const toggle = document.getElementById('milesToggle');
+            if (this.isOpen && !widget.contains(e.target) && !toggle.contains(e.target)) {
+                this.close();
+            }
+        });
+
+        document.getElementById('milesSendBtn').addEventListener('click', () => {
+            this.sendMessage();
+        });
+    }
+
+    setupAutoResize() {
+        const input = document.getElementById('milesInput');
+        input.addEventListener('input', () => {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+        });
+    }
+
+    async sendMessageToStart() {
+        try {
+            const response = await fetch(`${this.apiUrl}/start`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({ message: 'Hello' })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.conversationId = data.data.conversation_id;
+            }
+        } catch (error) {
+            console.error('Start conversation error:', error);
+        }
+    }
+}
+
+// ─── INITIALIZE ───
+document.addEventListener('DOMContentLoaded', () => {
+    const userId = window.__MILES_USER_ID || null;
+    const token = window.__MILES_TOKEN || null;
+    const username = window.__MILES_USERNAME || 'User';
+    const conversationId = window.__MILES_CONVERSATION_ID || null;
+
+    if (!userId || !token) {
+        console.warn('Miles AI: No user data found. Widget may not work properly.');
+    }
+
+    window.MilesWidget = new MilesWidget({
+        apiUrl: '/api/support',
+        userId: userId,
+        token: token,
+        username: username,
+        conversationId: conversationId
+    });
+
+    window.milesWidget = window.MilesWidget;
+});
+</script>

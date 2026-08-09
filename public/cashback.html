@@ -1,0 +1,2250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cashback Wallet — MilesSpace</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://api.milesspace.com" />
+  <link rel="dns-prefetch" href="https://api.milesspace.com" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    /* ─── All existing styles (same as before) ─── */
+    :root {
+      --p: #0c3d4a;
+      --pm: #155e72;
+      --pl: #e8f4f7;
+      --pxl: #f2fafb;
+      --acc: #f59e0b;
+      --acd: #d97706;
+      --acl: #fef3c7;
+      --ok: #10b981;
+      --okl: #d1fae5;
+      --err: #ef4444;
+      --erl: #fee2e2;
+      --bg: #f4f6f8;
+      --srf: #ffffff;
+      --srf2: #f8f9fa;
+      --bdr: #e4e8ec;
+      --t1: #0f1923;
+      --t2: #4a6070;
+      --t3: #92a8b4;
+      --sw: 264px;
+      --r: 10px;
+      --rl: 16px;
+      --rxl: 20px;
+      --rp: 999px;
+      --s0: 0 1px 3px rgba(0,0,0,.04);
+      --s1: 0 4px 14px rgba(0,0,0,.07);
+      --s2: 0 8px 28px rgba(0,0,0,.1);
+      --fd: 'Syne', sans-serif;
+      --fb: 'DM Sans', sans-serif;
+      --ease: cubic-bezier(.25,.8,.25,1);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html { font-size: 15px; scroll-behavior: smooth; }
+    body {
+      font-family: var(--fb);
+      background: var(--bg);
+      color: var(--t1);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { text-decoration: none; color: inherit; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; }
+    input, select { font-family: inherit; }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bdr); border-radius: 4px; }
+
+    .app { display: flex; min-height: 100vh; }
+    .main {
+      margin-left: var(--sw);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .sidebar {
+      width: var(--sw);
+      background: var(--srf);
+      border-right: 1px solid var(--bdr);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      z-index: 500;
+      transition: transform .3s var(--ease);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .sidebar::-webkit-scrollbar { display: none; }
+    @media (min-width: 1025px) {
+      .sidebar { transform: translateX(0) !important; }
+      .tb-hbg { display: none !important; }
+    }
+    @media (max-width: 1024px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0 !important; }
+    }
+
+    .sb-brand {
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid var(--bdr);
+      flex-shrink: 0;
+    }
+    .sb-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--t1);
+      font-family: var(--fd);
+    }
+    .sb-logo img { width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0; }
+    .sb-sec {
+      padding: 16px 16px 5px;
+      font-size: .65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--t3);
+    }
+    .sb-nav { padding: 0 8px; }
+    .sb-lnk {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: var(--r);
+      color: var(--t2);
+      font-size: .85rem;
+      font-weight: 500;
+      transition: all .18s;
+      margin-bottom: 2px;
+      text-decoration: none;
+    }
+    .sb-lnk i { width: 16px; text-align: center; font-size: .85rem; flex-shrink: 0; opacity: .7; }
+    .sb-lnk:hover { background: var(--bg); color: var(--t1); }
+    .sb-lnk.active {
+      background: var(--pl);
+      color: var(--p);
+      font-weight: 600;
+    }
+    .sb-lnk.active i { color: var(--p); opacity: 1; }
+    .sb-lnk.proxy-lnk:hover { background: #f5f3ff; color: #7c3aed; }
+
+    .sb-foot {
+      margin-top: auto;
+      padding: 12px 8px;
+      border-top: 1px solid var(--bdr);
+      flex-shrink: 0;
+    }
+    .sb-prof {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      border-radius: var(--r);
+      transition: all .18s;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .sb-prof:hover { background: var(--bg); }
+    .sb-av {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--p);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: .82rem;
+      color: #fff;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .sb-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .sb-ui { flex: 1; min-width: 0; }
+    .sb-un {
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--t1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sb-ue {
+      font-size: .68rem;
+      color: var(--t3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sb-out {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      color: var(--t3);
+      font-size: .78rem;
+      transition: all .18s;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+    .sb-out:hover { background: var(--erl); color: var(--err); }
+
+    .topbar {
+      background: var(--srf);
+      border-bottom: 1px solid var(--bdr);
+      padding: 0 16px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 400;
+      gap: 10px;
+    }
+    .tb-hbg {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--pl);
+      color: var(--p);
+      font-size: .9rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: all .2s;
+      border: none;
+    }
+    .tb-hbg:hover { background: var(--p); color: #fff; }
+    .tb-brand {
+      font-family: var(--fd);
+      font-size: .9rem;
+      font-weight: 700;
+      color: var(--t1);
+      flex: 1;
+    }
+    .tb-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .tb-icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--srf2);
+      border: 1px solid var(--bdr);
+      display: grid;
+      place-items: center;
+      color: var(--t2);
+      font-size: .85rem;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative;
+      text-decoration: none;
+    }
+    .tb-icon-btn:hover { background: var(--pl); color: var(--p); }
+    .notif-dot {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--err);
+      border: 2px solid var(--srf);
+    }
+    .tb-av {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--p);
+      display: grid;
+      place-items: center;
+      font-family: var(--fd);
+      font-weight: 800;
+      font-size: .8rem;
+      color: #fff;
+      border: 2px solid var(--acc);
+      cursor: pointer;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .tb-av img { width: 100%; height: 100%; object-fit: cover; }
+
+    .content {
+      padding: 16px;
+      flex: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (min-width: 768px) { .content { padding: 20px 22px; } }
+    @media (max-width: 768px) { .content { padding: 12px 10px 78px; } }
+
+    .mnav {
+      display: none;
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 20px);
+      max-width: 400px;
+      height: 52px;
+      background: rgba(255,255,255,.86);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: 18px;
+      box-shadow: 0 6px 24px rgba(12,61,74,.15);
+      z-index: 450;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 4px;
+    }
+    .mni {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      font-size: .48rem;
+      font-weight: 600;
+      color: var(--t3);
+      text-decoration: none;
+      flex: 1;
+    }
+    .mni i {
+      font-size: .78rem;
+      padding: 4px 6px;
+      border-radius: 8px;
+      transition: all .18s;
+    }
+    .mni.active { color: var(--p); }
+    .mni.active i { background: var(--pl); color: var(--p); }
+    @media (max-width: 768px) { .mnav { display: flex; } }
+
+    .ov {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.35);
+      z-index: 499;
+    }
+    .ov.on { display: block; }
+
+    .toasts {
+      position: fixed;
+      bottom: 72px;
+      right: 12px;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-width: 280px;
+      pointer-events: none;
+    }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: var(--rp);
+      box-shadow: var(--s2);
+      font-size: .7rem;
+      font-weight: 500;
+      pointer-events: auto;
+      animation: tIn .22s ease;
+    }
+    .toast.ok { background: var(--okl); color: #065f46; }
+    .toast.err { background: var(--erl); color: #991b1b; }
+    .toast.info { background: var(--srf); color: var(--t1); border: 1px solid var(--bdr); }
+    @keyframes tIn {
+      from { opacity: 0; transform: translateX(36px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .fu {
+      animation: fadeUp .4s var(--ease) both;
+    }
+    .d1 { animation-delay: .03s; }
+    .d2 { animation-delay: .07s; }
+    .d3 { animation-delay: .11s; }
+    .d4 { animation-delay: .15s; }
+    .d5 { animation-delay: .19s; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    /* ─── Page Header ─── */
+    .page-header {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .page-header h1 {
+      font-family: var(--fd);
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--t1);
+      letter-spacing: -.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .page-header h1 i { color: var(--acc); }
+    .page-header p {
+      font-size: .8rem;
+      color: var(--t3);
+      margin-top: 2px;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      background: var(--acl);
+      border: 1px solid var(--acc);
+      border-radius: var(--rp);
+      font-size: .6rem;
+      font-weight: 700;
+      color: #92400e;
+      font-family: var(--fd);
+    }
+
+    /* ─── Wallet Card ─── */
+    .wallet-card {
+      background: linear-gradient(145deg, var(--p) 0%, #0a2f3a 100%);
+      border-radius: var(--rxl);
+      padding: 24px 20px;
+      color: #fff;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--s2);
+    }
+    .wallet-card::before {
+      content: '';
+      position: absolute;
+      top: -40px;
+      right: -40px;
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, rgba(245,158,11,.12), transparent 70%);
+      pointer-events: none;
+    }
+    .wallet-card::after {
+      content: '';
+      position: absolute;
+      bottom: -30px;
+      left: -30px;
+      width: 100px;
+      height: 100px;
+      background: radial-gradient(circle, rgba(16,185,129,.08), transparent 70%);
+      pointer-events: none;
+    }
+    .wc-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+    }
+    .wc-label {
+      font-size: .65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,.5);
+    }
+    .wc-redeem-btn {
+      padding: 4px 14px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: var(--rp);
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      backdrop-filter: blur(4px);
+    }
+    .wc-redeem-btn:hover {
+      background: rgba(255,255,255,.2);
+      transform: scale(1.02);
+    }
+    .wc-balance { position: relative; z-index: 1; }
+    .wc-amount {
+      font-family: var(--fd);
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .wc-amount .currency {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: rgba(255,255,255,.5);
+      margin-right: 4px;
+    }
+    .wc-sub {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .wc-sub-item {
+      font-size: .7rem;
+      color: rgba(255,255,255,.5);
+    }
+    .wc-sub-item span { color: rgba(255,255,255,.9); font-weight: 600; }
+    .wc-progress { margin-top: 14px; position: relative; z-index: 1; }
+    .wc-progress-bar {
+      height: 4px;
+      background: rgba(255,255,255,.12);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .wc-progress-fill {
+      height: 100%;
+      background: var(--acc);
+      border-radius: 4px;
+      transition: width .6s ease;
+    }
+    .wc-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: .58rem;
+      color: rgba(255,255,255,.4);
+    }
+    .wc-progress-label .highlight { color: var(--acc); font-weight: 600; }
+
+    /* ─── Service Tabs ─── */
+    .service-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 480px) { .service-tabs { grid-template-columns: 1fr; } }
+    .service-tab {
+      padding: 12px 10px;
+      background: var(--srf);
+      border: 2px solid var(--bdr);
+      border-radius: var(--rl);
+      text-align: center;
+      cursor: pointer;
+      transition: all .22s;
+      font-family: var(--fd);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .service-tab:hover {
+      border-color: var(--p);
+      transform: translateY(-2px);
+      box-shadow: var(--s1);
+    }
+    .service-tab.active {
+      border-color: var(--acc);
+      background: var(--acl);
+    }
+    .service-tab .st-icon { font-size: 1.4rem; margin-bottom: 2px; }
+    .service-tab .st-name { font-size: .75rem; font-weight: 700; color: var(--t1); }
+    .service-tab .st-sub {
+      font-size: .55rem;
+      color: var(--t3);
+      font-family: var(--fb);
+      font-weight: 500;
+    }
+    .service-tab.active .st-name { color: var(--acd); }
+
+    /* ─── Validation Status ─── */
+    .validation-status {
+      font-size: .7rem;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: var(--r);
+      margin-top: -6px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .validation-status.show { display: block; }
+    .validation-status.valid {
+      background: var(--okl);
+      color: #065f46;
+      border: 1px solid var(--ok);
+    }
+    .validation-status.invalid {
+      background: var(--erl);
+      color: #991b1b;
+      border: 1px solid var(--err);
+    }
+    .validation-status.loading {
+      background: #fef9c3;
+      color: #854d0e;
+      border: 1px solid #fcd34d;
+    }
+
+    /* ─── Purchase Form ─── */
+    .purchase-panel {
+      background: var(--srf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rxl);
+      padding: 20px;
+      box-shadow: var(--s0);
+      margin-bottom: 20px;
+    }
+    .pp-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .pp-header .pp-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .pp-header h3 {
+      font-family: var(--fd);
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--t1);
+    }
+    .pp-header .pp-sub { font-size: .62rem; color: var(--t3); }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: .7rem;
+      font-weight: 600;
+      color: var(--t2);
+      margin-bottom: 4px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--bdr);
+      border-radius: var(--r);
+      font-size: .85rem;
+      background: var(--srf2);
+      transition: all .2s;
+      outline: none;
+      font-family: var(--fb);
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--p);
+      background: var(--srf);
+      box-shadow: 0 0 0 3px rgba(12,61,74,.08);
+    }
+    .form-group input::placeholder { color: var(--t3); }
+
+    .price-display {
+      background: var(--srf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rl);
+      padding: 12px 14px;
+      margin: 12px 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .price-display .pd-label {
+      font-size: .7rem;
+      font-weight: 600;
+      color: var(--t2);
+    }
+    .price-display .pd-amount {
+      font-family: var(--fd);
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--p);
+    }
+    .price-display .pd-amount .pd-fee {
+      font-size: .65rem;
+      font-weight: 600;
+      color: var(--t3);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--p);
+      color: #fff;
+      border: none;
+      border-radius: var(--rp);
+      font-family: var(--fd);
+      font-weight: 700;
+      font-size: .85rem;
+      cursor: pointer;
+      transition: all .22s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--pm);
+      transform: translateY(-2px);
+      box-shadow: var(--s1);
+    }
+    .btn-primary:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-primary .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Recent Purchases ─── */
+    .recent-card {
+      background: var(--srf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rxl);
+      padding: 16px;
+      box-shadow: var(--s0);
+    }
+    .recent-card .rc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .recent-card .rc-header h4 {
+      font-family: var(--fd);
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--t1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .recent-card .rc-header h4 i { color: var(--p); }
+    .recent-card .rc-empty {
+      text-align: center;
+      padding: 20px;
+      color: var(--t3);
+      font-size: .75rem;
+    }
+    .recent-card .rc-empty i {
+      font-size: 1.4rem;
+      display: block;
+      margin-bottom: 6px;
+      color: var(--bdr);
+    }
+    .rc-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .rc-item:last-child { border-bottom: none; }
+    .rc-item .rc-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: .8rem;
+      flex-shrink: 0;
+    }
+    .rc-item .rc-info { flex: 1; min-width: 0; }
+    .rc-item .rc-name {
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--t1);
+    }
+    .rc-item .rc-meta { font-size: .6rem; color: var(--t3); }
+    .rc-item .rc-amount {
+      font-family: var(--fd);
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--ok);
+      flex-shrink: 0;
+    }
+    .rc-item .rc-status {
+      font-size: .55rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .rc-status.success { background: var(--okl); color: #065f46; }
+    .rc-status.pending { background: #fef9c3; color: #854d0e; }
+    .rc-status.failed { background: var(--erl); color: #991b1b; }
+
+    .toast-container {
+      position: fixed;
+      bottom: 76px;
+      right: 14px;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-width: 320px;
+      pointer-events: none;
+    }
+    .toast-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: var(--rp);
+      background: var(--srf);
+      border: 1px solid var(--bdr);
+      box-shadow: var(--s2);
+      font-size: .75rem;
+      font-weight: 600;
+      pointer-events: auto;
+      animation: slideIn .3s ease;
+    }
+    .toast-item.success { border-color: var(--ok); background: var(--okl); color: #065f46; }
+    .toast-item.error { border-color: var(--err); background: var(--erl); color: #991b1b; }
+    .toast-item.warning { border-color: var(--acc); background: var(--acl); color: #92400e; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    @media (max-width: 480px) {
+      .wallet-card { padding: 18px 14px; }
+      .wc-amount { font-size: 1.8rem; }
+      .purchase-panel { padding: 14px; }
+      .service-tab .st-icon { font-size: 1.2rem; }
+      .service-tab .st-name { font-size: .68rem; }
+      .price-display .pd-amount { font-size: .95rem; }
+    }
+  </style>
+
+  <script src="/js/session.js"></script>
+  <script src="/js/presence.js" defer></script>
+</head>
+<body>
+
+<div class="ov" id="ov"></div>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sb">
+    <div class="sb-brand">
+      <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">MilesSpace</div>
+    </div>
+    <p class="sb-sec">Menu</p>
+    <nav class="sb-nav">
+      <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
+      <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+      <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+      <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+      <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+      <a href="Sendgift.html"  class="sb-lnk"><i class="fas fa-gift"></i> Send Gift</a>
+      <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+      <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+    </nav>
+    <p class="sb-sec">Account</p>
+    <nav class="sb-nav">
+      <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+      <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+      <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk">
+        <i class="fas fa-shield-alt"></i> Buy Proxy
+      </a>
+    </nav>
+    <div class="sb-foot">
+      <a href="profile.html" class="sb-prof">
+        <div class="sb-av" id="sbAv">U</div>
+        <div class="sb-ui">
+          <p class="sb-un" id="sbName">Loading…</p>
+          <p class="sb-ue" id="sbEmail"></p>
+        </div>
+        <button class="sb-out" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button>
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+      <p class="tb-brand">⭐ Cashback</p>
+      <div class="tb-right">
+        <a href="notifications.html" class="tb-icon-btn">
+          <i class="fas fa-bell"></i>
+          <span class="notif-dot"></span>
+        </a>
+        <div class="tb-av" id="tbAv">U</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-header fu d1">
+        <div>
+          <h1><i class="fas fa-coins"></i> Cashback Wallet</h1>
+          <p>Use your cashback rewards for Airtime, Data, and Electricity bills.</p>
+        </div>
+        <span class="header-badge"><i class="fas fa-lock"></i> PIN Protected</span>
+      </div>
+
+      <!-- WALLET CARD -->
+      <div class="wallet-card fu d2" id="walletCard">
+        <div class="wc-top">
+          <span class="wc-label"><i class="fas fa-wallet"></i> Available Cashback</span>
+          <button class="wc-redeem-btn" onclick="window.location.href='history.html'">
+            <i class="fas fa-history"></i> History
+          </button>
+        </div>
+        <div class="wc-balance">
+          <div class="wc-amount">
+            <span class="currency">₦</span>
+            <span id="cashbackBalance">0.00</span>
+          </div>
+          <div class="wc-sub">
+            <span class="wc-sub-item">Lifetime Earned: <span id="lifetimeEarned">₦0.00</span></span>
+            <span class="wc-sub-item">Used: <span id="lifetimeUsed">₦0.00</span></span>
+          </div>
+        </div>
+        <div class="wc-progress">
+          <div class="wc-progress-bar">
+            <div class="wc-progress-fill" id="progressFill" style="width: 0%"></div>
+          </div>
+          <div class="wc-progress-label">
+            <span>Min redemption: <strong>₦100</strong></span>
+            <span class="highlight" id="progressLabel">0% of ₦5,000 goal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SERVICE TABS -->
+      <div class="service-tabs fu d3" id="serviceTabs">
+        <div class="service-tab active" data-service="airtime" onclick="selectService('airtime')">
+          <span class="st-icon">📱</span>
+          <span class="st-name">Airtime</span>
+          <span class="st-sub">MTN, Glo, Airtel, 9mobile</span>
+        </div>
+        <div class="service-tab" data-service="data" onclick="selectService('data')">
+          <span class="st-icon">📶</span>
+          <span class="st-name">Data</span>
+          <span class="st-sub">MTN, Airtel, Glo, 9mobile</span>
+        </div>
+        <div class="service-tab" data-service="electricity" onclick="selectService('electricity')">
+          <span class="st-icon">💡</span>
+          <span class="st-name">Electricity</span>
+          <span class="st-sub">IKEDC, EKEDC, PHCN</span>
+        </div>
+      </div>
+
+      <!-- PURCHASE PANEL -->
+      <div class="purchase-panel fu d4" id="purchasePanel">
+        <div class="pp-header">
+          <div class="pp-icon" id="serviceIcon" style="background:var(--acl);color:var(--acd);">
+            <i class="fas fa-phone-alt"></i>
+          </div>
+          <div>
+            <h3 id="serviceTitle">Buy Airtime</h3>
+            <span class="pp-sub" id="serviceDesc">Recharge your phone instantly</span>
+          </div>
+        </div>
+
+        <!-- FORM -->
+        <div id="formContainer">
+          <!-- Dynamic form rendered by JS -->
+        </div>
+
+        <!-- VALIDATION STATUS -->
+        <div id="validationStatus" class="validation-status"></div>
+
+        <!-- PRICE DISPLAY -->
+        <div class="price-display" id="priceDisplay">
+          <span class="pd-label">Total Cost</span>
+          <span class="pd-amount">
+            ₦<span id="totalCost">0.00</span>
+            <span class="pd-fee" id="feeDisplay"></span>
+          </span>
+        </div>
+
+        <!-- CONFIRM BUTTON -->
+        <button class="btn-primary" id="purchaseBtn" onclick="confirmPurchase()">
+          <i class="fas fa-check-circle"></i> Confirm Purchase
+        </button>
+        <p style="font-size:.6rem;color:var(--t3);text-align:center;margin-top:6px;">
+          <i class="fas fa-lock"></i> Deducted from your Cashback wallet
+        </p>
+      </div>
+
+      <!-- RECENT PURCHASES -->
+      <div class="recent-card fu d5">
+        <div class="rc-header">
+          <h4><i class="fas fa-clock-rotate-left"></i> Recent Purchases</h4>
+          <a href="history.html" class="view-all" style="font-size:.7rem;font-weight:600;color:var(--pm);cursor:pointer;">
+            View all →
+          </a>
+        </div>
+        <div id="recentList">
+          <div class="rc-empty">
+            <i class="fas fa-receipt"></i>
+            No recent purchases yet
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MOBILE NAV -->
+  <nav class="mnav">
+    <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+    <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+    <a href="cashback.html" class="mni active"><i class="fas fa-coins"></i><span>Cashback</span></a>
+    <a href="market.html" class="mni"><i class="fas fa-store"></i><span>Market</span></a>
+    <a href="profile.html" class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
+  </nav>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+</div>
+
+<!-- ─── PIN MODAL ─── -->
+<div class="modal-overlay" id="pinModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+  <div class="modal" style="background:var(--srf);border-radius:var(--rxl);padding:30px 24px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto;">
+    <h3 style="font-family:var(--fd);font-size:1.1rem;font-weight:800;text-align:center;margin-bottom:4px;">🔐 Enter Transaction PIN</h3>
+    <p class="sub" style="text-align:center;color:var(--t3);font-size:.8rem;margin-bottom:20px;">Enter your 4-digit PIN to confirm this purchase</p>
+    <div class="pin-inputs" style="display:flex;gap:10px;justify-content:center;margin-bottom:16px;">
+      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin1">
+      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin2">
+      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin3">
+      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin4">
+    </div>
+    <div id="pinError" style="text-align:center;font-size:.75rem;font-weight:600;color:var(--err);min-height:20px;margin-bottom:8px;"></div>
+    <div id="pinAttempts" style="text-align:center;font-size:.65rem;color:var(--t3);margin-bottom:12px;"></div>
+    <div id="pinLockedMsg" style="display:none;background:var(--erl);border:1px solid var(--err);border-radius:var(--r);padding:12px;text-align:center;margin-bottom:12px;">
+      <span style="font-size:1.5rem;display:block;">🔒</span>
+      <div style="font-weight:700;color:var(--err);">PIN Locked</div>
+      <div style="font-size:.75rem;color:var(--t2);">Too many failed attempts. Please wait <span id="lockTimer">60</span> minutes.</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-cancel" onclick="closePinModal()" style="flex:1;padding:10px;border-radius:var(--rp);background:var(--srf2);border:1px solid var(--bdr);font-weight:600;font-size:.8rem;color:var(--t2);cursor:pointer;transition:all .2s;">Cancel</button>
+      <button class="btn-confirm-pin" id="pinConfirmBtn" onclick="confirmPin()" style="flex:2;padding:10px;border-radius:var(--rp);background:var(--p);color:#fff;font-weight:700;font-size:.8rem;cursor:pointer;transition:all .2s;border:none;" disabled>Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── CONFIG ───
+const API_BASE = '/api';
+const SESSION_KEY = 'mx_sess';
+const MIN_REDEEM = 100; // ─── CHANGED: Minimum ₦100 ───
+const MAX_PIN_ATTEMPTS = 4;
+const PIN_LOCK_DURATION = 60 * 60 * 1000;
+
+// ─── REAL VTpass DATA PLANS ───
+const DATA_PLANS = {
+  mtn: {
+    label: 'MTN Data',
+    serviceID: 'mtn-data',
+    variations: [
+      { code: 'mtn-50', name: '50MB - 1 Day', amount: 50 },
+      { code: 'mtn-100', name: '100MB - 1 Day', amount: 100 },
+      { code: 'mtn-200', name: '200MB - 2 Days', amount: 200 },
+      { code: 'mtn-350', name: '350MB - 7 Days', amount: 350 },
+      { code: 'mtn-500', name: '500MB - 7 Days', amount: 500 },
+      { code: 'mtn-750', name: '750MB - 14 Days', amount: 750 },
+      { code: 'mtn-1000', name: '1GB - 30 Days', amount: 1000 },
+      { code: 'mtn-1500', name: '1.5GB - 30 Days', amount: 1500 },
+      { code: 'mtn-2000', name: '2GB - 30 Days', amount: 2000 },
+      { code: 'mtn-2500', name: '2.5GB - 30 Days', amount: 2500 },
+      { code: 'mtn-3000', name: '3GB - 30 Days', amount: 3000 },
+      { code: 'mtn-5000', name: '5GB - 30 Days', amount: 5000 }
+    ]
+  },
+  airtel: {
+    label: 'Airtel Data',
+    serviceID: 'airtel-data',
+    variations: [
+      { code: 'airt-50', name: '25MB - 1 Day', amount: 50 },
+      { code: 'airt-100', name: '75MB - 1 Day', amount: 100 },
+      { code: 'airt-200', name: '200MB - 3 Days', amount: 200 },
+      { code: 'airt-300', name: '350MB - 7 Days', amount: 300 },
+      { code: 'airt-500', name: '750MB - 14 Days', amount: 500 },
+      { code: 'airt-600', name: '1GB - 14 Days', amount: 600 },
+      { code: 'airt-1000', name: '1.5GB - 30 Days', amount: 1000 },
+      { code: 'airt-1500', name: '3GB - 30 Days', amount: 1500 },
+      { code: 'airt-2000', name: '4.5GB - 30 Days', amount: 2000 },
+      { code: 'airt-3000', name: '8GB - 30 Days', amount: 3000 },
+      { code: 'airt-4000', name: '11GB - 30 Days', amount: 4000 },
+      { code: 'airt-5000', name: '15GB - 30 Days', amount: 5000 }
+    ]
+  },
+  glo: {
+    label: 'Glo Data',
+    serviceID: 'glo-data',
+    variations: [
+      { code: 'glo-50', name: '50MB - 1 Day', amount: 50 },
+      { code: 'glo-100', name: '100MB - 1 Day', amount: 100 },
+      { code: 'glo-200', name: '200MB - 2 Days', amount: 200 },
+      { code: 'glo-350', name: '350MB - 7 Days', amount: 350 },
+      { code: 'glo-500', name: '500MB - 7 Days', amount: 500 },
+      { code: 'glo-1000', name: '1GB - 30 Days', amount: 1000 },
+      { code: 'glo-1500', name: '1.5GB - 30 Days', amount: 1500 },
+      { code: 'glo-2000', name: '2GB - 30 Days', amount: 2000 },
+      { code: 'glo-3000', name: '3GB - 30 Days', amount: 3000 },
+      { code: 'glo-5000', name: '5GB - 30 Days', amount: 5000 }
+    ]
+  },
+  '9mobile': {
+    label: '9mobile Data',
+    serviceID: '9mobile-data',
+    variations: [
+      { code: 'etisalat-50', name: '50MB - 1 Day', amount: 50 },
+      { code: 'etisalat-100', name: '100MB - 1 Day', amount: 100 },
+      { code: 'etisalat-200', name: '200MB - 2 Days', amount: 200 },
+      { code: 'etisalat-350', name: '350MB - 7 Days', amount: 350 },
+      { code: 'etisalat-500', name: '500MB - 7 Days', amount: 500 },
+      { code: 'etisalat-1000', name: '1GB - 30 Days', amount: 1000 },
+      { code: 'etisalat-1500', name: '1.5GB - 30 Days', amount: 1500 },
+      { code: 'etisalat-2000', name: '2GB - 30 Days', amount: 2000 },
+      { code: 'etisalat-3000', name: '3GB - 30 Days', amount: 3000 },
+      { code: 'etisalat-5000', name: '5GB - 30 Days', amount: 5000 }
+    ]
+  }
+};
+
+// ─── STATE ───
+const State = {
+  balance: 0,
+  lifetimeEarned: 0,
+  lifetimeUsed: 0,
+  service: 'airtime',
+  amount: 0,
+  phone: '',
+  network: 'mtn',
+  meterNumber: '',
+  provider: 'ikeja',
+  loading: false,
+  recent: [],
+  hasPin: null,
+  pendingPurchase: null,
+  isValidating: false,
+  validationResult: null
+};
+
+// ─── DOM REFS ───
+const $ = id => document.getElementById(id);
+const DOM = {
+  sb: $('sb'),
+  ov: $('ov'),
+  hbg: $('hbg'),
+  sbAv: $('sbAv'),
+  sbName: $('sbName'),
+  sbEmail: $('sbEmail'),
+  tbAv: $('tbAv'),
+  logoutBtn: $('logoutBtn'),
+  cashbackBalance: $('cashbackBalance'),
+  lifetimeEarned: $('lifetimeEarned'),
+  lifetimeUsed: $('lifetimeUsed'),
+  progressFill: $('progressFill'),
+  progressLabel: $('progressLabel'),
+  serviceTabs: $('serviceTabs'),
+  serviceIcon: $('serviceIcon'),
+  serviceTitle: $('serviceTitle'),
+  serviceDesc: $('serviceDesc'),
+  formContainer: $('formContainer'),
+  totalCost: $('totalCost'),
+  feeDisplay: $('feeDisplay'),
+  priceDisplay: $('priceDisplay'),
+  purchaseBtn: $('purchaseBtn'),
+  recentList: $('recentList'),
+  toastContainer: $('toastContainer'),
+  validationStatus: $('validationStatus'),
+  pinModal: $('pinModal'),
+  pin1: $('pin1'),
+  pin2: $('pin2'),
+  pin3: $('pin3'),
+  pin4: $('pin4'),
+  pinError: $('pinError'),
+  pinAttempts: $('pinAttempts'),
+  pinLockedMsg: $('pinLockedMsg'),
+  lockTimer: $('lockTimer'),
+  pinConfirmBtn: $('pinConfirmBtn')
+};
+
+// ─── HELPERS ───
+const getToken = () => {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw).token : null;
+  } catch { return null; }
+};
+
+const getSession = () => {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+
+const redirectToLogin = () => window.location.href = 'login.html';
+
+const formatNaira = (n) => {
+  return Number(n).toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
+// ─── API REQUEST ───
+const apiCache = new Map();
+const CACHE_TTL = 60000;
+
+async function apiRequest(endpoint, options = {}, useCache = false) {
+  const token = getToken();
+  if (!token) { redirectToLogin(); return null; }
+
+  const cacheKey = endpoint + JSON.stringify(options);
+  if (useCache && apiCache.has(cacheKey)) {
+    const cached = apiCache.get(cacheKey);
+    if (Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+    apiCache.delete(cacheKey);
+  }
+
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+  try {
+    const resp = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    let data = {};
+    try { data = await resp.json(); } catch { /* no json */ }
+
+    if (resp.status === 401) {
+      const authFailures = ['NO_TOKEN', 'INVALID_TOKEN', 'SESSION_EXPIRED', 'AUTH_SERVICE_UNAVAILABLE'];
+      if (!data.code || authFailures.includes(data.code)) {
+        redirectToLogin();
+        return null;
+      }
+      return { success: false, ...data };
+    }
+
+    if (!resp.ok) {
+      return { success: false, error: data.error || 'Request failed', ...data };
+    }
+
+    if (useCache) {
+      apiCache.set(cacheKey, { data, timestamp: Date.now() });
+    }
+    return data;
+  } catch (e) {
+    console.error('API Error:', e);
+    return { success: false, error: e.message || 'Network error' };
+  }
+}
+
+// ─── TOAST ───
+const showToast = (msg, type = 'info') => {
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  const icons = {
+    success: 'fa-check-circle',
+    error: 'fa-times-circle',
+    warning: 'fa-triangle-exclamation',
+    info: 'fa-info-circle'
+  };
+  el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${msg}`;
+  DOM.toastContainer.appendChild(el);
+  setTimeout(() => {
+    el.style.cssText = 'opacity:0;transition:.3s;transform:translateX(30px)';
+    setTimeout(() => el.remove(), 300);
+  }, 3800);
+};
+
+// ─── USER UI ───
+const updateUserUI = () => {
+  const session = getSession();
+  if (session?.user) {
+    const u = session.user;
+    const name = u.username || u.email || 'User';
+    const email = u.email || '';
+    const init = name.charAt(0).toUpperCase();
+    DOM.sbName.textContent = name;
+    DOM.sbEmail.textContent = email;
+    DOM.sbAv.textContent = init;
+    DOM.tbAv.textContent = init;
+  }
+};
+
+// ─── SIDEBAR ───
+const initSidebar = () => {
+  DOM.hbg.addEventListener('click', () => {
+    if (window.innerWidth < 1025) {
+      DOM.sb.classList.toggle('open');
+      DOM.ov.classList.toggle('on');
+    }
+  });
+  DOM.ov.addEventListener('click', () => {
+    DOM.sb.classList.remove('open');
+    DOM.ov.classList.remove('on');
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth >= 1025) {
+      DOM.sb.classList.remove('open');
+      DOM.ov.classList.remove('on');
+    }
+  });
+};
+
+// ─── LOGOUT ───
+DOM.logoutBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+  try { await apiRequest('/auth/logout', { method: 'POST' }); } catch {}
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+  window.location.href = 'login.html';
+});
+
+// ════════════════════════════════════════════════
+//  CASHBACK WALLET
+// ════════════════════════════════════════════════
+
+const loadBalance = async () => {
+  try {
+    const resp = await apiRequest('/cashback/balance');
+    if (resp?.success) {
+      State.balance = resp.data.balance || 0;
+      State.lifetimeEarned = resp.data.lifetime_earned || 0;
+      State.lifetimeUsed = resp.data.lifetime_used || 0;
+      updateWalletUI();
+    }
+  } catch (e) {
+    console.error('Balance load error:', e);
+  }
+};
+
+const updateWalletUI = () => {
+  DOM.cashbackBalance.textContent = formatNaira(State.balance);
+  DOM.lifetimeEarned.textContent = `₦${formatNaira(State.lifetimeEarned)}`;
+  DOM.lifetimeUsed.textContent = `₦${formatNaira(State.lifetimeUsed)}`;
+
+  const goal = 5000;
+  const pct = Math.min(100, (State.balance / goal) * 100);
+  DOM.progressFill.style.width = pct + '%';
+  DOM.progressLabel.textContent = `${pct.toFixed(0)}% of ₦${formatNaira(goal)} goal`;
+
+  DOM.purchaseBtn.disabled = State.balance < MIN_REDEEM;
+  if (State.balance < MIN_REDEEM) {
+    DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Need ₦${formatNaira(MIN_REDEEM)} minimum`;
+  } else {
+    DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Confirm with PIN`;
+    DOM.purchaseBtn.disabled = false;
+  }
+};
+
+// ════════════════════════════════════════════════
+//  SERVICE CONFIG
+// ════════════════════════════════════════════════
+
+const SERVICE_CONFIG = {
+  airtime: {
+    icon: 'fas fa-phone-alt',
+    bg: '#e8f4f7',
+    color: '#0c3d4a',
+    title: 'Buy Airtime',
+    desc: 'Recharge your phone instantly',
+    fields: [
+      { id: 'network', label: 'Network', type: 'select', options: [
+        { value: 'mtn', label: 'MTN' },
+        { value: 'glo', label: 'Glo' },
+        { value: 'airtel', label: 'Airtel' },
+        { value: '9mobile', label: '9mobile' }
+      ]},
+      { id: 'phone', label: 'Phone Number', type: 'text', placeholder: '08012345678', maxlength: 11, validation: true },
+      { id: 'amount', label: 'Amount (₦)', type: 'number', placeholder: '100', min: 50 }
+    ]
+  },
+  data: {
+    icon: 'fas fa-wifi',
+    bg: '#e8f4f7',
+    color: '#0c3d4a',
+    title: 'Buy Data',
+    desc: 'Get data plans for all networks',
+    fields: [
+      { id: 'network', label: 'Network', type: 'select', options: [
+        { value: 'mtn', label: 'MTN' },
+        { value: 'glo', label: 'Glo' },
+        { value: 'airtel', label: 'Airtel' },
+        { value: '9mobile', label: '9mobile' }
+      ]},
+      { id: 'phone', label: 'Phone Number', type: 'text', placeholder: '08012345678', maxlength: 11, validation: true },
+      { id: 'dataPlan', label: 'Data Plan', type: 'select', options: [] } // Dynamic from VTpass
+    ]
+  },
+  electricity: {
+    icon: 'fas fa-lightbulb',
+    bg: '#fef3c7',
+    color: '#d97706',
+    title: 'Pay Electricity',
+    desc: 'Pay your electricity bills',
+    fields: [
+      { id: 'provider', label: 'Provider', type: 'select', options: [
+        { value: 'ikeja', label: 'IKEDC' },
+        { value: 'eko', label: 'EKEDC' },
+        { value: 'phcn', label: 'PHCN' },
+        { value: 'abuja', label: 'AEDC' },
+        { value: 'ibadan', label: 'IBEDC' }
+      ]},
+      { id: 'meterType', label: 'Meter Type', type: 'select', options: [
+        { value: 'prepaid', label: 'Prepaid' },
+        { value: 'postpaid', label: 'Postpaid' }
+      ]},
+      { id: 'meterNumber', label: 'Meter Number', type: 'text', placeholder: 'Enter 11-digit meter number', maxlength: 11, validation: true },
+      { id: 'amount', label: 'Amount (₦)', type: 'number', placeholder: '1000', min: 100 }
+    ]
+  }
+};
+
+// ════════════════════════════════════════════════
+//  DEBOUNCE
+// ════════════════════════════════════════════════
+
+const debounce = (fn, delay = 400) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+};
+
+// ════════════════════════════════════════════════
+//  VALIDATION FUNCTIONS - VTpass API Integration
+// ════════════════════════════════════════════════
+
+const getValidationStatusEl = () => DOM.validationStatus;
+
+const showValidationStatus = (message, type = 'loading') => {
+  const el = getValidationStatusEl();
+  if (!el) return;
+  el.textContent = message;
+  el.className = `validation-status show ${type}`;
+};
+
+const hideValidationStatus = () => {
+  const el = getValidationStatusEl();
+  if (!el) return;
+  el.className = 'validation-status';
+};
+
+// ─── Validate Phone Number (Network detection) ───
+const validatePhoneNumber = debounce(async function() {
+  const service = State.service;
+  if (service === 'electricity') return;
+
+  const phone = document.getElementById('form_phone')?.value?.trim();
+  if (!phone || phone.length < 10) {
+    hideValidationStatus();
+    return;
+  }
+
+  State.isValidating = true;
+  showValidationStatus('⏳ Verifying phone number...', 'loading');
+
+  try {
+    const resp = await apiRequest('/utils/validate-phone', {
+      method: 'POST',
+      body: JSON.stringify({ phone })
+    }, false);
+
+    if (resp?.success) {
+      const data = resp.data;
+      if (data.is_valid) {
+        const networkLabels = { mtn: 'MTN', glo: 'Glo', airtel: 'Airtel', '9mobile': '9mobile' };
+        const label = networkLabels[data.network] || data.network;
+        showValidationStatus(`✅ Valid ${label} number`, 'valid');
+        State.validationResult = { valid: true, network: data.network };
+        
+        // Auto-select network
+        const networkSelect = document.getElementById('form_network');
+        if (networkSelect && data.network) {
+          networkSelect.value = data.network;
+        }
+      } else {
+        showValidationStatus(`❌ Invalid phone number`, 'invalid');
+        State.validationResult = { valid: false };
+        DOM.purchaseBtn.disabled = true;
+        DOM.purchaseBtn.innerHTML = '<i class="fas fa-times-circle"></i> Invalid number';
+      }
+    } else {
+      showValidationStatus('⚠️ Could not verify number. Please check and try again.', 'invalid');
+      State.validationResult = { valid: false };
+    }
+  } catch (e) {
+    showValidationStatus('⚠️ Validation error. Please try again.', 'invalid');
+    State.validationResult = { valid: false };
+  } finally {
+    State.isValidating = false;
+    updateTotal();
+  }
+}, 500);
+
+// ─── Validate Meter Number (VTpass API) ───
+const validateMeterNumber = debounce(async function() {
+  const service = State.service;
+  if (service !== 'electricity') return;
+
+  const meterNumber = document.getElementById('form_meterNumber')?.value?.trim();
+  const provider = document.getElementById('form_provider')?.value;
+  const meterType = document.getElementById('form_meterType')?.value || 'prepaid';
+
+  if (!meterNumber || meterNumber.length < 10) {
+    hideValidationStatus();
+    return;
+  }
+
+  State.isValidating = true;
+  showValidationStatus('⏳ Verifying meter number...', 'loading');
+
+  try {
+    // ─── Call VTpass verification API ───
+    const resp = await apiRequest('/vtpass/verify-meter', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        meterNumber, 
+        provider, 
+        type: meterType 
+      })
+    }, false);
+
+    if (resp?.success) {
+      const data = resp.data;
+      if (data.is_valid) {
+        const providerLabels = { ikeja: 'IKEDC', eko: 'EKEDC', phcn: 'PHCN', abuja: 'AEDC', ibadan: 'IBEDC' };
+        const label = providerLabels[provider] || provider;
+        const customerName = data.customer_name ? ` - ${data.customer_name}` : '';
+        showValidationStatus(`✅ Valid ${label} meter${customerName}`, 'valid');
+        State.validationResult = { 
+          valid: true, 
+          customerName: data.customer_name,
+          address: data.address,
+          meterType: data.meter_type || meterType
+        };
+      } else {
+        showValidationStatus(`❌ Invalid meter number for ${provider.toUpperCase()}`, 'invalid');
+        State.validationResult = { valid: false };
+        DOM.purchaseBtn.disabled = true;
+        DOM.purchaseBtn.innerHTML = '<i class="fas fa-times-circle"></i> Invalid meter';
+      }
+    } else {
+      showValidationStatus('⚠️ Could not verify meter. Please check and try again.', 'invalid');
+      State.validationResult = { valid: false };
+    }
+  } catch (e) {
+    showValidationStatus('⚠️ Validation error. Please try again.', 'invalid');
+    State.validationResult = { valid: false };
+  } finally {
+    State.isValidating = false;
+    updateTotal();
+  }
+}, 500);
+
+// ════════════════════════════════════════════════
+//  SERVICE SELECTION
+// ════════════════════════════════════════════════
+
+const selectService = (service) => {
+  State.service = service;
+  State.validationResult = null;
+  hideValidationStatus();
+
+  document.querySelectorAll('.service-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.service === service);
+  });
+
+  const config = SERVICE_CONFIG[service];
+  DOM.serviceIcon.innerHTML = `<i class="${config.icon}"></i>`;
+  DOM.serviceIcon.style.background = config.bg;
+  DOM.serviceIcon.style.color = config.color;
+  DOM.serviceTitle.textContent = config.title;
+  DOM.serviceDesc.textContent = config.desc;
+
+  renderForm(service);
+  State.amount = 0;
+  DOM.totalCost.textContent = '0.00';
+  DOM.feeDisplay.textContent = '';
+};
+
+// ─── RENDER FORM ───
+let renderTimeout = null;
+const renderForm = (service) => {
+  clearTimeout(renderTimeout);
+  renderTimeout = setTimeout(() => {
+    const config = SERVICE_CONFIG[service];
+    if (!config) return;
+
+    let html = '';
+    config.fields.forEach(field => {
+      if (field.type === 'select') {
+        let options = field.options || [];
+        
+        // ─── For data plans, load from VTpass config ───
+        if (field.id === 'dataPlan' && service === 'data') {
+          const network = document.getElementById('form_network')?.value || 'mtn';
+          const plans = DATA_PLANS[network]?.variations || [];
+          options = plans.map(p => ({ value: p.code, label: `${p.name} - ₦${p.amount}` }));
+        }
+        
+        html += `
+          <div class="form-group">
+            <label>${field.label}</label>
+            <select id="form_${field.id}" ${field.onchange ? `onchange="${field.onchange}"` : ''}>
+              ${options.map(opt =>
+                `<option value="${opt.value}">${opt.label}</option>`
+              ).join('')}
+            </select>
+          </div>
+        `;
+      } else {
+        const validationAttr = field.validation ? 'oninput="handleValidationInput()"' : '';
+        html += `
+          <div class="form-group">
+            <label>${field.label}</label>
+            <input type="${field.type}" id="form_${field.id}"
+              placeholder="${field.placeholder || ''}"
+              ${field.maxlength ? `maxlength="${field.maxlength}"` : ''}
+              ${field.min ? `min="${field.min}"` : ''}
+              ${field.type === 'number' ? 'step="any"' : ''}
+              ${validationAttr}
+            />
+          </div>
+        `;
+      }
+    });
+
+    DOM.formContainer.innerHTML = html;
+
+    // ─── Data plan dynamic loading ───
+    if (service === 'data') {
+      const networkSelect = document.getElementById('form_network');
+      if (networkSelect) {
+        networkSelect.addEventListener('change', () => {
+          const network = networkSelect.value;
+          const plans = DATA_PLANS[network]?.variations || [];
+          const planSelect = document.getElementById('form_dataPlan');
+          if (planSelect) {
+            planSelect.innerHTML = plans.map(p => 
+              `<option value="${p.code}">${p.name} - ₦${p.amount}</option>`
+            ).join('');
+            updateTotal();
+          }
+        });
+        // Trigger initial load
+        networkSelect.dispatchEvent(new Event('change'));
+      }
+    }
+
+    // Add event listeners
+    document.querySelectorAll('#formContainer input, #formContainer select').forEach(el => {
+      el.addEventListener('input', updateTotal);
+      el.addEventListener('change', updateTotal);
+    });
+
+    // Add validation triggers
+    if (service === 'airtime' || service === 'data') {
+      const phoneEl = document.getElementById('form_phone');
+      if (phoneEl) {
+        phoneEl.addEventListener('input', validatePhoneNumber);
+        phoneEl.addEventListener('blur', validatePhoneNumber);
+      }
+      const networkEl = document.getElementById('form_network');
+      if (networkEl) {
+        networkEl.addEventListener('change', validatePhoneNumber);
+      }
+    }
+
+    if (service === 'electricity') {
+      const meterEl = document.getElementById('form_meterNumber');
+      if (meterEl) {
+        meterEl.addEventListener('input', validateMeterNumber);
+        meterEl.addEventListener('blur', validateMeterNumber);
+      }
+      const providerEl = document.getElementById('form_provider');
+      if (providerEl) {
+        providerEl.addEventListener('change', validateMeterNumber);
+      }
+      const typeEl = document.getElementById('form_meterType');
+      if (typeEl) {
+        typeEl.addEventListener('change', validateMeterNumber);
+      }
+    }
+
+    updateTotal();
+  }, 100);
+};
+
+const handleValidationInput = () => {
+  const el = getValidationStatusEl();
+  if (el) el.className = 'validation-status';
+  State.validationResult = null;
+  DOM.purchaseBtn.disabled = false;
+  updateTotal();
+};
+
+// ─── UPDATE TOTAL ───
+let totalTimeout = null;
+const updateTotal = () => {
+  clearTimeout(totalTimeout);
+  totalTimeout = setTimeout(() => {
+    const service = State.service;
+    let amount = 0;
+
+    if (service === 'airtime') {
+      const amtEl = document.getElementById('form_amount');
+      if (amtEl) amount = parseFloat(amtEl.value) || 0;
+    } else if (service === 'data') {
+      const planEl = document.getElementById('form_dataPlan');
+      const network = document.getElementById('form_network')?.value || 'mtn';
+      if (planEl) {
+        const plan = DATA_PLANS[network]?.variations?.find(p => p.code === planEl.value);
+        if (plan) amount = plan.amount;
+      }
+    } else if (service === 'electricity') {
+      const amtEl = document.getElementById('form_amount');
+      if (amtEl) amount = parseFloat(amtEl.value) || 0;
+    }
+
+    State.amount = amount;
+    DOM.totalCost.textContent = formatNaira(amount);
+
+    if (amount > 0) {
+      DOM.feeDisplay.textContent = `(No fee · Cashback only)`;
+    } else {
+      DOM.feeDisplay.textContent = '';
+    }
+
+    const hasValidAmount = amount >= MIN_REDEEM;
+    const hasSufficientBalance = State.balance >= amount;
+    
+    let isValid = hasValidAmount && hasSufficientBalance;
+    
+    // Check validation status
+    if (service !== 'electricity') {
+      const phone = document.getElementById('form_phone')?.value?.trim();
+      if (phone && phone.length >= 10 && State.validationResult !== null) {
+        isValid = isValid && State.validationResult.valid;
+      }
+    } else {
+      const meter = document.getElementById('form_meterNumber')?.value?.trim();
+      if (meter && meter.length >= 10 && State.validationResult !== null) {
+        isValid = isValid && State.validationResult.valid;
+      }
+    }
+
+    DOM.purchaseBtn.disabled = !isValid || State.isValidating;
+
+    if (State.isValidating) {
+      DOM.purchaseBtn.innerHTML = '<span class="spinner"></span> Validating...';
+    } else if (!hasValidAmount) {
+      DOM.purchaseBtn.innerHTML = `<i class="fas fa-exclamation-circle"></i> Min ₦${formatNaira(MIN_REDEEM)}`;
+    } else if (!hasSufficientBalance) {
+      DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Insufficient cashback (₦${formatNaira(State.balance)})`;
+    } else if (State.validationResult !== null && !State.validationResult.valid) {
+      DOM.purchaseBtn.innerHTML = `<i class="fas fa-times-circle"></i> Invalid ${service === 'electricity' ? 'meter' : 'number'}`;
+    } else {
+      DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Confirm with PIN (₦${formatNaira(amount)})`;
+    }
+  }, 200);
+};
+
+// ════════════════════════════════════════════════
+//  PIN SYSTEM
+// ════════════════════════════════════════════════
+
+function setupPinInputs() {
+  const boxes = [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4];
+  boxes.forEach((box, idx) => {
+    box.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '').slice(0, 1);
+      this.style.borderColor = this.value ? 'var(--ok)' : 'var(--bdr)';
+      this.style.background = this.value ? 'var(--okl)' : 'var(--srf2)';
+      if (this.value && idx < boxes.length - 1) {
+        boxes[idx + 1].focus();
+      }
+      updatePinStatus();
+    });
+    box.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && !this.value && idx > 0) {
+        boxes[idx - 1].focus();
+        boxes[idx - 1].select();
+      }
+    });
+    box.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 4);
+      paste.split('').forEach((ch, i) => {
+        if (boxes[i]) { boxes[i].value = ch; boxes[i].style.borderColor = 'var(--ok)'; boxes[i].style.background = 'var(--okl)'; }
+      });
+      const lastIdx = Math.min(paste.length, boxes.length) - 1;
+      if (lastIdx >= 0) boxes[lastIdx].focus();
+      updatePinStatus();
+    });
+  });
+}
+
+function getPinValue() {
+  let pin = '';
+  [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4].forEach(box => pin += box.value);
+  return pin;
+}
+
+function clearPinInputs() {
+  [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4].forEach(box => {
+    box.value = '';
+    box.style.borderColor = 'var(--bdr)';
+    box.style.background = 'var(--srf2)';
+  });
+  DOM.pin1.focus();
+}
+
+function updatePinStatus() {
+  const pin = getPinValue();
+  DOM.pinConfirmBtn.disabled = pin.length !== 4;
+  if (pin.length === 4) {
+    DOM.pinError.textContent = '';
+  }
+}
+
+function openPinModal(purchaseData) {
+  State.pendingPurchase = purchaseData;
+  DOM.pinModal.style.display = 'flex';
+  clearPinInputs();
+  DOM.pinError.textContent = '';
+  DOM.pinAttempts.textContent = '';
+  DOM.pinLockedMsg.style.display = 'none';
+  DOM.pinConfirmBtn.disabled = true;
+  DOM.pinConfirmBtn.textContent = 'Confirm';
+  checkPinStatus();
+}
+
+function closePinModal() {
+  DOM.pinModal.style.display = 'none';
+  State.pendingPurchase = null;
+}
+
+// ─── PIN STATUS ───
+async function checkPinStatus() {
+  try {
+    const resp = await apiRequest('/cashback/pin-status');
+    if (resp?.success) {
+      State.hasPin = resp.data.has_pin;
+      const attempts = resp.data.attempts_remaining || MAX_PIN_ATTEMPTS;
+      const locked = resp.data.is_locked;
+      const remaining = resp.data.remaining_lock_minutes || 0;
+
+      if (locked) {
+        DOM.pinLockedMsg.style.display = 'block';
+        DOM.lockTimer.textContent = remaining;
+        DOM.pinConfirmBtn.disabled = true;
+        let rem = remaining;
+        const timer = setInterval(() => {
+          rem--;
+          DOM.lockTimer.textContent = Math.max(0, rem);
+          if (rem <= 0) {
+            clearInterval(timer);
+            DOM.pinLockedMsg.style.display = 'none';
+            DOM.pinConfirmBtn.disabled = false;
+          }
+        }, 60000);
+      } else {
+        DOM.pinLockedMsg.style.display = 'none';
+        DOM.pinConfirmBtn.disabled = false;
+        if (attempts < MAX_PIN_ATTEMPTS && attempts > 0) {
+          DOM.pinAttempts.textContent = `${attempts} attempt${attempts > 1 ? 's' : ''} remaining`;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('PIN status error:', e);
+  }
+}
+
+// ─── CONFIRM PIN ───
+async function confirmPin() {
+  const pin = getPinValue();
+  if (pin.length !== 4) {
+    DOM.pinError.textContent = 'Please enter a 4-digit PIN';
+    return;
+  }
+
+  DOM.pinConfirmBtn.disabled = true;
+  DOM.pinConfirmBtn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+  try {
+    const verifyResp = await apiRequest('/cashback/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify({ pin })
+    });
+
+    if (!verifyResp?.success) {
+      if (verifyResp?.code === 'PIN_NOT_SET') {
+        DOM.pinError.textContent = 'No PIN set. Please set a PIN first.';
+        DOM.pinConfirmBtn.disabled = false;
+        DOM.pinConfirmBtn.textContent = 'Confirm';
+        setTimeout(() => {
+          closePinModal();
+          showToast('Please set a transaction PIN first from your dashboard.', 'warning');
+          window.location.href = '/dashboard';
+        }, 1500);
+        return;
+      }
+
+      if (verifyResp?.code === 'PIN_LOCKED') {
+        DOM.pinLockedMsg.style.display = 'block';
+        DOM.lockTimer.textContent = verifyResp.remaining_minutes || 60;
+        DOM.pinConfirmBtn.disabled = true;
+        DOM.pinConfirmBtn.textContent = 'Confirm';
+        return;
+      }
+
+      DOM.pinError.textContent = verifyResp?.error || 'Invalid PIN';
+      [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4].forEach(box => {
+        box.style.borderColor = 'var(--err)';
+        box.style.background = 'var(--erl)';
+        setTimeout(() => {
+          box.style.borderColor = 'var(--bdr)';
+          box.style.background = 'var(--srf2)';
+        }, 800);
+      });
+      clearPinInputs();
+      DOM.pinConfirmBtn.disabled = false;
+      DOM.pinConfirmBtn.textContent = 'Confirm';
+
+      if (verifyResp?.attempts_remaining !== undefined) {
+        DOM.pinAttempts.textContent = `${verifyResp.attempts_remaining} attempt${verifyResp.attempts_remaining > 1 ? 's' : ''} remaining`;
+      }
+      return;
+    }
+
+    // ─── PIN VERIFIED - Process purchase ───
+    if (State.pendingPurchase) {
+      const purchaseData = State.pendingPurchase;
+      purchaseData.transaction_pin = pin;
+
+      DOM.pinConfirmBtn.innerHTML = '<span class="spinner"></span> Processing...';
+
+      const resp = await apiRequest('/cashback/purchase', {
+        method: 'POST',
+        body: JSON.stringify(purchaseData)
+      });
+
+      if (resp?.success) {
+        showToast(`✅ ${SERVICE_CONFIG[purchaseData.service].title} successful!`, 'success');
+        State.balance = resp.data.new_balance || (State.balance - purchaseData.amount);
+        State.lifetimeUsed = (State.lifetimeUsed || 0) + purchaseData.amount;
+        updateWalletUI();
+        loadRecent();
+        resetForm();
+        closePinModal();
+        hideValidationStatus();
+      } else {
+        showToast(resp?.error || 'Purchase failed', 'error');
+        if (resp?.code === 'PIN_LOCKED') {
+          DOM.pinLockedMsg.style.display = 'block';
+          DOM.lockTimer.textContent = resp.remaining_minutes || 60;
+          DOM.pinConfirmBtn.disabled = true;
+        }
+      }
+    }
+  } catch (e) {
+    DOM.pinError.textContent = e.message || 'Something went wrong';
+  } finally {
+    DOM.pinConfirmBtn.disabled = false;
+    DOM.pinConfirmBtn.textContent = 'Confirm';
+  }
+}
+
+// ════════════════════════════════════════════════
+//  CONFIRM PURCHASE
+// ════════════════════════════════════════════════
+
+const confirmPurchase = () => {
+  if (State.loading) return;
+
+  const service = State.service;
+  const amount = State.amount;
+
+  if (amount <= 0) {
+    showToast('Please enter a valid amount', 'warning');
+    return;
+  }
+
+  if (amount > State.balance) {
+    showToast(`Insufficient cashback. Available: ₦${formatNaira(State.balance)}`, 'error');
+    return;
+  }
+
+  if (amount < MIN_REDEEM) {
+    showToast(`Minimum redemption is ₦${formatNaira(MIN_REDEEM)}`, 'warning');
+    return;
+  }
+
+  const payload = { service, amount };
+
+  // ─── Build payload based on service ───
+  if (service === 'airtime') {
+    const network = document.getElementById('form_network')?.value;
+    const phone = document.getElementById('form_phone')?.value?.trim();
+    if (!phone || phone.length < 10) {
+      showToast('Please enter a valid phone number', 'error');
+      return;
+    }
+    if (State.validationResult && !State.validationResult.valid) {
+      showToast('Phone number is invalid', 'error');
+      return;
+    }
+    // Get actual network from validation or use selected
+    const actualNetwork = State.validationResult?.network || network;
+    payload.network = actualNetwork;
+    payload.phone = phone;
+    // ─── VTpass service mapping ───
+    const serviceMap = {
+      mtn: 'mtn-airtime',
+      glo: 'glo-airtime',
+      airtel: 'airtel-airtime',
+      '9mobile': 'etisalat-airtime'
+    };
+    payload.vtpass_service = serviceMap[actualNetwork] || serviceMap[network];
+  }
+
+  if (service === 'data') {
+    const network = document.getElementById('form_network')?.value;
+    const phone = document.getElementById('form_phone')?.value?.trim();
+    const plan = document.getElementById('form_dataPlan')?.value;
+    if (!phone || phone.length < 10) {
+      showToast('Please enter a valid phone number', 'error');
+      return;
+    }
+    if (State.validationResult && !State.validationResult.valid) {
+      showToast('Phone number is invalid', 'error');
+      return;
+    }
+    const actualNetwork = State.validationResult?.network || network;
+    payload.network = actualNetwork;
+    payload.phone = phone;
+    payload.plan = plan;
+    payload.vtpass_service = DATA_PLANS[actualNetwork]?.serviceID || DATA_PLANS[network]?.serviceID;
+  }
+
+  if (service === 'electricity') {
+    const provider = document.getElementById('form_provider')?.value;
+    const meterType = document.getElementById('form_meterType')?.value;
+    const meterNumber = document.getElementById('form_meterNumber')?.value?.trim();
+    if (!meterNumber || meterNumber.length < 10) {
+      showToast('Please enter a valid meter number', 'error');
+      return;
+    }
+    if (State.validationResult && !State.validationResult.valid) {
+      showToast('Meter number is invalid', 'error');
+      return;
+    }
+    payload.provider = provider;
+    payload.meterType = meterType || 'prepaid';
+    payload.meterNumber = meterNumber;
+    payload.vtpass_service = `${provider}-electric`;
+  }
+
+  // ─── Check PIN status ───
+  if (State.hasPin === null) {
+    showToast('Checking PIN status...', 'info');
+    checkPinStatus();
+    return;
+  }
+
+  if (!State.hasPin) {
+    showToast('Please set a transaction PIN first from your dashboard.', 'warning');
+    setTimeout(() => window.location.href = '/dashboard', 1500);
+    return;
+  }
+
+  openPinModal(payload);
+};
+
+// ════════════════════════════════════════════════
+//  RECENT PURCHASES
+// ════════════════════════════════════════════════
+
+let recentCache = null;
+let recentCacheTime = 0;
+const RECENT_CACHE_TTL = 60000;
+
+const loadRecent = async (force = false) => {
+  if (!force && recentCache && (Date.now() - recentCacheTime < RECENT_CACHE_TTL)) {
+    renderRecent(recentCache);
+    return;
+  }
+
+  try {
+    const resp = await apiRequest('/cashback/recent');
+    if (resp?.success) {
+      recentCache = resp.data;
+      recentCacheTime = Date.now();
+      renderRecent(recentCache);
+    }
+  } catch (e) {
+    console.error('Recent load error:', e);
+  }
+};
+
+const renderRecent = (data) => {
+  const list = DOM.recentList;
+  if (!data || data.length === 0) {
+    list.innerHTML = `
+      <div class="rc-empty">
+        <i class="fas fa-receipt"></i>
+        No recent purchases yet
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = data.slice(0, 5).map(item => {
+    const icons = {
+      airtime: 'fa-phone-alt',
+      data: 'fa-wifi',
+      electricity: 'fa-lightbulb'
+    };
+    const colors = {
+      airtime: '#0c3d4a',
+      data: '#7c3aed',
+      electricity: '#d97706'
+    };
+    const bgColors = {
+      airtime: '#e8f4f7',
+      data: '#f3f0ff',
+      electricity: '#fef3c7'
+    };
+
+    return `
+      <div class="rc-item">
+        <div class="rc-icon" style="background:${bgColors[item.service]};color:${colors[item.service]};">
+          <i class="fas ${icons[item.service] || 'fa-coins'}"></i>
+        </div>
+        <div class="rc-info">
+          <div class="rc-name">${item.description || item.service}</div>
+          <div class="rc-meta">${item.details || ''} · ${new Date(item.created_at).toLocaleDateString()}</div>
+        </div>
+        <span class="rc-amount">-₦${formatNaira(item.amount)}</span>
+        <span class="rc-status ${item.status}">${item.status}</span>
+      </div>
+    `;
+  }).join('');
+};
+
+// ─── RESET FORM ───
+const resetForm = () => {
+  document.querySelectorAll('#formContainer input').forEach(el => {
+    el.value = '';
+  });
+  document.querySelectorAll('#formContainer select').forEach(el => {
+    if (el.id === 'form_dataPlan') el.value = '';
+    if (el.id === 'form_network') el.value = 'mtn';
+    if (el.id === 'form_provider') el.value = 'ikeja';
+    if (el.id === 'form_meterType') el.value = 'prepaid';
+  });
+  State.amount = 0;
+  State.validationResult = null;
+  hideValidationStatus();
+  DOM.totalCost.textContent = '0.00';
+  DOM.feeDisplay.textContent = '';
+  updateTotal();
+};
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!getToken()) { redirectToLogin(); return; }
+
+  updateUserUI();
+  initSidebar();
+  setupPinInputs();
+
+  await Promise.all([
+    loadBalance(),
+    loadRecent()
+  ]);
+
+  selectService('airtime');
+
+  setInterval(() => {
+    loadBalance();
+  }, 30000);
+
+  console.log('⭐ Cashback Wallet ready');
+  console.log(`   Balance: ₦${formatNaira(State.balance)}`);
+  console.log(`   Min Redeem: ₦${MIN_REDEEM}`);
+});
+
+// ─── Expose ───
+window.selectService = selectService;
+window.confirmPurchase = confirmPurchase;
+window.updateTotal = updateTotal;
+window.handleValidationInput = handleValidationInput;
+window.closePinModal = closePinModal;
+window.confirmPin = confirmPin;
+window.validatePhoneNumber = validatePhoneNumber;
+window.validateMeterNumber = validateMeterNumber;
+</script>
+
+</body>
+</html>

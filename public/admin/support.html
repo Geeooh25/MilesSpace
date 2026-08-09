@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>MilesSpace — Support Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root{
+  --navy:#0c3d4a;--navy-light:#12556a;--navy-deep:#082a33;
+  --gold:#f59e0b;--gold-soft:#fde3ad;--white:#fff;
+  --bg:#f4f7fb;--bg-card:rgba(255,255,255,0.72);
+  --border:rgba(12,61,74,0.08);--text:#0c1f26;
+  --text-dim:#5b7480;--text-faint:#8fa3ab;
+  --success:#16a34a;--success-bg:#e9f9ef;
+  --danger:#dc2626;--danger-bg:#fdecec;
+  --warn:#f59e0b;--warn-bg:#fef3d9;
+  --info:#2563a8;--info-bg:#e8f1fb;
+  --purple:#8b5cf6;--purple-bg:#ede9fe;
+  --radius-sm:8px;--radius-md:14px;--radius-lg:20px;
+  --shadow-sm:0 1px 2px rgba(8,42,51,0.06);
+  --shadow-md:0 8px 24px -8px rgba(8,42,51,0.16);
+  --shadow-lg:0 16px 48px -12px rgba(8,42,51,0.26);
+  --sidebar-w:264px;--topbar-h:68px;
+  --transition:180ms cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh}
+.mono{font-family:'JetBrains Mono',monospace}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(12,61,74,0.18);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:rgba(12,61,74,0.3)}
+
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar{
+  background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);
+  color:#eaf6f8;
+  padding:22px 16px 18px;
+  display:flex;
+  flex-direction:column;
+  position:sticky;top:0;
+  height:100vh;
+  z-index:40;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.15) transparent;
+  transition:transform var(--transition);
+}
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:99px}
+
+.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 22px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:contain;background:rgba(255,255,255,0.05);padding:2px}
+.brand-text strong{font-size:15.5px;font-weight:800;letter-spacing:-0.01em;display:block}
+.brand-text span{font-size:11px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+
+.nav-scroll{flex:1;overflow-y:auto;padding-right:4px}
+.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 12px 6px}
+.nav-item{
+  display:flex;align-items:center;gap:11px;
+  padding:9.5px 12px;border-radius:10px;
+  color:#cfe7ea;font-size:13.6px;font-weight:500;
+  cursor:pointer;border:1px solid transparent;
+  transition:background var(--transition),color var(--transition);
+}
+.nav-item .ic{width:18px;text-align:center;font-size:14.5px;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff}
+.nav-item.active{background:rgba(245,158,11,0.14);color:#ffd899;border-color:rgba(245,158,11,0.28);font-weight:600}
+.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10.5px;font-weight:800;padding:1.5px 6.5px;border-radius:99px}
+.nav-divider{height:1px;background:rgba(255,255,255,0.06);margin:6px 12px}
+.nav-exit{margin-top:4px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px}
+.nav-exit .nav-item{color:#efb3b3}
+.nav-exit .nav-item:hover{background:rgba(239,68,68,0.12);color:#fca5a5}
+
+.sidebar-foot{display:flex;align-items:center;gap:10px;padding:14px 10px 4px;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;flex-shrink:0}
+.sidebar-foot .av{width:32px;height:32px;border-radius:50%;background:var(--gold);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.sidebar-foot .who strong{display:block;font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#9fd4de}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+.page-title h1{font-size:19px;font-weight:800;letter-spacing:-0.01em}
+.page-title .crumb{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse-dot 1.8s infinite}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.gsearch{flex:1;max-width:360px;position:relative}
+.gsearch input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;background:var(--white)}
+.gsearch .gic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:13px}
+.top-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+.clockbox{text-align:right;line-height:1.2} .clockbox .d{font-size:11px;color:var(--text-dim)} .clockbox .t{font-size:13.5px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.icon-btn{position:relative;width:36px;height:36px;border-radius:9px;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+.icon-btn:hover{background:var(--navy);color:#fff}
+.dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:2px solid var(--white)}
+.profile{display:flex;align-items:center;gap:9px;padding-left:12px;border-left:1px solid var(--border);cursor:pointer}
+.profile .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.profile .who strong{display:block;font-size:12px} .profile .who span{font-size:10.5px;color:var(--text-dim)}
+
+.content{padding:22px 26px 60px}
+.view{display:none;animation:fadein .25s ease}
+.view.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 14px;flex-wrap:wrap;gap:8px}
+.section-head h2{font-size:15.5px;font-weight:800;letter-spacing:-0.01em}
+.section-head .sub{font-size:12px;color:var(--text-dim)}
+
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.panel{padding:18px 20px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.panel-head h3{font-size:14px;font-weight:700}
+
+.badge{font-size:10.8px;font-weight:700;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.purple{background:var(--purple-bg);color:var(--purple)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;font-size:12.8px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:transform var(--transition),filter var(--transition);white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);box-shadow:0 6px 16px -6px rgba(245,158,11,0.6)}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:6px 10px;font-size:11.5px;border-radius:8px}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-navy{background:var(--navy);color:#fff}
+
+.table-scroll{overflow-x:auto;overflow-y:visible;max-height:100%;scrollbar-width:thin}
+.table-scroll::-webkit-scrollbar{height:7px}
+.table-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+table.data-table{width:100%;border-collapse:collapse;font-size:12.6px;min-width:900px}
+table.data-table th{text-align:left;padding:11px 16px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;user-select:none;position:sticky;top:0;z-index:2}
+table.data-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.data-table tbody tr{transition:background var(--transition)}
+table.data-table tbody tr:hover{background:rgba(245,158,11,0.06)}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.icon-mini{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--text-dim)}
+.icon-mini:hover{background:var(--bg);color:var(--navy)}
+.icon-mini.danger:hover{background:var(--danger-bg);color:var(--danger)}
+.icon-mini.success:hover{background:var(--success-bg);color:var(--success)}
+.table-foot{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;gap:10px}
+.pg-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;font-size:11.5px;cursor:pointer;color:var(--text-dim)}
+.pg-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(6,20,24,0.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:720px;padding:24px;animation:modalIn .22s ease;max-height:90vh;overflow-y:auto}
+.modal.wide{max-width:960px}
+.modal-scroll{max-height:60vh;overflow-y:auto;padding-right:4px}
+.modal-scroll::-webkit-scrollbar{width:6px}
+.modal-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+@keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-shrink:0}
+.modal-head h3{font-size:16px;font-weight:800}
+.modal-close{cursor:pointer;color:var(--text-dim);font-size:18px;background:none;border:none}
+.modal-sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px;flex-shrink:0}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-shrink:0}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:12px;font-weight:600;color:var(--text-dim)}
+.field input,.field textarea,.field select{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:13px;font-family:'Inter',sans-serif}
+.field textarea{resize:vertical;min-height:70px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:12px;font-size:12.8px}
+.info-grid div strong{color:var(--text-dim);font-weight:600;display:block;font-size:10.8px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+@media(max-width:560px){.info-grid{grid-template-columns:1fr}}
+
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:200}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;animation:toastIn .25s ease;border-left:3px solid var(--gold)}
+.toast.success{border-left-color:var(--success)}.toast.error{border-left-color:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+
+.grid{display:grid;gap:14px}
+.grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.grid.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}.grid.cols-3{grid-template-columns:repeat(2,1fr)}}
+
+.kpi-card{padding:16px 18px;cursor:pointer;transition:transform var(--transition),box-shadow var(--transition);position:relative;overflow:hidden}
+.kpi-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.kpi-card:active{transform:translateY(-1px) scale(.98)}
+.kpi-top{display:flex;justify-content:space-between;align-items:flex-start}
+.kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.kpi-icon.gold{background:var(--warn-bg);color:#b3720a}
+.kpi-icon.green{background:var(--success-bg);color:var(--success)}
+.kpi-icon.blue{background:var(--info-bg);color:var(--info)}
+.kpi-icon.purple{background:var(--purple-bg);color:var(--purple)}
+.kpi-icon.red{background:var(--danger-bg);color:var(--danger)}
+.kpi-trend{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:20px}
+.trend-up{color:var(--success);background:var(--success-bg)}
+.trend-down{color:var(--danger);background:var(--danger-bg)}
+.kpi-value{font-size:23px;font-weight:800;letter-spacing:-0.02em;margin-top:10px}
+.kpi-label{font-size:11.5px;color:var(--text-dim);margin-top:2px;font-weight:500}
+
+.chart-card{padding:16px 18px}
+.chart-card h3{font-size:13.5px;font-weight:700;margin-bottom:4px}
+.chart-card .sub{font-size:11px;color:var(--text-dim);margin-bottom:10px}
+.chart-wrap{position:relative;height:230px;min-height:200px}
+.charts-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px}
+.charts-grid.thirds{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:1100px){.charts-grid,.charts-grid.thirds{grid-template-columns:1fr}}
+
+.filters-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.filters-bar select,.filters-bar input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--white)}
+.filters-bar input[type=text]{flex:1;min-width:180px}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:34px;margin-bottom:8px}
+
+.activity-item{display:flex;gap:12px;padding:11px 0;border-bottom:1px dashed var(--border)}
+.activity-item .aic{width:34px;height:34px;border-radius:9px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.activity-item .atxt{font-size:12.6px} .activity-item .atxt b{font-weight:700}
+.activity-item .atime{font-size:10.8px;color:var(--text-dim);margin-top:2px}
+
+/* Chat Styles */
+.chat-container{display:flex;gap:0;height:calc(100vh - 200px);min-height:400px;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg-card)}
+.chat-sidebar{width:320px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)}
+.chat-sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
+.chat-list{flex:1;overflow-y:auto}
+.chat-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--transition)}
+.chat-item:hover{background:var(--bg)}
+.chat-item.active{background:var(--gold-soft)}
+.chat-item .ci-top{display:flex;justify-content:space-between;margin-bottom:3px}
+.chat-item .ci-name{font-weight:600;font-size:12.5px}
+.chat-item .ci-time{font-size:10.5px;color:var(--text-faint)}
+.chat-item .ci-msg{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-item .ci-badge{font-size:9px;padding:1px 6px;border-radius:99px}
+.chat-item .ci-badge.unread{background:var(--danger);color:#fff}
+
+.chat-main{flex:1;display:flex;flex-direction:column}
+.chat-main-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--bg)}
+.chat-main-header .cmh-user{font-weight:700;font-size:13px}
+.chat-main-header .cmh-status{font-size:11px;color:var(--text-dim)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:8px;background:var(--bg-card)}
+.chat-msg{max-width:70%;padding:10px 14px;border-radius:12px;font-size:12.5px;line-height:1.5}
+.chat-msg.received{background:var(--white);border:1px solid var(--border);align-self:flex-start}
+.chat-msg.sent{background:var(--gold);color:var(--navy-deep);align-self:flex-end}
+.chat-msg .msg-time{font-size:9.5px;opacity:.6;margin-top:4px;display:block}
+.chat-msg .msg-file{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(0,0,0,.05);border-radius:6px;margin-top:4px;font-size:11px}
+.chat-msg .msg-emoji{font-size:20px;display:block}
+.chat-typing{font-size:11px;color:var(--text-dim);padding:4px 18px;display:none}
+.chat-typing.show{display:block}
+.chat-input-area{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg)}
+.chat-input-area input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;outline:none;background:var(--white)}
+.chat-input-area input:focus{border-color:var(--gold)}
+.chat-input-area button{padding:9px 16px;border-radius:10px;background:var(--gold);color:var(--navy-deep);font-weight:700;font-size:12px;border:none;cursor:pointer}
+.chat-input-area button:hover{background:var(--gold-soft)}
+
+/* Customer Profile Panel */
+.profile-panel{width:280px;border-left:1px solid var(--border);padding:16px;overflow-y:auto;background:var(--bg);display:none}
+.profile-panel.show{display:block}
+.profile-panel .pp-avatar{width:56px;height:56px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--navy-deep);margin:0 auto 10px}
+.profile-panel .pp-name{text-align:center;font-weight:700;font-size:15px}
+.profile-panel .pp-email{text-align:center;font-size:11.5px;color:var(--text-dim);margin-bottom:12px}
+.profile-panel .pp-stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.profile-panel .pp-stat .lbl{color:var(--text-dim)}
+.profile-panel .pp-stat .val{font-weight:600}
+
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:260px;box-shadow:var(--shadow-lg);transition:transform .3s ease;z-index:50}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:flex}
+  .content{padding:16px 14px 50px}
+  .grid.cols-2,.grid.cols-4,.grid.cols-3{grid-template-columns:1fr}
+  .gsearch{order:3;max-width:100%;flex-basis:100%}
+  .chat-container{flex-direction:column;height:auto}
+  .chat-sidebar{width:100%;max-height:200px}
+  .profile-panel{width:100%;border-left:none;border-top:1px solid var(--border)}
+}
+@media(max-width:540px){
+  .kpi-value{font-size:20px}
+  .topbar{padding:0 14px}
+  .clockbox{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+    <div class="brand-text"><strong>MilesSpace</strong><span>Support Center</span></div>
+  </div>
+  <div class="nav-scroll">
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active" data-view="dashboard"><span class="ic">📊</span>Dashboard</div>
+
+    <div class="nav-label">Tickets</div>
+    <div class="nav-item" data-view="all"><span class="ic">🎫</span>All Tickets<span class="badge-count" id="totalTickets">0</span></div>
+    <div class="nav-item" data-view="waiting"><span class="ic">⏳</span>Waiting<span class="badge-count" id="waitingCount">0</span></div>
+    <div class="nav-item" data-view="active"><span class="ic">💬</span>Active Chats<span class="badge-count" id="activeCount">0</span></div>
+    <div class="nav-item" data-view="resolved"><span class="ic">✅</span>Resolved</div>
+    <div class="nav-item" data-view="closed"><span class="ic">📁</span>Closed</div>
+
+    <div class="nav-label">Knowledge</div>
+    <div class="nav-item" data-view="knowledge"><span class="ic">📚</span>Knowledge Base</div>
+    <div class="nav-item" data-view="faq"><span class="ic">❓</span>FAQs</div>
+
+    <div class="nav-label">Settings</div>
+    <div class="nav-item" data-view="settings"><span class="ic">⚙️</span>Settings</div>
+
+    <div class="nav-divider"></div>
+    <div class="nav-exit">
+      <a href="dashboard.html" class="nav-item" style="text-decoration:none;"><span class="ic">🏠</span>Back to Main Dashboard</a>
+      <div class="nav-item" onclick="logout()"><span class="ic">🚪</span>Logout</div>
+    </div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="av">DA</div>
+    <div class="who"><strong>Dara Adisa</strong><span>Support Admin</span></div>
+  </div>
+</aside>
+
+<div class="scrim" id="scrim" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none"></div>
+
+<div class="main">
+  <header class="topbar">
+    <button class="hamburger" id="hamburger">☰</button>
+    <div class="page-title"><h1 id="pageTitle">Support Dashboard</h1><div class="crumb"><span class="live-dot"></span>Live <span id="breadcrumbExtra"></span></div></div>
+    <div class="gsearch"><span class="gic">🔎</span><input type="text" id="globalSearch" placeholder="Search tickets, customers, articles..." oninput="handleGlobalSearch()"></div>
+    <div class="top-right">
+      <div class="clockbox"><div class="d" id="curDate">—</div><div class="t" id="curTime">—</div></div>
+      <button class="icon-btn" title="Refresh" onclick="refreshAll()">🔄</button>
+      <button class="icon-btn" title="Notifications" onclick="openNotif()">🔔</button>
+      <div class="profile"><div class="av">DA</div><div class="who"><strong>Dara Adisa</strong><span>Support Admin</span></div></div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ================= DASHBOARD ================= -->
+    <section class="view active" id="view-dashboard">
+      <div class="grid cols-4" id="kpiGrid"></div>
+      <div class="charts-grid" style="margin-top:20px;">
+        <div class="card chart-card"><h3>Ticket Volume</h3><div class="sub">Last 30 days</div><div class="chart-wrap"><canvas id="ticketVolumeChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Ticket Status</h3><div class="sub">Current distribution</div><div class="chart-wrap"><canvas id="ticketStatusChart"></canvas></div></div>
+      </div>
+      <div class="section-head"><h2>📋 Recent Tickets</h2></div>
+      <div class="card panel" id="recentTickets"></div>
+      <div class="section-head"><h2>💬 Active Chats</h2></div>
+      <div class="card panel" id="activeChats"></div>
+    </section>
+
+    <!-- ================= TICKET VIEWS ================= -->
+    <section class="view" id="view-all">
+      <div class="section-head"><h2>All Tickets</h2><span class="sub" id="ticketCountLabel"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="ticketSearch" placeholder="🔍 Search by ID, subject, customer…"/>
+          <select id="ticketStatusFilter"><option value="">All Status</option><option>Waiting</option><option>Active</option><option>Resolved</option><option>Closed</option></select>
+          <select id="ticketCategoryFilter"><option value="">All Categories</option><option>Marketplace</option><option>Wallet</option><option>Deposits</option><option>Withdrawals</option><option>Virtual SMS</option><option>Orders</option><option>Account Issues</option><option>Refunds</option><option>Other</option></select>
+          <div style="margin-left:auto;"><button class="btn btn-primary btn-sm" onclick="openNewTicket()">➕ New Ticket</button></div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Customer</th><th>Subject</th><th>Category</th><th>Priority</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody id="ticketsTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="ticketRange"></span><div class="pager" id="ticketPager"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= CHAT VIEW ================= -->
+    <section class="view" id="view-chat">
+      <div class="chat-container" id="chatContainer">
+        <div class="chat-sidebar">
+          <div class="chat-sidebar-header">💬 Conversations</div>
+          <div class="chat-list" id="chatList"></div>
+        </div>
+        <div class="chat-main">
+          <div class="chat-main-header">
+            <div><div class="cmh-user" id="chatUser">Select a conversation</div><div class="cmh-status" id="chatStatus">Click a chat to start</div></div>
+            <div><button class="btn btn-sm btn-ghost" onclick="toggleProfile()">👤 Profile</button></div>
+          </div>
+          <div class="chat-messages" id="chatMessages">
+            <div style="text-align:center;color:var(--text-faint);padding:40px;">Select a conversation to start messaging</div>
+          </div>
+          <div class="chat-typing" id="chatTyping">💬 <span id="typingUser">Someone</span> is typing...</div>
+          <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMessage()"/>
+            <button onclick="sendMessage()">Send</button>
+          </div>
+        </div>
+        <div class="profile-panel" id="profilePanel">
+          <div class="pp-avatar" id="ppAvatar">U</div>
+          <div class="pp-name" id="ppName">User Name</div>
+          <div class="pp-email" id="ppEmail">user@email.com</div>
+          <div class="pp-stat"><span class="lbl">Wallet (NGN)</span><span class="val" id="ppNgn">₦0</span></div>
+          <div class="pp-stat"><span class="lbl">Wallet (USD)</span><span class="val" id="ppUsd">$0</span></div>
+          <div class="pp-stat"><span class="lbl">Orders</span><span class="val" id="ppOrders">0</span></div>
+          <div class="pp-stat"><span class="lbl">Virtual SMS</span><span class="val" id="ppSms">0</span></div>
+          <div class="pp-stat"><span class="lbl">Refunds</span><span class="val" id="ppRefunds">0</span></div>
+          <div class="pp-stat"><span class="lbl">Last Login</span><span class="val" id="ppLastLogin">—</span></div>
+          <div class="pp-stat"><span class="lbl">Status</span><span class="val" id="ppStatus">—</span></div>
+          <div style="margin-top:12px;"><button class="btn btn-sm btn-ghost" onclick="toggleProfile()">Close Profile</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= KNOWLEDGE BASE ================= -->
+    <section class="view" id="view-knowledge">
+      <div class="section-head"><h2>Knowledge Base</h2><button class="btn btn-primary btn-sm" onclick="openArticleModal()">➕ Add Article</button></div>
+      <div class="card panel" id="knowledgeList"></div>
+    </section>
+
+    <!-- ================= FAQ ================= -->
+    <section class="view" id="view-faq">
+      <div class="section-head"><h2>FAQs</h2><button class="btn btn-primary btn-sm" onclick="openFAQModal()">➕ Add FAQ</button></div>
+      <div class="card panel" id="faqList"></div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="view" id="view-settings">
+      <div class="section-head"><h2>Support Settings</h2></div>
+      <div class="card panel">
+        <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="field"><label>Support Email</label><input type="email" value="support@milesspace.com"></div>
+          <div class="field"><label>Support Phone</label><input type="text" value="+234 800 000 0000"></div>
+          <div class="field"><label>Hours of Operation</label><select><option>24/7</option><option>Business Hours</option></select></div>
+          <div class="field"><label>Default Priority</label><select><option>Medium</option><option>Low</option><option>High</option></select></div>
+          <div class="field"><label>SLA Response Time</label><select><option>2 hours</option><option>4 hours</option><option>8 hours</option></select></div>
+          <div class="field"><label>SLA Resolution Time</label><select><option>24 hours</option><option>48 hours</option><option>72 hours</option></select></div>
+          <div class="field"><label>Auto-close Tickets After</label><select><option>7 days</option><option>14 days</option><option>30 days</option></select></div>
+          <div class="field"><label>Max Attachment Size</label><select><option>5 MB</option><option>10 MB</option><option>25 MB</option></select></div>
+        </div>
+        <div style="margin-top:16px;"><button class="btn btn-primary" onclick="toast('Settings saved!','✅')">Save Settings</button></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox">
+    <div class="modal-head"><h3 id="modalTitle">Title</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-sub" id="modalSub"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* ============================================================
+   MILESSPACE SUPPORT CENTER — COMPLETE SOLUTION
+   ============================================================ */
+
+// ---- MOCK DATA ----
+const CUSTOMER_NAMES = [
+  ["Grace","Okoro"],["John","Smith"],["Amaka","Bello"],["David","Johnson"],
+  ["Fatima","Adeyemi"],["Michael","Brown"],["Chidinma","Eze"],["Samuel","Williams"],
+  ["Linda","Musa"],["Peter","Davis"],["Ngozi","Adaeze"],["Tunde","Alabi"],
+  ["Kemi","Bakare"],["Chidi","Okafor"],["Zainab","Bello"],["Emeka","Chukwu"]
+];
+
+const CATEGORIES = ['Marketplace','Wallet','Deposits','Withdrawals','Virtual SMS','Orders','Account Issues','Refunds','Other'];
+const STATUSES = ['Waiting','Active','Resolved','Closed'];
+const PRIORITIES = ['Urgent','High','Medium','Low'];
+
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return d}
+function fmtMoney(n){return '₦'+(n||0).toLocaleString('en-NG')}
+function fmtUsd(n){return '$'+(n||0).toFixed(2)}
+function fmtDate(d){return d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—'}
+function fmtDateTime(d){return d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+function genTicketId(){return 'MS-'+String(rand(10000,99999))}
+
+function badge(s){
+  const m={Waiting:'warn',Active:'info',Resolved:'success',Closed:'neutral','Urgent':'danger','High':'warn','Medium':'info','Low':'neutral'};
+  return `<span class="badge ${m[s]||'neutral'}">${s}</span>`;
+}
+function toast(msg,icon='✅'){const s=document.getElementById('toastStack'),e=document.createElement('div');e.className='toast';e.innerHTML=`<span>${icon}</span><span>${msg}</span>`;s.appendChild(e);setTimeout(()=>{e.style.opacity='0';e.style.transform='translateX(30px)';e.style.transition='all .25s';setTimeout(()=>e.remove(),260)},3000)}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+function openModal(title,sub,body,confirmText,onConfirm,wide){
+  document.getElementById('modalBox').classList.toggle('wide',!!wide);
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalSub').textContent=sub||'';
+  document.getElementById('modalBody').innerHTML=body||'';
+  const btn=document.getElementById('modalConfirm');
+  btn.style.display=confirmText===null?'none':'inline-flex';
+  btn.textContent=confirmText||'Confirm';
+  btn.onclick=function(){if(onConfirm)onConfirm();closeModal();};
+  document.getElementById('modalOverlay').classList.add('open');
+}
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal()});
+
+// ---- GENERATE MOCK TICKETS ----
+let tickets = [];
+let chatMessages = {};
+let activeChatId = null;
+
+function generateMockData(){
+  const subjects = [
+    'Cannot login to account','Payment not reflected','Virtual number not working',
+    'Need help with marketplace order','Wallet balance discrepancy','How to withdraw funds',
+    'Account suspended','Refund request','Technical issue with dashboard',
+    'Verification problem','Gift card not delivered','Transaction failed'
+  ];
+  const descriptions = [
+    'I\'ve been trying to login for the past hour but keep getting an error.',
+    'I made a deposit but it\'s not showing in my wallet after 2 hours.',
+    'The virtual number I purchased is not receiving SMS codes.',
+    'My order was placed but I haven\'t received any delivery confirmation.',
+    'My wallet balance shows less than what I deposited yesterday.',
+    'I\'m trying to withdraw funds but the button is grayed out.',
+    'My account was suspended for no reason. Please help!',
+    'I need a refund for my recent purchase as the product was not delivered.',
+    'The dashboard is not loading properly on my phone.',
+    'My identity verification keeps failing.',
+    'I purchased a gift card but never received the code.',
+    'The transaction failed but my money was deducted.'
+  ];
+
+  customers = CUSTOMER_NAMES.map((n,i) => ({
+    id:'CUS-'+(3000+i), name:n[0]+' '+n[1], email:(n[0]+'.'+n[1]).toLowerCase()+'@mail.com',
+    ngn:rand(1000,850000), usd:rand(0,2400), orders:rand(5,45), sms:rand(0,12), refunds:rand(0,3), lastLogin:daysAgo(rand(0,5)), status:pick(['Active','Active','Active','Inactive'])
+  }));
+
+  for(let i=0;i<65;i++){
+    const cust = pick(customers);
+    const status = pick(STATUSES);
+    const category = pick(CATEGORIES);
+    const priority = pick(PRIORITIES);
+    const tkt = {
+      id:genTicketId(),
+      customer:cust,
+      subject:pick(subjects),
+      description:pick(descriptions),
+      category:category,
+      priority:priority,
+      status:status,
+      created:daysAgo(rand(0,20)),
+      updated:daysAgo(rand(0,5)),
+      agent:status==='Active'||status==='Resolved'?pick(['Dara Adisa','Tunde A.','Grace O.']):null,
+      messages:generateMessages(rand(2,8))
+    };
+    tickets.push(tkt);
+    chatMessages[tkt.id] = tkt.messages;
+  }
+  tickets.sort((a,b)=>b.created-a.created);
+}
+
+function generateMessages(count){
+  const msgs = [];
+  const customerMsgs = [
+    'I need help with my account please.',
+    'Can you help me with this issue?',
+    'I\'ve been waiting for a response for hours.',
+    'This is really urgent!',
+    'Thanks for your help!',
+    'I still need assistance with this.',
+    'Please escalate this to a manager.',
+    'Is there any update on this?'
+  ];
+  const agentMsgs = [
+    'Hello, I\'m here to help you with this issue.',
+    'Let me look into this for you right away.',
+    'I\'ve escalated this to our technical team.',
+    'Your issue has been resolved. Please confirm.',
+    'I\'m checking on this now. One moment please.',
+    'Can you provide more details about your issue?',
+    'I\'ve processed your request. It should be fixed now.',
+    'Thank you for your patience. We\'re working on it.'
+  ];
+  for(let i=0;i<count;i++){
+    const isCustomer = Math.random()>0.4;
+    msgs.push({
+      sender:isCustomer?'customer':'agent',
+      text:pick(isCustomer?customerMsgs:agentMsgs),
+      time:new Date(Date.now()-rand(1,120)*60000)
+    });
+  }
+  return msgs;
+}
+generateMockData();
+
+// ---- HELPERS ----
+function getStatusCounts(){
+  return {waiting:tickets.filter(t=>t.status==='Waiting').length, active:tickets.filter(t=>t.status==='Active').length, resolved:tickets.filter(t=>t.status==='Resolved').length, closed:tickets.filter(t=>t.status==='Closed').length};
+}
+function getAvgResponseTime(){
+  const active = tickets.filter(t=>t.status==='Active'||t.status==='Resolved');
+  if(!active.length) return '2m';
+  const avg = active.reduce((s,t)=>s+rand(1,15),0)/active.length;
+  return Math.floor(avg)+'m';
+}
+
+// ---- NAVIGATION ----
+const VIEW_TITLES={
+  dashboard:'Support Dashboard', all:'All Tickets', waiting:'Waiting Tickets',
+  active:'Active Chats', resolved:'Resolved Tickets', closed:'Closed Tickets',
+  knowledge:'Knowledge Base', faq:'FAQs', settings:'Support Settings'
+};
+
+document.getElementById('hamburger').addEventListener('click',()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('scrim').style.display='block'});
+document.getElementById('scrim').addEventListener('click',()=>{document.getElementById('sidebar').classList.remove('open');document.getElementById('scrim').style.display='none'});
+
+document.querySelectorAll('.nav-item[data-view]').forEach(item=>{
+  item.addEventListener('click',function(){
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    const v=this.dataset.view;
+    if(v==='waiting'||v==='resolved'||v==='closed'){
+      document.getElementById('view-all').classList.add('active');
+      document.getElementById('pageTitle').textContent=VIEW_TITLES[v];
+      applyFilter(v);
+    } else if(v==='active'){
+      document.getElementById('view-chat').classList.add('active');
+      document.getElementById('pageTitle').textContent='Live Chat';
+      renderChatList();
+    } else {
+      document.getElementById('view-'+v).classList.add('active');
+      document.getElementById('pageTitle').textContent=VIEW_TITLES[v];
+      if(v==='knowledge')renderKnowledge();
+      if(v==='faq')renderFaq();
+    }
+    document.getElementById('sidebar').classList.remove('open');document.getElementById('scrim').style.display='none';
+  });
+});
+
+function applyFilter(status){
+  document.getElementById('ticketStatusFilter').value=status;
+  renderTickets();
+}
+
+function refreshAll(){renderDashboard();renderTickets();toast('Refreshed!','🔄');}
+
+// ---- CLOCK ----
+function tickClock(){const n=new Date();document.getElementById('curDate').textContent=n.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});document.getElementById('curTime').textContent=n.toLocaleTimeString();}
+tickClock();setInterval(tickClock,1000);
+
+// ---- GLOBAL SEARCH ----
+function handleGlobalSearch(){
+  const q=document.getElementById('globalSearch').value.trim().toLowerCase();
+  document.getElementById('breadcrumbExtra').textContent=q?`· searching "${q}"`:'';
+  if(!q)return;
+  if(tickets.some(t=>t.id.toLowerCase().includes(q)||t.customer.name.toLowerCase().includes(q)||t.subject.toLowerCase().includes(q))){
+    document.querySelector('[data-view=all]').click();
+    document.getElementById('ticketSearch').value=q;
+    renderTickets();
+  }
+}
+
+// ---- LOGOUT ----
+function logout(){toast('Logging out...','🚪');setTimeout(()=>{window.location.href='login.html';},500);}
+
+// ---- DASHBOARD ----
+function renderDashboard(){
+  const counts = getStatusCounts();
+  document.getElementById('totalTickets').textContent=tickets.length;
+  document.getElementById('waitingCount').textContent=counts.waiting;
+  document.getElementById('activeCount').textContent=counts.active;
+
+  const kpis = [
+    {label:'Total Tickets',value:tickets.length,icon:'🎫',cls:'blue',trend:'+4.2%',up:true},
+    {label:'Waiting',value:counts.waiting,icon:'⏳',cls:'gold',trend:'-2.1%',up:false},
+    {label:'Active Chats',value:counts.active,icon:'💬',cls:'purple',trend:'+3.8%',up:true},
+    {label:'Avg Response Time',value:getAvgResponseTime(),icon:'⏱️',cls:'green',trend:'-12s',up:true},
+    {label:'Resolved Today',value:rand(15,45),icon:'✅',cls:'green',trend:'+8.5%',up:true},
+    {label:'Closed Tickets',value:counts.closed,icon:'📁',cls:'neutral',trend:'+2.3%',up:true},
+    {label:'Satisfaction Rate',value:'94.8%',icon:'⭐',cls:'gold',trend:'+0.6%',up:true},
+    {label:'Active Agents',value:3,icon:'👤',cls:'blue',trend:'online',up:true}
+  ];
+
+  document.getElementById('kpiGrid').innerHTML=kpis.map(k=>`
+    <div class="card kpi-card" onclick="toast('Viewing ${k.label} details','📊')">
+      <div class="kpi-top"><div class="kpi-icon ${k.cls}">${k.icon}</div><div class="kpi-trend ${k.up?'trend-up':'trend-down'}">${k.up?'▲':'▼'} ${k.trend}</div></div>
+      <div class="kpi-value">${typeof k.value==='number'?0:k.value}</div>
+      <div class="kpi-label">${k.label}</div></div>`).join('');
+  document.querySelectorAll('#kpiGrid .kpi-card').forEach((card,i)=>{
+    const k=kpis[i]; if(typeof k.value==='number'){
+      const el=card.querySelector('.kpi-value'); let cur=0; const step=Math.max(1,Math.ceil(k.value/30));
+      const t=setInterval(()=>{cur+=step;if(cur>=k.value){cur=k.value;clearInterval(t);}el.textContent=cur.toLocaleString();},20);
+    }
+  });
+
+  document.getElementById('recentTickets').innerHTML=tickets.slice(0,6).map(t=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border);cursor:pointer" onclick="openTicketDetail('${t.id}')">
+      <div><strong>${t.id}</strong> · ${t.customer.name}<div style="font-size:11px;color:var(--text-dim)">${t.subject}</div></div>
+      <div>${badge(t.status)}<div style="font-size:11px;text-align:right">${fmtDate(t.created)}</div></div>
+    </div>`).join('');
+
+  const activeChats = tickets.filter(t=>t.status==='Active');
+  document.getElementById('activeChats').innerHTML=activeChats.length?activeChats.slice(0,4).map(t=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border);cursor:pointer" onclick="openChat('${t.id}')">
+      <div><strong>${t.customer.name}</strong><div style="font-size:11px;color:var(--text-dim)">${t.subject}</div></div>
+      <div>${badge(t.status)}<div style="font-size:11px;text-align:right">${fmtDate(t.updated)}</div></div>
+    </div>`).join(''):'<div style="padding:10px 0;color:var(--text-dim);">No active chats right now 💬</div>';
+
+  // Charts
+  renderCharts();
+}
+
+let chartsBuilt=false, chartInstances={};
+
+function renderCharts(){
+  if(chartsBuilt) return; chartsBuilt=true;
+  const days30=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(29-i));return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})});
+  const counts = getStatusCounts();
+
+  function buildChart(id,type,data,opts){
+    const el=document.getElementById(id); if(!el)return;
+    if(chartInstances[id]){try{chartInstances[id].destroy();}catch(e){}}
+    if(typeof Chart==='undefined'){el.parentElement.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-faint);">⏳ Loading charts...</div>';return;}
+    try{chartInstances[id]=new Chart(el.getContext('2d'), {type,data,options:{...opts,responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:10}}}}}});}catch(e){}
+  }
+
+  buildChart('ticketVolumeChart','line',{
+    labels:days30, datasets:[{label:'Tickets',data:days30.map(()=>rand(15,60)),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.15)',fill:true,tension:.4}]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  buildChart('ticketStatusChart','doughnut',{
+    labels:['Waiting','Active','Resolved','Closed'],
+    datasets:[{data:[counts.waiting||1,counts.active||1,counts.resolved||1,counts.closed||1],backgroundColor:['#f59e0b','#2563a8','#16a34a','#5b7480']}]
+  },{cutout:'60%'});
+}
+
+// ---- TICKETS TABLE ----
+let ticketPage=1, PER_PAGE=10;
+let currentFilterStatus='', currentFilterCategory='';
+
+function renderTickets(){
+  const q=(document.getElementById('ticketSearch')?.value||'').toLowerCase();
+  const status=document.getElementById('ticketStatusFilter')?.value||currentFilterStatus;
+  const category=document.getElementById('ticketCategoryFilter')?.value||currentFilterCategory;
+  let filtered=tickets.filter(t=>{
+    const m=!q||t.id.toLowerCase().includes(q)||t.customer.name.toLowerCase().includes(q)||t.subject.toLowerCase().includes(q);
+    const ms=!status||t.status===status; const mc=!category||t.category===category;
+    return m&&ms&&mc;
+  });
+  const total=filtered.length,tp=Math.ceil(total/PER_PAGE)||1; ticketPage=Math.min(ticketPage,tp);
+  const start=(ticketPage-1)*PER_PAGE,items=filtered.slice(start,start+PER_PAGE);
+  document.getElementById('ticketCountLabel').textContent=total+' tickets';
+  document.getElementById('ticketsTbody').innerHTML=items.map(t=>`
+    <tr><td class="mono">${t.id}</td><td><strong>${t.customer.name}</strong><div style="font-size:10px;color:var(--text-dim)">${t.customer.email}</div></td>
+      <td>${t.subject}</td><td>${t.category}</td>
+      <td>${badge(t.priority)}</td><td>${badge(t.status)}</td>
+      <td>${fmtDate(t.created)}</td>
+      <td><div class="row-actions">
+        <button class="icon-mini" onclick="openTicketDetail('${t.id}')" title="View">👁️</button>
+        ${t.status==='Waiting'?`<button class="icon-mini success" onclick="openChat('${t.id}')" title="Join">💬</button>`:''}
+        ${t.status==='Active'||t.status==='Waiting'?`<button class="icon-mini" onclick="resolveTicket('${t.id}')" title="Resolve">✅</button>`:''}
+      </div></td></tr>`).join('');
+  let ph='';for(let i=1;i<=tp;i++)ph+=`<button class="pg-btn ${i===ticketPage?'active':''}" onclick="ticketPage=${i};renderTickets()">${i}</button>`;
+  document.getElementById('ticketPager').innerHTML=ph;
+  document.getElementById('ticketRange').textContent=total?`${start+1}–${Math.min(start+PER_PAGE,total)} of ${total}`:'0';
+}
+
+function openTicketDetail(id){
+  const t=tickets.find(x=>x.id===id); if(!t)return;
+  const msgs = chatMessages[t.id]||[];
+  openModal('Ticket Details',t.id,`
+    <div class="info-grid">
+      <div><strong>Customer</strong>${t.customer.name}</div><div><strong>Email</strong>${t.customer.email}</div>
+      <div><strong>Category</strong>${t.category}</div><div><strong>Priority</strong>${badge(t.priority)}</div>
+      <div><strong>Status</strong>${badge(t.status)}</div><div><strong>Created</strong>${fmtDateTime(t.created)}</div>
+      <div><strong>Updated</strong>${fmtDateTime(t.updated)}</div><div><strong>Agent</strong>${t.agent||'Unassigned'}</div>
+    </div>
+    <div class="field"><label>Subject</label><div>${t.subject}</div></div>
+    <div class="field"><label>Description</label><div style="background:var(--bg);padding:12px;border-radius:8px;font-size:12.5px;">${t.description}</div></div>
+    <div class="field"><label>Conversation (${msgs.length} messages)</label>
+      <div style="max-height:200px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:8px;">
+        ${msgs.slice(-6).map(m=>`<div style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11.5px;"><strong>${m.sender==='customer'?t.customer.name:'Agent'}:</strong> ${m.text} <span style="color:var(--text-faint);font-size:9.5px;float:right;">${fmtDateTime(m.time)}</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="field"><label>Actions</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${t.status==='Waiting'?`<button class="btn btn-sm btn-success" onclick="closeModal();openChat('${t.id}')">💬 Join Chat</button>`:''}
+        ${t.status!=='Closed'&&t.status!=='Resolved'?`<button class="btn btn-sm btn-success" onclick="closeModal();resolveTicket('${t.id}')">✅ Resolve</button>`:''}
+        ${t.status!=='Closed'?`<button class="btn btn-sm btn-ghost" onclick="closeModal();closeTicket('${t.id}')">📁 Close</button>`:''}
+      </div>
+    </div>
+  `,'Close',null,true);
+}
+
+function resolveTicket(id){const t=tickets.find(x=>x.id===id);if(!t)return;t.status='Resolved';t.updated=new Date();toast(`Ticket ${id} resolved ✅`,'✅');renderTickets();renderDashboard();}
+function closeTicket(id){const t=tickets.find(x=>x.id===id);if(!t)return;t.status='Closed';t.updated=new Date();toast(`Ticket ${id} closed 📁`,'📁');renderTickets();renderDashboard();}
+
+document.getElementById('ticketSearch').addEventListener('input',()=>{ticketPage=1;renderTickets()});
+document.getElementById('ticketStatusFilter').addEventListener('change',renderTickets);
+document.getElementById('ticketCategoryFilter').addEventListener('change',renderTickets);
+
+// ---- NEW TICKET ----
+function openNewTicket(){
+  openModal('New Support Ticket','Create a new ticket for a customer',`
+    <div class="field"><label>Customer</label><select id="newTicketCustomer">${customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select></div>
+    <div class="field"><label>Category *</label><select id="newTicketCategory">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Priority</label><select id="newTicketPriority"><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>
+    <div class="field"><label>Subject *</label><input type="text" id="newTicketSubject" placeholder="Brief summary..."></div>
+    <div class="field"><label>Description *</label><textarea id="newTicketDesc" rows="4" placeholder="Detailed description..."></textarea></div>
+    <div class="field"><label>Screenshot (optional)</label><input type="file" accept="image/*"></div>
+  `,'Create Ticket',()=>{
+    const cust=customers.find(c=>c.id===document.getElementById('newTicketCustomer').value);
+    const category=document.getElementById('newTicketCategory').value;
+    const subject=document.getElementById('newTicketSubject').value.trim();
+    const desc=document.getElementById('newTicketDesc').value.trim();
+    if(!subject||!desc){toast('Subject and description required','⚠️');return;}
+    const newTkt={id:genTicketId(), customer:cust, subject, description:desc, category, priority:document.getElementById('newTicketPriority').value, status:'Waiting', created:new Date(), updated:new Date(), agent:null, messages:[]};
+    tickets.unshift(newTkt);
+    chatMessages[newTkt.id]=[];
+    toast(`Ticket ${newTkt.id} created! 🎫`,'🎫');
+    renderTickets();renderDashboard();
+    // Ask to connect to admin
+    setTimeout(()=>{
+      openModal('Connect to Admin?','Would you like to connect with an admin now?',`
+        <div style="text-align:center;padding:10px;">
+          <p style="font-size:14px;margin-bottom:12px;">You can chat with an admin about this ticket right now.</p>
+          <button class="btn btn-primary" onclick="closeModal();openChat('${newTkt.id}')" style="width:100%;">💬 Connect to Admin</button>
+        </div>
+      `,'Skip',null);
+    },500);
+  },true);
+}
+
+// ---- CHAT SYSTEM ----
+function renderChatList(){
+  const chatList = tickets.filter(t=>t.status==='Active'||t.status==='Waiting');
+  document.getElementById('chatList').innerHTML=chatList.map(t=>`
+    <div class="chat-item ${t.id===activeChatId?'active':''}" onclick="openChat('${t.id}')">
+      <div class="ci-top"><span class="ci-name">${t.customer.name}</span><span class="ci-time">${fmtDate(t.updated)}</span></div>
+      <div class="ci-msg">${t.subject}</div>
+      <div style="display:flex;gap:6px;margin-top:4px;"><span class="ci-badge ${t.status==='Active'?'unread':''}">${t.status}</span></div>
+    </div>`).join('');
+}
+
+function openChat(id){
+  activeChatId = id;
+  const t=tickets.find(x=>x.id===id);
+  if(!t)return;
+  if(t.status==='Waiting'){t.status='Active';t.agent='Dara Adisa';t.updated=new Date();renderDashboard();}
+  renderChatList();
+  renderChatMessages(id);
+  document.querySelector('[data-view=active]').click();
+}
+
+function renderChatMessages(id){
+  const t=tickets.find(x=>x.id===id);
+  if(!t)return;
+  const container=document.getElementById('chatMessages');
+  const msgs=chatMessages[id]||[];
+  document.getElementById('chatUser').textContent=t.customer.name;
+  document.getElementById('chatStatus').textContent=t.status+' · '+t.category;
+  document.getElementById('typingUser').textContent=t.customer.name;
+
+  if(!msgs.length){
+    container.innerHTML='<div style="text-align:center;color:var(--text-faint);padding:40px;">Start the conversation with the customer</div>';
+    return;
+  }
+  container.innerHTML=msgs.map(m=>`
+    <div class="chat-msg ${m.sender==='customer'?'received':'sent'}">
+      ${m.text}
+      <span class="msg-time">${fmtDateTime(m.time)}</span>
+    </div>`).join('');
+  container.scrollTop=container.scrollHeight;
+
+  // Update profile panel
+  const pp = document.getElementById('profilePanel');
+  if(pp.classList.contains('show')){
+    updateProfile(t.customer);
+  }
+}
+
+function updateProfile(customer){
+  document.getElementById('ppAvatar').textContent=customer.name.charAt(0).toUpperCase();
+  document.getElementById('ppName').textContent=customer.name;
+  document.getElementById('ppEmail').textContent=customer.email;
+  document.getElementById('ppNgn').textContent=fmtMoney(customer.ngn);
+  document.getElementById('ppUsd').textContent=fmtUsd(customer.usd);
+  document.getElementById('ppOrders').textContent=customer.orders;
+  document.getElementById('ppSms').textContent=customer.sms||0;
+  document.getElementById('ppRefunds').textContent=customer.refunds||0;
+  document.getElementById('ppLastLogin').textContent=fmtDate(customer.lastLogin);
+  document.getElementById('ppStatus').textContent=customer.status;
+}
+
+function toggleProfile(){
+  const pp=document.getElementById('profilePanel');
+  pp.classList.toggle('show');
+  if(pp.classList.contains('show') && activeChatId){
+    const t=tickets.find(x=>x.id===activeChatId);
+    if(t) updateProfile(t.customer);
+  }
+}
+
+function sendMessage(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();
+  if(!text||!activeChatId)return;
+  const msg={sender:'agent', text:text, time:new Date()};
+  if(!chatMessages[activeChatId])chatMessages[activeChatId]=[];
+  chatMessages[activeChatId].push(msg);
+  const t=tickets.find(x=>x.id===activeChatId);
+  if(t){t.updated=new Date();}
+  renderChatMessages(activeChatId);
+  input.value='';
+  // Simulate customer reply
+  setTimeout(()=>{
+    const replies=['Thanks for your help!','I\'ll try that now.','Can you provide more details?','Okay, I understand.','That fixed it, thank you!'];
+    const reply={sender:'customer', text:pick(replies), time:new Date()};
+    chatMessages[activeChatId].push(reply);
+    renderChatMessages(activeChatId);
+    renderDashboard();
+    document.getElementById('chatTyping').classList.add('show');
+    setTimeout(()=>document.getElementById('chatTyping').classList.remove('show'),1200);
+  }, 1800 + Math.random()*1200);
+}
+
+// ---- KNOWLEDGE BASE ----
+const articles = [
+  {id:'ART-001',title:'How to reset your password',category:'Account',views:1243,helpful:92,status:'Published',created:'2024-01-15'},
+  {id:'ART-002',title:'Making your first deposit',category:'Wallet',views:2341,helpful:88,status:'Published',created:'2024-02-01'},
+  {id:'ART-003',title:'Understanding virtual numbers',category:'Virtual SMS',views:987,helpful:95,status:'Published',created:'2024-03-10'},
+  {id:'ART-004',title:'How to withdraw funds',category:'Wallet',views:1654,helpful:91,status:'Published',created:'2024-04-05'},
+  {id:'ART-005',title:'Troubleshooting login issues',category:'Account',views:876,helpful:82,status:'Draft',created:'2024-05-20'},
+  {id:'ART-006',title:'Marketplace buying guide',category:'Marketplace',views:2345,helpful:96,status:'Published',created:'2024-06-01'},
+];
+
+function renderKnowledge(){
+  document.getElementById('knowledgeList').innerHTML=articles.map(a=>`
+    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px dashed var(--border)">
+      <div><strong>${a.title}</strong><div style="font-size:11px;color:var(--text-dim)">${a.category} · ${a.views} views · ${a.helpful}% helpful</div></div>
+      <div>${badge(a.status)}<div style="font-size:11px;text-align:right;margin-top:4px;">${fmtDate(a.created)}</div></div>
+    </div>`).join('');
+}
+
+function openArticleModal(){
+  openModal('Add Knowledge Article','Create a new help article',`
+    <div class="field"><label>Title *</label><input type="text" id="artTitle" placeholder="Article title..."></div>
+    <div class="field"><label>Category</label><select id="artCategory"><option>Account</option><option>Wallet</option><option>Virtual SMS</option><option>Marketplace</option><option>Orders</option></select></div>
+    <div class="field"><label>Content *</label><textarea id="artContent" rows="6" placeholder="Write the article content..."></textarea></div>
+    <div class="field"><label>Status</label><select id="artStatus"><option>Published</option><option>Draft</option></select></div>
+  `,'Add Article',()=>{
+    const title=document.getElementById('artTitle').value.trim();
+    const content=document.getElementById('artContent').value.trim();
+    if(!title||!content){toast('Title and content required','⚠️');return;}
+    articles.unshift({id:'ART-'+rand(100,999),title,category:document.getElementById('artCategory').value,views:0,helpful:0,status:document.getElementById('artStatus').value,created:new Date()});
+    toast('Article added! 📚','📚');renderKnowledge();
+  },true);
+}
+
+// ---- FAQ ----
+const faqs = [
+  {id:'FAQ-001',question:'How do I create an account?',category:'Account',order:1,status:'Published',views:2341},
+  {id:'FAQ-002',question:'How long do deposits take?',category:'Wallet',order:2,status:'Published',views:1876},
+  {id:'FAQ-003',question:'What is the minimum withdrawal?',category:'Wallet',order:3,status:'Published',views:1567},
+  {id:'FAQ-004',question:'How do I use virtual numbers?',category:'Virtual SMS',order:4,status:'Published',views:1234},
+  {id:'FAQ-005',question:'Can I cancel an order?',category:'Orders',order:5,status:'Draft',views:876},
+];
+
+function renderFaq(){
+  document.getElementById('faqList').innerHTML=faqs.map(f=>`
+    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px dashed var(--border)">
+      <div><strong>${f.question}</strong><div style="font-size:11px;color:var(--text-dim)">${f.category} · ${f.views} views</div></div>
+      <div>${badge(f.status)}<div style="font-size:11px;text-align:right;margin-top:4px;">Order: ${f.order}</div></div>
+    </div>`).join('');
+}
+
+function openFAQModal(){
+  openModal('Add FAQ','Create a new frequently asked question',`
+    <div class="field"><label>Question *</label><input type="text" id="faqQuestion" placeholder="Question..."></div>
+    <div class="field"><label>Answer *</label><textarea id="faqAnswer" rows="4" placeholder="Answer..."></textarea></div>
+    <div class="field"><label>Category</label><select id="faqCategory"><option>Account</option><option>Wallet</option><option>Virtual SMS</option><option>Marketplace</option><option>Orders</option></select></div>
+    <div class="field"><label>Display Order</label><input type="number" id="faqOrder" value="${faqs.length+1}"></div>
+    <div class="field"><label>Status</label><select id="faqStatus"><option>Published</option><option>Draft</option></select></div>
+  `,'Add FAQ',()=>{
+    const q=document.getElementById('faqQuestion').value.trim();
+    const a=document.getElementById('faqAnswer').value.trim();
+    if(!q||!a){toast('Question and answer required','⚠️');return;}
+    faqs.unshift({id:'FAQ-'+rand(100,999),question:q,answer:a,category:document.getElementById('faqCategory').value,order:parseInt(document.getElementById('faqOrder').value)||0,status:document.getElementById('faqStatus').value,views:0});
+    toast('FAQ added! ❓','❓');renderFaq();
+  },true);
+}
+
+// ---- NOTIFICATIONS ----
+function openNotif(){
+  openModal('Notifications','Latest support activity',`
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${tickets.slice(0,8).map(t=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border);font-size:12.5px;"><span>${t.customer.name} — ${t.subject}</span><span>${badge(t.status)}</span></div>`).join('')}
+    </div>
+  `,'Close',null);
+}
+
+// ---- INIT ----
+function init(){
+  renderDashboard();
+  renderTickets();
+  renderKnowledge();
+  renderFaq();
+  console.log('🚀 Support Center ready — All features working!');
+}
+
+// Handle Chart.js loading
+if(typeof Chart !== 'undefined'){
+  init();
+} else {
+  document.addEventListener('DOMContentLoaded', function(){
+    var checkCount = 0;
+    var checkInterval = setInterval(function(){
+      checkCount++;
+      if(typeof Chart !== 'undefined'){
+        clearInterval(checkInterval);
+        init();
+        console.log('✅ Chart.js loaded via interval check');
+      } else if(checkCount > 20){
+        clearInterval(checkInterval);
+        console.warn('⚠️ Chart.js not loaded after 10 seconds');
+        init();
+      }
+    }, 500);
+  });
+  document.addEventListener('chartjs-ready', function(){
+    if(!chartsBuilt) renderCharts();
+  });
+}
+setTimeout(function(){
+  if(!chartsBuilt && typeof Chart !== 'undefined') renderCharts();
+}, 2000);
+</script>
+</body>
+</html>

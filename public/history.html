@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="/js/session.js"></script>
+  <script src="/js/presence.js" defer></script>
   <style>
     :root {
       --p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;
@@ -18,7 +20,6 @@
       --s0:0 1px 3px rgba(0,0,0,.04);--s1:0 4px 14px rgba(0,0,0,.07);--s2:0 8px 28px rgba(0,0,0,.1);
       --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--ease:cubic-bezier(.25,.8,.25,1);
     }
-
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     html{font-size:15px;scroll-behavior:smooth}
     body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
@@ -27,7 +28,6 @@
     .app{display:flex;min-height:100vh}
     .main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh;min-width:0}
 
-    /* ── SIDEBAR ── */
     .sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
     .sidebar::-webkit-scrollbar{display:none}
     @media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
@@ -41,8 +41,6 @@
     .sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
     .sb-lnk:hover{background:var(--bg);color:var(--t1)}
     .sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
-    .sb-lnk.active i{color:var(--p)}
-    .sb-lnk.proxy-lnk:hover{background:#f5f3ff;color:#7c3aed}
     .sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
     .sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
     .sb-prof:hover{background:var(--bg)}
@@ -54,7 +52,6 @@
     .sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:all .18s;cursor:pointer;border:none;background:none}
     .sb-out:hover{background:var(--erl);color:var(--err)}
 
-    /* ── TOPBAR ── */
     .topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 20px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:12px}
     .tb-hbg{width:34px;height:34px;border-radius:9px;background:var(--pl);color:var(--p);font-size:.88rem;display:none;place-items:center;flex-shrink:0;cursor:pointer}
     @media(max-width:1024px){.tb-hbg{display:grid}}
@@ -66,24 +63,8 @@
     .tb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
     .ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.45);backdrop-filter:blur(4px);z-index:490}.ov.on{display:block}
 
-    /* ── CONTENT ── */
     .content{padding:20px 22px;flex:1;width:100%}@media(max-width:768px){.content{padding:14px 13px 82px}}
 
-    /* ── PAGE HEADER ── */
-    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
-    .page-title{font-family:var(--fd);font-size:1.35rem;font-weight:700;color:var(--t1)}
-    .page-sub{font-size:.84rem;color:var(--t3)}
-    .live-pill{display:inline-flex;align-items:center;gap:5px;background:var(--okl);color:var(--ok);font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px}
-    .live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:blink 2s infinite}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-
-    .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:var(--r);font-family:var(--fb);font-size:.82rem;font-weight:600;cursor:pointer;border:none;transition:all .15s;min-height:40px}
-    .btn-white{background:var(--srf);border:1px solid var(--bdr);color:var(--t2)}
-    .btn-white:hover{border-color:var(--p);color:var(--p)}
-    .btn-primary{background:var(--p);color:#fff}
-    .btn-primary:hover{background:var(--pm)}
-
-    /* ── STATS ── */
     .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
     @media(max-width:768px){.stats-grid{grid-template-columns:1fr 1fr}}
     @media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr;gap:10px}}
@@ -103,7 +84,12 @@
     .stat-val-sm{font-size:.72rem;color:var(--t2);margin-top:2px;font-weight:500}
     .stat-sub{font-size:.68rem;color:var(--t3);margin-top:4px}
 
-    /* ── CONTROLS ── */
+    .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--bdr);overflow-x:auto}
+    .tab{display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:.78rem;font-weight:600;color:var(--t2);cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap}
+    .tab:hover{color:var(--t1)}
+    .tab.active{color:var(--p);border-bottom-color:var(--p)}
+    .tab i{font-size:.7rem;color:var(--t3)}
+
     .controls-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
     .search-box{flex:1;min-width:180px;position:relative}
     .search-box i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.78rem;pointer-events:none}
@@ -114,7 +100,6 @@
     .filter-btn:hover{border-color:var(--p);color:var(--p)}
     .filter-btn.has-filter{background:var(--pl);border-color:var(--p);color:var(--p)}
 
-    /* ── TRANSACTION LIST ── */
     .tx-list{display:flex;flex-direction:column;gap:8px}
     .tx-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:var(--s0);transition:all .15s}
     .tx-card:hover{border-color:var(--t3);box-shadow:var(--s1);transform:translateY(-1px)}
@@ -128,6 +113,9 @@
     .tx-amount.dr{color:var(--err)}
     .tx-meta{display:flex;align-items:center;gap:6px;margin-top:3px;justify-content:flex-end;flex-wrap:wrap}
     .tx-date{font-size:.65rem;color:var(--t3)}
+    .tx-download-btn{background:var(--pl);color:var(--p);font-size:.6rem;padding:2px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:3px;font-family:var(--fb);font-weight:600;transition:background .12s;border:none}
+    .tx-download-btn:hover{background:var(--bdr)}
+    .tx-currency-tag{font-size:.55rem;color:var(--t3);background:var(--bg);padding:1px 6px;border-radius:3px;font-weight:600}
 
     .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
     .badge.completed{background:var(--okl);color:var(--ok)}
@@ -140,8 +128,9 @@
 
     .empty-state{text-align:center;padding:48px 20px;color:var(--t3)}
     .empty-state i{font-size:2.2rem;display:block;margin-bottom:12px;color:var(--bdr)}
+    .loading-state{text-align:center;padding:48px 20px;color:var(--t3)}
+    .loading-state i{font-size:2.2rem;display:block;margin-bottom:12px;color:var(--p)}
 
-    /* ── FILTER SHEET ── */
     .sheet-overlay{position:fixed;inset:0;background:rgba(10,37,48,.45);z-index:600;opacity:0;pointer-events:none;transition:opacity .25s}
     .sheet-overlay.open{opacity:1;pointer-events:auto}
     .sheet{position:fixed;bottom:0;left:0;right:0;background:var(--srf);border-radius:20px 20px 0 0;padding:0 0 24px;z-index:601;transform:translateY(100%);transition:transform .3s var(--ease);max-height:75vh;overflow-y:auto}
@@ -156,12 +145,11 @@
     .filter-opt .opt-icon{margin-right:10px;color:var(--t3);width:18px;text-align:center}
     .filter-opt.active .opt-icon{color:var(--p)}
 
-    /* ── RECEIPT MODAL ── */
     .receipt-overlay{position:fixed;inset:0;background:rgba(10,37,48,.55);z-index:700;opacity:0;pointer-events:none;transition:opacity .25s;display:flex;align-items:center;justify-content:center;padding:16px}
     .receipt-overlay.open{opacity:1;pointer-events:auto}
     .receipt-modal{background:var(--srf);border-radius:var(--rxl);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;transform:scale(.96) translateY(16px);transition:transform .3s var(--ease);box-shadow:var(--s2)}
     .receipt-overlay.open .receipt-modal{transform:scale(1) translateY(0)}
-    .receipt-header{background:var(--p);border-radius:var(--rxl) var(--rxl) 0 0;padding:18px 20px 14px;color:#fff}
+    .receipt-header{background:var(--p);border-radius:var(--rxl) var(--rxl) 0 0;padding:18px 20px 14px;color:#fff;display:flex;justify-content:space-between;align-items:flex-start}
     .receipt-type-label{font-size:.6rem;opacity:.7;text-transform:uppercase;letter-spacing:.08em}
     .receipt-title{font-family:var(--fd);font-weight:700;font-size:1.05rem;margin-top:2px}
     .receipt-ref{font-size:.7rem;opacity:.7;margin-top:2px}
@@ -179,29 +167,8 @@
     .status-hero{text-align:center;padding:16px 12px 12px}
     .status-icon-lg{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;margin:0 auto 10px;font-size:1.2rem}
     .amount-lg{font-family:var(--fd);font-weight:800;font-size:1.5rem;color:var(--t1);margin-bottom:4px}
-
-    .timeline{padding:12px 14px}
-    .tl-item{display:flex;gap:12px;padding-bottom:14px;position:relative}
-    .tl-item:last-child{padding-bottom:0}
-    .tl-line{position:absolute;left:10px;top:20px;bottom:0;width:2px;background:var(--bdr)}
-    .tl-item:last-child .tl-line{display:none}
-    .tl-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:7px;z-index:1;position:relative}
-    .tl-dot.done{background:var(--ok);color:#fff}
-    .tl-dot.current{background:var(--acc);color:#fff;animation:pulse-orange 2s infinite}
-    @keyframes pulse-orange{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}
-    .tl-dot.future{background:var(--bdr);color:var(--t3)}
-    .tl-step{font-size:.78rem;font-weight:600;color:var(--t1)}
-    .tl-time{font-size:.65rem;color:var(--t3);margin-top:1px}
-    .tl-descr{font-size:.7rem;color:var(--t2);margin-top:2px}
-
-    .prog-bar-wrap{padding:12px 14px}
-    .prog-bar-label{display:flex;justify-content:space-between;font-size:.7rem;color:var(--t3);margin-bottom:6px}
-    .prog-bar{height:6px;background:var(--bdr);border-radius:99px;overflow:hidden}
-    .prog-bar-fill{height:100%;background:var(--p);border-radius:99px;transition:width 1s ease}
-
-    .code-hidden{filter:blur(6px);user-select:none;transition:filter .3s;cursor:pointer}
-    .code-wrap{display:flex;align-items:center;gap:8px}
-    .reveal-btn{background:var(--p);border:none;color:#fff;font-size:.65rem;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:var(--fb);font-weight:600}
+    .amount-lg.cr{color:var(--ok)}
+    .amount-lg.dr{color:var(--err)}
 
     .receipt-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 18px 18px}
     .r-action-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;border-radius:var(--r);font-family:var(--fb);font-size:.78rem;font-weight:600;cursor:pointer;border:none;transition:all .15s;min-height:40px}
@@ -209,19 +176,12 @@
     .r-action-btn.secondary{background:var(--srf);border:1px solid var(--bdr);color:var(--t2)}
     .r-action-btn:hover{opacity:.85;transform:translateY(-1px)}
 
-    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:800;display:none;align-items:center;justify-content:center;padding:16px}
-    .lightbox.open{display:flex}
-    .lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
-    .lightbox-close{position:absolute;top:16px;right:16px;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer}
-
-    /* ── MOBILE NAV ── */
     .mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:54px;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.8);border-radius:18px;box-shadow:0 6px 24px rgba(0,0,0,.1);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
     .mni{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:.5rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1;padding:4px 0}
     .mni i{font-size:.85rem;padding:4px 6px;border-radius:8px;transition:all .18s}
     .mni.active{color:var(--p)}.mni.active i{background:var(--pl);color:var(--p)}
     @media(max-width:768px){.mnav{display:flex}}
 
-    /* ── RESPONSIVE ── */
     @media(max-width:768px){
       .topbar{padding:0 14px}
       .content{padding:14px 12px 80px}
@@ -233,7 +193,8 @@
       .tx-amount{font-size:.82rem}
       .controls-bar{gap:8px}
       .search-box{min-width:140px}
-      .page-title{font-size:1.1rem}
+      .tabs{gap:2px}
+      .tab{padding:8px 12px;font-size:.72rem}
     }
     @media(max-width:480px){
       .stats-grid{gap:8px}
@@ -250,15 +211,7 @@
       .badge{font-size:.5rem;padding:1px 6px}
       .filter-btn{padding:7px 10px;font-size:.72rem}
       .search-box input{font-size:.74rem;padding:7px 10px 7px 32px}
-      .tb-title{font-size:.78rem}
-      .receipt-modal{padding:0}
-      .receipt-header{padding:14px 16px}
-      .receipt-title{font-size:.9rem}
-      .receipt-body{padding:12px}
-      .r-section-title{font-size:.55rem;padding:6px 10px 4px}
-      .r-row{padding:6px 10px}
-      .r-key{font-size:.65rem}
-      .r-val{font-size:.7rem}
+      .tab{padding:6px 10px;font-size:.65rem}
     }
   </style>
 </head>
@@ -268,7 +221,6 @@
 
 <div class="app">
 
-<!-- SIDEBAR -->
 <aside class="sidebar" id="sb">
   <div class="sb-brand">
     <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace">MilesSpace</div>
@@ -282,15 +234,12 @@
     <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
     <a href="history.html" class="sb-lnk active"><i class="fas fa-history"></i> History</a>
     <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
-    <a href="social-ads.html" class="sb-lnk"><i class="fas fa-ad"></i> Social Ads</a>
+    <a href="buy-crypto.html" class="sb-lnk"><i class="fas fa-coins"></i> Buy Crypto</a>
   </nav>
   <p class="sb-sec">Account</p>
   <nav class="sb-nav">
     <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
     <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
-    <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk">
-      <i class="fas fa-shield-alt"></i> Buy Proxy
-    </a>
   </nav>
   <div class="sb-foot">
     <a href="profile.html" class="sb-prof">
@@ -304,7 +253,6 @@
   </div>
 </aside>
 
-<!-- MAIN -->
 <div class="main">
   <header class="topbar">
     <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
@@ -347,6 +295,12 @@
       </div>
     </div>
 
+    <!-- Tabs: Transactions | Purchases -->
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="transactions"><i class="fas fa-list"></i> All Transactions</div>
+      <div class="tab" data-tab="purchases"><i class="fas fa-shopping-bag"></i> My Purchases</div>
+    </div>
+
     <!-- Controls -->
     <div class="controls-bar">
       <div class="search-box">
@@ -361,12 +315,16 @@
     </div>
 
     <!-- Transaction List -->
-    <div class="tx-list" id="txList"></div>
+    <div class="tx-list" id="txList">
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Loading transactions...</p>
+      </div>
+    </div>
 
   </div>
 </div>
 
-<!-- MOBILE NAV -->
 <nav class="mnav">
   <a href="dashboard.html" class="mni"><i class="fas fa-home"></i>Home</a>
   <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i>Boost</a>
@@ -389,581 +347,808 @@
   <div class="receipt-modal" id="receiptModal"></div>
 </div>
 
-<!-- LIGHTBOX -->
-<div class="lightbox" id="lightbox">
-  <button class="lightbox-close" id="lbClose"><i class="fas fa-times"></i></button>
-  <img id="lbImg" src="" alt=""/>
-</div>
-
 <script>
+// history.html - COMPLETE FIXED VERSION
+
 'use strict';
 
-/* ─────────────────────────────────────────
-   CONFIG & AUTH
-───────────────────────────────────────── */
-const SK = 'mx_sess';
-const API = '/api';
+/* ══════════════════════════════════════
+   SESSION HELPERS
+══════════════════════════════════════ */
+const SESSION_KEY = 'mx_sess';
 
-function getSess() { 
-  try { 
-    const raw = localStorage.getItem(SK) || sessionStorage.getItem(SK) || 'null';
-    return JSON.parse(raw); 
-  } catch(e) { return null; } 
+function getSession() {
+    try {
+        const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null';
+        return JSON.parse(raw);
+    } catch(e) { return null; }
 }
 
-function getToken() { 
-  const sess = getSess();
-  return sess?.token || ''; 
+function getToken() {
+    return getSession()?.token || '';
 }
 
-// Redirect if not logged in
+function clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+}
+
+function redirectToLogin() {
+    clearSession();
+    window.location.href = 'login.html';
+}
+
 if (!getToken()) {
-  location.href = 'login.html';
+    redirectToLogin();
 }
 
-function getAuthHeaders() {
-  const token = getToken();
-  return token ? { 'Authorization': 'Bearer ' + token } : {};
-}
-
-/* ─────────────────────────────────────────
-   API HELPERS
-───────────────────────────────────────── */
-async function apiCall(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
-  const response = await fetch(API + path, {
-    ...opts,
-    headers: { ...headers, ...(opts.headers || {}) }
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem(SK);
-      sessionStorage.removeItem(SK);
-      location.href = 'login.html';
+/* ══════════════════════════════════════
+   LOGOUT FUNCTION
+══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            doLogout();
+        });
     }
-    throw new Error(data.error || 'HTTP ' + response.status);
-  }
-  return data;
+});
+
+function doLogout() {
+    clearSession();
+    localStorage.removeItem('admin_sess');
+    localStorage.removeItem('miles_token');
+    localStorage.removeItem('miles_user');
+    sessionStorage.clear();
+    window.location.href = 'login.html';
 }
 
-/* ─────────────────────────────────────────
+/* ══════════════════════════════════════
+   API WRAPPER
+══════════════════════════════════════ */
+async function api(path, opts = {}) {
+    const token = getToken();
+    if (!token) {
+        redirectToLogin();
+        return;
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+        const res = await fetch('/api' + path, {
+            ...opts,
+            headers: { ...headers, ...(opts.headers || {}) }
+        });
+
+        if (res.status === 401) {
+            redirectToLogin();
+            return;
+        }
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'HTTP ' + res.status);
+        return json;
+    } catch(e) {
+        console.warn('API error:', e.message);
+        throw e;
+    }
+}
+
+/* ══════════════════════════════════════
    FORMAT HELPERS
-───────────────────────────────────────── */
+══════════════════════════════════════ */
 function fNGN(n) {
-  return '₦' + (Number(n) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '₦' + (Math.abs(Number(n)) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fUSD(n) {
-  return '$' + (Number(n) || 0).toFixed(2);
+    return '$' + (Math.abs(Number(n)) || 0).toFixed(2);
 }
 
 function formatDate(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts);
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatTime(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts);
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    if (!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
-/* ─────────────────────────────────────────
-   POPULATE USER INFO
-───────────────────────────────────────── */
+/* ══════════════════════════════════════
+   POPULATE USER
+══════════════════════════════════════ */
 function populateUser() {
-  const sess = getSess();
-  const u = sess?.user || {};
-  const name = u.username || u.full_name || u.email?.split('@')[0] || 'User';
-  const email = u.email || '';
-  document.getElementById('sbName').textContent = name;
-  document.getElementById('sbEmail').textContent = email;
-  const av = document.getElementById('sbAv');
-  const tbAv = document.getElementById('tbAv');
-  const init = name.charAt(0).toUpperCase();
-  if (u.avatar_url) {
-    av.innerHTML = `<img src="${u.avatar_url}" alt="${name}" onerror="this.textContent='${init}'">`;
-    tbAv.innerHTML = `<img src="${u.avatar_url}" alt="${name}" onerror="this.textContent='${init}'">`;
-  } else {
-    av.textContent = init;
-    tbAv.textContent = init;
-  }
+    const sess = getSession();
+    const u = sess?.user || {};
+    const name = u.username || u.email?.split('@')[0] || 'User';
+    const email = u.email || '';
+    
+    document.getElementById('sbName').textContent = name;
+    document.getElementById('sbEmail').textContent = email;
+    
+    const av = document.getElementById('sbAv');
+    const tbAv = document.getElementById('tbAv');
+    const init = name.charAt(0).toUpperCase();
+    
+    if (u.avatar_url) {
+        av.innerHTML = `<img src="${u.avatar_url}" alt="${name}" onerror="this.textContent='${init}'">`;
+        tbAv.innerHTML = `<img src="${u.avatar_url}" alt="${name}" onerror="this.textContent='${init}'">`;
+    } else {
+        av.textContent = init;
+        tbAv.textContent = init;
+    }
 }
 
-document.getElementById('logoutBtn').onclick = () => {
-  localStorage.removeItem(SK);
-  sessionStorage.removeItem(SK);
-  location.href = 'login.html';
-};
-
-/* ─────────────────────────────────────────
+/* ══════════════════════════════════════
    SIDEBAR MOBILE
-───────────────────────────────────────── */
+══════════════════════════════════════ */
 const sb = document.getElementById('sb');
 const ov = document.getElementById('ov');
-document.getElementById('hbg').onclick = () => { sb.classList.toggle('open'); ov.classList.toggle('on'); };
-ov.onclick = () => { sb.classList.remove('open'); ov.classList.remove('on'); };
-window.addEventListener('resize', () => { if (window.innerWidth >= 1025) { sb.classList.remove('open'); ov.classList.remove('on'); } });
 
-/* ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    const hbg = document.getElementById('hbg');
+    if (hbg) {
+        hbg.onclick = function() {
+            sb.classList.toggle('open');
+            ov.classList.toggle('on');
+        };
+    }
+    
+    if (ov) {
+        ov.onclick = function() {
+            sb.classList.remove('open');
+            ov.classList.remove('on');
+        };
+    }
+    
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 1025) {
+            sb.classList.remove('open');
+            ov.classList.remove('on');
+        }
+    });
+});
+
+/* ══════════════════════════════════════
    STATE
-───────────────────────────────────────── */
+══════════════════════════════════════ */
 let allTx = [];
+let purchaseMap = {};
 let currentFilter = 'all';
 let searchQ = '';
 let currentPage = 1;
 const PER_PAGE = 20;
+let isLoading = false;
+let hasMore = true;
+let currentTab = 'transactions';
 
-/* ─────────────────────────────────────────
+/* ══════════════════════════════════════
    FILTERS
-───────────────────────────────────────── */
+══════════════════════════════════════ */
 const FILTERS = [
-  { key: 'all', label: 'All Transactions', icon: 'fas fa-list' },
-  { key: 'wallet_funding', label: 'Wallet Funding', icon: 'fas fa-arrow-down' },
-  { key: 'wallet_withdrawal', label: 'Wallet Withdrawal', icon: 'fas fa-arrow-up' },
-  { key: 'gift_card_sell', label: 'Sell Gift Card', icon: 'fas fa-tag' },
-  { key: 'gift_card_buy', label: 'Buy Gift Card', icon: 'fas fa-gift' },
-  { key: 'virtual_number', label: 'Virtual Number', icon: 'fas fa-phone-alt' },
-  { key: 'sms_verification', label: 'SMS Verification', icon: 'fas fa-comment-dots' },
-  { key: 'social_boost', label: 'Social Boost', icon: 'fas fa-chart-line' },
-  { key: 'marketplace_purchase', label: 'Marketplace Purchase', icon: 'fas fa-shopping-bag' },
-  { key: 'marketplace_sale', label: 'Marketplace Sale', icon: 'fas fa-store' },
-  { key: 'send_gift', label: 'Send Gift', icon: 'fas fa-heart' },
-  { key: 'referral_bonus', label: 'Referral Bonus', icon: 'fas fa-users' },
-  { key: 'cashback', label: 'Cashback', icon: 'fas fa-undo-alt' },
+    { key: 'all', label: 'All Transactions', icon: 'fas fa-list' },
+    { key: 'wallet_funding', label: 'Wallet Funding', icon: 'fas fa-arrow-down' },
+    { key: 'wallet_withdrawal', label: 'Wallet Withdrawal', icon: 'fas fa-arrow-up' },
+    { key: 'gift_card_sell', label: 'Sell Gift Card', icon: 'fas fa-tag' },
+    { key: 'gift_card_buy', label: 'Buy Gift Card', icon: 'fas fa-gift' },
+    { key: 'virtual_number', label: 'Virtual Number', icon: 'fas fa-phone-alt' },
+    { key: 'social_boost', label: 'Social Boost', icon: 'fas fa-chart-line' },
+    { key: 'marketplace_purchase', label: 'Marketplace Purchase', icon: 'fas fa-shopping-bag' },
+    { key: 'send_gift', label: 'Send Gift', icon: 'fas fa-heart' },
+    { key: 'referral_bonus', label: 'Referral Bonus', icon: 'fas fa-users' },
+    { key: 'cashback', label: 'Cashback', icon: 'fas fa-undo-alt' },
 ];
 
 const TYPE_CONFIG = {
-  wallet_funding: { icon: 'fas fa-arrow-down', bg: '#d1fae5', color: '#059669' },
-  wallet_withdrawal: { icon: 'fas fa-arrow-up', bg: '#fee2e2', color: '#dc2626' },
-  gift_card_sell: { icon: 'fas fa-tag', bg: '#fef3c7', color: '#d97706' },
-  gift_card_buy: { icon: 'fas fa-gift', bg: '#dbeafe', color: '#2563eb' },
-  virtual_number: { icon: 'fas fa-phone-alt', bg: '#ede9fe', color: '#7c3aed' },
-  sms_verification: { icon: 'fas fa-comment-dots', bg: '#fce7f3', color: '#db2777' },
-  social_boost: { icon: 'fas fa-chart-line', bg: '#dbeafe', color: '#2563eb' },
-  marketplace_purchase: { icon: 'fas fa-shopping-bag', bg: '#fef3c7', color: '#d97706' },
-  marketplace_sale: { icon: 'fas fa-store', bg: '#d1fae5', color: '#059669' },
-  send_gift: { icon: 'fas fa-heart', bg: '#fce7f3', color: '#db2777' },
-  referral_bonus: { icon: 'fas fa-users', bg: '#d1fae5', color: '#059669' },
-  cashback: { icon: 'fas fa-undo-alt', bg: '#d1fae5', color: '#059669' },
+    wallet_funding: { icon: 'fas fa-arrow-down', bg: '#d1fae5', color: '#059669' },
+    wallet_withdrawal: { icon: 'fas fa-arrow-up', bg: '#fee2e2', color: '#dc2626' },
+    gift_card_sell: { icon: 'fas fa-tag', bg: '#fef3c7', color: '#d97706' },
+    gift_card_buy: { icon: 'fas fa-gift', bg: '#dbeafe', color: '#2563eb' },
+    virtual_number: { icon: 'fas fa-phone-alt', bg: '#ede9fe', color: '#7c3aed' },
+    social_boost: { icon: 'fas fa-chart-line', bg: '#dbeafe', color: '#2563eb' },
+    marketplace_purchase: { icon: 'fas fa-shopping-bag', bg: '#fef3c7', color: '#d97706' },
+    send_gift: { icon: 'fas fa-heart', bg: '#fce7f3', color: '#db2777' },
+    referral_bonus: { icon: 'fas fa-users', bg: '#d1fae5', color: '#059669' },
+    cashback: { icon: 'fas fa-undo-alt', bg: '#d1fae5', color: '#059669' },
 };
 
 const STATUS_CONFIG = {
-  completed: { label: 'Completed', bg: '#d1fae5', color: '#065f46' },
-  pending: { label: 'Pending', bg: '#fef3c7', color: '#92400e' },
-  processing: { label: 'Processing', bg: '#dbeafe', color: '#1e40af' },
-  failed: { label: 'Failed', bg: '#fee2e2', color: '#991b1b' },
-  cancelled: { label: 'Cancelled', bg: '#f3f4f6', color: '#374151' },
-  refunded: { label: 'Refunded', bg: '#ede9fe', color: '#5b21b6' },
-  expired: { label: 'Expired', bg: '#374151', color: '#f9fafb' },
+    completed: { label: 'Completed', bg: '#d1fae5', color: '#065f46' },
+    pending: { label: 'Pending', bg: '#fef3c7', color: '#92400e' },
+    processing: { label: 'Processing', bg: '#dbeafe', color: '#1e40af' },
+    failed: { label: 'Failed', bg: '#fee2e2', color: '#991b1b' },
+    cancelled: { label: 'Cancelled', bg: '#f3f4f6', color: '#374151' },
+    refunded: { label: 'Refunded', bg: '#ede9fe', color: '#5b21b6' },
+    expired: { label: 'Expired', bg: '#374151', color: '#f9fafb' },
 };
 
-/* ─────────────────────────────────────────
+/* ══════════════════════════════════════
    BUILD FILTER SHEET
-───────────────────────────────────────── */
-const filterOptsEl = document.getElementById('filterOpts');
-filterOptsEl.innerHTML = FILTERS.map(f => `
-  <div class="filter-opt ${f.key === 'all' ? 'active' : ''}" data-key="${f.key}">
-    <span><i class="opt-icon ${f.icon}"></i>${f.label}</span>
-    ${f.key === 'all' ? '<i class="fas fa-check check"></i>' : ''}
-  </div>
-`).join('');
-
-filterOptsEl.querySelectorAll('.filter-opt').forEach(el => {
-  el.onclick = () => {
-    currentFilter = el.dataset.key;
-    filterOptsEl.querySelectorAll('.filter-opt').forEach(e => {
-      e.classList.remove('active');
-      e.querySelector('.check')?.remove();
-    });
-    el.classList.add('active');
-    el.insertAdjacentHTML('beforeend', '<i class="fas fa-check check"></i>');
-    const label = FILTERS.find(f => f.key === currentFilter)?.label || 'All Transactions';
-    document.getElementById('filterLabel').textContent = label;
-    document.getElementById('filterBtn').classList.toggle('has-filter', currentFilter !== 'all');
-    closeSheet();
-    renderList();
-  };
+══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+    const filterOptsEl = document.getElementById('filterOpts');
+    if (filterOptsEl) {
+        filterOptsEl.innerHTML = FILTERS.map(f => `
+            <div class="filter-opt ${f.key === 'all' ? 'active' : ''}" data-key="${f.key}">
+                <span><i class="opt-icon ${f.icon}"></i>${f.label}</span>
+                ${f.key === 'all' ? '<i class="fas fa-check check"></i>' : ''}
+            </div>
+        `).join('');
+        
+        filterOptsEl.querySelectorAll('.filter-opt').forEach(el => {
+            el.onclick = function() {
+                currentFilter = this.dataset.key;
+                filterOptsEl.querySelectorAll('.filter-opt').forEach(e => {
+                    e.classList.remove('active');
+                    e.querySelector('.check')?.remove();
+                });
+                this.classList.add('active');
+                this.insertAdjacentHTML('beforeend', '<i class="fas fa-check check"></i>');
+                const label = FILTERS.find(f => f.key === currentFilter)?.label || 'All Transactions';
+                document.getElementById('filterLabel').textContent = label;
+                document.getElementById('filterBtn').classList.toggle('has-filter', currentFilter !== 'all');
+                closeSheet();
+                currentPage = 1;
+                renderView();
+            };
+        });
+    }
 });
 
-/* ─────────────────────────────────────────
+/* ══════════════════════════════════════
    SHEET OPEN/CLOSE
-───────────────────────────────────────── */
+══════════════════════════════════════ */
 const sheetOverlayEl = document.getElementById('sheetOverlay');
 const filterSheet = document.getElementById('filterSheet');
 
-document.getElementById('filterBtn').onclick = () => {
-  sheetOverlayEl.classList.add('open');
-  filterSheet.classList.add('open');
-};
-
-function closeSheet() {
-  sheetOverlayEl.classList.remove('open');
-  filterSheet.classList.remove('open');
-}
-sheetOverlayEl.onclick = closeSheet;
-
-/* ─────────────────────────────────────────
-   SEARCH
-───────────────────────────────────────── */
-document.getElementById('searchInput').addEventListener('input', e => {
-  searchQ = e.target.value.toLowerCase();
-  currentPage = 1;
-  renderList();
-});
-
-/* ─────────────────────────────────────────
-   LOAD DATA
-───────────────────────────────────────── */
-async function loadData() {
-  try {
-    const txData = await apiCall('/transactions');
-    allTx = txData.data || [];
-    
-    try {
-      const statsData = await apiCall('/transactions/stats');
-      updateStats(statsData.stats);
-    } catch (e) {
-      console.warn('Stats load failed:', e);
+document.addEventListener('DOMContentLoaded', function() {
+    const filterBtn = document.getElementById('filterBtn');
+    if (filterBtn) {
+        filterBtn.onclick = function() {
+            if (sheetOverlayEl && filterSheet) {
+                sheetOverlayEl.classList.add('open');
+                filterSheet.classList.add('open');
+            }
+        };
     }
     
-    renderList();
-  } catch (e) {
-    console.error('Load data error:', e);
-    document.getElementById('txList').innerHTML = `
-      <div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load transactions. Please refresh.</p></div>
-    `;
-  }
+    if (sheetOverlayEl) {
+        sheetOverlayEl.onclick = closeSheet;
+    }
+});
+
+function closeSheet() {
+    if (sheetOverlayEl) sheetOverlayEl.classList.remove('open');
+    if (filterSheet) filterSheet.classList.remove('open');
+}
+
+/* ══════════════════════════════════════
+   SEARCH
+══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            searchQ = this.value.toLowerCase();
+            currentPage = 1;
+            renderView();
+        });
+    }
+});
+
+/* ══════════════════════════════════════
+   TABS
+══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.onclick = function() {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            currentTab = this.dataset.tab;
+            currentPage = 1;
+            renderView();
+        };
+    });
+});
+
+/* ══════════════════════════════════════
+   LOAD DATA
+══════════════════════════════════════ */
+const cache = new Map();
+const CACHE_TTL = 60000;
+
+async function apiCall(path, opts = {}, useCache = true) {
+    const cacheKey = path + JSON.stringify(opts || {});
+    
+    if (useCache && cache.has(cacheKey)) {
+        const cached = cache.get(cacheKey);
+        if (Date.now() - cached.timestamp < CACHE_TTL) {
+            return cached.data;
+        }
+        cache.delete(cacheKey);
+    }
+    
+    const data = await api(path, opts);
+    if (useCache && data) {
+        cache.set(cacheKey, { data, timestamp: Date.now() });
+    }
+    return data;
+}
+
+async function loadData() {
+    if (isLoading) return;
+    isLoading = true;
+    
+    try {
+        const txData = await apiCall(`/transactions?page=${currentPage}&limit=${PER_PAGE}`);
+        allTx = txData.data || [];
+        hasMore = txData.data?.length === PER_PAGE;
+        
+        const purchaseData = await apiCall('/transactions/purchase-map');
+        purchaseMap = purchaseData.map || {};
+        
+        try {
+            const statsData = await apiCall('/transactions/stats');
+            updateStats(statsData.stats);
+        } catch (e) {
+            console.warn('Stats load failed:', e);
+        }
+        
+        renderView();
+    } catch (e) {
+        console.error('Load data error:', e);
+        document.getElementById('txList').innerHTML = `
+            <div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load transactions. Please refresh.</p></div>
+        `;
+    }
+    
+    isLoading = false;
+}
+
+async function loadMore() {
+    if (isLoading || !hasMore) return;
+    currentPage++;
+    isLoading = true;
+    
+    try {
+        const txData = await apiCall(`/transactions?page=${currentPage}&limit=${PER_PAGE}`);
+        const newTx = txData.data || [];
+        allTx = [...allTx, ...newTx];
+        hasMore = newTx.length === PER_PAGE;
+        renderView();
+    } catch (e) {
+        console.warn('Load more error:', e);
+    }
+    
+    isLoading = false;
 }
 
 function updateStats(stats) {
-  if (!stats) return;
-  
-  document.getElementById('totalCredit').textContent = fNGN(stats.totalCreditNGN || 0);
-  document.getElementById('totalDebit').textContent = fNGN(stats.totalDebitNGN || 0);
-  document.getElementById('totalOrders').textContent = (stats.marketOrders || 0) + (stats.giftOrders || 0);
-  document.getElementById('totalTx').textContent = stats.totalTransactions || 0;
-  
-  if (stats.totalCreditUSD !== undefined) {
-    document.getElementById('totalCreditUsd').textContent = fUSD(stats.totalCreditUSD || 0);
-  }
-  if (stats.totalDebitUSD !== undefined) {
-    document.getElementById('totalDebitUsd').textContent = fUSD(stats.totalDebitUSD || 0);
-  }
-  
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthly = allTx.filter(t => new Date(t.created_at) >= monthStart).length;
-  document.getElementById('monthlyTx').textContent = monthly + ' this month';
-}
-
-/* ─────────────────────────────────────────
-   RENDER LIST
-───────────────────────────────────────── */
-function renderList() {
-  let filtered = allTx.filter(tx => {
-    const matchType = currentFilter === 'all' || tx.type === currentFilter;
-    const searchStr = (tx.description || '') + (tx.ref || '') + (tx.type || '');
-    const matchQ = !searchQ || searchStr.toLowerCase().includes(searchQ);
-    return matchType && matchQ;
-  });
-
-  const container = document.getElementById('txList');
-
-  if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>No transactions found</p></div>`;
-    return;
-  }
-
-  const start = (currentPage - 1) * PER_PAGE;
-  const paged = filtered.slice(start, start + PER_PAGE);
-
-  const cfg = k => TYPE_CONFIG[k] || { icon: 'fas fa-circle', bg: '#e2e8f0', color: '#64748b' };
-  const getStatus = s => STATUS_CONFIG[s] || { label: s || 'Unknown', bg: '#f3f4f6', color: '#374151' };
-
-  container.innerHTML = paged.map(tx => {
-    const c = cfg(tx.type);
-    const status = getStatus(tx.status);
-    const amt = parseFloat(tx.amount_ngn || tx.amount_usd || 0);
-    const isCr = tx.type === 'wallet_funding' || tx.type === 'gift_card_sell' || 
-                 tx.type === 'marketplace_sale' || tx.type === 'referral_bonus' || tx.type === 'cashback';
-    const sign = isCr ? '+' : '-';
-    const currency = tx.currency || 'NGN';
-    const amountDisplay = currency === 'USD' ? fUSD(amt) : fNGN(amt);
+    if (!stats) return;
     
-    return `
-      <div class="tx-card" data-id="${tx.id}">
-        <div class="tx-icon-wrap" style="background:${c.bg};color:${c.color}">
-          <i class="${c.icon}"></i>
-        </div>
-        <div class="tx-body">
-          <div class="tx-title">${tx.description || tx.type || 'Transaction'}</div>
-          <div class="tx-desc">${tx.ref || ''} · ${formatDate(tx.created_at)}</div>
-        </div>
-        <div class="tx-right">
-          <div class="tx-amount ${isCr ? 'cr' : 'dr'}">${sign}${amountDisplay}</div>
-          <div class="tx-meta">
-            <span class="badge ${tx.status}">${status.label}</span>
-            <span class="tx-date">${formatTime(tx.created_at)}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  container.querySelectorAll('.tx-card').forEach(card => {
-    card.onclick = () => {
-      const id = card.dataset.id;
-      const tx = allTx.find(t => t.id === parseInt(id) || t.id === id);
-      if (tx) openReceipt(tx);
-    };
-  });
-
-  updateStatsFromData(allTx);
+    document.getElementById('totalCredit').textContent = fNGN(stats.totalCreditNGN || 0);
+    document.getElementById('totalDebit').textContent = fNGN(stats.totalDebitNGN || 0);
+    document.getElementById('totalCreditUsd').textContent = fUSD(stats.totalCreditUSD || 0);
+    document.getElementById('totalDebitUsd').textContent = fUSD(stats.totalDebitUSD || 0);
+    document.getElementById('totalOrders').textContent = (stats.giftOrders || 0) + (stats.marketOrders || 0);
+    document.getElementById('totalTx').textContent = stats.totalTransactions || 0;
+    
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthly = allTx.filter(t => new Date(t.created_at) >= monthStart).length;
+    document.getElementById('monthlyTx').textContent = monthly + ' this month';
 }
 
-function updateStatsFromData(txList) {
-  let credit = 0, debit = 0, creditUsd = 0, debitUsd = 0;
-  txList.forEach(t => {
-    const ngn = parseFloat(t.amount_ngn || 0);
-    const usd = parseFloat(t.amount_usd || 0);
-    if (ngn > 0) credit += ngn;
-    else if (ngn < 0) debit += Math.abs(ngn);
-    if (usd > 0) creditUsd += usd;
-    else if (usd < 0) debitUsd += Math.abs(usd);
-  });
-  
-  document.getElementById('totalCredit').textContent = fNGN(credit);
-  document.getElementById('totalDebit').textContent = fNGN(debit);
-  document.getElementById('totalCreditUsd').textContent = fUSD(creditUsd);
-  document.getElementById('totalDebitUsd').textContent = fUSD(debitUsd);
+/* ══════════════════════════════════════
+   RENDER VIEW
+══════════════════════════════════════ */
+function renderView() {
+    if (currentTab === 'purchases') {
+        renderPurchases();
+    } else {
+        renderTransactions();
+    }
 }
 
-/* ─────────────────────────────────────────
-   RECEIPT MODAL
-───────────────────────────────────────── */
-const receiptOverlay = document.getElementById('receiptOverlay');
-const receiptModal = document.getElementById('receiptModal');
+/* ══════════════════════════════════════
+   RENDER TRANSACTIONS
+══════════════════════════════════════ */
+function renderTransactions() {
+    let filtered = allTx.filter(tx => {
+        const matchType = currentFilter === 'all' || tx.type === currentFilter;
+        const searchStr = (tx.description || '') + (tx.ref || '') + (tx.type || '');
+        const matchQ = !searchQ || searchStr.toLowerCase().includes(searchQ);
+        return matchType && matchQ;
+    });
 
-receiptOverlay.onclick = e => { if (e.target === receiptOverlay) closeReceipt(); };
+    const container = document.getElementById('txList');
+    if (!container) return;
 
-function closeReceipt() {
-  receiptOverlay.classList.remove('open');
+    if (!filtered.length && !isLoading) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>No transactions found</p></div>`;
+        return;
+    }
+
+    const cfg = k => TYPE_CONFIG[k] || { icon: 'fas fa-circle', bg: '#e2e8f0', color: '#64748b' };
+    const getStatus = s => STATUS_CONFIG[s] || { label: s || 'Unknown', bg: '#f3f4f6', color: '#374151' };
+
+    let html = filtered.map(tx => {
+        const c = cfg(tx.type);
+        const status = getStatus(tx.status);
+        
+        const isUSD = tx.currency === 'USD';
+        const amount = isUSD ? Math.abs(parseFloat(tx.amount_usd || 0)) : Math.abs(parseFloat(tx.amount_ngn || 0));
+        const displayAmount = isUSD ? fUSD(amount) : fNGN(amount);
+        
+        const isCredit = tx.type === 'wallet_funding' || tx.type === 'gift_card_sell' || 
+                         tx.type === 'marketplace_sale' || tx.type === 'referral_bonus' || tx.type === 'cashback';
+        const sign = isCredit ? '+' : '';
+        const amountClass = isCredit ? 'cr' : 'dr';
+        
+        const hasProduct = tx.product_details && tx.is_purchase;
+        const productName = hasProduct ? tx.product_details?.product_name || tx.product_details?.service_name || '' : '';
+        
+        return `
+            <div class="tx-card" data-id="${tx.id}">
+                <div class="tx-icon-wrap" style="background:${c.bg};color:${c.color}">
+                    <i class="${c.icon}"></i>
+                </div>
+                <div class="tx-body">
+                    <div class="tx-title">${hasProduct && productName ? productName : (tx.description || tx.type || 'Transaction')}</div>
+                    <div class="tx-desc">${tx.ref || ''} · ${formatDate(tx.created_at)}</div>
+                </div>
+                <div class="tx-right">
+                    <div class="tx-amount ${amountClass}">${sign}${displayAmount}</div>
+                    <div class="tx-meta">
+                        <span class="badge ${tx.status}">${status.label}</span>
+                        <span class="tx-date">${formatTime(tx.created_at)}</span>
+                        <span class="tx-currency-tag">${isUSD ? 'USD' : 'NGN'}</span>
+                        ${hasProduct && tx.product_details?.download_token ? `<button class="tx-download-btn" onclick="event.stopPropagation();downloadOrder('${tx.product_details.order_ref}')"><i class="fas fa-download"></i></button>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (hasMore && !isLoading) {
+        html += `<div id="loadMoreTrigger" style="text-align:center;padding:12px;color:var(--t3);cursor:pointer">
+            <i class="fas fa-chevron-down"></i> Load more
+        </div>`;
+    }
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.tx-card').forEach(card => {
+        card.onclick = function() {
+            const id = this.dataset.id;
+            const tx = allTx.find(t => String(t.id) === String(id));
+            if (tx) openReceipt(tx);
+        };
+    });
+
+    const trigger = document.getElementById('loadMoreTrigger');
+    if (trigger) {
+        trigger.onclick = loadMore;
+    }
+}
+
+/* ══════════════════════════════════════
+   RENDER PURCHASES
+══════════════════════════════════════ */
+function renderPurchases() {
+    const container = document.getElementById('txList');
+    if (!container) return;
+    
+    const entries = Object.entries(purchaseMap);
+
+    if (!entries.length && !isLoading) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-shopping-bag"></i><p>No purchases found</p></div>`;
+        return;
+    }
+
+    let html = entries.map(([ref, item]) => {
+        const isUSD = item.display_currency === 'USD';
+        const amount = isUSD ? fUSD(item.display_amount) : fNGN(item.display_amount);
+        const status = item.status || 'completed';
+        const statusLabel = STATUS_CONFIG[status]?.label || status;
+        const isDownloadable = item.download_token && item.type === 'marketplace';
+        
+        return `
+            <div class="tx-card">
+                <div class="tx-icon-wrap" style="background:${item.type === 'marketplace' ? '#dbeafe' : item.type === 'gift' ? '#fce7f3' : '#fef3c7'};color:${item.type === 'marketplace' ? '#2563eb' : item.type === 'gift' ? '#db2777' : '#d97706'}">
+                    <i class="${item.type === 'marketplace' ? 'fas fa-shopping-bag' : item.type === 'gift' ? 'fas fa-gift' : 'fas fa-ad'}"></i>
+                </div>
+                <div class="tx-body">
+                    <div class="tx-title">${item.product_name}</div>
+                    <div class="tx-desc">${ref} · ${formatDate(item.purchased_at)}</div>
+                </div>
+                <div class="tx-right">
+                    <div class="tx-amount cr">${amount}</div>
+                    <div class="tx-meta">
+                        <span class="badge ${status}">${statusLabel}</span>
+                        <span class="tx-currency-tag">${isUSD ? 'USD' : 'NGN'}</span>
+                        ${item.download_count !== undefined ? `<span style="font-size:.6rem;color:var(--t3);">⬇️ ${item.download_count}</span>` : ''}
+                        ${isDownloadable ? `<button class="tx-download-btn" onclick="event.stopPropagation();downloadOrder('${ref}')"><i class="fas fa-download"></i> Download</button>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+/* ══════════════════════════════════════
+   DOWNLOAD ORDER
+══════════════════════════════════════ */
+async function downloadOrder(orderRef) {
+    let btn = event?.target?.closest?.('.tx-download-btn');
+    
+    try {
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+        }
+        
+        const response = await apiCall(`/transactions/download/${orderRef}`, { 
+            method: 'POST' 
+        }, false);
+
+        if (!response.success) {
+            alert(response.error || 'Download failed');
+            return;
+        }
+
+        if (response.download_token) {
+            window.open(`/api/download/${response.download_token}`, '_blank');
+            toast('Download started!', 'ok');
+            
+            const purchaseData = await apiCall('/transactions/purchase-map');
+            purchaseMap = purchaseData.map || {};
+            if (currentTab === 'purchases') renderPurchases();
+        }
+    } catch (error) {
+        console.error('Download error:', error);
+        toast('Download failed', 'err');
+    } finally {
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-download"></i>';
+            btn.disabled = false;
+        }
+    }
 }
 
 function openReceipt(tx) {
-  receiptModal.innerHTML = buildReceipt(tx);
-  receiptOverlay.classList.add('open');
-  
-  receiptModal.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.onclick = () => {
-      navigator.clipboard.writeText(btn.dataset.copy).then(() => {
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Copied';
-        setTimeout(() => btn.innerHTML = orig, 1500);
-      });
-    };
-  });
-  
-  const revealBtn = receiptModal.querySelector('.reveal-btn');
-  if (revealBtn) {
-    revealBtn.onclick = () => {
-      const coded = receiptModal.querySelector('.code-hidden');
-      if (coded) coded.classList.remove('code-hidden');
-      revealBtn.style.display = 'none';
-    };
-  }
-  
-  receiptModal.querySelectorAll('.lb-img').forEach(img => {
-    img.onclick = () => openLightbox(img.src);
-  });
-  
-  receiptModal.querySelector('.receipt-close').onclick = closeReceipt;
-  
-  const dlBtn = receiptModal.querySelector('#dlReceipt');
-  if (dlBtn) dlBtn.onclick = () => downloadReceipt(tx);
-  
-  const shareBtn = receiptModal.querySelector('#shareReceipt');
-  if (shareBtn) shareBtn.onclick = () => shareReceipt(tx);
-  
-  const supportBtn = receiptModal.querySelector('#supportBtn');
-  if (supportBtn) supportBtn.onclick = () => window.open('https://wa.me/2348000000000?text=Help+with+ref+'+tx.id, '_blank');
-}
-
-function timelineHTML(steps) {
-  if (!steps || !steps.length) return '';
-  return `<div class="r-section"><div class="r-section-title">Timeline</div><div class="timeline">
-    ${steps.map((s, i) => `
-      <div class="tl-item">
-        ${i < steps.length - 1 ? '<div class="tl-line"></div>' : ''}
-        <div class="tl-dot ${s.state}">
-          ${s.state === 'done' ? '<i class="fas fa-check" style="font-size:6px"></i>' :
-            s.state === 'current' ? '<i class="fas fa-circle" style="font-size:5px"></i>' :
-            '<i class="fas fa-circle" style="font-size:5px"></i>'}
-        </div>
-        <div class="tl-content">
-          <div class="tl-step">${s.step}</div>
-          <div class="tl-time">${s.time} · ${s.date}</div>
-          ${s.desc ? `<div class="tl-descr">${s.desc}</div>` : ''}
-        </div>
-      </div>
-    `).join('')}
-  </div></div>`;
-}
-
-function row(key, val, copyable) {
-  if (!val || val === 'null' || val === 'undefined') return '';
-  return `<div class="r-row">
-    <span class="r-key">${key}</span>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="r-val">${val}</span>
-      ${copyable ? `<button class="copy-btn" data-copy="${val}"><i class="fas fa-copy"></i> Copy</button>` : ''}
-    </div>
-  </div>`;
-}
-
-function statusIconStyle(status) {
-  const m = { 
-    completed: '#d1fae5:#10b981:fa-check-circle', 
-    pending: '#fef3c7:#d97706:fa-clock',
-    processing: '#dbeafe:#2563eb:fa-spinner', 
-    failed: '#fee2e2:#ef4444:fa-times-circle',
-    cancelled: '#f3f4f6:#6b7280:fa-ban', 
-    refunded: '#ede9fe:#8b5cf6:fa-undo', 
-    expired: '#374151:#9ca3af:fa-hourglass-end' 
-  };
-  const parts = (m[status] || '#f3f4f6:#6b7280:fa-circle').split(':');
-  return { bg: parts[0], color: parts[1], icon: parts[2] };
-}
-
-function buildReceipt(tx) {
-  const ss = statusIconStyle(tx.status);
-  const statusLabel = STATUS_CONFIG[tx.status]?.label || tx.status || 'Unknown';
-  const amt = parseFloat(tx.amount_ngn || tx.amount_usd || 0);
-  const currency = tx.currency || 'NGN';
-  const amountDisplay = currency === 'USD' ? fUSD(amt) : fNGN(amt);
-  const isCr = tx.type === 'wallet_funding' || tx.type === 'gift_card_sell' || 
-               tx.type === 'marketplace_sale' || tx.type === 'referral_bonus' || tx.type === 'cashback';
-  const sign = isCr ? '+' : '-';
-
-  const header = `
-    <div class="receipt-header">
-      <div class="receipt-header-left">
-        <div class="receipt-type-label">Transaction Receipt</div>
-        <div class="receipt-title">${tx.description || tx.type || 'Transaction'}</div>
-        <div class="receipt-ref">${tx.ref || tx.id} · ${formatDate(tx.created_at)}</div>
-      </div>
-      <button class="receipt-close"><i class="fas fa-times"></i></button>
-    </div>
-  `;
-
-  const statusHero = `
-    <div class="status-hero">
-      <div class="status-icon-lg" style="background:${ss.bg};color:${ss.color}">
-        <i class="fas ${ss.icon}"></i>
-      </div>
-      <div class="amount-lg">${sign}${amountDisplay}</div>
-      <span class="badge ${tx.status}">${statusLabel}</span>
-    </div>
-  `;
-
-  let body = `
-    <div class="r-section">
-      <div class="r-section-title">Transaction Details</div>
-      ${row('Reference', tx.ref || tx.id, true)}
-      ${row('Type', tx.type)}
-      ${row('Status', statusLabel)}
-      ${row('Date', formatDate(tx.created_at) + ' · ' + formatTime(tx.created_at))}
-      ${row('Amount', sign + amountDisplay)}
-      ${row('Currency', tx.currency || 'NGN')}
-    </div>
-  `;
-
-  if (tx.meta && typeof tx.meta === 'object') {
-    let metaRows = '';
-    Object.entries(tx.meta).forEach(([key, val]) => {
-      if (val && typeof val !== 'object') {
-        metaRows += row(key.charAt(0).toUpperCase() + key.slice(1), String(val));
-      }
+    const receiptModal = document.getElementById('receiptModal');
+    if (!receiptModal) return;
+    receiptModal.innerHTML = buildReceipt(tx);
+    const receiptOverlay = document.getElementById('receiptOverlay');
+    if (receiptOverlay) receiptOverlay.classList.add('open');
+    
+    receiptModal.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.onclick = function() {
+            navigator.clipboard.writeText(this.dataset.copy).then(() => {
+                const orig = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check"></i> Copied';
+                setTimeout(() => this.innerHTML = orig, 1500);
+            });
+        };
     });
-    if (metaRows) {
-      body += `
-        <div class="r-section">
-          <div class="r-section-title">Additional Info</div>
-          ${metaRows}
-        </div>
-      `;
-    }
-  }
-
-  return `
-    ${header}
-    <div class="receipt-body">
-      ${statusHero}
-      ${body}
-    </div>
-    <div class="receipt-actions">
-      <button class="r-action-btn primary" id="dlReceipt"><i class="fas fa-download"></i> Download Receipt</button>
-      <button class="r-action-btn secondary" id="shareReceipt"><i class="fas fa-share-alt"></i> Share</button>
-      <button class="r-action-btn secondary" id="supportBtn"><i class="fab fa-whatsapp"></i> Support</button>
-      <button class="r-action-btn secondary copy-btn" data-copy="${tx.ref || tx.id}"><i class="fas fa-copy"></i> Copy Ref</button>
-    </div>
-  `;
+    
+    const closeBtn = receiptModal.querySelector('.receipt-close');
+    if (closeBtn) closeBtn.onclick = closeReceipt;
+    
+    const dlBtn = receiptModal.querySelector('#dlReceipt');
+    if (dlBtn) dlBtn.onclick = function() { downloadReceipt(tx); };
 }
 
-/* ─────────────────────────────────────────
-   DOWNLOAD & SHARE
-───────────────────────────────────────── */
+function closeReceipt() {
+    const receiptOverlay = document.getElementById('receiptOverlay');
+    if (receiptOverlay) receiptOverlay.classList.remove('open');
+}
+
 function downloadReceipt(tx) {
-  const text = `MILESPACE TRANSACTION RECEIPT\n${'='.repeat(40)}\nRef: ${tx.ref || tx.id}\nType: ${tx.type}\nAmount: ${tx.amount_ngn || tx.amount_usd || 0}\nStatus: ${tx.status}\nDate: ${formatDate(tx.created_at)} ${formatTime(tx.created_at)}\n${'='.repeat(40)}\nGenerated: ${new Date().toLocaleString()}`;
-  const a = document.createElement('a');
-  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
-  a.download = `receipt-${tx.ref || tx.id}.txt`;
-  a.click();
+    const isUSD = tx.currency === 'USD';
+    const amount = isUSD ? Math.abs(parseFloat(tx.amount_usd || 0)) : Math.abs(parseFloat(tx.amount_ngn || 0));
+    const displayAmount = isUSD ? fUSD(amount) : fNGN(amount);
+    const wallet = isUSD ? '💵 USD Wallet' : '🇳🇬 NGN Wallet';
+    
+    const text = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🏦 MILESPACE TRANSACTION RECEIPT
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Reference:  ${tx.ref || tx.id}
+  Type:       ${tx.type}
+  Status:     ${tx.status}
+  Amount:     ${displayAmount}
+  Currency:   ${isUSD ? 'USD' : 'NGN'}
+  Wallet:     ${wallet}
+  Date:       ${formatDate(tx.created_at)} ${formatTime(tx.created_at)}
+  Product:    ${tx.product_details?.product_name || tx.product_details?.service_name || tx.description || '—'}
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Generated: ${new Date().toLocaleString()}
+  MilesSpace — Everything Digital. One Trusted Marketplace.`;
+    
+    const a = document.createElement('a');
+    a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+    a.download = `receipt-${tx.ref || tx.id}.txt`;
+    a.click();
 }
 
-function shareReceipt(tx) {
-  const text = `${tx.type}: ${tx.amount_ngn || tx.amount_usd || 0} (${tx.status}) — Ref: ${tx.ref || tx.id}`;
-  if (navigator.share) navigator.share({ title: 'MilesSpace Receipt', text }).catch(() => {});
-  else { navigator.clipboard.writeText(text); alert('Receipt info copied!'); }
+/* ══════════════════════════════════════
+   BUILD RECEIPT
+══════════════════════════════════════ */
+function buildReceipt(tx) {
+    const isUSD = tx.currency === 'USD';
+    const amount = isUSD ? Math.abs(parseFloat(tx.amount_usd || 0)) : Math.abs(parseFloat(tx.amount_ngn || 0));
+    const displayAmount = isUSD ? fUSD(amount) : fNGN(amount);
+    const isCredit = tx.type === 'wallet_funding' || tx.type === 'gift_card_sell' || tx.type === 'referral_bonus' || tx.type === 'cashback';
+    const amountClass = isCredit ? 'cr' : 'dr';
+    const sign = isCredit ? '+' : '';
+    
+    const status = STATUS_CONFIG[tx.status] || { label: tx.status || 'Unknown', bg: '#f3f4f6', color: '#374151' };
+    const cfg = TYPE_CONFIG[tx.type] || { icon: 'fas fa-circle', bg: '#e2e8f0', color: '#64748b' };
+    
+    const productDetails = tx.product_details || {};
+    const hasProduct = tx.is_purchase && productDetails.product_name;
+    
+    return `
+        <div class="receipt-header">
+            <div>
+                <div class="receipt-type-label">${tx.type || 'Transaction'}</div>
+                <div class="receipt-title">${hasProduct ? productDetails.product_name : (tx.description || 'Transaction')}</div>
+                <div class="receipt-ref">${tx.ref || tx.id}</div>
+            </div>
+            <button class="receipt-close">✕</button>
+        </div>
+        <div class="receipt-body">
+            <div class="status-hero">
+                <div class="status-icon-lg" style="background:${status.bg};color:${status.color}">
+                    <i class="${cfg.icon}"></i>
+                </div>
+                <div class="amount-lg ${amountClass}">${sign}${displayAmount}</div>
+                <div style="font-size:.8rem;color:var(--t2);">${status.label}</div>
+                <div style="font-size:.65rem;color:var(--t3);margin-top:4px;">${formatDate(tx.created_at)} · ${formatTime(tx.created_at)}</div>
+            </div>
+            
+            <div class="r-section">
+                <div class="r-section-title">Payment Details</div>
+                <div class="r-row">
+                    <span class="r-key">Amount</span>
+                    <span class="r-val">${displayAmount}</span>
+                </div>
+                <div class="r-row">
+                    <span class="r-key">Currency</span>
+                    <span class="r-val">${isUSD ? 'USD' : 'NGN'}</span>
+                </div>
+                <div class="r-row">
+                    <span class="r-key">Wallet</span>
+                    <span class="r-val">${isUSD ? 'USD Wallet' : 'NGN Wallet'}</span>
+                </div>
+                ${tx.fee ? `<div class="r-row"><span class="r-key">Fee</span><span class="r-val">${isUSD ? fUSD(tx.fee) : fNGN(tx.fee)}</span></div>` : ''}
+            </div>
+            
+            ${hasProduct ? `
+            <div class="r-section">
+                <div class="r-section-title">Product Details</div>
+                <div class="r-row">
+                    <span class="r-key">Product</span>
+                    <span class="r-val">${productDetails.product_name || '—'}</span>
+                </div>
+                <div class="r-row">
+                    <span class="r-key">Type</span>
+                    <span class="r-val">${productDetails.service_type || productDetails.type || '—'}</span>
+                </div>
+                ${productDetails.download_token ? `
+                <div class="r-row">
+                    <span class="r-key">Download Token</span>
+                    <span class="r-val">${productDetails.download_token} <button class="copy-btn" data-copy="${productDetails.download_token}"><i class="fas fa-copy"></i> Copy</button></span>
+                </div>` : ''}
+                ${productDetails.instructions ? `
+                <div class="r-row">
+                    <span class="r-key">Instructions</span>
+                    <span class="r-val" style="font-size:.7rem;text-align:left;word-break:break-word;">${productDetails.instructions}</span>
+                </div>` : ''}
+            </div>` : ''}
+            
+            <div class="r-section">
+                <div class="r-section-title">Reference</div>
+                <div class="r-row">
+                    <span class="r-key">Transaction ID</span>
+                    <span class="r-val" style="font-size:.7rem;font-family:monospace;">${tx.id} <button class="copy-btn" data-copy="${tx.id}"><i class="fas fa-copy"></i> Copy</button></span>
+                </div>
+                <div class="r-row">
+                    <span class="r-key">Reference</span>
+                    <span class="r-val" style="font-size:.7rem;font-family:monospace;">${tx.ref || tx.id} <button class="copy-btn" data-copy="${tx.ref || tx.id}"><i class="fas fa-copy"></i> Copy</button></span>
+                </div>
+                <div class="r-row">
+                    <span class="r-key">Status</span>
+                    <span class="r-val"><span class="badge ${tx.status}">${status.label}</span></span>
+                </div>
+            </div>
+            
+            <div class="receipt-actions">
+                <button class="r-action-btn secondary" id="dlReceipt"><i class="fas fa-download"></i> Download</button>
+                <button class="r-action-btn secondary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+                <button class="r-action-btn primary" onclick="closeReceipt()">Close</button>
+            </div>
+        </div>
+    `;
 }
 
-/* ─────────────────────────────────────────
-   LIGHTBOX
-───────────────────────────────────────── */
-function openLightbox(src) {
-  document.getElementById('lbImg').src = src;
-  document.getElementById('lightbox').classList.add('open');
-}
-document.getElementById('lbClose').onclick = () => document.getElementById('lightbox').classList.remove('open');
-document.getElementById('lightbox').onclick = e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); };
-
-/* ─────────────────────────────────────────
+/* ══════════════════════════════════════
    EXPORT CSV
-───────────────────────────────────────── */
-document.getElementById('exportBtn').onclick = () => {
-  const rows = [['ID', 'Type', 'Description', 'Amount (NGN)', 'Amount (USD)', 'Status', 'Date']];
-  allTx.forEach(t => {
-    rows.push([t.id, t.type, t.description || '', t.amount_ngn || 0, t.amount_usd || 0, t.status, t.created_at || '']);
-  });
-  const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = 'transactions.csv';
-  a.click();
-};
+══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
+        exportBtn.onclick = function() {
+            const rows = [['ID', 'Type', 'Description', 'Amount', 'Currency', 'Status', 'Date']];
+            allTx.forEach(t => {
+                const isUSD = t.currency === 'USD';
+                const amount = isUSD ? Math.abs(parseFloat(t.amount_usd || 0)) : Math.abs(parseFloat(t.amount_ngn || 0));
+                rows.push([
+                    t.id || '',
+                    t.type || '',
+                    t.description || '',
+                    amount,
+                    t.currency || 'NGN',
+                    t.status || '',
+                    t.created_at || ''
+                ]);
+            });
+            const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+            const a = document.createElement('a');
+            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+            a.download = 'transactions.csv';
+            a.click();
+            toast('CSV downloaded!', 'ok');
+        };
+    }
+});
 
-/* ─────────────────────────────────────────
-   INIT
-───────────────────────────────────────── */
-async function init() {
-  populateUser();
-  await loadData();
+/* ══════════════════════════════════════
+   TOAST
+══════════════════════════════════════ */
+function toast(msg, type = 'info') {
+    const c = document.getElementById('toastWrap');
+    if (!c) return;
+    
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;bottom:80px;right:16px;padding:10px 16px;border-radius:8px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.15);font-size:.8rem;z-index:999;max-width:300px;';
+    if (type === 'ok') el.style.background = '#d1fae5';
+    if (type === 'err') el.style.background = '#fee2e2';
+    c.appendChild(el);
+    setTimeout(() => { 
+        el.style.opacity = '0'; 
+        el.style.transition = 'opacity .3s'; 
+        setTimeout(() => el.remove(), 300); 
+    }, 3000);
 }
 
-init();
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
+async function init() {
+    populateUser();
+    await loadData();
+    console.log('📜 History page initialized');
+}
+
+// Start when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 </script>
 </body>
 </html>

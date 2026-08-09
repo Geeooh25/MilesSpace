@@ -1,0 +1,1155 @@
+// admin/messages.html - Admin Messages Page
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MilesSpace — Messages</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --navy: #0c3d4a;
+            --navy-light: #12556a;
+            --navy-deep: #082a33;
+            --gold: #f59e0b;
+            --bg: #f4f7fb;
+            --bg-card: rgba(255,255,255,0.72);
+            --border: rgba(12,61,74,0.08);
+            --text: #0c1f26;
+            --text-dim: #5b7480;
+            --text-faint: #8fa3ab;
+            --success: #16a34a;
+            --success-bg: #e9f9ef;
+            --danger: #dc2626;
+            --danger-bg: #fdecec;
+            --warn: #f59e0b;
+            --warn-bg: #fef3d9;
+            --info: #2563a8;
+            --info-bg: #e8f1fb;
+            --purple: #8b5cf6;
+            --purple-bg: #ede9fe;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --shadow-md: 0 8px 24px -8px rgba(8,42,51,0.16);
+            --sidebar-w: 260px;
+            --topbar-h: 68px;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        
+        .app { display: flex; min-height: 100vh; }
+        
+        /* ─── SIDEBAR ─── */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: linear-gradient(180deg, var(--navy-deep), var(--navy) 70%);
+            color: #eaf6f8;
+            padding: 22px 16px 18px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 40;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.4); border-radius: 99px; }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 6px 10px 22px;
+            flex-shrink: 0;
+        }
+        .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+        .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+        .brand-text strong { font-size: 15.5px; font-weight: 800; letter-spacing: -0.01em; }
+        .brand-text span { font-size: 11px; color: #9fd4de; letter-spacing: .06em; text-transform: uppercase; }
+        .nav-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
+        .nav-label {
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: .09em;
+            color: #6fa2ad;
+            font-weight: 700;
+            padding: 14px 12px 6px;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 9.5px 12px;
+            border-radius: 10px;
+            color: #cfe7ea;
+            font-size: 13.6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background 0.15s, color 0.15s;
+            text-decoration: none;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+        .nav-item.active {
+            background: rgba(245,158,11,0.14);
+            color: #ffd899;
+            border-color: rgba(245,158,11,0.28);
+            font-weight: 600;
+        }
+        .nav-item .ic { width: 18px; text-align: center; font-size: 14.5px; flex-shrink: 0; }
+        .sidebar-foot {
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 12px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-left: 6px;
+            flex-shrink: 0;
+        }
+        .sidebar-foot .av {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #25748a, #0c3d4a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12.5px;
+            color: #fff;
+            border: 1.5px solid rgba(255,255,255,0.18);
+        }
+        .sidebar-foot .who { display: flex; flex-direction: column; line-height: 1.2; }
+        .sidebar-foot .who strong { font-size: 12.8px; color: #fff; }
+        .sidebar-foot .who span { font-size: 11px; color: #8fbac2; }
+        
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin-left: var(--sidebar-w);
+            min-height: 100vh;
+        }
+        
+        /* ─── TOPBAR ─── */
+        .topbar {
+            background: var(--bg-card);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 26px;
+            height: var(--topbar-h);
+            display: flex;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            gap: 16px;
+        }
+        .topbar .back-link {
+            color: var(--text-dim);
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
+        }
+        .topbar .back-link:hover { color: var(--navy); }
+        .topbar h1 { font-size: 19px; font-weight: 800; flex: 1; }
+        .topbar .subtitle { font-size: 12px; color: var(--text-dim); margin-left: 8px; }
+        .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .topbar-right .btn-new {
+            padding: 8px 16px;
+            background: var(--navy);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .topbar-right .btn-new:hover { background: var(--navy-light); }
+        
+        /* ─── MESSAGES CONTAINER ─── */
+        .messages-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - var(--topbar-h));
+            overflow: hidden;
+        }
+        
+        /* ─── CONVERSATION LIST ─── */
+        .conversation-list {
+            width: 360px;
+            min-width: 360px;
+            border-right: 1px solid var(--border);
+            background: var(--bg-card);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .conversation-list .header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .conversation-list .header h2 { font-size: 16px; font-weight: 700; }
+        .conversation-list .header .stats { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+        
+        .conversation-list .search {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .conversation-list .search input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            font-size: 13px;
+            outline: none;
+        }
+        .conversation-list .search input:focus { border-color: var(--navy); }
+        
+        .conversation-list .items {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        
+        .conv-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-left: 3px solid transparent;
+            position: relative;
+        }
+        .conv-item:hover { background: var(--bg); }
+        .conv-item.active {
+            background: var(--info-bg);
+            border-left-color: var(--info);
+        }
+        .conv-item .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--navy);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .conv-item .info { flex: 1; min-width: 0; }
+        .conv-item .info .subject { font-weight: 600; font-size: 13px; }
+        .conv-item .info .preview {
+            font-size: 12px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conv-item .info .meta {
+            font-size: 11px;
+            color: var(--text-faint);
+            margin-top: 2px;
+        }
+        .conv-item .badge-unread {
+            background: var(--danger);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 99px;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .conv-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: var(--text-faint);
+            text-align: center;
+        }
+        .conv-empty i { font-size: 40px; margin-bottom: 16px; color: var(--border); }
+        
+        /* ─── MESSAGE AREA ─── */
+        .message-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+        }
+        
+        .message-area .conv-header {
+            padding: 14px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .message-area .conv-header .info { display: flex; align-items: center; gap: 12px; }
+        .message-area .conv-header .info .subject { font-weight: 700; font-size: 15px; }
+        .message-area .conv-header .info .status {
+            font-size: 11px;
+            padding: 2px 10px;
+            border-radius: 99px;
+            font-weight: 600;
+        }
+        .message-area .conv-header .info .status.open { background: var(--success-bg); color: var(--success); }
+        .message-area .conv-header .info .status.closed { background: var(--bg); color: var(--text-dim); }
+        
+        .message-area .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .msg {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+        .msg.sent {
+            align-self: flex-end;
+            background: var(--navy);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .msg.received {
+            align-self: flex-start;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+        .msg .sender {
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-dim);
+        }
+        .msg.sent .sender { color: rgba(255,255,255,0.7); }
+        .msg .text { font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+        .msg .time {
+            font-size: 10px;
+            color: var(--text-faint);
+            margin-top: 4px;
+            text-align: right;
+        }
+        .msg.sent .time { color: rgba(255,255,255,0.6); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .msg-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            color: var(--text-faint);
+        }
+        .msg-empty i { font-size: 48px; margin-bottom: 16px; }
+        
+        /* ─── MESSAGE INPUT ─── */
+        .msg-input-area {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-card);
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+        }
+        .msg-input-area textarea {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            resize: none;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            min-height: 44px;
+            max-height: 120px;
+            background: #fff;
+        }
+        .msg-input-area textarea:focus { border-color: var(--navy); }
+        .msg-input-area .btn-send {
+            padding: 10px 20px;
+            background: var(--navy);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .msg-input-area .btn-send:hover { background: var(--navy-light); }
+        .msg-input-area .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+        .msg-input-area .btn-attach {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: var(--text-dim);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .msg-input-area .btn-attach:hover { background: var(--bg); border-color: var(--navy); }
+        .msg-input-area .btn-attach input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        /* ─── MODAL ─── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-md);
+            animation: modalIn 0.3s ease;
+        }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: none; } }
+        .modal h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+        .modal .sub { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
+        .modal .form-group { margin-bottom: 16px; }
+        .modal .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-dim); }
+        .modal .form-group input, .modal .form-group select, .modal .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            font-family: inherit;
+        }
+        .modal .form-group textarea { min-height: 100px; resize: vertical; }
+        .modal .form-group input:focus, .modal .form-group select:focus, .modal .form-group textarea:focus {
+            border-color: var(--navy);
+        }
+        .modal .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background: var(--navy);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .modal .btn-primary:hover { background: var(--navy-light); }
+        .modal .btn-secondary {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            color: var(--text-dim);
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .modal .btn-secondary:hover { color: var(--text); }
+        
+        /* ─── TOAST ─── */
+        .toast-stack {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 200;
+        }
+        .toast {
+            background: var(--navy-deep);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 12.8px;
+            font-weight: 600;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 230px;
+            animation: toastIn 0.25s ease;
+            border-left: 3px solid var(--gold);
+        }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+        
+        /* ─── RESPONSIVE ─── */
+        @media(max-width: 1024px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+        }
+        @media(max-width: 768px) {
+            .messages-container { flex-direction: column; height: auto; }
+            .conversation-list { width: 100%; min-width: 0; max-height: 300px; }
+            .message-area { height: calc(100vh - 380px); }
+            .topbar h1 { font-size: 16px; }
+            .topbar { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <!-- ─── SIDEBAR ─── -->
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <img src="../images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+            <div class="brand-text"><strong>MilesSpace</strong><span>Messages</span></div>
+        </div>
+        <div class="nav-scroll">
+            <div class="nav-label">Navigation</div>
+            <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
+            <a href="/admin/messages" class="nav-item active"><span class="ic">💬</span>Messages</a>
+            <a href="/admin/notifications" class="nav-item"><span class="ic">🔔</span>Notifications</a>
+            <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span>Settings</a>
+        </div>
+        <div class="sidebar-foot">
+            <div class="av" id="adminAvatar">A</div>
+            <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Super Admin</span></div>
+        </div>
+    </aside>
+    
+    <div class="main">
+        <!-- ─── TOPBAR ─── -->
+        <header class="topbar">
+            <a href="/admin/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
+            <h1>💬 Messages <span class="subtitle" id="msgStats">Loading...</span></h1>
+            <div class="topbar-right">
+                <button class="btn-new" onclick="openNewConversation()">
+                    <i class="fas fa-plus"></i> New
+                </button>
+            </div>
+        </header>
+
+        <!-- ─── MESSAGES CONTAINER ─── -->
+        <div class="messages-container">
+            <!-- Conversation List -->
+            <div class="conversation-list">
+                <div class="header">
+                    <h2>Conversations</h2>
+                    <div class="stats" id="convStats">Loading...</div>
+                </div>
+                <div class="search">
+                    <input type="text" id="searchConv" placeholder="Search conversations..." oninput="searchConversations()">
+                </div>
+                <div class="items" id="convList"></div>
+            </div>
+
+            <!-- Message Area -->
+            <div class="message-area">
+                <div class="conv-header" id="convHeader">
+                    <div class="info">
+                        <span class="subject" id="convSubject">Select a conversation</span>
+                        <span class="status" id="convStatus"></span>
+                    </div>
+                    <button class="btn-refresh" onclick="loadMessages()" style="background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:16px;">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+
+                <div class="messages" id="msgContainer">
+                    <div class="msg-empty">
+                        <i class="fas fa-inbox"></i>
+                        <p>Select a conversation to view messages</p>
+                    </div>
+                </div>
+
+                <div class="msg-input-area" id="msgInputArea" style="display:none;">
+                    <button class="btn-attach">
+                        <i class="fas fa-paperclip"></i>
+                        <input type="file" id="fileInput" accept="image/*,.pdf,.txt" onchange="handleAttachment()">
+                    </button>
+                    <textarea id="msgInput" placeholder="Type your message..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
+                    <button class="btn-send" id="sendBtn" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane"></i> Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL ─── -->
+<div class="modal-overlay" id="newConvModal">
+    <div class="modal">
+        <h2>New Conversation</h2>
+        <p class="sub">Send a message to support</p>
+        <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="newSubject" placeholder="Brief subject...">
+        </div>
+        <div class="form-group">
+            <label>Category</label>
+            <select id="newCategory">
+                <option value="general">General</option>
+                <option value="wallet">Wallet</option>
+                <option value="giftcard">Gift Card</option>
+                <option value="virtual">Virtual Numbers</option>
+                <option value="boost">Social Boosting</option>
+                <option value="marketplace">Marketplace</option>
+                <option value="account">Account</option>
+                <option value="technical">Technical</option>
+                <option value="fraud">Fraud Report</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Priority</label>
+            <select id="newPriority">
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Message</label>
+            <textarea id="newMessage" placeholder="Describe your issue..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="createConversation()">
+            <i class="fas fa-paper-plane"></i> Send Message
+        </button>
+        <button class="btn-secondary" onclick="closeNewConversation()">Cancel</button>
+    </div>
+</div>
+
+<!-- ─── TOAST STACK ─── -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+'use strict';
+
+// ─── SESSION HELPERS ───
+const SESSION_KEY = 'admin_sess';
+
+function getAdminSession() {
+    try {
+        const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+}
+
+function getToken() {
+    const sess = getAdminSession();
+    return sess?.token || null;
+}
+
+function getUserId() {
+    const sess = getAdminSession();
+    return sess?.user?.id || sess?.userId || null;
+}
+
+function clearAdminSession() {
+    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+}
+
+function redirectToLogin() {
+    clearAdminSession();
+    window.location.href = '/admin/login';
+}
+
+// ─── CHECK AUTH ───
+(function checkAuth() {
+    const token = getToken();
+    if (!token) {
+        redirectToLogin();
+        return;
+    }
+    fetch('/api/admin/verify', {
+        headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(res => {
+        if (!res.ok) {
+            redirectToLogin();
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            redirectToLogin();
+        }
+    })
+    .catch(() => {
+        redirectToLogin();
+    });
+})();
+
+let currentConversationId = null;
+let currentUserId = getUserId();
+
+// ─── API HELPER ───
+async function apiCall(path, opts = {}) {
+    const token = getToken();
+    if (!token) {
+        redirectToLogin();
+        return;
+    }
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    
+    const response = await fetch('/api' + path, { ...opts, headers: { ...headers, ...opts.headers } });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+        redirectToLogin();
+        return;
+    }
+    if (!response.ok) throw new Error(data.error || 'HTTP ' + response.status);
+    return data;
+}
+
+// ─── TOAST ───
+function showToast(message, type = 'info') {
+    const stack = document.getElementById('toastStack');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+    stack.appendChild(el);
+    setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(30px)';
+        el.style.transition = 'all 0.25s ease';
+        setTimeout(() => el.remove(), 260);
+    }, 3200);
+}
+
+// ─── LOAD CATEGORIES ───
+async function loadCategories() {
+    try {
+        const data = await apiCall('/messages/categories');
+        const select = document.getElementById('newCategory');
+        select.innerHTML = '<option value="general">General</option>';
+        (data.data || []).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.name.toLowerCase().replace(/ /g, '_');
+            opt.textContent = c.icon + ' ' + c.name;
+            select.appendChild(opt);
+        });
+    } catch(e) { console.error('Load categories error:', e); }
+}
+
+// ─── LOAD CONVERSATION STATS ───
+async function loadStats() {
+    try {
+        const data = await apiCall('/messages/stats');
+        const stats = data.data || {};
+        document.getElementById('msgStats').textContent = `${stats.open || 0} open · ${stats.unread_messages || 0} unread`;
+        document.getElementById('convStats').textContent = `${stats.total || 0} total · ${stats.open || 0} open`;
+    } catch(e) { console.error('Load stats error:', e); }
+}
+
+// ─── LOAD CONVERSATIONS ───
+async function loadConversations() {
+    try {
+        const data = await apiCall('/messages/conversations?limit=50');
+        const convs = data.data || [];
+        const list = document.getElementById('convList');
+        
+        if (!convs.length) {
+            list.innerHTML = `
+                <div class="conv-empty">
+                    <i class="fas fa-comments"></i>
+                    <p>No conversations yet</p>
+                    <button onclick="openNewConversation()" style="margin-top:12px;padding:8px 20px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                        Start a conversation
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = convs.map(c => {
+            const isUnread = c.unread_count > 0;
+            const lastMsg = c.messages?.[0];
+            const preview = lastMsg ? lastMsg.message.substring(0, 60) + (lastMsg.message.length > 60 ? '...' : '') : 'No messages';
+            const user = c.user || {};
+            const admin = c.admin || {};
+            const displayName = c.admin_id ? admin.username || admin.email || 'Admin' : user.username || user.email || 'User';
+            const statusText = c.status === 'open' ? 'Open' : 'Closed';
+            
+            return `
+                <div class="conv-item ${currentConversationId === c.id ? 'active' : ''}" 
+                     onclick="selectConversation('${c.id}')" 
+                     data-id="${c.id}">
+                    <div class="avatar">${displayName.charAt(0).toUpperCase()}</div>
+                    <div class="info">
+                        <div class="subject">${c.subject}</div>
+                        <div class="preview">${preview}</div>
+                        <div class="meta">${displayName} · ${statusText} · ${new Date(c.last_message_at).toLocaleDateString()}</div>
+                    </div>
+                    ${isUnread ? `<div class="badge-unread">${c.unread_count}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        if (!currentConversationId && convs.length) {
+            selectConversation(convs[0].id);
+        }
+
+        await loadStats();
+
+    } catch(e) {
+        console.error('Load conversations error:', e);
+        showToast('Failed to load conversations', 'error');
+    }
+}
+
+// ─── SELECT CONVERSATION ───
+async function selectConversation(convId) {
+    currentConversationId = convId;
+    
+    document.querySelectorAll('.conv-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === convId);
+    });
+    
+    document.getElementById('msgInputArea').style.display = 'flex';
+    await loadMessages();
+}
+
+// ─── LOAD MESSAGES ───
+async function loadMessages() {
+    if (!currentConversationId) return;
+
+    try {
+        const data = await apiCall(`/messages/conversations/${currentConversationId}/messages?limit=100`);
+        const messages = data.data || [];
+        const conversation = data.conversation || {};
+        
+        document.getElementById('convSubject').textContent = conversation.subject || 'Conversation';
+        const statusEl = document.getElementById('convStatus');
+        if (conversation.status === 'open') {
+            statusEl.textContent = '● Open';
+            statusEl.className = 'status open';
+        } else {
+            statusEl.textContent = '● Closed';
+            statusEl.className = 'status closed';
+        }
+        
+        const container = document.getElementById('msgContainer');
+        
+        if (!messages.length) {
+            container.innerHTML = `
+                <div class="msg-empty">
+                    <i class="fas fa-comment-dots"></i>
+                    <p>No messages yet</p>
+                    <p style="font-size:12px;color:var(--text-faint);">Send the first message</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = messages.map(m => {
+            const isSent = m.sender_id === currentUserId;
+            const senderName = m.sender?.username || m.sender?.email || (isSent ? 'You' : 'User');
+            
+            return `
+                <div class="msg ${isSent ? 'sent' : 'received'}">
+                    <div class="sender">${senderName} ${isSent ? '(You)' : ''}</div>
+                    <div class="text">${m.message}</div>
+                    ${m.attachment_url ? `
+                        <div class="attachment">
+                            <i class="fas fa-paperclip"></i>
+                            <a href="${m.attachment_url}" target="_blank" style="color:inherit;">View Attachment</a>
+                        </div>
+                    ` : ''}
+                    <div class="time">${new Date(m.created_at).toLocaleString()}</div>
+                </div>
+            `;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+        loadConversations();
+
+    } catch(e) {
+        console.error('Load messages error:', e);
+        showToast('Failed to load messages', 'error');
+    }
+}
+
+// ─── SEND MESSAGE ───
+async function sendMessage() {
+    const input = document.getElementById('msgInput');
+    const message = input.value.trim();
+    if (!message || !currentConversationId) return;
+
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+        const formData = new FormData();
+        formData.append('message', message);
+        
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput.files.length > 0) {
+            formData.append('attachment', fileInput.files[0]);
+        }
+
+        const token = getToken();
+        const response = await fetch(`/api/messages/conversations/${currentConversationId}/messages`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to send');
+
+        input.value = '';
+        document.getElementById('fileInput').value = '';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+
+        await loadMessages();
+        await loadConversations();
+        showToast('Message sent', 'success');
+
+    } catch(e) {
+        console.error('Send message error:', e);
+        showToast(e.message || 'Failed to send message', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+    }
+}
+
+// ─── HANDLE KEY DOWN ───
+function handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+// ─── HANDLE ATTACHMENT ───
+function handleAttachment() {
+    const input = document.getElementById('fileInput');
+    if (input.files.length > 0) {
+        showToast(`Attached: ${input.files[0].name}`, 'info');
+    }
+}
+
+// ─── SEARCH CONVERSATIONS ───
+function searchConversations() {
+    const query = document.getElementById('searchConv').value.toLowerCase();
+    document.querySelectorAll('.conv-item').forEach(el => {
+        const text = el.textContent.toLowerCase();
+        el.style.display = text.includes(query) ? '' : 'none';
+    });
+}
+
+// ─── NEW CONVERSATION ───
+function openNewConversation() {
+    document.getElementById('newConvModal').classList.add('show');
+    document.getElementById('newSubject').value = '';
+    document.getElementById('newMessage').value = '';
+    document.getElementById('verifyCode').value = '';
+}
+
+function closeNewConversation() {
+    document.getElementById('newConvModal').classList.remove('show');
+}
+
+// ─── CREATE CONVERSATION ───
+async function createConversation() {
+    const subject = document.getElementById('newSubject').value.trim();
+    const category = document.getElementById('newCategory').value;
+    const priority = document.getElementById('newPriority').value;
+    const message = document.getElementById('newMessage').value.trim();
+
+    if (!subject || !message) {
+        showToast('Subject and message are required', 'warning');
+        return;
+    }
+
+    const btn = document.querySelector('.modal .btn-primary');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    try {
+        const data = await apiCall('/messages/conversations', {
+            method: 'POST',
+            body: JSON.stringify({ subject, category, priority, message })
+        });
+
+        closeNewConversation();
+        showToast('Conversation created!', 'success');
+        
+        await loadConversations();
+        if (data.data?.conversation?.id) {
+            selectConversation(data.data.conversation.id);
+        }
+
+    } catch(e) {
+        console.error('Create conversation error:', e);
+        showToast(e.message || 'Failed to create conversation', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+    }
+}
+
+// ─── LOAD ADMIN PROFILE ───
+async function loadAdminProfile() {
+    try {
+        const data = await apiCall('/admin/me');
+        if (data.success && data.data?.user) {
+            const user = data.data.user;
+            const name = user.username || user.email?.split('@')[0] || 'Admin';
+            const role = user.role || 'Admin';
+            const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            
+            document.getElementById('adminName').textContent = name;
+            document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+            document.getElementById('adminAvatar').textContent = initials;
+        }
+    } catch(e) {
+        console.error('Load admin profile error:', e);
+    }
+}
+
+// ─── CLOSE MODAL ON OVERLAY CLICK ───
+document.getElementById('newConvModal').addEventListener('click', function(e) {
+    if (e.target === this) closeNewConversation();
+});
+
+// ─── AUTO-RESIZE TEXTAREA ───
+document.getElementById('msgInput').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// ─── SIDEBAR TOGGLE (mobile) ───
+document.addEventListener('click', function(e) {
+    const sidebar = document.getElementById('sidebar');
+    if (window.innerWidth <= 1024) {
+        // Close sidebar when clicking outside on mobile
+        if (!sidebar.contains(e.target) && !e.target.closest('.hamburger')) {
+            sidebar.classList.remove('open');
+        }
+    }
+});
+
+// ─── HAMBURGER MENU (add to topbar) ───
+document.addEventListener('DOMContentLoaded', function() {
+    const topbar = document.querySelector('.topbar');
+    const hamburger = document.createElement('button');
+    hamburger.className = 'hamburger';
+    hamburger.innerHTML = '☰';
+    hamburger.style.cssText = 'display:none;background:none;border:none;font-size:20px;cursor:pointer;color:var(--navy);padding:8px;';
+    topbar.insertBefore(hamburger, topbar.firstChild);
+    
+    hamburger.addEventListener('click', function() {
+        document.getElementById('sidebar').classList.toggle('open');
+    });
+    
+    // Show hamburger on mobile
+    if (window.innerWidth <= 1024) {
+        hamburger.style.display = 'block';
+    }
+    
+    window.addEventListener('resize', function() {
+        hamburger.style.display = window.innerWidth <= 1024 ? 'block' : 'none';
+        if (window.innerWidth > 1024) {
+            document.getElementById('sidebar').classList.remove('open');
+        }
+    });
+});
+
+// ─── INIT ───
+(async function init() {
+    console.log('💬 Messages page loaded');
+    await loadAdminProfile();
+    await loadCategories();
+    await loadStats();
+    await loadConversations();
+
+    // Socket.IO for real-time updates
+    try {
+        const socket = io('/');
+        socket.on('message:new', function(data) {
+            if (data.conversation?.id === currentConversationId) {
+                loadMessages();
+            }
+            loadConversations();
+            loadStats();
+        });
+        socket.on('notification:receive', function(data) {
+            if (data.type === 'info' || data.type === 'success') {
+                showToast(data.title + ': ' + data.message, data.type);
+            }
+        });
+    } catch(e) {
+        console.log('Socket.IO not available');
+    }
+})();
+
+// ─── GLOBAL FUNCTIONS FOR INLINE ONCLICK ───
+window.openNewConversation = openNewConversation;
+window.createConversation = createConversation;
+window.closeNewConversation = closeNewConversation;
+window.searchConversations = searchConversations;
+window.selectConversation = selectConversation;
+window.loadMessages = loadMessages;
+window.sendMessage = sendMessage;
+window.handleKeyDown = handleKeyDown;
+window.handleAttachment = handleAttachment;
+window.showToast = showToast;
+</script>
+</body>
+</html>

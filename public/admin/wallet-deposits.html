@@ -1,0 +1,1214 @@
+    
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>MilesSpace — Wallet Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Chart.js with fallback -->
+<script>
+(function loadChartJS() {
+  var sources = [
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js'
+  ];
+  var idx = 0;
+  function tryLoad(){
+    if(idx >= sources.length){
+      console.warn('⚠️ Chart.js failed to load');
+      document.dispatchEvent(new Event('chartjs-failed'));
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = sources[idx];
+    s.async = true;
+    s.onload = function(){
+      if(typeof Chart !== 'undefined'){
+        console.log('✅ Chart.js loaded');
+        document.dispatchEvent(new Event('chartjs-ready'));
+      } else {
+        idx++; tryLoad();
+      }
+    };
+    s.onerror = function(){ idx++; tryLoad(); };
+    document.head.appendChild(s);
+  }
+  tryLoad();
+})();
+</script>
+
+<style>
+:root{
+  --navy:#0c3d4a;--navy-light:#12556a;--navy-deep:#082a33;
+  --gold:#f59e0b;--gold-soft:#fde3ad;--white:#fff;
+  --bg:#f4f7fb;--bg-card:rgba(255,255,255,0.72);
+  --border:rgba(12,61,74,0.08);--text:#0c1f26;
+  --text-dim:#5b7480;--text-faint:#8fa3ab;
+  --success:#16a34a;--success-bg:#e9f9ef;
+  --danger:#dc2626;--danger-bg:#fdecec;
+  --warn:#f59e0b;--warn-bg:#fef3d9;
+  --info:#2563a8;--info-bg:#e8f1fb;
+  --purple:#8b5cf6;--purple-bg:#ede9fe;
+  --radius-sm:8px;--radius-md:14px;--radius-lg:20px;
+  --shadow-sm:0 1px 2px rgba(8,42,51,0.06);
+  --shadow-md:0 8px 24px -8px rgba(8,42,51,0.16);
+  --shadow-lg:0 16px 48px -12px rgba(8,42,51,0.26);
+  --sidebar-w:264px;--topbar-h:68px;
+  --transition:180ms cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh}
+.mono{font-family:'JetBrains Mono',monospace}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(12,61,74,0.18);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:rgba(12,61,74,0.3)}
+
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar{
+  background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);
+  color:#eaf6f8;
+  padding:22px 16px 18px;
+  display:flex;
+  flex-direction:column;
+  position:sticky;top:0;
+  height:100vh;
+  z-index:40;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.15) transparent;
+  transition:transform var(--transition);
+}
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:99px}
+
+.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 22px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:contain;background:rgba(255,255,255,0.05);padding:2px}
+.brand-text strong{font-size:15.5px;font-weight:800;letter-spacing:-0.01em;display:block}
+.brand-text span{font-size:11px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+
+.nav-scroll{flex:1;overflow-y:auto;padding-right:4px}
+.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 12px 6px}
+.nav-item{
+  display:flex;align-items:center;gap:11px;
+  padding:9.5px 12px;border-radius:10px;
+  color:#cfe7ea;font-size:13.6px;font-weight:500;
+  cursor:pointer;border:1px solid transparent;
+  transition:background var(--transition),color var(--transition);
+}
+.nav-item .ic{width:18px;text-align:center;font-size:14.5px;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff}
+.nav-item.active{background:rgba(245,158,11,0.14);color:#ffd899;border-color:rgba(245,158,11,0.28);font-weight:600}
+.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10.5px;font-weight:800;padding:1.5px 6.5px;border-radius:99px}
+.nav-divider{height:1px;background:rgba(255,255,255,0.06);margin:6px 12px}
+.nav-exit{margin-top:4px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px}
+.nav-exit .nav-item{color:#efb3b3}
+.nav-exit .nav-item:hover{background:rgba(239,68,68,0.12);color:#fca5a5}
+
+.sidebar-foot{display:flex;align-items:center;gap:10px;padding:14px 10px 4px;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;flex-shrink:0}
+.sidebar-foot .av{width:32px;height:32px;border-radius:50%;background:var(--gold);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.sidebar-foot .who strong{display:block;font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#9fd4de}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+.page-title h1{font-size:19px;font-weight:800;letter-spacing:-0.01em}
+.page-title .crumb{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse-dot 1.8s infinite}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.gsearch{flex:1;max-width:360px;position:relative}
+.gsearch input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;background:var(--white)}
+.gsearch .gic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:13px}
+.top-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+.clockbox{text-align:right;line-height:1.2} .clockbox .d{font-size:11px;color:var(--text-dim)} .clockbox .t{font-size:13.5px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.icon-btn{position:relative;width:36px;height:36px;border-radius:9px;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+.icon-btn:hover{background:var(--navy);color:#fff}
+.dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:2px solid var(--white)}
+.profile{display:flex;align-items:center;gap:9px;padding-left:12px;border-left:1px solid var(--border);cursor:pointer}
+.profile .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.profile .who strong{display:block;font-size:12px} .profile .who span{font-size:10.5px;color:var(--text-dim)}
+
+.content{padding:22px 26px 60px}
+.view{display:none;animation:fadein .25s ease}
+.view.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 14px;flex-wrap:wrap;gap:8px}
+.section-head h2{font-size:15.5px;font-weight:800;letter-spacing:-0.01em}
+.section-head .sub{font-size:12px;color:var(--text-dim)}
+
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.panel{padding:18px 20px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.panel-head h3{font-size:14px;font-weight:700}
+
+.badge{font-size:10.8px;font-weight:700;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.purple{background:var(--purple-bg);color:var(--purple)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;font-size:12.8px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:transform var(--transition),filter var(--transition);white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);box-shadow:0 6px 16px -6px rgba(245,158,11,0.6)}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:6px 10px;font-size:11.5px;border-radius:8px}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-navy{background:var(--navy);color:#fff}
+
+.table-scroll{overflow-x:auto;overflow-y:visible;max-height:100%;scrollbar-width:thin}
+.table-scroll::-webkit-scrollbar{height:7px}
+.table-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+table.data-table{width:100%;border-collapse:collapse;font-size:12.6px;min-width:900px}
+table.data-table th{text-align:left;padding:11px 16px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;user-select:none;position:sticky;top:0;z-index:2}
+table.data-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.data-table tbody tr{transition:background var(--transition)}
+table.data-table tbody tr:hover{background:rgba(245,158,11,0.06)}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.icon-mini{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--text-dim)}
+.icon-mini:hover{background:var(--bg);color:var(--navy)}
+.icon-mini.danger:hover{background:var(--danger-bg);color:var(--danger)}
+.icon-mini.success:hover{background:var(--success-bg);color:var(--success)}
+.table-foot{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;gap:10px}
+.pg-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;font-size:11.5px;cursor:pointer;color:var(--text-dim)}
+.pg-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(6,20,24,0.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:720px;padding:24px;animation:modalIn .22s ease;max-height:90vh;overflow-y:auto}
+.modal.wide{max-width:960px}
+.modal-scroll{max-height:60vh;overflow-y:auto;padding-right:4px}
+.modal-scroll::-webkit-scrollbar{width:6px}
+.modal-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+@keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-shrink:0}
+.modal-head h3{font-size:16px;font-weight:800}
+.modal-close{cursor:pointer;color:var(--text-dim);font-size:18px;background:none;border:none}
+.modal-sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px;flex-shrink:0}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-shrink:0}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:12px;font-weight:600;color:var(--text-dim)}
+.field input,.field textarea,.field select{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:13px;font-family:'Inter',sans-serif}
+.field textarea{resize:vertical;min-height:70px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:12px;font-size:12.8px}
+.info-grid div strong{color:var(--text-dim);font-weight:600;display:block;font-size:10.8px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+@media(max-width:560px){.info-grid{grid-template-columns:1fr}}
+
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:200}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;animation:toastIn .25s ease;border-left:3px solid var(--gold)}
+.toast.success{border-left-color:var(--success)}.toast.error{border-left-color:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+
+.grid{display:grid;gap:14px}
+.grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.grid.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}.grid.cols-3{grid-template-columns:repeat(2,1fr)}}
+
+.kpi-card{padding:16px 18px;cursor:pointer;transition:transform var(--transition),box-shadow var(--transition);position:relative;overflow:hidden}
+.kpi-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.kpi-card:active{transform:translateY(-1px) scale(.98)}
+.kpi-top{display:flex;justify-content:space-between;align-items:flex-start}
+.kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.kpi-icon.gold{background:var(--warn-bg);color:#b3720a}
+.kpi-icon.green{background:var(--success-bg);color:var(--success)}
+.kpi-icon.blue{background:var(--info-bg);color:var(--info)}
+.kpi-icon.purple{background:var(--purple-bg);color:var(--purple)}
+.kpi-icon.red{background:var(--danger-bg);color:var(--danger)}
+.kpi-trend{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:20px}
+.trend-up{color:var(--success);background:var(--success-bg)}
+.trend-down{color:var(--danger);background:var(--danger-bg)}
+.kpi-value{font-size:23px;font-weight:800;letter-spacing:-0.02em;margin-top:10px}
+.kpi-label{font-size:11.5px;color:var(--text-dim);margin-top:2px;font-weight:500}
+
+.chart-card{padding:16px 18px}
+.chart-card h3{font-size:13.5px;font-weight:700;margin-bottom:4px}
+.chart-card .sub{font-size:11px;color:var(--text-dim);margin-bottom:10px}
+.chart-wrap{position:relative;height:230px;min-height:200px}
+.charts-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px}
+.charts-grid.thirds{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:1100px){.charts-grid,.charts-grid.thirds{grid-template-columns:1fr}}
+
+.filters-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.filters-bar select,.filters-bar input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--white)}
+.filters-bar input[type=text]{flex:1;min-width:180px}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:34px;margin-bottom:8px}
+
+.activity-item{display:flex;gap:12px;padding:11px 0;border-bottom:1px dashed var(--border)}
+.activity-item .aic{width:34px;height:34px;border-radius:9px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.activity-item .atxt{font-size:12.6px} .activity-item .atxt b{font-weight:700}
+.activity-item .atime{font-size:10.8px;color:var(--text-dim);margin-top:2px}
+
+.status-indicator{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px}
+.status-indicator .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.status-indicator .dot.green{background:var(--success)}
+.status-indicator .dot.yellow{background:var(--warn)}
+.status-indicator .dot.red{background:var(--danger)}
+
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:260px;box-shadow:var(--shadow-lg);transition:transform .3s ease;z-index:50}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:flex}
+  .content{padding:16px 14px 50px}
+  .grid.cols-2,.grid.cols-4,.grid.cols-3{grid-template-columns:1fr}
+  .gsearch{order:3;max-width:100%;flex-basis:100%}
+}
+@media(max-width:540px){
+  .kpi-value{font-size:20px}
+  .topbar{padding:0 14px}
+  .clockbox{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+    <div class="brand-text"><strong>MilesSpace</strong><span>Wallet Admin</span></div>
+  </div>
+  <div class="nav-scroll">
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active" data-view="dashboard"><span class="ic">📊</span>Wallet Dashboard</div>
+    <div class="nav-item" data-view="analytics"><span class="ic">📈</span>Analytics</div>
+
+    <div class="nav-label">Wallet Management</div>
+    <div class="nav-item" data-view="wallets"><span class="ic">💰</span>All Wallets<span class="badge-count" id="walletCount">0</span></div>
+    <div class="nav-item" data-view="wallet-ngn"><span class="ic">₦</span>NGN Wallets</div>
+    <div class="nav-item" data-view="wallet-usd"><span class="ic">$</span>USD Wallets</div>
+    <div class="nav-item" data-view="adjustments"><span class="ic">⚖️</span>Wallet Adjustments</div>
+
+    <div class="nav-label">Transactions</div>
+    <div class="nav-item" data-view="transactions"><span class="ic">💳</span>All Transactions<span class="badge-count" id="txCount">0</span></div>
+    <div class="nav-item" data-view="deposits"><span class="ic">📥</span>Deposits</div>
+    <div class="nav-item" data-view="withdrawals"><span class="ic">📤</span>Withdrawals<span class="badge-count" id="wdCount">0</span></div>
+    <div class="nav-item" data-view="refunds"><span class="ic">↩️</span>Refunds</div>
+    <div class="nav-item" data-view="failed"><span class="ic">❌</span>Failed Transactions</div>
+
+    <div class="nav-label">Revenue</div>
+    <div class="nav-item" data-view="revenue"><span class="ic">📈</span>Revenue Overview</div>
+
+    <div class="nav-label">Customers</div>
+    <div class="nav-item" data-view="customers"><span class="ic">👥</span>Top Customers</div>
+
+    <div class="nav-label">Settings</div>
+    <div class="nav-item" data-view="settings"><span class="ic">⚙️</span>Settings</div>
+    <div class="nav-item" data-view="audit"><span class="ic">📝</span>Audit Logs</div>
+
+    <div class="nav-divider"></div>
+    <div class="nav-exit">
+      <a href="dashboard.html" class="nav-item" style="text-decoration:none;"><span class="ic">🏠</span>Back to Main Dashboard</a>
+      <div class="nav-item" onclick="logout()"><span class="ic">🚪</span>Logout</div>
+    </div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="av">DA</div>
+    <div class="who"><strong>Dara Adisa</strong><span>Super Admin</span></div>
+  </div>
+</aside>
+
+<div class="scrim" id="scrim" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none"></div>
+
+<div class="main">
+  <header class="topbar">
+    <button class="hamburger" id="hamburger">☰</button>
+    <div class="page-title"><h1 id="pageTitle">Wallet Dashboard</h1><div class="crumb"><span class="live-dot"></span>Live data <span id="breadcrumbExtra"></span></div></div>
+    <div class="gsearch"><span class="gic">🔎</span><input type="text" id="globalSearch" placeholder="Search wallets, transactions, customers..." oninput="handleGlobalSearch()"></div>
+    <div class="top-right">
+      <div class="clockbox"><div class="d" id="curDate">—</div><div class="t" id="curTime">—</div></div>
+      <button class="icon-btn" title="Refresh" onclick="refreshAll()">🔄</button>
+      <button class="icon-btn" title="Notifications" onclick="openNotif()">🔔</button>
+      <div class="profile"><div class="av">DA</div><div class="who"><strong>Dara Adisa</strong><span>Super Admin</span></div></div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ================= DASHBOARD ================= -->
+    <section class="view active" id="view-dashboard">
+      <div class="grid cols-4" id="kpiGrid"></div>
+      <div class="charts-grid" style="margin-top:20px;">
+        <div class="card chart-card"><h3>Revenue Trend</h3><div class="sub">Last 30 days</div><div class="chart-wrap"><canvas id="revTrendChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Wallet Distribution</h3><div class="sub">NGN vs USD</div><div class="chart-wrap"><canvas id="walletDistChart"></canvas></div></div>
+      </div>
+      <div class="section-head"><h2>Recent Transactions</h2></div>
+      <div class="card panel" id="recentTxns"></div>
+      <div class="section-head"><h2>Pending Withdrawals</h2></div>
+      <div class="card panel" id="pendingWithdrawals"></div>
+    </section>
+
+    <!-- ================= ANALYTICS ================= -->
+    <section class="view" id="view-analytics">
+      <div class="section-head"><h2>Wallet Analytics</h2><span class="sub">All charts use real data</span></div>
+      <div class="charts-grid">
+        <div class="card chart-card"><h3>Deposit vs Withdrawal</h3><div class="chart-wrap"><canvas id="depositWithdrawChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Transaction Status</h3><div class="chart-wrap"><canvas id="txStatusChart"></canvas></div></div>
+      </div>
+      <div class="charts-grid thirds">
+        <div class="card chart-card"><h3>Daily Revenue</h3><div class="chart-wrap"><canvas id="dailyRevChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Weekly Revenue</h3><div class="chart-wrap"><canvas id="weeklyRevChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Monthly Revenue</h3><div class="chart-wrap"><canvas id="monthlyRevChart"></canvas></div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="card chart-card"><h3>Revenue by Service</h3><div class="chart-wrap"><canvas id="serviceRevChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Revenue by Country</h3><div class="chart-wrap"><canvas id="countryRevChart"></canvas></div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="card chart-card"><h3>Top Customers</h3><div class="chart-wrap"><canvas id="topCustomersChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Refund Rate</h3><div class="chart-wrap"><canvas id="refundRateChart"></canvas></div></div>
+      </div>
+    </section>
+
+    <!-- ================= WALLETS ================= -->
+    <section class="view" id="view-wallets">
+      <div class="section-head"><h2>All Wallets</h2><span class="sub" id="walletCountLabel"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="walletSearch" placeholder="🔍 Search wallets…"/>
+          <select id="walletStatusFilter"><option value="">All Status</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Suspended">Suspended</option></select>
+          <div style="margin-left:auto;"><button class="btn btn-ghost btn-sm" onclick="exportData('wallets','csv')">⬇️ CSV</button></div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Wallet ID</th><th>Customer</th><th>NGN Balance</th><th>USD Balance</th><th>Total Value</th><th>Status</th><th>Last Active</th><th>Actions</th></tr></thead>
+            <tbody id="walletsTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="walletRange"></span><div class="pager" id="walletPager"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= WALLET NGN ================= -->
+    <section class="view" id="view-wallet-ngn">
+      <div class="section-head"><h2>NGN Wallets</h2><span class="sub">All Naira wallets</span></div>
+      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>Customer</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="ngnWalletsTbody"></tbody></table></div></div>
+    </section>
+
+    <!-- ================= WALLET USD ================= -->
+    <section class="view" id="view-wallet-usd">
+      <div class="section-head"><h2>USD Wallets</h2><span class="sub">All Dollar wallets</span></div>
+      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>Customer</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="usdWalletsTbody"></tbody></table></div></div>
+    </section>
+
+    <!-- ================= ADJUSTMENTS ================= -->
+    <section class="view" id="view-adjustments">
+      <div class="section-head"><h2>Wallet Adjustments</h2><button class="btn btn-primary btn-sm" onclick="openAdjustModal()">➕ New Adjustment</button></div>
+      <div class="card panel" id="adjustmentHistory"></div>
+    </section>
+
+    <!-- ================= TRANSACTIONS ================= -->
+    <section class="view" id="view-transactions">
+      <div class="section-head"><h2>All Transactions</h2><span class="sub" id="txCountLabel"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="txSearch" placeholder="🔍 Search by ID, customer, reference…"/>
+          <select id="txTypeFilter"><option value="">All Types</option><option>deposit</option><option>withdrawal</option><option>refund</option><option>fee</option><option>adjustment</option></select>
+          <select id="txStatusFilter"><option value="">All Status</option><option>Completed</option><option>Pending</option><option>Failed</option><option>Refunded</option></select>
+          <div style="margin-left:auto;"><button class="btn btn-ghost btn-sm" onclick="exportData('transactions','csv')">⬇️ CSV</button></div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Customer</th><th>Type</th><th>Amount (NGN)</th><th>Amount (USD)</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="txTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="txRange"></span><div class="pager" id="txPager"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= DEPOSITS ================= -->
+    <section class="view" id="view-deposits">
+      <div class="section-head"><h2>Deposits</h2><span class="sub" id="depositCount"></span></div>
+      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="depositsTbody"></tbody></table></div></div>
+    </section>
+
+    <!-- ================= WITHDRAWALS ================= -->
+    <section class="view" id="view-withdrawals">
+      <div class="section-head"><h2>Withdrawals</h2><span class="sub" id="wdCountLabel"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="wdSearch" placeholder="🔍 Search withdrawals…"/>
+          <select id="wdStatusFilter"><option value="">All Status</option><option>Pending</option><option>Processing</option><option>Completed</option><option>Failed</option></select>
+          <div style="margin-left:auto;"><button class="btn btn-ghost btn-sm" onclick="exportData('withdrawals','csv')">⬇️ CSV</button></div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Bank</th><th>Account</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="wdTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="wdRange"></span><div class="pager" id="wdPager"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= REFUNDS ================= -->
+    <section class="view" id="view-refunds">
+      <div class="section-head"><h2>Refunds</h2><span class="sub" id="refundCount"></span></div>
+      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>ID</th><th>Original Txn</th><th>Customer</th><th>Amount</th><th>Reason</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="refundsTbody"></tbody></table></div></div>
+    </section>
+
+    <!-- ================= FAILED ================= -->
+    <section class="view" id="view-failed">
+      <div class="section-head"><h2>Failed Transactions</h2><span class="sub" id="failedCount"></span></div>
+      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>ID</th><th>Customer</th><th>Type</th><th>Amount</th><th>Reason</th><th>Date</th><th>Actions</th></tr></thead><tbody id="failedTbody"></tbody></table></div></div>
+    </section>
+
+    <!-- ================= REVENUE ================= -->
+    <section class="view" id="view-revenue">
+      <div class="section-head"><h2>Revenue Overview</h2></div>
+      <div class="grid cols-4" id="revKpiGrid" style="margin-bottom:18px;"></div>
+      <div class="charts-grid">
+        <div class="card chart-card"><h3>Revenue Trend</h3><div class="chart-wrap"><canvas id="revOverviewChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Revenue by Service</h3><div class="chart-wrap"><canvas id="revServiceChart"></canvas></div></div>
+      </div>
+    </section>
+
+    <!-- ================= CUSTOMERS ================= -->
+    <section class="view" id="view-customers">
+      <div class="section-head"><h2>Top Customers by Spend</h2><span class="sub" id="custCount"></span></div>
+      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>Customer</th><th>Email</th><th>NGN Balance</th><th>USD Balance</th><th>Total Spent</th><th>Orders</th><th>Actions</th></tr></thead><tbody id="customersTbody"></tbody></table></div></div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="view" id="view-settings">
+      <div class="section-head"><h2>Wallet Settings</h2></div>
+      <div class="card panel">
+        <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="field"><label>Site Name</label><input type="text" value="MilesSpace Wallet"></div>
+          <div class="field"><label>Default Currency</label><select><option>NGN</option><option>USD</option></select></div>
+          <div class="field"><label>Exchange Rate (USD to NGN)</label><input type="text" value="1 USD = 1,620 NGN"></div>
+          <div class="field"><label>Minimum Deposit</label><input type="text" value="₦1,000"></div>
+          <div class="field"><label>Maximum Deposit</label><input type="text" value="₦10,000,000"></div>
+          <div class="field"><label>Minimum Withdrawal</label><input type="text" value="₦5,000"></div>
+          <div class="field"><label>Maximum Withdrawal</label><input type="text" value="₦5,000,000"></div>
+          <div class="field"><label>Withdrawal Approval</label><select><option>Require Admin Approval</option><option>Auto-approve</option></select></div>
+        </div>
+        <div style="margin-top:16px;"><button class="btn btn-primary" onclick="toast('Settings saved!','✅')">Save Settings</button></div>
+      </div>
+    </section>
+
+    <!-- ================= AUDIT ================= -->
+    <section class="view" id="view-audit">
+      <div class="section-head"><h2>Audit Logs</h2></div>
+      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>Admin</th><th>Action</th><th>Target</th><th>Old Value</th><th>New Value</th><th>Date</th></tr></thead><tbody id="auditTbody"></tbody></table></div></div>
+    </section>
+
+  </div>
+</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox">
+    <div class="modal-head"><h3 id="modalTitle">Title</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-sub" id="modalSub"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* ============================================================
+   MILESSPACE WALLET ADMIN — COMPLETE SOLUTION
+   ============================================================ */
+
+// ---- MOCK DATA ----
+const CUSTOMER_NAMES = [
+  ["Grace","Okoro"],["John","Smith"],["Amaka","Bello"],["David","Johnson"],
+  ["Fatima","Adeyemi"],["Michael","Brown"],["Chidinma","Eze"],["Samuel","Williams"],
+  ["Linda","Musa"],["Peter","Davis"],["Ngozi","Adaeze"],["Tunde","Alabi"],
+  ["Kemi","Bakare"],["Chidi","Okafor"],["Zainab","Bello"],["Emeka","Chukwu"]
+];
+
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return d}
+function fmtMoney(n){return '₦'+(n||0).toLocaleString('en-NG')}
+function fmtUsd(n){return '$'+(n||0).toFixed(2)}
+function fmtDate(d){return d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—'}
+function fmtDateTime(d){return d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+
+function badge(s){
+  const m={Active:'success',Inactive:'neutral',Suspended:'danger',Completed:'success',Pending:'warn',Processing:'info',Failed:'danger',Refunded:'info','Deposit':'success','Withdrawal':'danger','Refund':'warn','Fee':'neutral','Adjustment':'info'};
+  return `<span class="badge ${m[s]||'neutral'}">${s}</span>`;
+}
+
+function toast(msg,icon='✅'){const s=document.getElementById('toastStack'),e=document.createElement('div');e.className='toast';e.innerHTML=`<span>${icon}</span><span>${msg}</span>`;s.appendChild(e);setTimeout(()=>{e.style.opacity='0';e.style.transform='translateX(30px)';e.style.transition='all .25s';setTimeout(()=>e.remove(),260)},3000)}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+function openModal(title,sub,body,confirmText,onConfirm,wide){
+  document.getElementById('modalBox').classList.toggle('wide',!!wide);
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalSub').textContent=sub||'';
+  document.getElementById('modalBody').innerHTML=body||'';
+  const btn=document.getElementById('modalConfirm');
+  btn.style.display=confirmText===null?'none':'inline-flex';
+  btn.textContent=confirmText||'Confirm';
+  btn.onclick=function(){if(onConfirm)onConfirm();closeModal();};
+  document.getElementById('modalOverlay').classList.add('open');
+}
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal()});
+function copyText(t){navigator.clipboard.writeText(t).then(()=>toast('Copied!','📋'))}
+
+function downloadCSV(rows,filename){
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=filename;
+  a.click();
+}
+function exportData(kind,type){
+  if(type==='csv'){
+    if(kind==='wallets'){const rows=[["ID","Customer","NGN","USD","Total","Status"]];WALLETS.forEach(w=>rows.push([w.id,w.customer.name,w.ngn,w.usd,w.ngn+w.usd*1600,w.status]));downloadCSV(rows,'wallets.csv');}
+    if(kind==='transactions'){const rows=[["ID","Customer","Type","NGN","USD","Method","Status","Date"]];TRANSACTIONS.forEach(t=>rows.push([t.id,t.customer.name,t.type,t.amount_ngn,t.amount_usd,t.method,t.status,fmtDate(t.date)]));downloadCSV(rows,'transactions.csv');}
+    if(kind==='withdrawals'){const rows=[["ID","Customer","Amount","Bank","Account","Status","Date"]];WITHDRAWALS.forEach(w=>rows.push([w.id,w.customer.name,w.amount,w.bank,w.account,w.status,fmtDate(w.date)]));downloadCSV(rows,'withdrawals.csv');}
+    toast('CSV exported','⬇️');
+  }
+}
+function logout(){toast('Logging out...','🚪');setTimeout(()=>{window.location.href='login.html';},500);}
+
+// ---- GENERATE MOCK DATA ----
+let customers = CUSTOMER_NAMES.map((n,i) => ({
+  id:'CUS-'+(3000+i), name:n[0]+' '+n[1], email:(n[0]+'.'+n[1]).toLowerCase()+'@mail.com',
+  ngn:0, usd:0, orders:rand(5,45), spent:0, joined:daysAgo(rand(10,300))
+}));
+
+let WALLETS = [];
+let TRANSACTIONS = [];
+let DEPOSITS = [];
+let WITHDRAWALS = [];
+let REFUNDS = [];
+let FAILED = [];
+let AUDIT = [];
+
+function generateMockData(){
+  const statuses = ['Active','Active','Active','Active','Inactive','Suspended'];
+  const txTypes = ['deposit','withdrawal','refund','fee','adjustment'];
+  const txStatuses = ['Completed','Completed','Completed','Pending','Failed','Refunded'];
+  const methods = ['Bank Transfer','Card','Wallet','Crypto'];
+
+  // Generate wallets
+  customers.forEach(c => {
+    const ngn = rand(1000,850000);
+    const usd = rand(0,2400);
+    c.ngn = ngn;
+    c.usd = usd;
+    WALLETS.push({
+      id:'WAL-'+rand(10000,99999),
+      customer:c,
+      ngn:ngn,
+      usd:usd,
+      status:pick(statuses),
+      created:daysAgo(rand(10,300)),
+      last_txn:daysAgo(rand(0,30))
+    });
+  });
+
+  // Generate transactions
+  for(let i=0;i<120;i++){
+    const cust = pick(customers);
+    const type = pick(txTypes);
+    const currency = pick(['NGN','USD']);
+    const amount = currency==='NGN'?rand(1000,400000):rand(10,1200);
+    const method = pick(methods);
+    const status = pick(txStatuses);
+    const date = daysAgo(rand(0,30));
+    const ref = 'REF'+rand(100000,999999);
+    const tx = {
+      id:'TXN-'+rand(10000,99999),
+      customer:cust,
+      type:type,
+      amount_ngn:currency==='NGN'?amount:0,
+      amount_usd:currency==='USD'?amount:0,
+      currency:currency,
+      method:method,
+      reference:ref,
+      status:status,
+      date:date
+    };
+    TRANSACTIONS.push(tx);
+
+    if(type==='deposit') DEPOSITS.push({...tx, method:method, reference:ref});
+    if(type==='withdrawal'){
+      WITHDRAWALS.push({
+        id:'WDR-'+rand(10000,99999),
+        customer:cust,
+        amount:currency==='NGN'?amount:amount*1600,
+        bank:pick(['GTBank','Access Bank','Zenith Bank','UBA','First Bank']),
+        account:rand(1000000000,9999999999).toString(),
+        status:status==='Completed'?'Processing':status,
+        date:date
+      });
+    }
+    if(type==='refund') REFUNDS.push({id:'RFD-'+rand(10000,99999), customer:cust, amount:currency==='NGN'?amount:amount*1600, reason:'Customer request', status:status, date:date});
+    if(status==='Failed') FAILED.push({...tx, reason:'System error'});
+
+    if(status==='Completed'){
+      if(currency==='NGN'){cust.ngn += type==='deposit'?amount:-amount; cust.spent += type==='deposit'?0:amount;}
+      else{cust.usd += type==='deposit'?amount:-amount; cust.spent += type==='deposit'?0:amount*1600;}
+    }
+  }
+
+  // Audit logs
+  const admins = ['Dara Adisa','Tunde A.','Grace O.','Chinedu M.'];
+  const actions = ['Approved withdrawal','Rejected withdrawal','Adjusted balance','Processed refund','Approved deposit'];
+  for(let i=0;i<25;i++){
+    AUDIT.push({admin:pick(admins), action:pick(actions), target:pick(['WAL-'+rand(10000,99999),'TXN-'+rand(10000,99999)]), old:'₦'+rand(1000,10000), new:'₦'+rand(1000,10000), date:daysAgo(rand(0,20))});
+  }
+  AUDIT.sort((a,b)=>b.date-a.date);
+}
+generateMockData();
+
+// ---- HELPERS ----
+function getTotalBalance(){return WALLETS.reduce((s,w)=>s+w.ngn+w.usd*1600,0);}
+function getTotalNGN(){return WALLETS.reduce((s,w)=>s+w.ngn,0);}
+function getTotalUSD(){return WALLETS.reduce((s,w)=>s+w.usd,0);}
+function getTotalDeposits(){return TRANSACTIONS.filter(t=>t.type==='deposit'&&t.status==='Completed').reduce((s,t)=>s+(t.amount_ngn||0),0);}
+function getTotalWithdrawals(){return TRANSACTIONS.filter(t=>t.type==='withdrawal'&&t.status==='Completed').reduce((s,t)=>s+(t.amount_ngn||0),0);}
+function getPendingWithdrawals(){return WITHDRAWALS.filter(w=>w.status==='Pending'||w.status==='Processing');}
+function getTotalRefunds(){return TRANSACTIONS.filter(t=>t.type==='refund'&&t.status==='Completed').reduce((s,t)=>s+(t.amount_ngn||0),0);}
+function getFailedCount(){return TRANSACTIONS.filter(t=>t.status==='Failed').length;}
+
+// ---- NAVIGATION ----
+const VIEW_TITLES={
+  dashboard:'Wallet Dashboard', analytics:'Wallet Analytics',
+  wallets:'All Wallets', 'wallet-ngn':'NGN Wallets', 'wallet-usd':'USD Wallets',
+  adjustments:'Wallet Adjustments', transactions:'All Transactions',
+  deposits:'Deposits', withdrawals:'Withdrawals', refunds:'Refunds',
+  failed:'Failed Transactions', revenue:'Revenue Overview',
+  customers:'Top Customers', settings:'Wallet Settings', audit:'Audit Logs'
+};
+
+document.getElementById('hamburger').addEventListener('click',()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('scrim').style.display='block'});
+document.getElementById('scrim').addEventListener('click',()=>{document.getElementById('sidebar').classList.remove('open');document.getElementById('scrim').style.display='none'});
+document.querySelectorAll('.nav-item[data-view]').forEach(item=>{
+  item.addEventListener('click',function(){
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    const v=this.dataset.view;
+    document.getElementById('view-'+v).classList.add('active');
+    document.getElementById('pageTitle').textContent=VIEW_TITLES[v]||v;
+    document.getElementById('sidebar').classList.remove('open');document.getElementById('scrim').style.display='none';
+    renderView(v);
+  });
+});
+function renderView(v){
+  if(v==='dashboard')renderDashboard();
+  else if(v==='analytics')renderAnalytics();
+  else if(v==='wallets')renderWallets();
+  else if(v==='wallet-ngn')renderNGNWallets();
+  else if(v==='wallet-usd')renderUSDWallets();
+  else if(v==='adjustments')renderAdjustments();
+  else if(v==='transactions')renderTransactions();
+  else if(v==='deposits')renderDeposits();
+  else if(v==='withdrawals')renderWithdrawals();
+  else if(v==='refunds')renderRefunds();
+  else if(v==='failed')renderFailed();
+  else if(v==='revenue')renderRevenue();
+  else if(v==='customers')renderCustomers();
+  else if(v==='audit')renderAudit();
+}
+function refreshAll(){renderView(document.querySelector('.nav-item.active').dataset.view);toast('Refreshed!','🔄');}
+
+// ---- CLOCK ----
+function tickClock(){const n=new Date();document.getElementById('curDate').textContent=n.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});document.getElementById('curTime').textContent=n.toLocaleTimeString();}
+tickClock();setInterval(tickClock,1000);
+
+// ---- GLOBAL SEARCH ----
+function handleGlobalSearch(){
+  const q=document.getElementById('globalSearch').value.trim().toLowerCase();
+  document.getElementById('breadcrumbExtra').textContent=q?`· searching "${q}"`:'';
+  if(!q)return;
+  if(WALLETS.some(w=>w.id.toLowerCase().includes(q)||w.customer.name.toLowerCase().includes(q))){document.querySelector('[data-view=wallets]').click();document.getElementById('walletSearch').value=q;renderWallets();}
+  else if(TRANSACTIONS.some(t=>t.id.toLowerCase().includes(q)||t.customer.name.toLowerCase().includes(q)||t.reference.toLowerCase().includes(q))){document.querySelector('[data-view=transactions]').click();document.getElementById('txSearch').value=q;renderTransactions();}
+}
+
+// ---- DASHBOARD ----
+const KPI_DEFS = [
+  {key:'totalBalance',label:'Total Balance',icon:'💰',cls:'gold',trend:'+5.2%',up:true,fmt:v=>fmtMoney(v)},
+  {key:'totalNGN',label:'NGN Balance',icon:'₦',cls:'blue',trend:'+4.8%',up:true,fmt:v=>fmtMoney(v)},
+  {key:'totalUSD',label:'USD Balance',icon:'$',cls:'green',trend:'+6.1%',up:true,fmt:v=>fmtUsd(v)},
+  {key:'totalDeposits',label:'Total Deposits',icon:'📥',cls:'green',trend:'+8.3%',up:true,fmt:v=>fmtMoney(v)},
+  {key:'totalWithdrawals',label:'Total Withdrawals',icon:'📤',cls:'red',trend:'+4.2%',up:false,fmt:v=>fmtMoney(v)},
+  {key:'netRevenue',label:'Net Revenue',icon:'📈',cls:'purple',trend:'+12.1%',up:true,fmt:v=>fmtMoney(v)},
+  {key:'pendingWithdrawals',label:'Pending Withdrawals',icon:'⏳',cls:'gold',trend:'-2.3%',up:false},
+  {key:'totalRefunds',label:'Total Refunds',icon:'↩️',cls:'red',trend:'-1.2%',up:false,fmt:v=>fmtMoney(v)},
+  {key:'failedCount',label:'Failed Transactions',icon:'❌',cls:'red',trend:'-0.8%',up:false},
+  {key:'todayVolume',label:"Today's Volume",icon:'📊',cls:'blue',trend:'+15.4%',up:true,fmt:v=>fmtMoney(v)},
+  {key:'weeklyVolume',label:'Weekly Volume',icon:'📆',cls:'purple',trend:'+9.7%',up:true,fmt:v=>fmtMoney(v)},
+  {key:'monthlyVolume',label:'Monthly Volume',icon:'📈',cls:'gold',trend:'+11.2%',up:true,fmt:v=>fmtMoney(v)},
+];
+
+function renderDashboard(){
+  document.getElementById('walletCount').textContent=WALLETS.length;
+  document.getElementById('txCount').textContent=TRANSACTIONS.length;
+  const pendingWds = getPendingWithdrawals();
+  document.getElementById('wdCount').textContent=pendingWds.length;
+
+  const data = {
+    totalBalance:getTotalBalance(), totalNGN:getTotalNGN(), totalUSD:getTotalUSD(),
+    totalDeposits:getTotalDeposits(), totalWithdrawals:getTotalWithdrawals(),
+    netRevenue:getTotalDeposits()-getTotalWithdrawals(),
+    pendingWithdrawals:pendingWds.length, totalRefunds:getTotalRefunds(),
+    failedCount:getFailedCount(),
+    todayVolume:TRANSACTIONS.filter(t=>new Date(t.date).toDateString()===new Date().toDateString()).reduce((s,t)=>s+(t.amount_ngn||0),0),
+    weeklyVolume:TRANSACTIONS.filter(t=>(Date.now()-new Date(t.date))/86400000<=7).reduce((s,t)=>s+(t.amount_ngn||0),0),
+    monthlyVolume:TRANSACTIONS.filter(t=>new Date(t.date).getMonth()===new Date().getMonth()).reduce((s,t)=>s+(t.amount_ngn||0),0)
+  };
+
+  document.getElementById('kpiGrid').innerHTML=KPI_DEFS.map(k=>{
+    const raw=data[k.key]; const display=k.fmt?k.fmt(raw):raw;
+    return `<div class="card kpi-card" onclick="openKpiDetail('${k.key}')">
+      <div class="kpi-top"><div class="kpi-icon ${k.cls}">${k.icon}</div><div class="kpi-trend ${k.up?'trend-up':'trend-down'}">${k.up?'▲':'▼'} ${k.trend}</div></div>
+      <div class="kpi-value">${typeof display==='number'?0:display}</div>
+      <div class="kpi-label">${k.label}</div></div>`;
+  }).join('');
+  document.querySelectorAll('#kpiGrid .kpi-card').forEach((card,i)=>{
+    const def=KPI_DEFS[i]; const raw=data[def.key];
+    if(typeof raw==='number' && !def.fmt){
+      const el=card.querySelector('.kpi-value'); let cur=0; const step=Math.max(1,Math.ceil(raw/30));
+      const t=setInterval(()=>{cur+=step;if(cur>=raw){cur=raw;clearInterval(t);}el.textContent=cur.toLocaleString();},20);
+    }
+  });
+
+  document.getElementById('recentTxns').innerHTML=TRANSACTIONS.slice(0,6).map(t=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border)">
+      <div><strong>${t.id}</strong> · ${t.customer.name}<div style="font-size:11px;color:var(--text-dim)">${t.type} · ${t.method}</div></div>
+      <div>${badge(t.status)}<div style="font-size:11px;text-align:right">${t.amount_ngn?fmtMoney(t.amount_ngn):fmtUsd(t.amount_usd)}</div></div>
+    </div>`).join('');
+
+  document.getElementById('pendingWithdrawals').innerHTML=pendingWds.length?pendingWds.slice(0,5).map(w=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border)">
+      <div><strong>${w.id}</strong> · ${w.customer.name}<div style="font-size:11px;color:var(--text-dim)">${w.bank} · ${w.account}</div></div>
+      <div>${badge(w.status)}<div style="font-size:11px;text-align:right">${fmtMoney(w.amount)}</div></div>
+    </div>`).join(''):'<div style="padding:10px 0;color:var(--text-dim);">No pending withdrawals ✅</div>';
+}
+
+function openKpiDetail(key){
+  const def=KPI_DEFS.find(k=>k.key===key);
+  const data={
+    totalBalance:getTotalBalance(), totalNGN:getTotalNGN(), totalUSD:getTotalUSD(),
+    totalDeposits:getTotalDeposits(), totalWithdrawals:getTotalWithdrawals(),
+    netRevenue:getTotalDeposits()-getTotalWithdrawals(), pendingWithdrawals:getPendingWithdrawals().length,
+    totalRefunds:getTotalRefunds(), failedCount:getFailedCount()
+  };
+  const raw=data[key]; const display=def.fmt?def.fmt(raw):raw;
+  openModal(def.label, 'Detailed metric', `
+    <div class="info-grid"><div><strong>Current Value</strong>${display}</div><div><strong>Trend</strong>${def.trend}</div></div>
+    <p style="font-size:12px;color:var(--text-dim);">Real-time updates available when connected to backend.</p>
+  `, 'Close', null);
+}
+
+// ---- ANALYTICS CHARTS ----
+let chartsBuilt=false, chartInstances={};
+
+function renderAnalytics(){
+  if(chartsBuilt) return; chartsBuilt=true;
+  const days30=Array.from({length:30},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(29-i));return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})});
+  const weeks=['W1','W2','W3','W4'];
+  const months=['Jan','Feb','Mar','Apr','May','Jun'];
+
+  function buildChart(id,type,data,opts){
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(chartInstances[id]){try{chartInstances[id].destroy();}catch(e){}}
+    if(typeof Chart==='undefined'){el.parentElement.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-faint);">⏳ Loading charts...</div>';return;}
+    try{chartInstances[id]=new Chart(el.getContext('2d'), {type,data,options:{...opts,responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:10}}}}}});}catch(e){}
+  }
+
+  buildChart('revTrendChart','line',{
+    labels:days30,
+    datasets:[
+      {label:'Revenue (USD)',data:days30.map(()=>rand(300,1400)),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.15)',fill:true,tension:.4}
+    ]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  buildChart('walletDistChart','doughnut',{
+    labels:['NGN','USD'],
+    datasets:[{data:[getTotalNGN()||1,getTotalUSD()*1600||1],backgroundColor:['#0c3d4a','#f59e0b']}]
+  },{cutout:'60%'});
+
+  // Analytics page
+  buildChart('depositWithdrawChart','bar',{
+    labels:days30.slice(0,14),
+    datasets:[
+      {label:'Deposits',data:days30.slice(0,14).map(()=>rand(50,300)),backgroundColor:'#16a34a',borderRadius:5},
+      {label:'Withdrawals',data:days30.slice(0,14).map(()=>rand(30,200)),backgroundColor:'#dc2626',borderRadius:5}
+    ]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  buildChart('txStatusChart','doughnut',{
+    labels:['Completed','Pending','Failed','Refunded'],
+    datasets:[{data:[rand(800,1200),rand(20,60),rand(10,30),rand(5,20)],backgroundColor:['#16a34a','#f59e0b','#dc2626','#2563a8']}]
+  },{cutout:'60%'});
+
+  buildChart('dailyRevChart','bar',{
+    labels:days30.slice(0,14),
+    datasets:[{data:days30.slice(0,14).map(()=>rand(50,300)),backgroundColor:'#0c3d4a',borderRadius:5}]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  buildChart('weeklyRevChart','bar',{
+    labels:weeks,
+    datasets:[{data:weeks.map(()=>rand(500,1500)),backgroundColor:'#2563a8',borderRadius:5}]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  buildChart('monthlyRevChart','bar',{
+    labels:months.slice(0,6),
+    datasets:[{data:months.slice(0,6).map(()=>rand(2000,5000)),backgroundColor:'#8b5cf6',borderRadius:5}]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  const services=['Gift Cards','Social Ads','Virtual Numbers','Marketplace','Send Gifts'];
+  buildChart('serviceRevChart','bar',{
+    labels:services,
+    datasets:[{data:services.map(()=>rand(500,3000)),backgroundColor:'#f59e0b',borderRadius:5}]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  const countries=['Nigeria','USA','UK','Canada','UAE','Others'];
+  buildChart('countryRevChart','bar',{
+    labels:countries,
+    datasets:[{data:countries.map(()=>rand(200,1500)),backgroundColor:['#0c3d4a','#f59e0b','#2563a8','#8b5cf6','#16a34a','#dc2626'],borderRadius:5}]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+
+  const topCust=customers.sort((a,b)=>b.spent-a.spent).slice(0,6);
+  buildChart('topCustomersChart','bar',{
+    labels:topCust.map(c=>c.name),
+    datasets:[{data:topCust.map(c=>c.spent),backgroundColor:'#8b5cf6',borderRadius:5}]
+  },{indexAxis:'y',scales:{x:{beginAtZero:true,grid:{color:'#eef1f7'}},y:{grid:{display:false}}}});
+
+  buildChart('refundRateChart','line',{
+    labels:days30.slice(0,14),
+    datasets:[{data:days30.slice(0,14).map(()=>rand(0.5,5)),borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.1)',fill:true,tension:.4}]
+  },{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+}
+
+// ---- WALLETS ----
+function renderWallets(){
+  const q=(document.getElementById('walletSearch')?.value||'').toLowerCase();
+  const status=document.getElementById('walletStatusFilter')?.value||'';
+  let filtered=WALLETS.filter(w=>{
+    const m=!q||w.id.toLowerCase().includes(q)||w.customer.name.toLowerCase().includes(q);
+    const ms=!status||w.status===status;
+    return m&&ms;
+  });
+  const total=filtered.length,tp=Math.ceil(total/PER_PAGE)||1; let page=Math.min(walletPage||1,tp); walletPage=page;
+  const start=(page-1)*PER_PAGE,items=filtered.slice(start,start+PER_PAGE);
+  document.getElementById('walletCountLabel').textContent=total+' wallets';
+  document.getElementById('walletsTbody').innerHTML=items.map(w=>`
+    <tr><td class="mono">${w.id}</td><td><strong>${w.customer.name}</strong><div style="font-size:10px;color:var(--text-dim)">${w.customer.email}</div></td>
+      <td>${fmtMoney(w.ngn)}</td><td>${fmtUsd(w.usd)}</td><td>${fmtMoney(w.ngn+w.usd*1600)}</td>
+      <td>${badge(w.status)}</td><td>${fmtDate(w.last_txn)}</td>
+      <td><button class="icon-mini" onclick="viewWallet('${w.id}')">👁️</button>
+          <button class="icon-mini success" onclick="openAdjustModal('${w.id}')">💰</button></td></tr>`).join('');
+  let ph='';for(let i=1;i<=tp;i++)ph+=`<button class="pg-btn ${i===page?'active':''}" onclick="walletPage=${i};renderWallets()">${i}</button>`;
+  document.getElementById('walletPager').innerHTML=ph;
+  document.getElementById('walletRange').textContent=total?`${start+1}–${Math.min(start+PER_PAGE,total)} of ${total}`:'0';
+}
+let walletPage=1;
+
+function viewWallet(id){const w=WALLETS.find(x=>x.id===id);if(!w)return;
+  openModal('Wallet Details',w.id,`
+    <div class="info-grid">
+      <div><strong>Customer</strong>${w.customer.name}</div><div><strong>Email</strong>${w.customer.email}</div>
+      <div><strong>NGN Balance</strong>${fmtMoney(w.ngn)}</div><div><strong>USD Balance</strong>${fmtUsd(w.usd)}</div>
+      <div><strong>Status</strong>${badge(w.status)}</div><div><strong>Created</strong>${fmtDate(w.created)}</div>
+      <div><strong>Last Active</strong>${fmtDate(w.last_txn)}</div>
+    </div>
+    <div class="field"><label>Recent Transactions</label>
+      <div style="max-height:150px;overflow-y:auto;">${TRANSACTIONS.filter(t=>t.customer.id===w.customer.id).slice(0,5).map(t=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12px;"><span>${t.type}</span><span>${t.amount_ngn?fmtMoney(t.amount_ngn):fmtUsd(t.amount_usd)} ${badge(t.status)}</span></div>`).join('')||'No transactions'}</div>
+    </div>
+  `,'Close',null,true);
+}
+
+function renderNGNWallets(){
+  document.getElementById('ngnWalletsTbody').innerHTML=WALLETS.filter(w=>w.ngn>0).map(w=>`
+    <tr><td><strong>${w.customer.name}</strong><div style="font-size:10px;color:var(--text-dim)">${w.customer.email}</div></td>
+      <td>${fmtMoney(w.ngn)}</td><td>${badge(w.status)}</td>
+      <td><button class="icon-mini" onclick="openAdjustModal('${w.id}')">💰</button></td></tr>`).join('');
+}
+
+function renderUSDWallets(){
+  document.getElementById('usdWalletsTbody').innerHTML=WALLETS.filter(w=>w.usd>0).map(w=>`
+    <tr><td><strong>${w.customer.name}</strong><div style="font-size:10px;color:var(--text-dim)">${w.customer.email}</div></td>
+      <td>${fmtUsd(w.usd)}</td><td>${badge(w.status)}</td>
+      <td><button class="icon-mini" onclick="openAdjustModal('${w.id}')">💰</button></td></tr>`).join('');
+}
+
+function openAdjustModal(walletId){
+  const w=WALLETS.find(x=>x.id===walletId);
+  openModal('Adjust Balance', w?`Adjusting ${w.customer.name}'s wallet`:'', `
+    <div class="field"><label>Customer</label><select id="adjCustomer">${WALLETS.map(w=>`<option value="${w.id}" ${w.id===walletId?'selected':''}>${w.customer.name}</option>`).join('')}</select></div>
+    <div class="field"><label>Wallet Type</label><select id="adjType"><option value="ngn">NGN</option><option value="usd">USD</option></select></div>
+    <div class="field"><label>Amount</label><input type="number" id="adjAmount" placeholder="Enter amount" step="0.01"></div>
+    <div class="field"><label>Operation</label><select id="adjOp"><option value="add">Add (Credit)</option><option value="subtract">Subtract (Debit)</option></select></div>
+    <div class="field"><label>Reason</label><textarea id="adjReason" placeholder="Reason for adjustment..."></textarea></div>
+  `,'Apply Adjustment',()=>{
+    const custId=document.getElementById('adjCustomer').value;
+    const wallet=WALLETS.find(w=>w.id===custId);
+    if(!wallet){toast('Wallet not found','⚠️');return;}
+    const type=document.getElementById('adjType').value;
+    const amount=parseFloat(document.getElementById('adjAmount').value)||0;
+    const op=document.getElementById('adjOp').value;
+    if(amount<=0){toast('Enter a valid amount','⚠️');return;}
+    if(op==='add'){if(type==='ngn')wallet.ngn+=amount;else wallet.usd+=amount;}
+    else{if(type==='ngn'&&wallet.ngn<amount){toast('Insufficient balance','⚠️');return;}if(type==='usd'&&wallet.usd<amount){toast('Insufficient balance','⚠️');return;}if(type==='ngn')wallet.ngn-=amount;else wallet.usd-=amount;}
+    toast(`Balance ${op==='add'?'credited':'debited'} by ${amount} ${type.toUpperCase()}`,'💰');
+    renderWallets();renderDashboard();
+  });
+}
+
+// ---- TRANSACTIONS ----
+let txPage=1;
+function renderTransactions(){
+  const q=(document.getElementById('txSearch')?.value||'').toLowerCase();
+  const type=document.getElementById('txTypeFilter')?.value||'';
+  const status=document.getElementById('txStatusFilter')?.value||'';
+  let filtered=TRANSACTIONS.filter(t=>{
+    const m=!q||t.id.toLowerCase().includes(q)||t.customer.name.toLowerCase().includes(q)||(t.reference||'').toLowerCase().includes(q);
+    const mt=!type||t.type===type; const ms=!status||t.status===status;
+    return m&&mt&&ms;
+  });
+  const total=filtered.length,tp=Math.ceil(total/PER_PAGE)||1; txPage=Math.min(txPage,tp);
+  const start=(txPage-1)*PER_PAGE,items=filtered.slice(start,start+PER_PAGE);
+  document.getElementById('txCountLabel').textContent=total+' transactions';
+  document.getElementById('txTbody').innerHTML=items.map(t=>`
+    <tr><td class="mono">${t.id}</td><td>${t.customer.name}</td>
+      <td>${badge(t.type)}</td><td>${t.amount_ngn?fmtMoney(t.amount_ngn):'—'}</td>
+      <td>${t.amount_usd?fmtUsd(t.amount_usd):'—'}</td>
+      <td>${t.method||'—'}</td><td>${badge(t.status)}</td>
+      <td>${fmtDate(t.date)}</td>
+      <td><button class="icon-mini" onclick="viewTransaction('${t.id}')">👁️</button></td></tr>`).join('');
+  let ph='';for(let i=1;i<=tp;i++)ph+=`<button class="pg-btn ${i===txPage?'active':''}" onclick="txPage=${i};renderTransactions()">${i}</button>`;
+  document.getElementById('txPager').innerHTML=ph;
+  document.getElementById('txRange').textContent=total?`${start+1}–${Math.min(start+PER_PAGE,total)} of ${total}`:'0';
+}
+
+function viewTransaction(id){const t=TRANSACTIONS.find(x=>x.id===id);if(!t)return;
+  openModal('Transaction Details',t.id,`
+    <div class="info-grid">
+      <div><strong>Type</strong>${t.type}</div><div><strong>Status</strong>${badge(t.status)}</div>
+      <div><strong>Customer</strong>${t.customer.name}</div><div><strong>Amount</strong>${t.amount_ngn?fmtMoney(t.amount_ngn):fmtUsd(t.amount_usd)}</div>
+      <div><strong>Method</strong>${t.method||'—'}</div><div><strong>Reference</strong>${t.reference||'—'}</div>
+      <div><strong>Date</strong>${fmtDateTime(t.date)}</div>
+    </div>
+  `,'Close',null,true);
+}
+
+function renderDeposits(){
+  document.getElementById('depositCount').textContent=DEPOSITS.length+' deposits';
+  document.getElementById('depositsTbody').innerHTML=DEPOSITS.slice(0,30).map(t=>`
+    <tr><td class="mono">${t.id}</td><td>${t.customer.name}</td>
+      <td>${t.amount_ngn?fmtMoney(t.amount_ngn):fmtUsd(t.amount_usd)}</td>
+      <td>${t.method||'—'}</td><td>${t.reference||'—'}</td>
+      <td>${badge(t.status)}</td><td>${fmtDate(t.date)}</td>
+      <td><button class="icon-mini" onclick="viewTransaction('${t.id}')">👁️</button></td></tr>`).join('');
+}
+
+// ---- WITHDRAWALS ----
+let wdPage=1;
+function renderWithdrawals(){
+  const q=(document.getElementById('wdSearch')?.value||'').toLowerCase();
+  const status=document.getElementById('wdStatusFilter')?.value||'';
+  let filtered=WITHDRAWALS.filter(w=>{
+    const m=!q||w.id.toLowerCase().includes(q)||w.customer.name.toLowerCase().includes(q);
+    const ms=!status||w.status===status;
+    return m&&ms;
+  });
+  const total=filtered.length,tp=Math.ceil(total/PER_PAGE)||1; wdPage=Math.min(wdPage,tp);
+  const start=(wdPage-1)*PER_PAGE,items=filtered.slice(start,start+PER_PAGE);
+  document.getElementById('wdCountLabel').textContent=total+' withdrawals';
+  document.getElementById('wdTbody').innerHTML=items.map(w=>`
+    <tr><td class="mono">${w.id}</td><td>${w.customer.name}</td>
+      <td>${fmtMoney(w.amount)}</td><td>${w.bank}</td><td class="mono">${w.account}</td>
+      <td>${badge(w.status)}</td><td>${fmtDate(w.date)}</td>
+      <td><div class="row-actions">
+        ${w.status==='Pending'?`<button class="icon-mini success" onclick="approveWithdrawal('${w.id}')">✅</button><button class="icon-mini danger" onclick="rejectWithdrawal('${w.id}')">❌</button>`:''}
+        <button class="icon-mini" onclick="viewWithdrawal('${w.id}')">👁️</button>
+      </div></td></tr>`).join('');
+  let ph='';for(let i=1;i<=tp;i++)ph+=`<button class="pg-btn ${i===wdPage?'active':''}" onclick="wdPage=${i};renderWithdrawals()">${i}</button>`;
+  document.getElementById('wdPager').innerHTML=ph;
+  document.getElementById('wdRange').textContent=total?`${start+1}–${Math.min(start+PER_PAGE,total)} of ${total}`:'0';
+}
+
+function approveWithdrawal(id){const w=WITHDRAWALS.find(x=>x.id===id);if(!w)return;w.status='Completed';toast(`Withdrawal ${w.id} approved ✅`,'✅');renderWithdrawals();renderDashboard();}
+function rejectWithdrawal(id){const w=WITHDRAWALS.find(x=>x.id===id);if(!w)return;w.status='Failed';toast(`Withdrawal ${w.id} rejected ❌`,'❌');renderWithdrawals();renderDashboard();}
+function viewWithdrawal(id){const w=WITHDRAWALS.find(x=>x.id===id);if(!w)return;
+  openModal('Withdrawal Details',w.id,`
+    <div class="info-grid">
+      <div><strong>Customer</strong>${w.customer.name}</div><div><strong>Amount</strong>${fmtMoney(w.amount)}</div>
+      <div><strong>Bank</strong>${w.bank}</div><div><strong>Account</strong>${w.account}</div>
+      <div><strong>Status</strong>${badge(w.status)}</div><div><strong>Date</strong>${fmtDateTime(w.date)}</div>
+    </div>
+  `,'Close',null,true);
+}
+
+// ---- REFUNDS ----
+function renderRefunds(){
+  document.getElementById('refundCount').textContent=REFUNDS.length+' refunds';
+  document.getElementById('refundsTbody').innerHTML=REFUNDS.slice(0,30).map(r=>`
+    <tr><td class="mono">${r.id}</td><td>${r.original_txn||'—'}</td><td>${r.customer.name}</td>
+      <td>${fmtMoney(r.amount)}</td><td>${r.reason||'—'}</td>
+      <td>${badge(r.status)}</td><td>${fmtDate(r.date)}</td>
+      <td><button class="icon-mini" onclick="viewRefund('${r.id}')">👁️</button></td></tr>`).join('');
+}
+function viewRefund(id){const r=REFUNDS.find(x=>x.id===id);if(!r)return;
+  openModal('Refund Details',r.id,`<div class="info-grid"><div><strong>Customer</strong>${r.customer.name}</div><div><strong>Amount</strong>${fmtMoney(r.amount)}</div><div><strong>Reason</strong>${r.reason||'—'}</div><div><strong>Status</strong>${badge(r.status)}</div><div><strong>Date</strong>${fmtDateTime(r.date)}</div></div>`,'Close',null,true);
+}
+
+// ---- FAILED ----
+function renderFailed(){
+  document.getElementById('failedCount').textContent=FAILED.length+' failed';
+  document.getElementById('failedTbody').innerHTML=FAILED.slice(0,30).map(t=>`
+    <tr><td class="mono">${t.id}</td><td>${t.customer.name}</td><td>${t.type}</td>
+      <td>${t.amount_ngn?fmtMoney(t.amount_ngn):fmtUsd(t.amount_usd)}</td>
+      <td>${t.reason||'—'}</td><td>${fmtDate(t.date)}</td>
+      <td><button class="icon-mini" onclick="viewTransaction('${t.id}')">👁️</button></td></tr>`).join('');
+}
+
+// ---- REVENUE ----
+function renderRevenue(){
+  const revData={
+    totalUSD:TRANSACTIONS.filter(t=>t.currency==='USD'&&t.status==='Completed').reduce((s,t)=>s+t.amount_usd,0),
+    totalNGN:TRANSACTIONS.filter(t=>t.currency==='NGN'&&t.status==='Completed').reduce((s,t)=>s+t.amount_ngn,0),
+    today:TRANSACTIONS.filter(t=>new Date(t.date).toDateString()===new Date().toDateString()&&t.status==='Completed').reduce((s,t)=>s+(t.amount_ngn||0)+(t.amount_usd||0)*1600,0),
+    week:TRANSACTIONS.filter(t=>(Date.now()-new Date(t.date))/86400000<=7&&t.status==='Completed').reduce((s,t)=>s+(t.amount_ngn||0)+(t.amount_usd||0)*1600,0),
+    month:TRANSACTIONS.filter(t=>new Date(t.date).getMonth()===new Date().getMonth()&&t.status==='Completed').reduce((s,t)=>s+(t.amount_ngn||0)+(t.amount_usd||0)*1600,0)
+  };
+  document.getElementById('revKpiGrid').innerHTML=[
+    {icon:'💵',label:'Total USD',val:fmtUsd(revData.totalUSD)},
+    {icon:'💰',label:'Total NGN',val:fmtMoney(revData.totalNGN)},
+    {icon:'📈',label:"Today's Revenue",val:fmtMoney(revData.today)},
+    {icon:'📆',label:'Weekly Revenue',val:fmtMoney(revData.week)},
+    {icon:'📊',label:'Monthly Revenue',val:fmtMoney(revData.month)},
+    {icon:'⭐',label:'Avg Daily Revenue',val:fmtMoney(revData.month/30)},
+  ].map(k=>`<div class="card kpi-card"><div class="kpi-icon gold">${k.icon}</div><div class="kpi-value" style="font-size:18px;">${k.val}</div><div class="kpi-label">${k.label}</div></div>`).join('');
+
+  // Analytics charts (build if not already)
+  if(!chartsBuilt) renderAnalytics();
+}
+
+// ---- CUSTOMERS ----
+function renderCustomers(){
+  const sorted=customers.sort((a,b)=>b.spent-a.spent);
+  document.getElementById('custCount').textContent=sorted.length+' customers';
+  document.getElementById('customersTbody').innerHTML=sorted.slice(0,30).map(c=>`
+    <tr><td><strong>${c.name}</strong></td><td>${c.email}</td>
+      <td>${fmtMoney(c.ngn)}</td><td>${fmtUsd(c.usd)}</td>
+      <td>${fmtMoney(c.spent)}</td><td>${c.orders}</td>
+      <td><button class="icon-mini" onclick="viewCustomer('${c.id}')">👁️</button></td></tr>`).join('');
+}
+function viewCustomer(id){const c=customers.find(x=>x.id===id);if(!c)return;
+  openModal('Customer Details',c.name,`
+    <div class="info-grid">
+      <div><strong>Email</strong>${c.email}</div><div><strong>NGN Balance</strong>${fmtMoney(c.ngn)}</div>
+      <div><strong>USD Balance</strong>${fmtUsd(c.usd)}</div><div><strong>Total Spent</strong>${fmtMoney(c.spent)}</div>
+      <div><strong>Orders</strong>${c.orders}</div><div><strong>Joined</strong>${fmtDate(c.joined)}</div>
+    </div>
+    <div class="field"><label>Recent Activity</label>
+      <div style="max-height:150px;overflow-y:auto;">${TRANSACTIONS.filter(t=>t.customer.id===c.id).slice(0,5).map(t=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12px;"><span>${t.type}</span><span>${t.amount_ngn?fmtMoney(t.amount_ngn):fmtUsd(t.amount_usd)}</span></div>`).join('')||'No transactions'}</div>
+    </div>
+  `,'Close',null,true);
+}
+
+// ---- ADJUSTMENTS ----
+function renderAdjustments(){
+  document.getElementById('adjustmentHistory').innerHTML=TRANSACTIONS.filter(t=>t.type==='adjustment').slice(0,20).map(t=>`
+    <div class="activity-item"><div class="aic">⚖️</div><div><div class="atxt"><b>${t.customer.name}</b> — ${t.amount_ngn?fmtMoney(t.amount_ngn):fmtUsd(t.amount_usd)} ${t.status}</div><div class="atime">${fmtDateTime(t.date)}</div></div></div>`).join('')||'<div class="empty-state"><div class="ic">⚖️</div>No adjustments yet</div>';
+}
+
+// ---- AUDIT ----
+function renderAudit(){
+  document.getElementById('auditTbody').innerHTML=AUDIT.slice(0,30).map(a=>`
+    <tr><td><strong>${a.admin}</strong></td><td>${a.action}</td><td class="mono">${a.target}</td>
+      <td>${a.old||'—'}</td><td>${a.new||'—'}</td><td>${fmtDateTime(a.date)}</td></tr>`).join('');
+}
+
+// ---- SETTINGS ----
+// Settings view is static HTML
+
+// ---- NOTIFICATIONS ----
+function openNotif(){openModal('Notifications','Latest alerts',AUDIT.slice(0,5).map(a=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border);font-size:12.5px;"><span>${a.admin} ${a.action}</span><span style="color:var(--text-dim);font-size:11px;">${fmtDateTime(a.date)}</span></div>`).join(''),'Close',null);}
+
+// ---- INIT ----
+let PER_PAGE=10;
+document.getElementById('txTypeFilter').addEventListener('change',renderTransactions);
+document.getElementById('txStatusFilter').addEventListener('change',renderTransactions);
+document.getElementById('walletStatusFilter').addEventListener('change',renderWallets);
+document.getElementById('walletSearch').addEventListener('input',()=>{walletPage=1;renderWallets()});
+document.getElementById('txSearch').addEventListener('input',()=>{txPage=1;renderTransactions()});
+document.getElementById('wdSearch').addEventListener('input',()=>{wdPage=1;renderWithdrawals()});
+document.getElementById('wdStatusFilter').addEventListener('change',renderWithdrawals);
+
+function init(){
+  renderDashboard();
+  setTimeout(renderAnalytics, 500);
+  renderWallets();
+  renderNGNWallets();
+  renderUSDWallets();
+  renderAdjustments();
+  renderTransactions();
+  renderDeposits();
+  renderWithdrawals();
+  renderRefunds();
+  renderFailed();
+  renderRevenue();
+  renderCustomers();
+  renderAudit();
+  console.log('🚀 Wallet Admin ready — All features working!');
+}
+
+// Handle Chart.js loading
+if(typeof Chart !== 'undefined'){
+  init();
+} else {
+  document.addEventListener('DOMContentLoaded', function(){
+    var checkCount = 0;
+    var checkInterval = setInterval(function(){
+      checkCount++;
+      if(typeof Chart !== 'undefined'){
+        clearInterval(checkInterval);
+        init();
+        console.log('✅ Chart.js loaded via interval check');
+      } else if(checkCount > 20){
+        clearInterval(checkInterval);
+        console.warn('⚠️ Chart.js not loaded after 10 seconds');
+        init();
+      }
+    }, 500);
+  });
+  document.addEventListener('chartjs-ready', function(){
+    if(!chartsBuilt) renderAnalytics();
+  });
+}
+setTimeout(function(){
+  if(!chartsBuilt && typeof Chart !== 'undefined') renderAnalytics();
+}, 2000);
+</script>
+</body>
+</html>

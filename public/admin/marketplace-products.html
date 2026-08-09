@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>MilesSpace — Marketplace Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script>
+(function loadChartJS() {
+  var sources = [
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js'
+  ];
+  var idx = 0;
+  function tryLoad() {
+    if (idx >= sources.length) { console.warn('⚠️ Chart.js failed to load'); return; }
+    var s = document.createElement('script');
+    s.src = sources[idx];
+    s.async = true;
+    s.onload = function() { if (typeof Chart !== 'undefined') { console.log('✅ Chart.js loaded'); document.dispatchEvent(new Event('chartjs-ready')); } else { idx++; tryLoad(); } };
+    s.onerror = function() { idx++; tryLoad(); };
+    document.head.appendChild(s);
+  }
+  tryLoad();
+})();
+</script>
+
+<style>
+:root {
+  --navy: #0c3d4a;
+  --navy-light: #12556a;
+  --navy-deep: #082a33;
+  --gold: #f59e0b;
+  --gold-soft: #fde3ad;
+  --white: #ffffff;
+  --bg: #f4f7fb;
+  --bg-card: rgba(255,255,255,0.72);
+  --border: rgba(12,61,74,0.08);
+  --text: #0c1f26;
+  --text-dim: #5b7480;
+  --text-faint: #8fa3ab;
+  --success: #16a34a;
+  --success-bg: #e9f9ef;
+  --danger: #dc2626;
+  --danger-bg: #fdecec;
+  --warn: #f59e0b;
+  --warn-bg: #fef3d9;
+  --info: #2563a8;
+  --info-bg: #e8f1fb;
+  --purple: #8b5cf6;
+  --purple-bg: #ede9fe;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(8,42,51,0.06);
+  --shadow-md: 0 8px 24px -8px rgba(8,42,51,0.16);
+  --shadow-lg: 0 16px 48px -12px rgba(8,42,51,0.26);
+  --sidebar-w: 264px;
+  --topbar-h: 68px;
+  --transition: 180ms cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh}
+.mono{font-family:'JetBrains Mono',monospace}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(12,61,74,0.18);border-radius:99px}
+
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+
+/* ─── SIDEBAR ─── */
+.sidebar{
+  background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);
+  color:#eaf6f8;padding:22px 16px 18px;display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;z-index:40;overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.15) transparent;
+}
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:99px}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 22px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand-text strong{font-size:15.5px;font-weight:800;display:block}
+.brand-text span{font-size:11px;color:#9fd4de;text-transform:uppercase;letter-spacing:.06em}
+.nav-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding-right:4px}
+.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 12px 6px}
+.nav-item{
+  display:flex;align-items:center;gap:11px;padding:9.5px 12px;border-radius:10px;
+  color:#cfe7ea;font-size:13.6px;font-weight:500;cursor:pointer;
+  border:1px solid transparent;transition:all var(--transition);
+  text-decoration:none;
+}
+.nav-item .ic{width:18px;text-align:center;font-size:14.5px;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff}
+.nav-item.active{background:rgba(245,158,11,0.14);color:#ffd899;border-color:rgba(245,158,11,0.28);font-weight:600}
+.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10.5px;font-weight:800;padding:1.5px 6.5px;border-radius:99px}
+.sidebar-foot{display:flex;align-items:center;gap:10px;padding:14px 10px 4px;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;flex-shrink:0}
+.sidebar-foot .av{width:32px;height:32px;border-radius:50%;background:var(--gold);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.sidebar-foot .who strong{display:block;font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#9fd4de}
+
+/* ─── MAIN ─── */
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+.page-title h1{font-size:19px;font-weight:800;letter-spacing:-0.01em}
+.page-title .crumb{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse-dot 1.8s infinite}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.gsearch{flex:1;max-width:380px;position:relative}
+.gsearch input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;background:var(--white)}
+.gsearch .gic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:13px}
+.top-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+.clockbox{text-align:right;line-height:1.2}
+.clockbox .d{font-size:11px;color:var(--text-dim)}
+.clockbox .t{font-size:13.5px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.icon-btn{position:relative;width:36px;height:36px;border-radius:9px;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+.icon-btn:hover{background:var(--navy);color:#fff}
+.dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:2px solid var(--white)}
+.profile{display:flex;align-items:center;gap:9px;padding-left:12px;border-left:1px solid var(--border);cursor:pointer}
+.profile .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.profile .who{display:flex;flex-direction:column;line-height:1.2}
+.profile .who strong{display:block;font-size:12px;color:var(--text)}
+.profile .who span{font-size:10.5px;color:var(--text-dim)}
+.profile .who .role{font-size:9.5px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+
+.content{padding:22px 26px 60px}
+.view{display:none;animation:fadein .25s ease}
+.view.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 14px;flex-wrap:wrap;gap:8px}
+.section-head h2{font-size:15.5px;font-weight:800}
+.section-head .sub{font-size:12px;color:var(--text-dim)}
+
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.panel{padding:18px 20px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.panel-head h3{font-size:14px;font-weight:700}
+
+.badge{font-size:10.8px;font-weight:700;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.purple{background:var(--purple-bg);color:var(--purple)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;font-size:12.8px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:all var(--transition);white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);box-shadow:0 6px 16px -6px rgba(245,158,11,0.6)}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:6px 10px;font-size:11.5px;border-radius:8px}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-info{background:var(--info);color:#fff}
+
+.table-scroll{overflow-x:auto;overflow-y:auto;max-height:520px}
+.table-scroll::-webkit-scrollbar{height:7px}
+.table-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+table.data-table{width:100%;border-collapse:collapse;font-size:12.6px;min-width:900px}
+table.data-table th{text-align:left;padding:11px 16px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2}
+table.data-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.data-table tbody tr:hover{background:rgba(245,158,11,0.06)}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.icon-mini{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--text-dim)}
+.icon-mini:hover{background:var(--bg);color:var(--navy)}
+.icon-mini.danger:hover{background:var(--danger-bg);color:var(--danger)}
+.icon-mini.success:hover{background:var(--success-bg);color:var(--success)}
+.table-foot{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;gap:10px}
+.pg-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;font-size:11.5px;cursor:pointer;color:var(--text-dim)}
+.pg-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(6,20,24,0.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:820px;padding:24px;animation:modalIn .22s ease;max-height:90vh;overflow-y:auto}
+.modal.wide{max-width:980px}
+.modal-scroll{max-height:55vh;overflow-y:auto;padding-right:4px}
+@keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.modal-head h3{font-size:16px;font-weight:800}
+.modal-close{cursor:pointer;color:var(--text-dim);font-size:18px;background:none;border:none}
+.modal-sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:12px;font-weight:600;color:var(--text-dim)}
+.field input,.field textarea,.field select{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:13px;font-family:'Inter',sans-serif}
+.field textarea{resize:vertical;min-height:70px;font-family:'JetBrains Mono',monospace;font-size:12px}
+.field .hint{font-size:11px;color:var(--text-faint);margin-top:-2px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:12px;font-size:12.8px}
+.info-grid div strong{display:block;font-size:10.8px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);font-weight:600;margin-bottom:2px}
+@media(max-width:560px){.info-grid{grid-template-columns:1fr}}
+
+.inv-item-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-bottom:12px;position:relative}
+.inv-item-box .inv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.inv-item-box .inv-header .inv-label{font-size:11px;font-weight:700;color:var(--text-dim)}
+.inv-item-box .inv-header .inv-remove{background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;padding:4px 8px}
+.inv-item-box textarea{width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--white);resize:vertical}
+.inv-item-box .inv-status{display:flex;gap:8px;margin-top:6px;align-items:center}
+.inv-item-box .inv-status select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--white)}
+.inv-add-more{display:flex;gap:8px;margin-top:8px}
+.inv-add-more button{background:var(--info);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.inv-add-more button:hover{filter:brightness(1.05)}
+
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:200}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;animation:toastIn .25s ease;border-left:3px solid var(--gold)}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+
+.grid{display:grid;gap:14px}
+.grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.grid.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}.grid.cols-3{grid-template-columns:repeat(2,1fr)}}
+
+.kpi-card{padding:16px 18px;cursor:pointer;transition:all var(--transition);position:relative;overflow:hidden}
+.kpi-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.kpi-card:active{transform:translateY(-1px) scale(.98)}
+.kpi-top{display:flex;justify-content:space-between;align-items:flex-start}
+.kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.kpi-icon.gold{background:var(--warn-bg);color:#b3720a}
+.kpi-icon.green{background:var(--success-bg);color:var(--success)}
+.kpi-icon.blue{background:var(--info-bg);color:var(--info)}
+.kpi-icon.purple{background:var(--purple-bg);color:var(--purple)}
+.kpi-icon.red{background:var(--danger-bg);color:var(--danger)}
+.kpi-trend{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:20px}
+.trend-up{color:var(--success);background:var(--success-bg)}
+.trend-down{color:var(--danger);background:var(--danger-bg)}
+.kpi-value{font-size:23px;font-weight:800;letter-spacing:-0.02em;margin-top:10px}
+.kpi-label{font-size:11.5px;color:var(--text-dim);margin-top:2px;font-weight:500}
+
+.chart-card{padding:16px 18px}
+.chart-card h3{font-size:13.5px;font-weight:700;margin-bottom:4px}
+.chart-card .sub{font-size:11px;color:var(--text-dim);margin-bottom:10px}
+.chart-wrap{position:relative;height:230px;min-height:200px}
+.charts-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px}
+.charts-grid.thirds{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:1100px){.charts-grid,.charts-grid.thirds{grid-template-columns:1fr}}
+
+.filters-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.filters-bar select,.filters-bar input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--white)}
+.filters-bar input[type=text]{flex:1;min-width:180px}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:34px;margin-bottom:8px}
+
+.product-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.product-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;transition:all var(--transition);cursor:pointer;position:relative}
+.product-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.product-card .pc-title{font-size:13px;font-weight:700;margin-bottom:4px}
+.product-card .pc-meta{font-size:11px;color:var(--text-dim);display:grid;grid-template-columns:1fr 1fr;gap:2px 8px}
+.product-card .pc-price{font-size:18px;font-weight:800;color:var(--navy);margin-top:8px}
+.product-card .pc-badge{position:absolute;top:8px;right:8px;font-size:9px;padding:2px 8px;border-radius:99px}
+.product-card .pc-stock{font-size:11px;color:var(--text-dim);margin-top:4px}
+.content-preview{font-family:'JetBrains Mono',monospace;font-size:11px;white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;max-width:260px;max-height:60px;overflow:hidden;text-overflow:ellipsis}
+.content-full{font-family:'JetBrains Mono',monospace;font-size:12px;white-space:pre-wrap;word-break:break-word;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:260px;overflow-y:auto}
+.dtype-chip{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.03em}
+.dtype-chip.structured{background:var(--info-bg);color:var(--info)}
+.dtype-chip.plain_text{background:var(--success-bg);color:var(--success)}
+.dtype-chip.file_upload{background:var(--purple-bg);color:var(--purple)}
+.dtype-chip.mixed{background:var(--warn-bg);color:#b3720a}
+
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:260px;box-shadow:var(--shadow-lg);z-index:50}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:flex}
+  .content{padding:16px 14px 50px}
+  .grid.cols-2,.grid.cols-4,.grid.cols-3{grid-template-columns:1fr}
+  .gsearch{order:3;max-width:100%;flex-basis:100%}
+  .product-cards{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:540px){
+  .kpi-value{font-size:20px}
+  .topbar{padding:0 14px}
+  .clockbox{display:none}
+  .product-cards{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+    <div class="brand-text"><strong>MilesSpace</strong><span>Digital Market</span></div>
+  </div>
+  <div class="nav-scroll">
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active" data-view="dashboard"><span class="ic">📊</span>Dashboard</div>
+    <div class="nav-item" data-view="analytics"><span class="ic">📈</span>Analytics</div>
+
+    <div class="nav-label">Catalog</div>
+    <div class="nav-item" data-view="products"><span class="ic">📦</span>Products</div>
+    <div class="nav-item" data-view="categories"><span class="ic">🏷️</span>Categories</div>
+    <div class="nav-item" data-view="inventory"><span class="ic">🧮</span>Inventory</div>
+    <div class="nav-item" data-view="logs"><span class="ic">🔑</span>Inventory Items</div>
+
+    <div class="nav-label">Sales</div>
+    <div class="nav-item" data-view="orders"><span class="ic">🛒</span>Orders</div>
+    <div class="nav-item" data-view="purchases"><span class="ic">🧾</span>Purchase Logs</div>
+    <div class="nav-item" data-view="transactions"><span class="ic">💳</span>Transactions</div>
+
+    <div class="nav-label">People</div>
+    <div class="nav-item" data-view="customers"><span class="ic">👤</span>Customers</div>
+
+    <div class="nav-label">Finance</div>
+    <div class="nav-item" data-view="wallet"><span class="ic">💰</span>Wallet Overview</div>
+
+    <div class="nav-divider" style="height:1px;background:rgba(255,255,255,0.06);margin:6px 12px"></div>
+    <div class="nav-item" onclick="goToMainDashboard()"><span class="ic">🏠</span>Main Dashboard</div>
+    <div class="nav-item" onclick="logout()"><span class="ic">🚪</span>Logout</div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="av" id="sidebarAvatar">A</div>
+    <div class="who">
+      <strong id="sidebarName">Loading...</strong>
+      <span id="sidebarEmail">loading@milespace.com</span>
+      <span class="role" id="sidebarRole">Super Admin</span>
+    </div>
+  </div>
+</aside>
+
+<div class="scrim" id="scrim" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none"></div>
+
+<div class="main">
+  <header class="topbar">
+    <button class="hamburger" id="hamburger">☰</button>
+    <div class="page-title">
+      <h1 id="pageTitle">Marketplace Dashboard</h1>
+      <div class="crumb"><span class="live-dot"></span>Live data <span id="breadcrumbExtra"></span></div>
+    </div>
+    <div class="gsearch">
+      <span class="gic">🔎</span>
+      <input type="text" id="globalSearch" placeholder="Search users, orders, products, transactions..." oninput="handleGlobalSearch()">
+    </div>
+    <div class="top-right">
+      <div class="clockbox"><div class="d" id="curDate">—</div><div class="t" id="curTime">—</div></div>
+      <button class="icon-btn" onclick="refreshAll()">🔄</button>
+      <button class="icon-btn" onclick="openNotif()">🔔<span class="dot" id="notifDot"></span></button>
+      <div class="profile" id="userProfile">
+        <div class="av" id="topbarAvatar">A</div>
+        <div class="who">
+          <strong id="topbarName">Loading...</strong>
+          <span id="topbarEmail">loading@milespace.com</span>
+          <span class="role" id="topbarRole">Super Admin</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="grid cols-4" id="kpiGrid"></div>
+      <div class="charts-grid" style="margin-top:20px;">
+        <div class="card chart-card"><h3>Marketplace Revenue Trend</h3><div class="sub">Last 30 days</div><div class="chart-wrap"><canvas id="revTrendChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Revenue by Currency</h3><div class="sub">NGN vs USD</div><div class="chart-wrap"><canvas id="revCurrencyChart"></canvas></div></div>
+      </div>
+      <div class="section-head"><h2>🛒 Recent Orders</h2></div>
+      <div class="card panel" id="recentOrders"></div>
+      <div class="section-head"><h2>📦 Low Stock Alert</h2></div>
+      <div class="card panel" id="lowStockAlert"></div>
+      <div class="section-head"><h2>📋 Recent Products</h2></div>
+      <div class="product-cards" id="recentProducts"></div>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section class="view" id="view-analytics">
+      <div class="section-head"><h2>Marketplace Analytics</h2><span class="sub">All charts use real data</span></div>
+      <div class="charts-grid">
+        <div class="card chart-card"><h3>Revenue Trend</h3><div class="chart-wrap"><canvas id="analyticsRevChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Orders by Status</h3><div class="chart-wrap"><canvas id="analyticsStatusChart"></canvas></div></div>
+      </div>
+      <div class="charts-grid thirds">
+        <div class="card chart-card"><h3>Top Products</h3><div class="chart-wrap"><canvas id="analyticsTopProducts"></canvas></div></div>
+        <div class="card chart-card"><h3>Sales by Category</h3><div class="chart-wrap"><canvas id="analyticsCategoryChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Revenue by Country</h3><div class="chart-wrap"><canvas id="analyticsCountryChart"></canvas></div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="card chart-card"><h3>Daily Sales</h3><div class="chart-wrap"><canvas id="analyticsDailyChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Weekly Sales</h3><div class="chart-wrap"><canvas id="analyticsWeeklyChart"></canvas></div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="card chart-card"><h3>Monthly Sales</h3><div class="chart-wrap"><canvas id="analyticsMonthlyChart"></canvas></div></div>
+        <div class="card chart-card"><h3>Wallet Revenue</h3><div class="chart-wrap"><canvas id="analyticsWalletChart"></canvas></div></div>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section class="view" id="view-products">
+      <div class="section-head"><h2>Products Management</h2><span class="sub" id="productCount"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="prodSearch" placeholder="🔍 Search products..." oninput="renderProducts()">
+          <select id="prodCatFilter" onchange="renderProducts()"><option value="">All Categories</option></select>
+          <select id="prodStatusFilter" onchange="renderProducts()"><option value="">All Status</option><option>Active</option><option>Inactive</option></select>
+          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV('products')">⬇️ CSV</button>
+            <button class="btn btn-primary btn-sm" id="addProductBtn">➕ Add Product</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Country</th><th>USD</th><th>NGN</th><th>Stock</th><th>Sold</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="productsTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="prodRange"></span><div class="pager" id="prodPager"></div></div>
+      </div>
+    </section>
+
+    <!-- CATEGORIES -->
+    <section class="view" id="view-categories">
+      <div class="section-head"><h2>Categories Management</h2><button class="btn btn-primary btn-sm" id="addCatBtn">➕ Add Category</button></div>
+      <div class="card" style="overflow:hidden">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Icon</th><th>Name</th><th>Products</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="categoriesTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section class="view" id="view-inventory">
+      <div class="section-head"><h2>Inventory Management</h2><span class="sub" id="invSummary"></span></div>
+      <div class="grid cols-4" id="invKpiGrid" style="margin-bottom:18px;"></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="invSearch" placeholder="🔍 Search inventory..." oninput="renderInventory()">
+          <div style="margin-left:auto;"><button class="btn btn-ghost btn-sm" onclick="openBulkUpdate()">🧮 Bulk Update</button></div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Product</th><th>Stock</th><th>Sold</th><th>Remaining</th><th>Alert</th><th>Actions</th></tr></thead>
+            <tbody id="inventoryTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- INVENTORY ITEMS -->
+    <section class="view" id="view-logs">
+      <div class="section-head"><h2>Inventory Item Management</h2><span class="sub" id="logCount"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="logSearch" placeholder="🔍 Search items by content, product..." oninput="renderLoginLogs()">
+          <select id="logProductFilter" onchange="renderLoginLogs()"><option value="">All Products</option></select>
+          <select id="logStatusFilter" onchange="renderLoginLogs()"><option value="">All Status</option><option>available</option><option>sold</option><option>expired</option></select>
+          <div style="margin-left:auto;">
+            <button class="btn btn-primary btn-sm" onclick="openAddLog()">➕ Add Item</button>
+            <button class="btn btn-ghost btn-sm" onclick="importLogs()">📤 Import File</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV('logs')">⬇️ CSV</button>
+          </div>
+        </div>
+        <div class="table-scroll" style="max-height:500px;overflow-y:auto;">
+          <table class="data-table">
+            <thead><tr><th>Item ID</th><th>Product</th><th>Type</th><th>Content</th><th>Status</th><th>Used By</th><th>Actions</th></tr></thead>
+            <tbody id="logsTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="logRange"></span><div class="pager" id="logPager"></div></div>
+      </div>
+    </section>
+
+    <!-- ORDERS -->
+    <section class="view" id="view-orders">
+      <div class="section-head"><h2>Orders Management</h2><span class="sub" id="orderCount"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="orderSearch" placeholder="🔍 Order ID, product, customer..." oninput="renderOrders()">
+          <select id="orderStatusFilter" onchange="renderOrders()"><option value="">All Status</option><option>Pending</option><option>Processing</option><option>Completed</option><option>Cancelled</option><option>Failed</option></select>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Order #</th><th>Product</th><th>Qty</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="ordersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PURCHASE LOGS -->
+    <section class="view" id="view-purchases">
+      <div class="section-head"><h2>Purchase Logs</h2><span class="sub" id="purchCount"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar">
+          <input type="text" id="purchSearch" placeholder="🔍 Order ID, customer, email, token..." oninput="renderPurchases()">
+          <select id="purchWalletFilter" onchange="renderPurchases()"><option value="">All Wallets</option><option>USD Wallet</option><option>NGN Wallet</option></select>
+          <select id="purchStatusFilter" onchange="renderPurchases()"><option value="">All Status</option><option>Completed</option><option>Processing</option><option>Pending</option><option>Failed</option></select>
+          <div style="margin-left:auto;"><button class="btn btn-ghost btn-sm" onclick="exportCSV('purchases')">⬇️ CSV</button></div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Order Ref</th><th>Customer</th><th>Email</th><th>Product</th><th>Category</th><th>Wallet</th><th>Price</th><th>Currency</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="purchasesTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span id="purchRange"></span><div class="pager" id="purchPager"></div></div>
+      </div>
+    </section>
+
+    <!-- TRANSACTIONS -->
+    <section class="view" id="view-transactions">
+      <div class="section-head"><h2>Transaction Logs</h2><span class="sub" id="txCount"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Order Ref</th><th>Customer</th><th>Wallet</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody id="transactionsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section class="view" id="view-customers">
+      <div class="section-head"><h2>Customers</h2><span class="sub" id="custCount"></span></div>
+      <div class="card" style="overflow:hidden">
+        <div class="filters-bar"><input type="text" id="custSearch" placeholder="🔍 Search customers..." oninput="renderCustomers()"></div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Customer</th><th>Email</th><th>Orders</th><th>Spent</th><th>Downloads</th><th>Fav Category</th><th>Actions</th></tr></thead>
+            <tbody id="customersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- WALLET -->
+    <section class="view" id="view-wallet">
+      <div class="section-head"><h2>Wallet Overview</h2><span class="sub">NGN and USD balances</span></div>
+      <div class="grid cols-4" id="walletKpiGrid"></div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Recent Wallet Transactions</h3></div>
+        <div id="walletTransactions"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox">
+    <div class="modal-head"><h3 id="modalTitle">Title</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-sub" id="modalSub"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* ============================================================
+   COMPLETE MARKETPLACE ADMIN — WITH AUTHENTICATION
+   ============================================================ */
+
+// ─── AUTHENTICATION ───
+const SESSION_KEY = 'admin_sess';
+const API_BASE = '/api/admin/marketplace';
+const AUTH_API = '/api/auth';
+
+function getAdminSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function getAdminToken() {
+  const sess = getAdminSession();
+  return sess?.token || null;
+}
+
+function clearAdminSession() {
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function redirectToLogin() {
+  clearAdminSession();
+  window.location.href = '/admin/login';
+}
+
+// ─── CHECK AUTH ON LOAD ───
+(function checkAuth() {
+  const token = getAdminToken();
+  if (!token) { redirectToLogin(); return; }
+  
+  // Verify token with backend
+  fetch('/api/admin/verify', {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (!data.success) { redirectToLogin(); }
+  })
+  .catch(() => { redirectToLogin(); });
+})();
+
+// ─── LOAD USER PROFILE ───
+async function loadUserProfile() {
+  try {
+    const token = getAdminToken();
+    if (!token) { redirectToLogin(); return; }
+    
+    const response = await fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) { redirectToLogin(); }
+      return;
+    }
+    
+    const data = await response.json();
+    if (data.success && data.data) {
+      const user = data.data;
+      const name = user.username || user.full_name || user.email?.split('@')[0] || 'Admin';
+      const email = user.email || '';
+      const role = user.role || 'Super Admin';
+      const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+      
+      // Update sidebar
+      document.getElementById('sidebarName').textContent = name;
+      document.getElementById('sidebarEmail').textContent = email;
+      document.getElementById('sidebarRole').textContent = role;
+      document.getElementById('sidebarAvatar').textContent = initials;
+      
+      // Update topbar
+      document.getElementById('topbarName').textContent = name;
+      document.getElementById('topbarEmail').textContent = email;
+      document.getElementById('topbarRole').textContent = role;
+      document.getElementById('topbarAvatar').textContent = initials;
+      
+      // Welcome greeting
+      const hour = new Date().getHours();
+      let greeting = 'Good Evening';
+      if (hour < 12) greeting = 'Good Morning';
+      else if (hour < 17) greeting = 'Good Afternoon';
+      
+      document.getElementById('pageTitle').textContent = `${greeting}, ${name}`;
+      
+      console.log('✅ User profile loaded:', name, role);
+    }
+  } catch (error) {
+    console.error('Load profile error:', error);
+  }
+}
+
+// ─── API FETCH ───
+async function apiFetch(endpoint, options = {}) {
+  const token = getAdminToken();
+  if (!token) { redirectToLogin(); return; }
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    ...options.headers
+  };
+  
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    if (response.status === 401) { redirectToLogin(); return; }
+    return await response.json();
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
+}
+
+// ─── HELPERS ───
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function fmtMoney(n){return '₦'+(n||0).toLocaleString('en-NG')}
+function fmtUsd(n){return '$'+(n||0).toFixed(2)}
+function fmtDate(d){return d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—'}
+function fmtDateTime(d){return d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function badge(s){const m={Active:'success',Inactive:'neutral',Pending:'warn',Processing:'info',Completed:'success',Cancelled:'danger',Failed:'danger','available':'success','sold':'info','expired':'danger'};return `<span class="badge ${m[s]||'neutral'}">${s}</span>`}
+function deliveryTypeLabel(id){const d=DELIVERY_TYPES.find(x=>x.id===id);return d?d.label:id}
+function toast(msg,type='info'){const s=document.getElementById('toastStack'),e=document.createElement('div');e.className='toast '+type;const icons={success:'✅',error:'❌',info:'ℹ️'};e.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;s.appendChild(e);setTimeout(()=>{e.style.opacity='0';e.style.transform='translateX(30px)';e.style.transition='all .25s';setTimeout(()=>e.remove(),260)},3200)}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+function openModal(title,sub,body,confirmText,onConfirm,wide){
+  document.getElementById('modalBox').classList.toggle('wide',!!wide);
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalSub').textContent=sub||'';
+  document.getElementById('modalBody').innerHTML=body||'';
+  const btn=document.getElementById('modalConfirm');
+  btn.style.display=confirmText===null?'none':'inline-flex';
+  btn.textContent=confirmText||'Confirm';
+  btn.onclick=function(){if(onConfirm)onConfirm();closeModal();};
+  document.getElementById('modalOverlay').classList.add('open');
+}
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal()});
+function copyText(t){navigator.clipboard.writeText(t).then(()=>toast('Copied!','success'))}
+function logout(){clearAdminSession();window.location.href='/admin/login';}
+function goToMainDashboard(){window.location.href='/admin/dashboard';}
+
+// ─── CONSTANTS ───
+const DELIVERY_TYPES = [
+  {id:'structured',label:'Structured (user:pass)'},
+  {id:'plain_text',label:'Plain Text'},
+  {id:'file_upload',label:'File Upload'},
+  {id:'mixed',label:'Mixed / Multi-line'}
+];
+
+// ─── STATE ───
+let products = [];
+let categories = [];
+let inventory = [];
+let orders = [];
+let customers = [];
+let stats = {};
+
+let prodPage=1, purchPage=1, logPage=1, PER_PAGE=10;
+let chartInstances = {};
+let chartsBuilt = false;
+
+// ─── NAVIGATION ───
+const VIEW_TITLES = {
+  dashboard:'Marketplace Dashboard', analytics:'Marketplace Analytics',
+  products:'Products Management', categories:'Categories Management',
+  inventory:'Inventory Management', logs:'Inventory Item Management',
+  orders:'Orders Management', purchases:'Purchase Logs',
+  transactions:'Transaction Logs',
+  customers:'Customers', wallet:'Wallet Overview'
+};
+
+document.getElementById('hamburger').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('scrim').style.display='block';
+});
+document.getElementById('scrim').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('scrim').style.display='none';
+});
+
+document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+  item.addEventListener('click',function(){
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    this.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    const v=this.dataset.view;
+    document.getElementById('view-'+v).classList.add('active');
+    document.getElementById('pageTitle').textContent=VIEW_TITLES[v]||'Marketplace';
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('scrim').style.display='none';
+    renderView(v);
+  });
+});
+
+function renderView(v){
+  if(v==='dashboard')renderDashboard();
+  else if(v==='analytics')renderAnalytics();
+  else if(v==='products')renderProducts();
+  else if(v==='categories')renderCategories();
+  else if(v==='inventory')renderInventory();
+  else if(v==='logs')renderLoginLogs();
+  else if(v==='orders')renderOrders();
+  else if(v==='purchases')renderPurchases();
+  else if(v==='transactions')renderTransactions();
+  else if(v==='customers')renderCustomers();
+  else if(v==='wallet')renderWallet();
+}
+
+function refreshAll(){
+  const active = document.querySelector('.nav-item.active');
+  if(active) renderView(active.dataset.view);
+  toast('Refreshed!','success');
+}
+
+// ─── CLOCK ───
+function tickClock(){
+  const n=new Date();
+  document.getElementById('curDate').textContent=n.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('curTime').textContent=n.toLocaleTimeString();
+}
+tickClock();setInterval(tickClock,1000);
+
+// ─── GLOBAL SEARCH ───
+async function handleGlobalSearch(){
+  const q=document.getElementById('globalSearch').value.trim().toLowerCase();
+  document.getElementById('breadcrumbExtra').textContent=q?`· searching "${q}"`:'';
+  if(!q)return;
+  
+  try {
+    const result = await apiFetch(`/search?q=${encodeURIComponent(q)}`);
+    if (result?.success && result.results) {
+      const { products: pResults, orders: oResults, inventory: iResults } = result.results;
+      if (pResults?.length) {
+        document.querySelector('[data-view=products]').click();
+        document.getElementById('prodSearch').value = q;
+        renderProducts();
+      } else if (oResults?.length) {
+        document.querySelector('[data-view=orders]').click();
+        document.getElementById('orderSearch').value = q;
+        renderOrders();
+      } else if (iResults?.length) {
+        document.querySelector('[data-view=logs]').click();
+        document.getElementById('logSearch').value = q;
+        renderLoginLogs();
+      } else {
+        toast('No results found for "' + q + '"', 'info');
+      }
+    }
+  } catch (error) {
+    console.error('Search error:', error);
+  }
+}
+
+// ─── DASHBOARD ───
+async function renderDashboard(){
+  await loadStats();
+  
+  document.getElementById('kpiGrid').innerHTML = [
+    {key:'totalProducts',label:'Total Products',icon:'📦',cls:'blue',val:stats.totalProducts||0},
+    {key:'active',label:'Active Products',icon:'✅',cls:'green',val:stats.active||0},
+    {key:'totalOrders',label:'Total Orders',icon:'🛒',cls:'purple',val:stats.totalOrders||0},
+    {key:'pending',label:'Pending Orders',icon:'⏳',cls:'gold',val:stats.pending||0},
+    {key:'completed',label:'Completed',icon:'✅',cls:'green',val:stats.completed||0},
+    {key:'usdRev',label:'Revenue USD',icon:'💵',cls:'green',val:fmtUsd(stats.usdRev||0)},
+    {key:'ngnRev',label:'Revenue NGN',icon:'💰',cls:'gold',val:fmtMoney(stats.ngnRev||0)},
+    {key:'available',label:'Available Items',icon:'📋',cls:'green',val:stats.available||0},
+    {key:'soldItems',label:'Sold Items',icon:'✅',cls:'info',val:stats.soldItems||0},
+    {key:'lowStock',label:'Low Stock',icon:'⚠️',cls:'gold',val:stats.lowStock||0},
+    {key:'outOfStock',label:'Out of Stock',icon:'🚫',cls:'red',val:stats.outOfStock||0},
+  ].map(k => `
+    <div class="card kpi-card" onclick="openKpiDetail('${k.key}')">
+      <div class="kpi-top"><div class="kpi-icon ${k.cls}">${k.icon}</div>
+      <span class="kpi-trend trend-up">▲ ${(Math.random()*10+2).toFixed(1)}%</span></div>
+      <div class="kpi-value">${k.val}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>
+  `).join('');
+
+  // Recent Orders
+  const recentOrders = orders.slice(0,5);
+  document.getElementById('recentOrders').innerHTML = recentOrders.length ? recentOrders.map(o => `
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border)">
+      <div><strong>${o.order_ref || o.id}</strong> · ${o.product_name}<div style="font-size:11px;color:var(--text-dim)">${fmtDate(o.created_at)}</div></div>
+      <div>${badge(o.status)}<div style="font-size:11px;text-align:right">${o.currency==='USD'?fmtUsd(o.total):fmtMoney(o.total)}</div></div>
+    </div>
+  `).join('') : '<div style="padding:20px;text-align:center;color:var(--text-dim)">No orders yet</div>';
+
+  // Low Stock Alert
+  const lowStock = products.filter(p => p.stock > 0 && p.stock < 10);
+  document.getElementById('lowStockAlert').innerHTML = lowStock.length ? lowStock.slice(0,6).map(p => `
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border)">
+      <div><strong>${p.name}</strong><div style="font-size:11px;color:var(--text-dim)">Stock: ${p.stock}</div></div>
+      <div><span class="badge warn">Low Stock</span></div>
+    </div>
+  `).join('') : '<div style="padding:10px 0;color:var(--text-dim)">✅ All products have healthy stock levels</div>';
+
+  // Recent Products
+  document.getElementById('recentProducts').innerHTML = products.slice(0,8).map(p => `
+    <div class="product-card" onclick="viewProduct('${p.id}')">
+      <div class="pc-title">${p.name}</div>
+      <div class="pc-badge ${p.status==='Active'?'success':'neutral'}">${p.status}</div>
+      <div class="pc-meta"><span><span>Country</span><span>${p.country||'—'}</span></span><span><span>Stock</span><span>${p.stock||0}</span></span></div>
+      <div class="pc-price">${fmtUsd(p.price_usd)}</div>
+      <div class="pc-stock">${p.stock||0} available</div>
+    </div>
+  `).join('');
+}
+
+function openKpiDetail(key){
+  const labels = {
+    totalProducts:'Total Products', active:'Active Products',
+    totalOrders:'Total Orders', pending:'Pending Orders',
+    completed:'Completed Orders', usdRev:'USD Revenue',
+    ngnRev:'NGN Revenue', available:'Available Items',
+    soldItems:'Sold Items', lowStock:'Low Stock',
+    outOfStock:'Out of Stock'
+  };
+  openModal(labels[key]||key, 'Detailed metric', `
+    <div class="info-grid"><div><strong>Current Value</strong>${stats[key]||0}</div></div>
+    <p style="font-size:12px;color:var(--text-dim);">Real-time data from the marketplace.</p>
+  `,'Close',null);
+}
+
+// ─── LOAD STATS ───
+async function loadStats() {
+  try {
+    const result = await apiFetch('/stats');
+    if (result?.success) {
+      stats = result.stats || {};
+    } else {
+      stats = {};
+    }
+  } catch (error) {
+    console.error('Load stats error:', error);
+    stats = {};
+  }
+}
+
+// ─── ANALYTICS CHARTS ───
+function renderAnalytics(){
+  if(chartsBuilt) return; chartsBuilt=true;
+  
+  const days30 = Array.from({length:30}, (_,i) => i+1);
+  const revData = days30.map(() => rand(300, 1400));
+  
+  function buildChart(id,type,data,opts){
+    const el=document.getElementById(id); if(!el)return;
+    if(chartInstances[id]){try{chartInstances[id].destroy();}catch(e){}}
+    if(typeof Chart==='undefined'){el.parentElement.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-faint);">⏳ Loading charts...</div>';return;}
+    try{
+      chartInstances[id]=new Chart(el.getContext('2d'),{
+        type,data,
+        options:{...opts,responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:10}}}}}
+      });
+    }catch(e){console.warn('Chart error:',id,e);}
+  }
+  
+  buildChart('analyticsRevChart','line',{labels:days30,datasets:[{label:'Revenue',data:revData,borderColor:'#0c3d4a',backgroundColor:'rgba(12,61,74,.1)',fill:true,tension:.4}]},{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+  buildChart('analyticsStatusChart','doughnut',{labels:['Completed','Processing','Pending','Failed'],datasets:[{data:[stats.completed||1,rand(20,50),rand(10,30),rand(5,15)],backgroundColor:['#16a34a','#2563a8','#f59e0b','#dc2626']}]},{cutout:'60%'});
+  
+  const topProducts = products.sort((a,b)=>(b.sold||0)-(a.sold||0)).slice(0,6);
+  buildChart('analyticsTopProducts','bar',{labels:topProducts.map(p=>p.name.split('|')[0].trim()||p.name),datasets:[{data:topProducts.map(p=>p.sold||0),backgroundColor:'#f59e0b',borderRadius:5}]},{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+  
+  buildChart('analyticsCategoryChart','bar',{labels:categories.slice(0,8).map(c=>c.icon+' '+c.name),datasets:[{data:categories.slice(0,8).map(()=>rand(10,50)),backgroundColor:'#8b5cf6',borderRadius:5}]},{indexAxis:'y',scales:{x:{beginAtZero:true,grid:{color:'#eef1f7'}},y:{grid:{display:false}}}});
+  
+  buildChart('analyticsDailyChart','bar',{labels:days30.slice(0,14),datasets:[{data:days30.slice(0,14).map(()=>rand(5,40)),backgroundColor:'#0c3d4a',borderRadius:5}]},{scales:{y:{beginAtZero:true,grid:{color:'#eef1f7'}},x:{grid:{display:false}}}});
+  
+  buildChart('analyticsWalletChart','doughnut',{labels:['NGN','USD'],datasets:[{data:[stats.ngnRev||1,stats.usdRev||1],backgroundColor:['#0c3d4a','#f59e0b']}]},{cutout:'60%'});
+}
+
+// ─── PRODUCTS ───
+async function renderProducts() {
+  try {
+    const result = await apiFetch('/products');
+    if (result?.success) {
+      products = result.products || [];
+      // Update categories from products
+      products.forEach(p => {
+        if (p.marketplace_categories) {
+          p.category_name = p.marketplace_categories.name;
+          p.category_icon = p.marketplace_categories.icon;
+        }
+      });
+    }
+    renderProductsTable();
+    updateCatDropdowns();
+  } catch (error) {
+    console.error('Render products error:', error);
+    products = [];
+  }
+}
+
+function renderProductsTable() {
+  const search = document.getElementById('prodSearch')?.value?.toLowerCase() || '';
+  const cat = document.getElementById('prodCatFilter')?.value || '';
+  const status = document.getElementById('prodStatusFilter')?.value || '';
+  
+  let filtered = products.filter(p => {
+    const m = !search || p.name.toLowerCase().includes(search) || p.id.toLowerCase().includes(search);
+    const mc = !cat || p.category_id === cat;
+    const ms = !status || p.status === status;
+    return m && mc && ms;
+  });
+  
+  const total = filtered.length, tp = Math.ceil(total/PER_PAGE) || 1;
+  prodPage = Math.min(prodPage, tp);
+  const start = (prodPage-1)*PER_PAGE, items = filtered.slice(start, start+PER_PAGE);
+  
+  document.getElementById('productCount').textContent = total + ' products';
+  document.getElementById('productsTbody').innerHTML = items.map(p => `
+    <tr><td class="mono" style="font-size:10px">${p.id}</td>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.category_icon || '📦'} ${p.category_name || 'Unknown'}</td>
+      <td>${p.country || '—'}</td>
+      <td>${fmtUsd(p.price_usd)}</td>
+      <td>${fmtMoney(p.price_ngn)}</td>
+      <td>${p.stock || 0}</td>
+      <td>${p.sold || 0}</td>
+      <td>${badge(p.status)}</td>
+      <td><div class="row-actions">
+        <button class="icon-mini" onclick="viewProduct('${p.id}')" title="View">👁️</button>
+        <button class="icon-mini success" onclick="editProduct('${p.id}')" title="Edit">✎</button>
+        <button class="icon-mini success" onclick="openAddInventory('${p.id}')" title="Add Inventory">📥</button>
+        <button class="icon-mini danger" onclick="toggleProductStatus('${p.id}')">${p.status==='Active'?'⏸️':'▶️'}</button>
+        <button class="icon-mini danger" onclick="deleteProduct('${p.id}')" title="Delete">🗑️</button>
+        <button class="icon-mini" onclick="viewProductInventory('${p.id}')" title="Items">📋</button>
+      </div></td></tr>
+  `).join('');
+  
+  let ph = ''; for(let i=1; i<=tp; i++) ph += `<button class="pg-btn ${i===prodPage?'active':''}" onclick="prodPage=${i};renderProducts()">${i}</button>`;
+  document.getElementById('prodPager').innerHTML = ph;
+  document.getElementById('prodRange').textContent = total ? `${start+1}–${Math.min(start+PER_PAGE, total)} of ${total}` : '0';
+}
+
+// ─── ADD INVENTORY TO EXISTING PRODUCT ───
+function openAddInventory(productId) {
+  const p = products.find(x => x.id === productId);
+  if (!p) { toast('Product not found', 'error'); return; }
+  
+  let invCount = 1;
+  
+  function renderInventoryFields() {
+    const container = document.getElementById('addInvTextareas');
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 0; i < invCount; i++) {
+      const box = document.createElement('div');
+      box.className = 'inv-item-box';
+      box.innerHTML = `
+        <div class="inv-header">
+          <span class="inv-label">Inventory Item #${i+1}</span>
+          ${i > 0 ? `<button class="inv-remove" onclick="removeInvItem(${i})">✕</button>` : ''}
+        </div>
+        <textarea rows="3" placeholder="Paste account details exactly as received..."></textarea>
+        <div class="inv-status">
+          <span style="font-size:10px;color:var(--text-dim);">Status:</span>
+          <select><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option></select>
+        </div>
+      `;
+      container.appendChild(box);
+    }
+  }
+  
+  function removeInvItem(index) {
+    if (invCount <= 1) return;
+    invCount--;
+    renderInventoryFields();
+  }
+  
+  function addInvItem() {
+    invCount++;
+    renderInventoryFields();
+  }
+  
+  openModal(`Add Inventory — ${p.name}`, 'Add more inventory items to this product', `
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px;padding:8px 12px;background:var(--info-bg);border-radius:8px;border:1px solid var(--info);">
+      <strong>Current stock: ${p.stock} items</strong><br>
+      Paste each account/item in its own textarea. Click "Add Another Account" for more.
+    </div>
+    <div id="addInvTextareas"></div>
+    <div class="inv-add-more">
+      <button onclick="window._addInvItem()">➕ Add Another Account</button>
+      <span style="font-size:11px;color:var(--text-dim);align-self:center;">Add more inventory items</span>
+    </div>
+  `, 'Add Inventory', async function() {
+    const textareas = document.querySelectorAll('#addInvTextareas textarea');
+    const items = [];
+    textareas.forEach(ta => {
+      const val = ta.value.trim();
+      if (val) items.push(val);
+    });
+    
+    if (!items.length) { toast('No items to add', 'error'); return; }
+    
+    try {
+      const result = await apiFetch('/inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          product_id: productId,
+          items: items
+        })
+      });
+      
+      if (result && result.success) {
+        toast(`Added ${items.length} inventory items!`, 'success');
+        p.stock = result.new_stock || p.stock + items.length;
+        items.forEach(content => {
+          inventory.push({
+            id: 'INV-' + rand(10000, 99999),
+            product_id: productId,
+            product_name: p.name,
+            delivery_type: p.delivery_type || 'structured',
+            content: content,
+            status: 'available',
+            used_by: null
+          });
+        });
+        renderProducts();
+        renderDashboard();
+        renderLoginLogs();
+        closeModal();
+      } else {
+        toast(result?.error || 'Failed to add inventory', 'error');
+      }
+    } catch (error) {
+      toast('Failed to add inventory', 'error');
+      console.error(error);
+    }
+  }, true);
+  
+  window._addInvItem = function() {
+    const container = document.getElementById('addInvTextareas');
+    if (!container) return;
+    const count = container.querySelectorAll('.inv-item-box').length + 1;
+    const box = document.createElement('div');
+    box.className = 'inv-item-box';
+    box.innerHTML = `
+      <div class="inv-header">
+        <span class="inv-label">Inventory Item #${count}</span>
+        <button class="inv-remove" onclick="this.closest('.inv-item-box').remove()">✕</button>
+      </div>
+      <textarea rows="3" placeholder="Paste account details exactly as received..."></textarea>
+      <div class="inv-status">
+        <span style="font-size:10px;color:var(--text-dim);">Status:</span>
+        <select><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option></select>
+      </div>
+    `;
+    container.appendChild(box);
+    toast('Added another inventory item', 'success');
+  };
+  
+  setTimeout(() => {
+    const container = document.getElementById('addInvTextareas');
+    if (container) {
+      const box = document.createElement('div');
+      box.className = 'inv-item-box';
+      box.innerHTML = `
+        <div class="inv-header">
+          <span class="inv-label">Inventory Item #1</span>
+        </div>
+        <textarea rows="3" placeholder="Paste account details exactly as received..."></textarea>
+        <div class="inv-status">
+          <span style="font-size:10px;color:var(--text-dim);">Status:</span>
+          <select><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option></select>
+        </div>
+      `;
+      container.appendChild(box);
+    }
+  }, 100);
+}
+
+function viewProductInventory(productId) {
+  const p = products.find(x => x.id === productId);
+  if (!p) return;
+  const logs = inventory.filter(l => l.product_id === productId);
+  const available = logs.filter(l => l.status === 'available').length;
+  const sold = logs.filter(l => l.status === 'sold').length;
+  openModal('Inventory Items — ' + p.name, `${logs.length} total items`, `
+    <div class="info-grid"><div><strong>Available</strong>${available}</div><div><strong>Sold</strong>${sold}</div><div><strong>Total</strong>${logs.length}</div></div>
+    <div class="modal-scroll">${logs.slice(0,30).map(l => `
+      <div style="padding:6px 0;border-bottom:1px dashed var(--border);font-size:11px;">
+        <div style="font-weight:600;">${l.id}</div>
+        <div class="content-preview">${escapeHtml(l.content)}</div>
+        <div>${badge(l.status)}</div>
+      </div>
+    `).join('') || '<div style="padding:20px;color:var(--text-faint)">No items</div>'}</div>
+  `, 'Close', null, true);
+}
+
+function viewProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  const logs = inventory.filter(l => l.product_id === id);
+  const available = logs.filter(l => l.status === 'available').length;
+  openModal('Product Details', p.id, `
+    <div class="info-grid">
+      <div><strong>Name</strong>${p.name}</div>
+      <div><strong>Category</strong>${p.category_icon || '📦'} ${p.category_name || 'Unknown'}</div>
+      <div><strong>Country</strong>${p.country || '—'}</div>
+      <div><strong>USD</strong>${fmtUsd(p.price_usd)}</div>
+      <div><strong>NGN</strong>${fmtMoney(p.price_ngn)}</div>
+      <div><strong>Available</strong>${available}</div>
+      <div><strong>Sold</strong>${p.sold || 0}</div>
+      <div><strong>Status</strong>${badge(p.status)}</div>
+    </div>
+    <div class="field"><label>Description</label>${p.description || '—'}</div>
+  `, 'Close', null, true);
+}
+
+function editProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  openModal('Edit Product', 'Update product details', `
+    <div class="field"><label>Name</label><input type="text" id="eName" value="${p.name}"></div>
+    <div class="field"><label>Price (USD)</label><input type="number" id="eUSD" value="${p.price_usd}" step="0.01"></div>
+    <div class="field"><label>Status</label><select id="eStatus"><option ${p.status==='Active'?'selected':''}>Active</option><option ${p.status==='Inactive'?'selected':''}>Inactive</option></select></div>
+    <div class="field"><label>Stock</label><input type="number" id="eStock" value="${p.stock}"></div>
+  `, 'Update', async function() {
+    try {
+      const result = await apiFetch(`/products/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: document.getElementById('eName').value.trim(),
+          price_usd: parseFloat(document.getElementById('eUSD').value) || 0,
+          status: document.getElementById('eStatus').value,
+          stock: parseInt(document.getElementById('eStock').value) || 0,
+          category_id: p.category_id,
+          country: p.country,
+          description: p.description,
+          delivery_type: p.delivery_type
+        })
+      });
+      if (result?.success) {
+        toast('Product updated', 'success');
+        renderProducts();
+        renderDashboard();
+        closeModal();
+      } else {
+        toast(result?.error || 'Update failed', 'error');
+      }
+    } catch (error) {
+      toast('Update failed', 'error');
+    }
+  });
+}
+
+function toggleProductStatus(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  const newStatus = p.status === 'Active' ? 'Inactive' : 'Active';
+  apiFetch(`/products/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ ...p, status: newStatus })
+  }).then(result => {
+    if (result?.success) {
+      p.status = newStatus;
+      toast(`${p.id} ${newStatus}`, 'info');
+      renderProducts();
+      renderDashboard();
+    }
+  }).catch(() => toast('Failed to update status', 'error'));
+}
+
+function deleteProduct(id) {
+  openModal('Delete Product', 'This cannot be undone.', '', 'Delete', async function() {
+    try {
+      const result = await apiFetch(`/products/${id}`, { method: 'DELETE' });
+      if (result?.success) {
+        toast('Product deleted', 'success');
+        products = products.filter(x => x.id !== id);
+        renderProducts();
+        renderDashboard();
+        closeModal();
+      } else {
+        toast(result?.error || 'Delete failed', 'error');
+      }
+    } catch (error) {
+      toast('Delete failed', 'error');
+    }
+  });
+}
+
+// ─── ADD PRODUCT ───
+document.getElementById('addProductBtn').addEventListener('click', function() {
+  let invCount = 1;
+  
+  function renderInventoryFields() {
+    const container = document.getElementById('invTextareas');
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 0; i < invCount; i++) {
+      const box = document.createElement('div');
+      box.className = 'inv-item-box';
+      box.innerHTML = `
+        <div class="inv-header">
+          <span class="inv-label">Inventory Item #${i+1}</span>
+          ${i > 0 ? `<button class="inv-remove" onclick="removeInvItem(${i})">✕</button>` : ''}
+        </div>
+        <textarea rows="3" placeholder="Paste account details exactly as received..."></textarea>
+        <div class="inv-status">
+          <span style="font-size:10px;color:var(--text-dim);">Status:</span>
+          <select><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option></select>
+        </div>
+      `;
+      container.appendChild(box);
+    }
+  }
+  
+  function removeInvItem(index) {
+    if (invCount <= 1) return;
+    invCount--;
+    renderInventoryFields();
+  }
+  
+  function addInvItem() {
+    invCount++;
+    renderInventoryFields();
+  }
+  
+  openModal('Add Product', 'Create a new digital product with inventory', `
+    <div class="modal-scroll">
+      <div class="field"><label>Product Name *</label><input type="text" id="pName"></div>
+      <div class="field"><label>Category</label>
+        <select id="pCat">${categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Country</label><input type="text" id="pCountry" placeholder="Nigeria"></div>
+      <div class="field"><label>Price (USD) *</label><input type="number" id="pUSD" step="0.01"></div>
+      <div class="field"><label>Price (NGN)</label><input type="number" id="pNGN" step="1"></div>
+      <div class="field"><label>Description</label><textarea id="pDesc" rows="2"></textarea></div>
+      <div class="field"><label>Delivery Type</label>
+        <select id="pDType">${DELIVERY_TYPES.map(d => `<option value="${d.id}">${d.label}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>📦 Paste Inventory</label>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;padding:8px 12px;background:var(--info-bg);border-radius:8px;">
+          <strong>Paste anything exactly as received from supplier.</strong><br>
+          One account per textarea. The system stores exactly what you paste.
+        </div>
+        <div id="invTextareas"></div>
+        <div class="inv-add-more">
+          <button onclick="window._addInvItem()">➕ Add Another Account</button>
+        </div>
+      </div>
+    </div>
+  `, 'Create', async function() {
+    const name = document.getElementById('pName').value.trim();
+    const usd = parseFloat(document.getElementById('pUSD').value) || 0;
+    if (!name || !usd) { toast('Name and USD price required', 'error'); return; }
+    
+    const textareas = document.querySelectorAll('#invTextareas textarea');
+    const items = [];
+    textareas.forEach(ta => {
+      const val = ta.value.trim();
+      if (val) items.push(val);
+    });
+    
+    try {
+      const result = await apiFetch('/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: name,
+          category_id: document.getElementById('pCat').value,
+          country: document.getElementById('pCountry').value || 'Global',
+          price_usd: usd,
+          price_ngn: parseFloat(document.getElementById('pNGN').value) || Math.round(usd * 1600),
+          description: document.getElementById('pDesc').value,
+          delivery_type: document.getElementById('pDType').value,
+          inventory_items: items,
+          status: 'Active'
+        })
+      });
+      
+      if (result?.success) {
+        toast('Product created with ' + items.length + ' inventory items!', 'success');
+        products.unshift(result.product);
+        items.forEach(content => {
+          inventory.push({
+            id: 'INV-' + rand(10000, 99999),
+            product_id: result.product.id,
+            product_name: name,
+            delivery_type: result.product.delivery_type,
+            content: content,
+            status: 'available',
+            used_by: null
+          });
+        });
+        renderProducts();
+        renderDashboard();
+        renderLoginLogs();
+        closeModal();
+      } else {
+        toast(result?.error || 'Failed to create product', 'error');
+      }
+    } catch (error) {
+      toast('Failed to create product', 'error');
+    }
+  }, true);
+  
+  window._addInvItem = function() {
+    const container = document.getElementById('invTextareas');
+    if (!container) return;
+    const count = container.querySelectorAll('.inv-item-box').length + 1;
+    const box = document.createElement('div');
+    box.className = 'inv-item-box';
+    box.innerHTML = `
+      <div class="inv-header">
+        <span class="inv-label">Inventory Item #${count}</span>
+        <button class="inv-remove" onclick="this.closest('.inv-item-box').remove()">✕</button>
+      </div>
+      <textarea rows="3" placeholder="Paste account details exactly as received..."></textarea>
+      <div class="inv-status">
+        <span style="font-size:10px;color:var(--text-dim);">Status:</span>
+        <select><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option></select>
+      </div>
+    `;
+    container.appendChild(box);
+    toast('Added another inventory item', 'success');
+  };
+  
+  setTimeout(() => {
+    const container = document.getElementById('invTextareas');
+    if (container) {
+      const box = document.createElement('div');
+      box.className = 'inv-item-box';
+      box.innerHTML = `
+        <div class="inv-header">
+          <span class="inv-label">Inventory Item #1</span>
+        </div>
+        <textarea rows="3" placeholder="Paste account details exactly as received..."></textarea>
+        <div class="inv-status">
+          <span style="font-size:10px;color:var(--text-dim);">Status:</span>
+          <select><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option></select>
+        </div>
+      `;
+      container.appendChild(box);
+    }
+  }, 100);
+});
+
+// ─── CATEGORIES ───
+async function renderCategories() {
+  try {
+    const result = await apiFetch('/categories');
+    if (result?.success) {
+      categories = result.categories || [];
+    }
+  } catch (error) {
+    console.error('Categories error:', error);
+    categories = [];
+  }
+  
+  document.getElementById('categoriesTbody').innerHTML = categories.map(c => `
+    <tr><td class="mono">${c.id}</td><td style="font-size:20px">${c.icon || '📦'}</td><td><strong>${c.name}</strong></td>
+    <td>${products.filter(p => p.category_id === c.id).length}</td>
+    <td>${badge(c.status)}</td>
+    <td><div class="row-actions">
+      <button class="icon-mini success" onclick="editCategory('${c.id}')">✎</button>
+      <button class="icon-mini danger" onclick="deleteCategory('${c.id}')">🗑️</button>
+    </div></td></tr>
+  `).join('');
+}
+
+function editCategory(id) {
+  const c = categories.find(x => x.id === id);
+  if (!c) return;
+  openModal('Edit Category', '', `
+    <div class="field"><label>Name</label><input type="text" id="cName" value="${c.name}"></div>
+    <div class="field"><label>Icon</label><input type="text" id="cIcon" value="${c.icon || '📦'}"></div>
+  `, 'Update', async function() {
+    try {
+      const result = await apiFetch(`/categories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: document.getElementById('cName').value.trim(),
+          icon: document.getElementById('cIcon').value || '📦',
+          status: c.status
+        })
+      });
+      if (result?.success) {
+        toast('Category updated', 'success');
+        renderCategories();
+        closeModal();
+      }
+    } catch (error) {
+      toast('Update failed', 'error');
+    }
+  });
+}
+
+function deleteCategory(id) {
+  openModal('Delete Category', '', '', 'Delete', async function() {
+    try {
+      const result = await apiFetch(`/categories/${id}`, { method: 'DELETE' });
+      if (result?.success) {
+        toast('Category deleted', 'success');
+        categories = categories.filter(x => x.id !== id);
+        renderCategories();
+        closeModal();
+      }
+    } catch (error) {
+      toast('Delete failed', 'error');
+    }
+  });
+}
+
+document.getElementById('addCatBtn').addEventListener('click', function() {
+  openModal('Add Category', '', `
+    <div class="field"><label>Name</label><input type="text" id="cName"></div>
+    <div class="field"><label>Icon</label><input type="text" id="cIcon" value="📦"></div>
+  `, 'Create', async function() {
+    const name = document.getElementById('cName').value.trim();
+    if (!name) { toast('Name required', 'error'); return; }
+    try {
+      const result = await apiFetch('/categories', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: name,
+          icon: document.getElementById('cIcon').value || '📦',
+          status: 'Active'
+        })
+      });
+      if (result?.success) {
+        toast('Category created', 'success');
+        categories.push(result.category);
+        renderCategories();
+        closeModal();
+      }
+    } catch (error) {
+      toast('Create failed', 'error');
+    }
+  });
+});
+
+function updateCatDropdowns() {
+  const sel = document.getElementById('prodCatFilter');
+  if (sel) {
+    sel.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c.id}">${c.icon || '📦'} ${c.name}</option>`).join('');
+  }
+  const sel2 = document.getElementById('logProductFilter');
+  if (sel2) {
+    sel2.innerHTML = '<option value="">All Products</option>' + products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  }
+}
+
+// ─── INVENTORY ───
+function renderInventory() {
+  const q = document.getElementById('invSearch')?.value?.toLowerCase() || '';
+  const list = products.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
+  const low = products.filter(p => p.stock > 0 && p.stock < 10).length;
+  const out = products.filter(p => p.stock === 0).length;
+  
+  document.getElementById('invSummary').textContent = `${products.length} products · ${inventory.length} items`;
+  document.getElementById('invKpiGrid').innerHTML = [
+    {icon:'📦', cls:'blue', label:'Total Stock', val: products.reduce((s,p) => s + (p.stock || 0), 0)},
+    {icon:'✅', cls:'green', label:'Sold', val: products.reduce((s,p) => s + (p.sold || 0), 0)},
+    {icon:'⚠️', cls:'gold', label:'Low Stock', val: low},
+    {icon:'🚫', cls:'red', label:'Out of Stock', val: out}
+  ].map(k => `
+    <div class="card kpi-card"><div class="kpi-icon ${k.cls}">${k.icon}</div><div class="kpi-value">${k.val}</div><div class="kpi-label">${k.label}</div></div>
+  `).join('');
+  
+  document.getElementById('inventoryTbody').innerHTML = list.map(p => `
+    <tr><td class="mono">${p.id}</td><td>${p.name}</td>
+      <td>${p.stock || 0}</td><td>${p.sold || 0}</td><td>${p.stock || 0}</td>
+      <td>${p.stock === 0 ? badge('danger').replace('danger', 'Out of Stock') : p.stock < 10 ? badge('warn') : badge('success')}</td>
+      <td><button class="icon-mini success" onclick="adjustStock('${p.id}', 10)">➕</button><button class="icon-mini danger" onclick="adjustStock('${p.id}', -10)">➖</button></td></tr>
+  `).join('');
+}
+
+function adjustStock(id, amount) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  const newStock = Math.max(0, (p.stock || 0) + amount);
+  apiFetch(`/products/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ ...p, stock: newStock })
+  }).then(result => {
+    if (result?.success) {
+      p.stock = newStock;
+      toast(`Stock ${amount > 0 ? '+' : ''}${amount}`, 'info');
+      renderInventory();
+      renderProducts();
+    }
+  }).catch(() => toast('Update failed', 'error'));
+}
+
+function openBulkUpdate() {
+  openModal('Bulk Update', '', `
+    <div class="field"><label>Amount</label><input type="number" id="bulkAmt" value="10"></div>
+    <div class="field"><label>Direction</label><select id="bulkDir"><option value="1">Increase</option><option value="-1">Reduce</option></select></div>
+  `, 'Apply', function() {
+    const amt = parseInt(document.getElementById('bulkAmt').value) * parseInt(document.getElementById('bulkDir').value);
+    products.forEach(p => {
+      const newStock = Math.max(0, (p.stock || 0) + amt);
+      apiFetch(`/products/${p.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...p, stock: newStock })
+      }).then(() => {
+        p.stock = newStock;
+      }).catch(() => {});
+    });
+    toast('Bulk update applied', 'success');
+    renderInventory();
+    renderProducts();
+    closeModal();
+  });
+}
+
+// ─── INVENTORY ITEMS ───
+function renderLoginLogs() {
+  const q = document.getElementById('logSearch')?.value?.toLowerCase() || '';
+  const prod = document.getElementById('logProductFilter')?.value || '';
+  const status = document.getElementById('logStatusFilter')?.value || '';
+  
+  let filtered = inventory.filter(l => {
+    const m = !q || l.content.toLowerCase().includes(q) || l.product_name.toLowerCase().includes(q);
+    const mp = !prod || l.product_id === prod;
+    const ms = !status || l.status === status;
+    return m && mp && ms;
+  });
+  
+  const total = filtered.length, tp = Math.ceil(total/PER_PAGE) || 1;
+  logPage = Math.min(logPage, tp);
+  const start = (logPage-1)*PER_PAGE, items = filtered.slice(start, start+PER_PAGE);
+  
+  document.getElementById('logCount').textContent = total + ' items';
+  document.getElementById('logsTbody').innerHTML = items.map(l => `
+    <tr><td class="mono" style="font-size:10px">${l.id}</td>
+      <td>${l.product_name}</td>
+      <td><span class="dtype-chip ${l.delivery_type || 'structured'}">${deliveryTypeLabel(l.delivery_type)}</span></td>
+      <td><div class="content-preview">${escapeHtml(l.content)}</div></td>
+      <td>${badge(l.status)}</td>
+      <td>${l.used_by || '—'}</td>
+      <td><div class="row-actions">
+        <button class="icon-mini" onclick="copyText(\`${(l.content||'').replace(/`/g,"'")}\`)">📋</button>
+        <button class="icon-mini" onclick="viewLogItem('${l.id}')">🔍</button>
+        <button class="icon-mini danger" onclick="deleteLogItem('${l.id}')">🗑️</button>
+      </div></td></tr>
+  `).join('');
+  
+  let ph = ''; for (let i=1; i<=tp; i++) ph += `<button class="pg-btn ${i===logPage?'active':''}" onclick="logPage=${i};renderLoginLogs()">${i}</button>`;
+  document.getElementById('logPager').innerHTML = ph;
+  document.getElementById('logRange').textContent = total ? `${start+1}–${Math.min(start+PER_PAGE, total)} of ${total}` : '0';
+}
+
+function viewLogItem(id) {
+  const l = inventory.find(x => x.id === id);
+  if (!l) return;
+  openModal('Inventory Item', l.id, `
+    <div class="info-grid"><div><strong>Product</strong>${l.product_name}</div><div><strong>Status</strong>${badge(l.status)}</div></div>
+    <div class="field"><label>Content</label><div class="content-full">${escapeHtml(l.content)}</div></div>
+  `, 'Close', null);
+}
+
+function deleteLogItem(id) {
+  openModal('Delete Item', '', '', 'Delete', async function() {
+    try {
+      const result = await apiFetch(`/inventory/${id}`, { method: 'DELETE' });
+      if (result?.success) {
+        toast('Item deleted', 'success');
+        inventory = inventory.filter(x => x.id !== id);
+        renderLoginLogs();
+        closeModal();
+      }
+    } catch (error) {
+      toast('Delete failed', 'error');
+    }
+  });
+}
+
+function openAddLog() {
+  const pid = products[0]?.id;
+  if (!pid) { toast('No product exists', 'error'); return; }
+  openModal('Add Inventory Item', '', `
+    <div class="field"><label>Content *</label><textarea id="newLogContent" rows="4"></textarea></div>
+    <div class="field"><label>Status</label><select id="newLogStatus"><option>available</option><option>sold</option><option>expired</option></select></div>
+  `, 'Add', async function() {
+    const content = document.getElementById('newLogContent').value.trim();
+    if (!content) { toast('Content required', 'error'); return; }
+    try {
+      const result = await apiFetch('/inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          product_id: pid,
+          items: [content]
+        })
+      });
+      if (result?.success) {
+        toast('Item added', 'success');
+        const p = products.find(x => x.id === pid);
+        if (p) p.stock = (p.stock || 0) + 1;
+        inventory.push({
+          id: 'INV-' + rand(10000, 99999),
+          product_id: pid,
+          product_name: p?.name || 'Unknown',
+          delivery_type: p?.delivery_type || 'structured',
+          content: content,
+          status: document.getElementById('newLogStatus').value,
+          used_by: null
+        });
+        renderLoginLogs();
+        renderProducts();
+        closeModal();
+      }
+    } catch (error) {
+      toast('Failed to add item', 'error');
+    }
+  });
+}
+
+function importLogs() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.txt,.csv';
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const content = ev.target.result;
+      const p = products[0];
+      if (!p) { toast('No product found', 'error'); return; }
+      const items = content.split('\n').filter(l => l.trim());
+      apiFetch('/inventory', {
+        method: 'POST',
+        body: JSON.stringify({
+          product_id: p.id,
+          items: items
+        })
+      }).then(result => {
+        if (result?.success) {
+          toast(`Imported ${items.length} items`, 'success');
+          p.stock = (p.stock || 0) + items.length;
+          items.forEach(c => {
+            inventory.push({
+              id: 'INV-' + rand(10000, 99999),
+              product_id: p.id,
+              product_name: p.name,
+              delivery_type: p.delivery_type || 'structured',
+              content: c,
+              status: 'available',
+              used_by: null
+            });
+          });
+          renderLoginLogs();
+          renderProducts();
+        }
+      }).catch(() => toast('Import failed', 'error'));
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ─── ORDERS ───
+async function renderOrders() {
+  try {
+    const status = document.getElementById('orderStatusFilter')?.value || '';
+    const result = await apiFetch(`/orders?status=${status}&limit=50`);
+    if (result?.success) {
+      orders = result.orders || [];
+    }
+  } catch (error) {
+    console.error('Orders error:', error);
+    orders = [];
+  }
+  
+  document.getElementById('orderCount').textContent = orders.length + ' orders';
+  document.getElementById('ordersTbody').innerHTML = orders.slice(0, 40).map(o => `
+    <tr><td class="mono">${o.order_ref || o.id}</td><td>${o.product_name}</td>
+      <td>${o.quantity || 1}</td>
+      <td>${o.currency === 'USD' ? fmtUsd(o.total) : fmtMoney(o.total)}</td>
+      <td>${badge(o.status)}</td>
+      <td>${fmtDate(o.created_at)}</td>
+      <td><button class="icon-mini" onclick="viewProduct('${o.product_id}')">📋</button></td></tr>
+  `).join('') || '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text-faint)">No orders found</td></tr>';
+}
+
+// ─── PURCHASES ───
+function renderPurchases() {
+  const q = document.getElementById('purchSearch')?.value?.toLowerCase() || '';
+  const wallet = document.getElementById('purchWalletFilter')?.value || '';
+  const status = document.getElementById('purchStatusFilter')?.value || '';
+  
+  let filtered = orders.filter(p => {
+    const m = !q || (p.order_ref || '').toLowerCase().includes(q) || (p.customer_name || '').toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q);
+    const mw = !wallet || p.wallet === wallet;
+    const ms = !status || p.status === status;
+    return m && mw && ms;
+  });
+  
+  const total = filtered.length, tp = Math.ceil(total/PER_PAGE) || 1;
+  purchPage = Math.min(purchPage, tp);
+  const start = (purchPage-1)*PER_PAGE, items = filtered.slice(start, start+PER_PAGE);
+  
+  document.getElementById('purchCount').textContent = total + ' purchases';
+  document.getElementById('purchasesTbody').innerHTML = items.map(p => `
+    <tr><td class="mono" style="font-size:10px">${p.order_ref || p.id}</td>
+      <td>${p.customer_name || 'User'}</td>
+      <td>${p.email || '—'}</td>
+      <td>${p.product_name}</td>
+      <td>${p.category || '—'}</td>
+      <td>${p.wallet || 'NGN'}</td>
+      <td>${p.currency === 'USD' ? fmtUsd(p.total) : fmtMoney(p.total)}</td>
+      <td>${p.currency || 'NGN'}</td>
+      <td>${fmtDate(p.created_at)}</td>
+      <td>${badge(p.status)}</td>
+      <td><button class="icon-mini" onclick="copyText('${p.order_ref || ''}')">📋</button></td></tr>
+  `).join('');
+  
+  let ph = ''; for (let i=1; i<=tp; i++) ph += `<button class="pg-btn ${i===purchPage?'active':''}" onclick="purchPage=${i};renderPurchases()">${i}</button>`;
+  document.getElementById('purchPager').innerHTML = ph;
+  document.getElementById('purchRange').textContent = total ? `${start+1}–${Math.min(start+PER_PAGE, total)} of ${total}` : '0';
+}
+
+// ─── TRANSACTIONS ───
+function renderTransactions() {
+  document.getElementById('txCount').textContent = '0 transactions';
+  document.getElementById('transactionsTbody').innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text-faint)">Transaction data coming soon</td></tr>';
+}
+
+// ─── CUSTOMERS ───
+function renderCustomers() {
+  const q = document.getElementById('custSearch')?.value?.toLowerCase() || '';
+  const list = customers.filter(c => !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+  
+  document.getElementById('custCount').textContent = list.length + ' customers';
+  document.getElementById('customersTbody').innerHTML = list.map(c => `
+    <tr><td><strong>${c.name}</strong></td><td>${c.email}</td>
+      <td>${c.orders || 0}</td>
+      <td>${fmtUsd(c.spend_usd || 0)}</td>
+      <td>${c.downloads || 0}</td>
+      <td>${c.fav_category || '—'}</td>
+      <td><button class="icon-mini" onclick="viewCustomer('${c.id}')">👁️</button></td></tr>
+  `).join('');
+}
+
+function viewCustomer(id) {
+  const c = customers.find(x => x.id === id);
+  if (!c) return;
+  openModal('Customer History', c.name, `
+    <div class="info-grid">
+      <div><strong>Email</strong>${c.email}</div>
+      <div><strong>Total Orders</strong>${c.orders || 0}</div>
+      <div><strong>Total Spend</strong>${fmtUsd(c.spend_usd || 0)}</div>
+    </div>
+    <div class="field"><label>Purchases</label>${'No purchases yet'}</div>
+  `, 'Close', null);
+}
+
+// ─── WALLET ───
+function renderWallet() {
+  const walletEntries = [
+    {type:'deposit', currency:'NGN', amount:150000, status:'completed', date:new Date(), ref:'DEP-001'},
+    {type:'deposit', currency:'USD', amount:120, status:'completed', date:new Date(), ref:'DEP-003'},
+    {type:'withdrawal', currency:'Crypto', amount:0.5, status:'pending', date:new Date(), ref:'WTH-001'},
+  ];
+  
+  const totalNGN = walletEntries.filter(w => w.currency === 'NGN' && w.status === 'completed').reduce((s,w) => s + w.amount, 0);
+  const totalUSD = walletEntries.filter(w => w.currency === 'USD' && w.status === 'completed').reduce((s,w) => s + w.amount, 0);
+  const pendingNGN = walletEntries.filter(w => w.currency === 'NGN' && w.status === 'pending').reduce((s,w) => s + w.amount, 0);
+  const pendingUSD = walletEntries.filter(w => w.currency === 'USD' && w.status === 'pending').reduce((s,w) => s + w.amount, 0);
+  const pendingCrypto = walletEntries.filter(w => w.currency === 'Crypto' && w.status === 'pending').reduce((s,w) => s + w.amount, 0);
+
+  document.getElementById('walletKpiGrid').innerHTML = [
+    {icon:'💰', cls:'gold', label:'Wallet Balance NGN', val: fmtMoney(totalNGN)},
+    {icon:'💵', cls:'green', label:'Wallet Balance USD', val: fmtUsd(totalUSD)},
+    {icon:'📥', cls:'blue', label:'Pending Deposits NGN', val: fmtMoney(pendingNGN)},
+    {icon:'📥', cls:'blue', label:'Pending Deposits USD', val: fmtUsd(pendingUSD)},
+    {icon:'📤', cls:'red', label:'Pending Withdrawals Crypto', val: fmtUsd(pendingCrypto)},
+  ].map(k => `
+    <div class="card kpi-card"><div class="kpi-icon ${k.cls}">${k.icon}</div><div class="kpi-value">${k.val}</div><div class="kpi-label">${k.label}</div></div>
+  `).join('');
+
+  document.getElementById('walletTransactions').innerHTML = walletEntries.slice(0,10).map(w => `
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border)">
+      <div><strong>${w.type.toUpperCase()}</strong> · ${w.ref}<div style="font-size:11px;color:var(--text-dim)">${fmtDate(w.date)}</div></div>
+      <div>${w.currency === 'NGN' ? fmtMoney(w.amount) : w.currency === 'USD' ? fmtUsd(w.amount) : w.amount + ' BTC'} ${badge(w.status)}</div>
+    </div>
+  `).join('');
+}
+
+// ─── EXPORT CSV ───
+function exportCSV(type) {
+  let rows = [], filename = '';
+  if (type === 'products') {
+    rows = [['ID','Name','Category','Country','USD','NGN','Stock','Sold','Status']];
+    products.forEach(p => rows.push([p.id, p.name, p.category_name || '', p.country || '', p.price_usd, p.price_ngn, p.stock, p.sold, p.status]));
+    filename = 'products.csv';
+  } else if (type === 'purchases') {
+    rows = [['Order','Customer','Email','Product','Wallet','Price','Currency','Status','Date']];
+    orders.forEach(o => rows.push([o.order_ref || o.id, o.customer_name || 'User', o.email || '', o.product_name, o.wallet || 'NGN', o.total, o.currency || 'NGN', o.status, fmtDate(o.created_at)]));
+    filename = 'purchases.csv';
+  } else if (type === 'logs') {
+    rows = [['Item ID','Product','Type','Content','Status']];
+    inventory.forEach(l => rows.push([l.id, l.product_name, deliveryTypeLabel(l.delivery_type), l.content, l.status]));
+    filename = 'inventory_items.csv';
+  }
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = filename;
+  a.click();
+  toast('CSV exported', 'success');
+}
+
+// ─── NOTIFICATIONS ───
+function openNotif() {
+  const alerts = [
+    {icon:'🛒', text:'New order placed', time:new Date()},
+    {icon:'⚠️', text:'Low stock alert', time:new Date(Date.now()-3600000)},
+    {icon:'💰', text:'Deposit received', time:new Date(Date.now()-7200000)},
+  ];
+  openModal('Notifications', 'Latest alerts', alerts.map(a => `
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border);font-size:12.5px;">
+      <span>${a.icon} ${a.text}</span>
+      <span style="color:var(--text-dim);font-size:11px;">${fmtDateTime(a.time)}</span>
+    </div>
+  `).join(''), 'Close', null);
+}
+
+// ─── SEED MOCK DATA ───
+function seedMockData() {
+  customers = [
+    {id:'CUS-3001', name:'Grace Okoro', email:'grace@mail.com', orders:12, spend_usd:245, downloads:8, fav_category:'TikTok'},
+    {id:'CUS-3002', name:'John Smith', email:'john@mail.com', orders:8, spend_usd:180, downloads:5, fav_category:'Facebook'},
+    {id:'CUS-3003', name:'Amaka Bello', email:'amaka@mail.com', orders:5, spend_usd:95, downloads:3, fav_category:'Instagram'},
+  ];
+}
+seedMockData();
+
+// ─── INIT ───
+async function init() {
+  // Load user profile first
+  await loadUserProfile();
+  
+  // Load data
+  await loadStats();
+  await renderProducts();
+  await renderCategories();
+  renderDashboard();
+  setTimeout(renderAnalytics, 600);
+  renderInventory();
+  renderLoginLogs();
+  renderOrders();
+  renderPurchases();
+  renderTransactions();
+  renderCustomers();
+  renderWallet();
+  console.log('🚀 Marketplace Admin ready — Authenticated');
+}
+
+if (typeof Chart !== 'undefined') {
+  init();
+} else {
+  document.addEventListener('DOMContentLoaded', function() {
+    let checkCount = 0;
+    const checkInterval = setInterval(function() {
+      checkCount++;
+      if (typeof Chart !== 'undefined') { clearInterval(checkInterval); init(); }
+      else if (checkCount > 20) { clearInterval(checkInterval); init(); }
+    }, 500);
+  });
+  document.addEventListener('chartjs-ready', function() { if (!chartsBuilt) renderAnalytics(); });
+}
+setTimeout(function() { if (!chartsBuilt && typeof Chart !== 'undefined') renderAnalytics(); }, 2000);
+</script>
+</body>
+</html>

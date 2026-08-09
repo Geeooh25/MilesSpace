@@ -1,177 +1,147 @@
+// routes/adminRoutes.js - USE verifyAdmin from admin.js
 const express = require('express');
-const { supabase } = require('../db/supabase');
-
 const router = express.Router();
+const { supabaseAdmin } = require('../db/supabase');
+const { verifyAdmin, verifySuperAdmin } = require('./admin');
 
-// Temporary middleware for testing (copy from auth.js)
-const authMiddleware = async (req, res, next) => {
-  try {
-    const jwt = require('jsonwebtoken');
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'No token provided' });
+// ─── TEST ROUTE ───
+router.get('/ping', verifyAdmin, (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Admin routes working',
+    user: {
+      id: req.userId,
+      email: req.userEmail,
+      role: req.userRole
     }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    if (!decoded || !decoded.userId) {
-      return res.status(401).json({ success: false, error: 'Invalid token' });
-    }
-
-    const { data: user, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', decoded.userId)
-      .single();
-
-    if (error || !user) {
-      return res.status(401).json({ success: false, error: 'User not found' });
-    }
-
-    req.user = user;
-    req.user.id = user.id;
-    req.token = token;
-    
-    next();
-  } catch (error) {
-    console.error('Auth error:', error);
-    res.status(401).json({ success: false, error: 'Authentication failed' });
-  }
-};
-
-const adminMiddleware = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ success: false, error: 'Admin access required' });
-  }
-};
-
-// ============ ROUTES ============
-
-// Test route
-router.get('/test', authMiddleware, adminMiddleware, (req, res) => {
-  res.json({ success: true, message: 'Admin access granted', user: req.user.email });
+  });
 });
 
-// Get all users
-router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
+// ─── GET STATS ───
+router.get('/stats', verifyAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, username, wallet_ngn, wallet_usd, role, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    res.json({ success: true, users: data || [] });
-  } catch (error) {
-    console.error('Fetch users error:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-// Get all orders
-router.get('/orders', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('boost_orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      if (error.code === '42P01') {
-        return res.json({ success: true, orders: [], stats: { total: 0 } });
-      }
-      throw error;
-    }
-
-    const stats = {
-      total: (data || []).length,
-      pending: (data || []).filter(o => o.status === 'pending').length,
-      completed: (data || []).filter(o => o.status === 'completed').length,
-      revenue: (data || [])
-        .filter(o => o.status === 'completed')
-        .reduce((sum, o) => sum + (o.total_amount || 0), 0)
-    };
-
-    res.json({ success: true, orders: data || [], stats });
-  } catch (error) {
-    console.error('Fetch orders error:', error);
-    res.status(500).json({ error: 'Failed to fetch orders' });
-  }
-});
-
-// Update order status
-router.put('/order/:id/status', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const validStatuses = ['pending', 'processing', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-
-    const { data, error } = await supabase
-      .from('boost_orders')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json({ success: true, message: 'Status updated', order: data });
-  } catch (error) {
-    console.error('Update order error:', error);
-    res.status(500).json({ error: 'Failed to update order' });
-  }
-});
-
-// Delete order
-router.delete('/order/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { error } = await supabase
-      .from('boost_orders')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-    res.json({ success: true, message: 'Order deleted' });
-  } catch (error) {
-    console.error('Delete order error:', error);
-    res.status(500).json({ error: 'Failed to delete order' });
-  }
-});
-
-// Get dashboard stats
-router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const { count: totalUsers } = await supabase
+    const { count: totalUsers } = await supabaseAdmin
       .from('profiles')
       .select('*', { count: 'exact', head: true });
 
-    const { data: orders } = await supabase
-      .from('boost_orders')
-      .select('status, total_amount');
+    const { count: newUsersToday } = await supabaseAdmin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', new Date().toISOString().split('T')[0]);
 
-    const stats = {
-      total_users: totalUsers || 0,
-      total_orders: (orders || []).length,
-      pending_orders: (orders || []).filter(o => o.status === 'pending').length,
-      completed_orders: (orders || []).filter(o => o.status === 'completed').length,
-      total_revenue: (orders || [])
-        .filter(o => o.status === 'completed')
-        .reduce((sum, o) => sum + (o.total_amount || 0), 0)
-    };
+    const { data: walletData } = await supabaseAdmin
+      .from('profiles')
+      .select('wallet_ngn, wallet_usd');
 
-    res.json({ success: true, stats });
+    let totalNgn = 0, totalUsd = 0;
+    (walletData || []).forEach(w => {
+      totalNgn += parseFloat(w.wallet_ngn) || 0;
+      totalUsd += parseFloat(w.wallet_usd) || 0;
+    });
+
+    const { count: pendingDeposits } = await supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', 'wallet_funding')
+      .eq('status', 'pending');
+
+    const { count: pendingWithdrawals } = await supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', 'wallet_withdrawal')
+      .eq('status', 'pending');
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers: totalUsers || 0,
+        newUsersToday: newUsersToday || 0,
+        walletBalance: { ngn: totalNgn, usd: totalUsd },
+        pending: {
+          deposits: pendingDeposits || 0,
+          withdrawals: pendingWithdrawals || 0
+        }
+      }
+    });
+
   } catch (error) {
     console.error('Stats error:', error);
-    res.status(500).json({ error: 'Failed to fetch stats' });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── GET RECENT USERS ───
+router.get('/users/recent', verifyAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, username, created_at, wallet_ngn, wallet_usd, status')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+    res.json({ success: true, data: data || [] });
+
+  } catch (error) {
+    console.error('Recent users error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── GET RECENT TRANSACTIONS ───
+router.get('/transactions', verifyAdmin, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const { data, error } = await supabaseAdmin
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    // Enrich with user details
+    let enriched = data || [];
+    if (enriched.length > 0) {
+      const userIds = enriched.map(t => t.user_id).filter(Boolean);
+      if (userIds.length > 0) {
+        const { data: users } = await supabaseAdmin
+          .from('profiles')
+          .select('id, username, email')
+          .in('id', userIds);
+        
+        const userMap = {};
+        (users || []).forEach(u => { userMap[u.id] = u; });
+
+        enriched = enriched.map(t => ({
+          ...t,
+          username: userMap[t.user_id]?.username || 'Unknown'
+        }));
+      }
+    }
+
+    res.json({ success: true, transactions: enriched });
+
+  } catch (error) {
+    console.error('Transactions error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─── SUPER ADMIN ONLY ───
+router.get('/admins', verifySuperAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, username, role, status, created_at')
+      .in('role', ['admin', 'super_admin']);
+
+    if (error) throw error;
+    res.json({ success: true, data: data || [] });
+
+  } catch (error) {
+    console.error('List admins error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -7,9 +7,7 @@ const cloudinary = require('cloudinary').v2;
 const { Readable } = require('stream');
 const crypto = require('crypto');
 
-// =============================================
-// CLOUDINARY CONFIG
-// =============================================
+// ─── CLOUDINARY CONFIG ───
 if (process.env.CLOUDINARY_CLOUD_NAME) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -18,9 +16,7 @@ if (process.env.CLOUDINARY_CLOUD_NAME) {
   });
 }
 
-// =============================================
-// CLOUDINARY UPLOAD HELPER
-// =============================================
+// ─── CLOUDINARY UPLOAD HELPER ───
 const uploadToCloudinary = (fileBuffer, options = {}) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -42,9 +38,7 @@ const uploadToCloudinary = (fileBuffer, options = {}) => {
   });
 };
 
-// =============================================
-// MULTER CONFIG
-// =============================================
+// ─── MULTER CONFIG ───
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
@@ -58,15 +52,8 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: fileFilter
-});
-
-// =============================================
-// TEST ROUTE
-// =============================================
-router.get('/test', (req, res) => {
-  res.json({ success: true, message: 'Rates router is working!' });
 });
 
 // =============================================
@@ -75,6 +62,7 @@ router.get('/test', (req, res) => {
 router.get('/giftcards', async (req, res) => {
   try {
     console.log('📡 [GET] /giftcards - Fetching rates');
+    
     const { data, error } = await supabaseAdmin
       .from('gift_card_rates')
       .select('*')
@@ -82,6 +70,7 @@ router.get('/giftcards', async (req, res) => {
       .order('sort_order', { ascending: true });
 
     if (error) throw error;
+    
     console.log(`✅ [GET] /giftcards - Found ${data?.length || 0} rates`);
     res.json({ success: true, rates: data || [] });
   } catch (error) {
@@ -91,7 +80,7 @@ router.get('/giftcards', async (req, res) => {
 });
 
 // =============================================
-// GET /api/rates/giftcards/:card_name — Single rate by card_name
+// GET /api/rates/giftcards/:card_name — Single rate
 // =============================================
 router.get('/giftcards/:card_name', async (req, res) => {
   try {
@@ -107,8 +96,7 @@ router.get('/giftcards/:card_name', async (req, res) => {
       .maybeSingle();
 
     if (error || !data) {
-      console.log(`❌ [GET] /giftcards/${card_name} - Rate not found`);
-      return res.status(404).json({ success: false, error: 'Rate not found for this card' });
+      return res.status(404).json({ success: false, error: 'Rate not found' });
     }
 
     console.log(`✅ [GET] /giftcards/${card_name} - Rate found:`, data.rate_ngn);
@@ -120,31 +108,7 @@ router.get('/giftcards/:card_name', async (req, res) => {
 });
 
 // =============================================
-// GET /api/rates/giftcards/type/:card_type — Rates by card_type
-// =============================================
-router.get('/giftcards/type/:card_type', async (req, res) => {
-  try {
-    const { card_type } = req.params;
-    console.log(`📡 [GET] /giftcards/type/${card_type} - Fetching rates`);
-    
-    const { data, error } = await supabaseAdmin
-      .from('gift_card_rates')
-      .select('*')
-      .eq('card_type', card_type)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
-
-    if (error) throw error;
-    console.log(`✅ [GET] /giftcards/type/${card_type} - Found ${data?.length || 0} rates`);
-    res.json({ success: true, rates: data || [] });
-  } catch (error) {
-    console.error('❌ GET /api/rates/giftcards/type/:card_type error:', error.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch rates' });
-  }
-});
-
-// =============================================
-// POST /api/rates/giftcards/sell — Sell gift card with FormData
+// POST /api/rates/giftcards/sell — SELL GIFT CARD
 // =============================================
 router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), async (req, res) => {
   console.log('='.repeat(60));
@@ -155,7 +119,6 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
   console.log('='.repeat(60));
 
   try {
-    // Extract from FormData
     const {
       card_name,
       amount_usd,
@@ -183,66 +146,73 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
       return res.status(400).json({ success: false, error: 'Valid payout wallet is required' });
     }
 
-    // ── Get current rate using card_name ──
-    console.log('🔍 [SELL] Fetching rate for:', card_name, 'Country:', country || 'any');
-
-    // Try to find rate with matching country first
+    // ── Get rate ──
     let { data: rateData, error: rateError } = await supabaseAdmin
       .from('gift_card_rates')
       .select('*')
       .eq('card_name', card_name)
       .eq('is_active', true);
 
-    // If we have data, try to find matching country
-    if (rateData && rateData.length > 0) {
-      // Try to find exact country match
-      let matchedRate = null;
-      if (country && country.trim() !== '') {
-        matchedRate = rateData.find(r => r.country === country);
-      }
-      // If no country match, use the first one (usually Global or US)
-      if (!matchedRate) {
-        matchedRate = rateData[0];
-      }
-      rateData = matchedRate;
-    } else {
-      rateData = null;
+    if (rateError) {
+      console.error('Rate fetch error:', rateError);
+      return res.status(500).json({ success: false, error: 'Failed to fetch rate' });
     }
 
-    if (!rateData) {
-      console.error('❌ [SELL] Rate not found for:', card_name);
-      return res.status(404).json({ 
-        success: false, 
-        error: `No active rate found for: ${card_name}. Please check the card name.` 
-      });
+    if (!rateData || rateData.length === 0) {
+      // Try case-insensitive search
+      const { data: fallbackData } = await supabaseAdmin
+        .from('gift_card_rates')
+        .select('*')
+        .ilike('card_name', `%${card_name}%`)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (fallbackData && fallbackData.length > 0) {
+        rateData = fallbackData;
+      } else {
+        return res.status(404).json({ 
+          success: false, 
+          error: `No active rate found for: ${card_name}` 
+        });
+      }
     }
 
-    console.log('✅ [SELL] Rate found:', rateData.rate_ngn, 'Country:', rateData.country);
+    // Find matching country or use first
+    let matchedRate = null;
+    if (country && country.trim() !== '') {
+      matchedRate = rateData.find(r => r.country === country);
+    }
+    if (!matchedRate) {
+      matchedRate = rateData[0];
+    }
+
+    const rate = parseFloat(matchedRate.rate_ngn);
+    console.log('✅ [SELL] Rate found:', rate, 'Country:', matchedRate.country);
 
     // ── Calculate payout ──
-    const rate = parseFloat(rateData.rate_ngn);
     let payoutAmount = amount * rate;
 
+    // ── Promo code ──
     let promoDiscount = 0;
     if (promo_code) {
-      const { data: promoData } = await supabaseAdmin
-        .from('promo_codes')
-        .select('*')
-        .eq('code', promo_code.toUpperCase())
-        .eq('is_active', true)
-        .maybeSingle();
+      try {
+        const { data: promoData } = await supabaseAdmin
+          .from('promo_codes')
+          .select('*')
+          .eq('code', promo_code.toUpperCase())
+          .eq('is_active', true)
+          .maybeSingle();
 
-      if (promoData) {
-        promoDiscount = parseFloat(promoData.discount_percent) || 0;
-        payoutAmount = payoutAmount * (1 - promoDiscount / 100);
-        console.log('🎫 [SELL] Promo applied:', { promo_code, promoDiscount });
-      }
+        if (promoData) {
+          promoDiscount = parseFloat(promoData.discount_percent) || 0;
+          payoutAmount = payoutAmount * (1 - promoDiscount / 100);
+          console.log('🎫 [SELL] Promo applied:', { promo_code, promoDiscount });
+        }
+      } catch (e) { /* ignore */ }
     }
 
-    // ── Get wallet balance ──
+    // ── Get user wallet ──
     const walletField = payoutWallet === 'USD' ? 'wallet_usd' : 'wallet_ngn';
-    console.log('👛 [SELL] Wallet field:', walletField);
-    
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('*')
@@ -250,14 +220,12 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
       .maybeSingle();
 
     if (profileError || !profile) {
-      console.error('❌ [SELL] Profile not found:', profileError);
       return res.status(404).json({ success: false, error: 'Profile not found' });
     }
 
     const currentBalance = parseFloat(profile[walletField] || 0);
-    console.log('💰 [SELL] Current balance:', currentBalance);
 
-    // ── Upload files to Cloudinary ──
+    // ── Upload images ──
     const files = req.files || [];
     const imageUrls = [];
 
@@ -270,9 +238,8 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
             public_id: `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
           });
           imageUrls.push(result.secure_url);
-          console.log('✅ [SELL] Uploaded image:', result.secure_url);
         } catch (err) {
-          console.error('❌ [SELL] Cloudinary upload error:', err);
+          console.error('Cloudinary upload error:', err);
         }
       }
     }
@@ -281,7 +248,7 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
     const orderRef = 'SGC-' + Date.now().toString(36).toUpperCase() + '-' + 
                      Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // ── Create order in gift_card_orders table ──
+    // ── Create order ──
     const orderData = {
       user_id: req.user.id,
       order_ref: orderRef,
@@ -304,8 +271,6 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
       updated_at: new Date().toISOString()
     };
 
-    console.log('📦 [SELL] Creating gift card order:', orderData);
-
     const { data: order, error: orderError } = await supabaseAdmin
       .from('gift_card_orders')
       .insert(orderData)
@@ -313,7 +278,7 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
       .maybeSingle();
 
     if (orderError || !order) {
-      console.error('❌ [SELL] Order creation error:', orderError);
+      console.error('Order creation error:', orderError);
       return res.status(500).json({ 
         success: false, 
         error: 'Failed to create order',
@@ -321,16 +286,12 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
       });
     }
 
-    console.log('✅ [SELL] Order created:', order.id);
-
     // ── Credit wallet ──
     const newBalance = currentBalance + payoutAmount;
     await supabaseAdmin
       .from('profiles')
       .update({ [walletField]: newBalance })
       .eq('id', req.user.id);
-
-    console.log('💰 [SELL] New balance:', newBalance);
 
     // ── Create transaction ──
     await supabaseAdmin
@@ -354,7 +315,7 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
         created_at: new Date().toISOString()
       });
 
-    // ── Send notification ──
+    // ── Notification ──
     await supabaseAdmin
       .from('notifications')
       .insert({
@@ -379,14 +340,7 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
         new_balance: newBalance,
         rate: rate,
         promo_discount: promoDiscount,
-        images_uploaded: imageUrls.length,
-        user: {
-          id: profile.id,
-          email: profile.email,
-          username: profile.username,
-          wallet_ngn: profile.wallet_ngn,
-          wallet_usd: profile.wallet_usd
-        }
+        images_uploaded: imageUrls.length
       }
     });
 
@@ -397,183 +351,6 @@ router.post('/giftcards/sell', authMiddleware, upload.array('card_images', 5), a
       error: 'Failed to process gift card sale',
       details: error.message 
     });
-  }
-});
-
-// =============================================
-// GET /api/rates/giftcards/orders — User's gift card orders
-// =============================================
-router.get('/giftcards/orders', authMiddleware, async (req, res) => {
-  try {
-    const { status, page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
-
-    let query = supabaseAdmin
-      .from('gift_card_orders')
-      .select('*', { count: 'exact' })
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (status && status !== 'all') {
-      query = query.eq('status', status);
-    }
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-
-    res.json({
-      success: true,
-      data: data || [],
-      count,
-      page: parseInt(page),
-      totalPages: Math.ceil(count / limit)
-    });
-  } catch (error) {
-    console.error('GET /api/rates/giftcards/orders error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch orders' });
-  }
-});
-
-// =============================================
-// GET /api/rates/giftcards/order/:id — Single gift card order
-// =============================================
-router.get('/giftcards/order/:id', authMiddleware, async (req, res) => {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('gift_card_orders')
-      .select('*')
-      .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
-      .maybeSingle();
-
-    if (error || !data) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-
-    res.json({ success: true, data });
-  } catch (error) {
-    console.error('GET /api/rates/giftcards/order/:id error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch order' });
-  }
-});
-
-// =============================================
-// POST /api/rates/giftcards/order/:id/cancel — Cancel gift card order
-// =============================================
-router.post('/giftcards/order/:id/cancel', authMiddleware, async (req, res) => {
-  try {
-    const { data: order, error: findError } = await supabaseAdmin
-      .from('gift_card_orders')
-      .select('*')
-      .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
-      .maybeSingle();
-
-    if (findError || !order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-
-    if (order.status !== 'pending') {
-      return res.status(400).json({ success: false, error: 'Only pending orders can be cancelled' });
-    }
-
-    // Refund wallet
-    if (parseFloat(order.payout_amount) > 0) {
-      const walletField = order.payout_wallet === 'USD' ? 'wallet_usd' : 'wallet_ngn';
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select(walletField)
-        .eq('id', req.user.id)
-        .maybeSingle();
-
-      if (profile) {
-        const currentBalance = parseFloat(profile[walletField] || 0);
-        await supabaseAdmin
-          .from('profiles')
-          .update({ [walletField]: currentBalance - parseFloat(order.payout_amount) })
-          .eq('id', req.user.id);
-      }
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('gift_card_orders')
-      .update({
-        status: 'cancelled',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', order.id)
-      .select()
-      .maybeSingle();
-
-    res.json({ success: true, message: 'Order cancelled', data });
-  } catch (error) {
-    console.error('POST /api/rates/giftcards/order/:id/cancel error:', error);
-    res.status(500).json({ success: false, error: 'Failed to cancel order' });
-  }
-});
-
-// =============================================
-// POST /api/rates/giftcards/order/:id/upload — Upload image for gift card order
-// =============================================
-router.post('/giftcards/order/:id/upload', authMiddleware, upload.single('image'), async (req, res) => {
-  try {
-    const { data: order, error: findError } = await supabaseAdmin
-      .from('gift_card_orders')
-      .select('*')
-      .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
-      .maybeSingle();
-
-    if (findError || !order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'No image uploaded' });
-    }
-
-    let imageUrl = null;
-
-    if (process.env.CLOUDINARY_CLOUD_NAME) {
-      try {
-        const result = await uploadToCloudinary(req.file.buffer, {
-          folder: `milesspace/giftcards/${order.id}`,
-          resource_type: 'image',
-          public_id: `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
-        });
-        imageUrl = result.secure_url;
-      } catch (err) {
-        console.error('Cloudinary upload error:', err);
-        return res.status(500).json({ success: false, error: 'Failed to upload image' });
-      }
-    } else {
-      imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('gift_card_orders')
-      .update({
-        image_url: imageUrl,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', order.id)
-      .select()
-      .maybeSingle();
-
-    if (error) throw error;
-
-    res.json({
-      success: true,
-      message: 'Image uploaded successfully',
-      data: {
-        ...data,
-        image_url: imageUrl
-      }
-    });
-  } catch (error) {
-    console.error('POST /api/rates/giftcards/order/:id/upload error:', error);
-    res.status(500).json({ success: false, error: 'Failed to upload image' });
   }
 });
 

@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ticker Manager — MilesSpace Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --navy: #0c3d4a;
+            --navy-light: #12556a;
+            --navy-deep: #082a33;
+            --gold: #f59e0b;
+            --gold-soft: #fde3ad;
+            --white: #ffffff;
+            --bg: #f4f7fb;
+            --bg-card: rgba(255, 255, 255, 0.72);
+            --border: rgba(12, 61, 74, 0.08);
+            --text: #0c1f26;
+            --text-dim: #5b7480;
+            --text-faint: #8fa3ab;
+            --success: #16a34a;
+            --success-bg: #e9f9ef;
+            --danger: #dc2626;
+            --danger-bg: #fdecec;
+            --warn: #f59e0b;
+            --warn-bg: #fef3d9;
+            --info: #2563a8;
+            --info-bg: #e8f1fb;
+            --purple: #8b5cf6;
+            --purple-bg: #ede9fe;
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --shadow-sm: 0 1px 2px rgba(8, 42, 51, 0.06);
+            --shadow-md: 0 8px 24px -8px rgba(8, 42, 51, 0.16);
+            --shadow-lg: 0 16px 48px -12px rgba(8, 42, 51, 0.26);
+            --sidebar-w: 260px;
+            --topbar-h: 68px;
+            --transition: 180ms cubic-bezier(.4, 0, .2, 1);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            width: 100%;
+        }
+        .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        
+        /* ─── SIDEBAR ─── */
+        .sidebar {
+            background: linear-gradient(180deg, var(--navy-deep), var(--navy) 70%);
+            color: #eaf6f8;
+            padding: 22px 16px 18px;
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            z-index: 40;
+            transition: transform var(--transition);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.4); border-radius: 99px; }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 6px 10px 22px;
+            flex-shrink: 0;
+        }
+        .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+        .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+        .brand-text strong { font-size: 15.5px; font-weight: 800; }
+        .brand-text span { font-size: 11px; color: #9fd4de; letter-spacing: .06em; text-transform: uppercase; }
+        .nav-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
+        .nav-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: #6fa2ad; font-weight: 700; padding: 14px 12px 6px; }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 9.5px 12px;
+            border-radius: 10px;
+            color: #cfe7ea;
+            font-size: 13.6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background var(--transition), color var(--transition);
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .nav-item .ic { width: 18px; text-align: center; font-size: 14.5px; flex-shrink: 0; }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+        .nav-item.active { background: rgba(245, 158, 11, 0.14); color: #ffd899; border-color: rgba(245, 158, 11, 0.28); font-weight: 600; }
+        .nav-item .badge-count { margin-left: auto; background: var(--gold); color: var(--navy-deep); font-size: 10.5px; font-weight: 800; padding: 1.5px 6.5px; border-radius: 99px; }
+        .sidebar-foot {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 12px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-left: 6px;
+            flex-shrink: 0;
+        }
+        .sidebar-foot .av {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg, #25748a, #0c3d4a);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 12.5px; color: #fff;
+            border: 1.5px solid rgba(255, 255, 255, 0.18);
+        }
+        .sidebar-foot .who { display: flex; flex-direction: column; line-height: 1.2; }
+        .sidebar-foot .who strong { font-size: 12.8px; color: #fff; }
+        .sidebar-foot .who span { font-size: 11px; color: #8fbac2; }
+
+        /* ─── MAIN ─── */
+        .main { min-width: 0; display: flex; flex-direction: column; }
+        .topbar {
+            height: var(--topbar-h);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 26px;
+            background: var(--bg-card);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+        .topbar-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .page-title { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+        .page-title h1 { margin: 0; font-size: clamp(16px, 2.4vw, 19px); font-weight: 800; }
+        .breadcrumb { font-size: 11px; color: var(--text-faint); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; flex-wrap: wrap; }
+        .breadcrumb a { color: var(--text-faint); text-decoration: none; }
+        .breadcrumb a:hover { color: var(--gold); }
+        .breadcrumb .bc-sep { color: var(--text-faint); opacity: .5; }
+        .breadcrumb [aria-current="page"] { color: var(--text-dim); font-weight: 600; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+        .icon-btn {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            position: relative;
+            color: var(--navy);
+            font-size: 15px;
+            transition: transform var(--transition), background var(--transition);
+        }
+        .icon-btn:hover { transform: translateY(-1px); background: var(--gold-soft); color: var(--navy-deep); }
+        .admin-chip {
+            display: flex; align-items: center; gap: 9px;
+            padding: 5px 10px 5px 5px;
+            border-radius: 99px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            cursor: pointer;
+        }
+        .admin-chip .av {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold), #d97e06);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 800;
+            color: var(--navy-deep);
+        }
+        .admin-chip .info { display: flex; flex-direction: column; line-height: 1.15; }
+        .admin-chip .info strong { font-size: 12.3px; }
+        .admin-chip .info span { font-size: 10.5px; color: var(--text-dim); }
+
+        /* ─── CONTENT ─── */
+        .content { 
+            padding: clamp(12px, 2vw, 22px); 
+            min-width: 0; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            width: 100%;
+        }
+
+        /* ✅ FIX: Card stacking context fix */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            backdrop-filter: blur(10px);
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+        /* ✅ FIX: When dropdown is open, lift the entire card above siblings */
+        .card.dropdown-active { 
+            z-index: 1000; 
+        }
+
+        .panel { padding: clamp(14px, 2vw, 20px); }
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .panel-head h3 { 
+            font-size: clamp(14px, 2vw, 16px); 
+            margin: 0; 
+            font-weight: 700; 
+        }
+        .panel-head .hint { 
+            font-size: clamp(10px, 1.4vw, 12px); 
+            color: var(--text-faint); 
+        }
+
+        .btn {
+            padding: clamp(6px, 1vw, 10px) clamp(12px, 1.5vw, 18px);
+            border-radius: 8px;
+            border: none;
+            font-size: clamp(12px, 1.4vw, 14px);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+            min-height: 36px;
+        }
+        .btn-primary { background: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--navy-light); transform: translateY(-1px); }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-success:hover { background: #059669; transform: translateY(-1px); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { background: #dc2626; transform: translateY(-1px); }
+        .btn-warning { background: var(--warn); color: #fff; }
+        .btn-warning:hover { background: #d97706; transform: translateY(-1px); }
+        .btn-sm { padding: 4px 10px; font-size: 11px; min-height: 28px; }
+        .btn-xs { padding: 2px 6px; font-size: 10px; min-height: 24px; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+        .btn-outline:hover { background: var(--bg); border-color: var(--text); }
+        .btn-block { width: 100%; justify-content: center; }
+
+        /* ─── ICON PICKER ─── */
+        .icon-picker-wrap {
+            position: relative;
+            width: 100%;
+        }
+        .icon-picker-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: clamp(6px, 1vw, 10px) clamp(8px, 1vw, 12px);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--white);
+            cursor: pointer;
+            font-size: clamp(18px, 2.5vw, 24px);
+            min-height: 36px;
+            transition: border 0.2s;
+        }
+        .icon-picker-btn:hover { border-color: var(--navy); }
+        .icon-picker-btn .selected-icon { display: flex; align-items: center; gap: 8px; }
+        .icon-picker-btn .arrow { font-size: 12px; color: var(--text-faint); }
+        
+        .icon-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            padding: 8px;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 4px;
+        }
+        .icon-dropdown.open { display: grid; }
+        .icon-dropdown .icon-option {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+        .icon-dropdown .icon-option:hover {
+            background: var(--bg);
+            border-color: var(--border);
+            transform: scale(1.1);
+        }
+        .icon-dropdown .icon-option.selected {
+            background: var(--gold-soft);
+            border-color: var(--gold);
+        }
+        .icon-dropdown::-webkit-scrollbar { width: 4px; }
+        .icon-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* ─── FORM ─── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label {
+            font-size: clamp(10px, 1.2vw, 12px);
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .finp {
+            padding: clamp(6px, 1vw, 10px) clamp(8px, 1vw, 12px);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: clamp(13px, 1.4vw, 15px);
+            font-family: 'Inter', sans-serif;
+            background: var(--white);
+            transition: border 0.2s;
+            width: 100%;
+            min-height: 36px;
+        }
+        .finp:focus { outline: none; border-color: var(--navy); }
+        .finp::placeholder { color: var(--text-faint); }
+
+        /* ─── TICKER LIST ─── */
+        .ticker-list { display: flex; flex-direction: column; gap: 8px; }
+        .ticker-item-row {
+            display: grid;
+            grid-template-columns: 16px 30px 1fr auto auto;
+            align-items: center;
+            gap: 10px;
+            padding: clamp(8px, 1.2vw, 14px) clamp(10px, 1.5vw, 16px);
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            transition: all 0.2s;
+            min-height: 50px;
+        }
+        .ticker-item-row:hover { border-color: var(--navy); box-shadow: var(--shadow-sm); }
+        .ticker-item-row .ti-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .ticker-item-row .ti-status.active { background: var(--success); }
+        .ticker-item-row .ti-status.inactive { background: var(--text-faint); }
+        
+        .ticker-item-row .ti-icon { 
+            font-size: clamp(18px, 2.5vw, 24px); 
+            flex-shrink: 0; 
+            text-align: center; 
+        }
+        .ticker-item-row .ti-text { 
+            font-size: clamp(12px, 1.4vw, 14px); 
+            font-weight: 500; 
+            min-width: 60px;
+            word-break: break-word;
+        }
+        .ticker-item-row .ti-badge {
+            font-size: clamp(9px, 1vw, 11px);
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--warn-bg);
+            color: #92400e;
+            white-space: nowrap;
+        }
+        .ticker-item-row .ti-link {
+            font-size: clamp(10px, 1.2vw, 12px);
+            color: var(--info);
+            font-weight: 500;
+            white-space: nowrap;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ticker-item-row .ti-actions { 
+            display: flex; 
+            gap: 4px; 
+            flex-shrink: 0; 
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        /* ─── EDIT MODE ─── */
+        .ticker-item-row.editing {
+            grid-template-columns: 1fr;
+            gap: 10px;
+            background: var(--warn-bg);
+            border-color: var(--gold);
+            padding: clamp(12px, 1.5vw, 16px);
+        }
+        .ticker-item-row.editing .edit-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr auto;
+            gap: 8px;
+            align-items: end;
+        }
+        .ticker-item-row.editing .edit-row .form-group { margin: 0; }
+        .ticker-item-row.editing .edit-row .finp {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: var(--white);
+            min-height: 32px;
+        }
+        .ticker-item-row.editing .edit-actions {
+            display: flex;
+            gap: 4px;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 2px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-faint);
+        }
+        .empty-state i { font-size: 32px; display: block; margin-bottom: 12px; }
+
+        /* ─── TOAST ─── */
+        .toast-stack {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 200;
+            max-width: calc(100vw - 44px);
+        }
+        .toast {
+            background: var(--navy-deep);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: clamp(12px, 1.4vw, 14px);
+            font-weight: 600;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+            animation: toastIn .25s ease;
+            border-left: 3px solid var(--gold);
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+
+        /* ─── PREVIEW ─── */
+        .preview-section {
+            background: var(--bg);
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            padding: clamp(10px, 1.2vw, 14px);
+            margin-top: 10px;
+        }
+        .preview-section .ticker-wrap {
+            overflow: hidden;
+            position: relative;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 0;
+        }
+        .preview-section .ticker-track {
+            display: flex;
+            gap: 12px;
+            animation: tickerPreview 20s linear infinite;
+            width: max-content;
+            padding: 4px 0;
+        }
+        .preview-section .ticker-track:hover { animation-play-state: paused; }
+        .preview-section .ticker-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 99px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .preview-section .ticker-item .ti-icon { font-size: 16px; }
+        .preview-section .ticker-item .ti-text { font-size: 12px; font-weight: 500; }
+        .preview-section .ticker-item .ti-badge {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+        @keyframes tickerPreview { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        .hamburger {
+            display: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--navy);
+        }
+        .scrim {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .4);
+            z-index: 39;
+            display: none;
+        }
+        .scrim.show { display: block; }
+
+        /* ─── MOBILE RESPONSIVE ─── */
+        @media (max-width: 1024px) {
+            .app { grid-template-columns: 1fr; }
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                transform: translateX(-100%);
+                width: 280px;
+                box-shadow: var(--shadow-lg);
+                z-index: 50;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .hamburger { display: flex; }
+            .content { padding: 14px; }
+        }
+
+        @media (max-width: 768px) {
+            .topbar { padding: 0 14px; gap: 10px; }
+            .topbar-left { gap: 8px; }
+            .breadcrumb { font-size: 10px; }
+            .page-title h1 { font-size: 16px; }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .form-grid .form-group:last-child {
+                margin-top: 4px;
+            }
+            .btn { width: 100%; justify-content: center; }
+            
+            .ticker-item-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                padding: 12px;
+            }
+            .ticker-item-row .ti-text { 
+                font-size: 13px; 
+                order: 3;
+                grid-column: 1 / -1;
+            }
+            .ticker-item-row .ti-icon { order: 1; }
+            .ticker-item-row .ti-status { order: 2; }
+            .ticker-item-row .ti-badge { order: 4; }
+            .ticker-item-row .ti-link { order: 5; }
+            .ticker-item-row .ti-actions { 
+                order: 6; 
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            
+            .ticker-item-row.editing .edit-row {
+                grid-template-columns: 1fr;
+            }
+            .ticker-item-row.editing .edit-actions {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .ticker-item-row.editing .edit-actions .btn {
+                flex: 1;
+                justify-content: center;
+                min-width: 80px;
+            }
+            
+            .preview-section .ticker-item .ti-text { font-size: 10px; }
+            .preview-section .ticker-item { padding: 4px 10px; gap: 4px; }
+            
+            .toast-stack { bottom: 14px; right: 14px; }
+            .toast { padding: 10px 14px; font-size: 12px; min-width: 160px; }
+            
+            .admin-chip .info { display: none; }
+            .icon-btn { width: 34px; height: 34px; font-size: 13px; }
+        }
+
+        @media (max-width: 480px) {
+            .content { padding: 10px; }
+            .panel { padding: 12px; }
+            .panel-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+            .panel-head .hint { font-size: 10px; }
+            
+            .ticker-item-row .ti-text { font-size: 12px; }
+            .ticker-item-row .ti-actions .btn-xs { 
+                padding: 2px 6px; 
+                font-size: 9px; 
+                min-height: 22px; 
+            }
+            .btn { 
+                font-size: 12px; 
+                padding: 6px 12px; 
+                min-height: 32px; 
+            }
+            .btn-sm { font-size: 10px; padding: 3px 8px; min-height: 24px; }
+            
+            .preview-section .ticker-item .ti-text { font-size: 9px; }
+            .preview-section .ticker-item .ti-icon { font-size: 12px; }
+            
+            .topbar { padding: 0 10px; height: 56px; }
+            .page-title h1 { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- ─── SIDEBAR ─── -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <img src="../images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+                <div class="brand-text"><strong>MilesSpace</strong><span>Admin Control</span></div>
+            </div>
+            <div class="nav-scroll">
+                <div class="nav-label">Main</div>
+                <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
+                <a href="/admin/ticker-manager" class="nav-item active"><span class="ic">📢</span>Ticker Manager</a>
+                <a href="/admin/sellgift" class="nav-item"><span class="ic">💳</span>Gift Cards</a>
+                <a href="/admin/Sendgift" class="nav-item"><span class="ic">🎁</span>Gift Delivery</a>
+                <a href="/admin/marketplace-products" class="nav-item"><span class="ic">📦</span>Products</a>
+                <a href="/admin/wallet-deposits" class="nav-item"><span class="ic">📈</span>Wallet</a>
+                <a href="/admin/virtual-sms" class="nav-item"><span class="ic">📱</span>Virtual SMS</a>
+                <div class="nav-label">Intelligence</div>
+                <a href="#" class="nav-item"><span class="ic">🟢</span>Live Users</a>
+                <a href="#" class="nav-item"><span class="ic">🌍</span>Geographic</a>
+                <a href="#" class="nav-item"><span class="ic">💰</span>Wallet Intel</a>
+                <div class="nav-label">Other</div>
+                <a href="/admin/users" class="nav-item"><span class="ic">👥</span>Users</a>
+                <a href="/admin/reports" class="nav-item"><span class="ic">📊</span>Reports</a>
+                <a href="/admin/support" class="nav-item"><span class="ic">💬</span>Support</a>
+                <a href="/admin/messages" class="nav-item"><span class="ic">💬</span>Messages</a>
+                <a href="/admin/notifications" class="nav-item"><span class="ic">🔔</span>Notifications</a>
+                <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span>Settings</a>
+            </div>
+            <div class="sidebar-foot">
+                <div class="av" id="adminAvatar">DA</div>
+                <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Super Admin</span></div>
+            </div>
+        </aside>
+        <div class="scrim" id="scrim"></div>
+
+        <!-- ─── MAIN ─── -->
+        <div class="main">
+            <header class="topbar">
+                <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+                <div class="topbar-left">
+                    <div class="page-title">
+                        <nav class="breadcrumb"><a href="/admin/dashboard">Home</a><span class="bc-sep">/</span><span aria-current="page">Ticker Manager</span></nav>
+                        <h1>📢 Ticker Manager</h1>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="icon-btn" id="refreshBtn" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                    <div class="admin-chip" id="adminChip">
+                        <div class="av" id="chipAvatar">DA</div>
+                        <div class="info"><strong id="chipName">Admin</strong><span id="chipRole">Super Admin</span></div>
+                        <span style="font-size:10px;color:var(--text-faint);">▾</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- ─── ADD FORM ─── -->
+                <div class="card panel" id="addCard">
+                    <div class="panel-head">
+                        <h3>➕ Add New Ticker Item</h3>
+                        <span class="hint">Items appear on dashboard ticker</span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Text <span style="color:var(--danger)">*</span></label>
+                            <input type="text" id="tickerText" class="finp" placeholder="Message to display...">
+                        </div>
+                        <div class="form-group">
+                            <label>Icon</label>
+                            <div class="icon-picker-wrap">
+                                <div class="icon-picker-btn" onclick="toggleIconPicker('add')">
+                                    <span class="selected-icon"><span id="addIconDisplay">📌</span> <span style="font-size:12px;color:var(--text-faint);">Choose icon</span></span>
+                                    <span class="arrow"><i class="fas fa-chevron-down"></i></span>
+                                </div>
+                                <div class="icon-dropdown" id="addIconDropdown"></div>
+                            </div>
+                            <input type="hidden" id="tickerIcon" value="📌">
+                        </div>
+                        <div class="form-group">
+                            <label>Badge</label>
+                            <input type="text" id="tickerBadge" class="finp" placeholder="HOT, NEW, etc">
+                        </div>
+                        <div class="form-group">
+                            <label>Link</label>
+                            <input type="text" id="tickerLink" class="finp" placeholder="/giftcards.html">
+                        </div>
+                        <div class="form-group" style="justify-content:flex-end;">
+                            <button class="btn btn-primary" onclick="addTickerItem()"><i class="fas fa-plus"></i> Add Item</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── PREVIEW ─── -->
+                <div class="card panel" id="previewCard">
+                    <div class="panel-head">
+                        <h3>👁️ Live Preview</h3>
+                        <span class="hint">As seen on dashboard</span>
+                    </div>
+                    <div class="preview-section">
+                        <div class="ticker-wrap">
+                            <div class="ticker-track" id="previewTrack">
+                                <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:.74rem;color:var(--text-faint);">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading preview...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── LIST ─── -->
+                <div class="card panel" id="listCard">
+                    <div class="panel-head">
+                        <h3>📋 All Ticker Items</h3>
+                        <span class="hint" id="tickerCount">0 items</span>
+                    </div>
+                    <div id="tickerList" class="ticker-list">
+                        <div class="empty-state">
+                            <i class="fas fa-bullhorn"></i>
+                            <p>No ticker items yet. Add one above!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-stack" id="toastStack"></div>
+
+    <script>
+        'use strict';
+
+        // ─── CONFIG ───
+        const API_BASE = '/api/admin';
+        const SESSION_KEY = 'admin_sess';
+
+        // ─── ICON LIST ───
+        const ICONS = [
+            '📌', '📢', '🔔', '💡', '⭐', '🔥', '🎉', '🎁', '💰', '💎',
+            '🚀', '📈', '📊', '🎯', '🏆', '👑', '💪', '🤝', '🌟', '✨',
+            '🌈', '⚡', '💫', '🎊', '🎈', '🎀', '🎵', '🎶', '🎧', '📱',
+            '💻', '🖥️', '⌚', '📷', '🎥', '📹', '🎬', '🎭', '🎨', '🎪',
+            '🎢', '🎠', '🎡', '🎳', '🎮', '🕹️', '🎲', '♟️', '🎯', '🏀',
+            '⚽', '🏈', '🎾', '🏐', '🏓', '🏸', '🥊', '🥋', '⛳', '🏌️',
+            '🏂', '⛷️', '🎿', '🏄', '🏊', '🚴', '🧗', '🤸', '🏋️', '🤼',
+            '🌍', '🌎', '🌏', '🌺', '🌸', '🌼', '🌻', '🌹', '🌷', '🌿',
+            '🍀', '🌴', '🌳', '🌲', '🍃', '🍂', '🍁', '🍄', '🌾', '🌱',
+            '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍑', '🍒',
+            '🥝', '🍍', '🥭', '🍕', '🍔', '🍟', '🌭', '🍿', '🧁', '🍰',
+            '🎂', '🍩', '🍪', '☕', '🍵', '🍺', '🍷', '🥂', '🍾', '🎄',
+            '🎃', '🦃', '🎅', '🤶', '🧑‍🎄', '🕊️', '🦋', '🐝', '🐞', '🦄',
+            '🐉', '🐲', '🐳', '🐬', '🐟', '🐠', '🐡', '🦈', '🐙', '🦑'
+        ];
+
+        // ─── SESSION ───
+        function getAdminToken() {
+            try {
+                const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+                return raw ? JSON.parse(raw).token : null;
+            } catch { return null; }
+        }
+
+        function getAdminSession() {
+            try {
+                const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        function getInitials(name) {
+            if (!name) return 'U';
+            return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        }
+
+        // ─── TOAST ───
+        function showToast(message, type = 'info') {
+            const stack = document.getElementById('toastStack');
+            if (!stack) return;
+            const el = document.createElement('div');
+            el.className = 'toast ' + type;
+            const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+            el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+            stack.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(30px)';
+                el.style.transition = 'all .25s ease';
+                setTimeout(() => el.remove(), 260);
+            }, 3200);
+        }
+
+        // ─── API ───
+        async function adminFetch(endpoint, options = {}) {
+            const token = getAdminToken();
+            if (!token) {
+                showToast('Not authenticated', 'error');
+                window.location.href = '/admin/login';
+                return;
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                ...options.headers
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+                if (response.status === 401) {
+                    showToast('Session expired', 'error');
+                    window.location.href = '/admin/login';
+                    return;
+                }
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Request failed');
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // ─── ICON PICKER ───
+        function renderIconPicker(targetId, selectedIcon) {
+            const dropdown = document.getElementById(targetId);
+            if (!dropdown) return;
+            
+            dropdown.innerHTML = ICONS.map(icon => `
+                <div class="icon-option ${icon === selectedIcon ? 'selected' : ''}" 
+                     onclick="selectIcon('${targetId}', '${icon}')" 
+                     title="${icon}">
+                    ${icon}
+                </div>
+            `).join('');
+        }
+
+        // ✅ FIX: Updated to handle card stacking context
+        function toggleIconPicker(target) {
+            const dropdownId = target === 'add' ? 'addIconDropdown' : `edit-dropdown-${target}`;
+            const dropdown = document.getElementById(dropdownId);
+            if (!dropdown) return;
+
+            const isOpen = dropdown.classList.contains('open');
+
+            // Close all dropdowns and remove elevated stacking from all cards
+            document.querySelectorAll('.icon-dropdown.open').forEach(d => {
+                d.classList.remove('open');
+                d.closest('.card')?.classList.remove('dropdown-active');
+            });
+
+            if (!isOpen) {
+                dropdown.classList.add('open');
+                // ✅ Lift the parent card above siblings
+                dropdown.closest('.card')?.classList.add('dropdown-active');
+            }
+        }
+
+        // ✅ FIX: Updated to handle card stacking context
+        function selectIcon(targetId, icon) {
+            if (targetId === 'addIconDropdown') {
+                document.getElementById('addIconDisplay').textContent = icon;
+                document.getElementById('tickerIcon').value = icon;
+                const dd = document.getElementById('addIconDropdown');
+                dd.classList.remove('open');
+                dd.closest('.card')?.classList.remove('dropdown-active');
+            } else {
+                const id = targetId.replace('edit-dropdown-', '');
+                document.getElementById(`edit-icon-display-${id}`).textContent = icon;
+                document.getElementById(`edit-icon-${id}`).value = icon;
+                const dd = document.getElementById(`edit-dropdown-${id}`);
+                dd.classList.remove('open');
+                dd.closest('.card')?.classList.remove('dropdown-active');
+            }
+        }
+
+        // ─── LOAD TICKER ───
+        async function loadTicker() {
+            try {
+                const result = await adminFetch('/ticker/items');
+                if (result?.success) {
+                    renderTicker(result.data || []);
+                    renderPreview(result.data || []);
+                }
+            } catch (error) {
+                console.error('Load ticker error:', error);
+                document.getElementById('tickerList').innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle" style="color:var(--danger);"></i>
+                        <p>Error loading ticker items: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ─── RENDER TICKER ───
+        let editingId = null;
+
+        function renderTicker(items) {
+            const list = document.getElementById('tickerList');
+            const count = document.getElementById('tickerCount');
+
+            if (!items || items.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-bullhorn"></i>
+                        <p>No ticker items yet. Add one above!</p>
+                    </div>
+                `;
+                if (count) count.textContent = '0 items';
+                return;
+            }
+
+            if (count) count.textContent = `${items.length} items`;
+
+            list.innerHTML = items.map(item => {
+                const isEditing = editingId === item.id;
+                
+                if (isEditing) {
+                    return `
+                        <div class="ticker-item-row editing" data-id="${item.id}">
+                            <div class="edit-row">
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:9px;">Text</label>
+                                    <input type="text" class="finp" id="edit-text-${item.id}" value="${item.text || ''}" placeholder="Text">
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:9px;">Icon</label>
+                                    <div class="icon-picker-wrap">
+                                        <div class="icon-picker-btn" onclick="toggleIconPicker('${item.id}')" style="min-height:32px;padding:4px 8px;font-size:16px;">
+                                            <span class="selected-icon"><span id="edit-icon-display-${item.id}">${item.icon || '📌'}</span></span>
+                                            <span class="arrow"><i class="fas fa-chevron-down" style="font-size:10px;"></i></span>
+                                        </div>
+                                        <div class="icon-dropdown" id="edit-dropdown-${item.id}"></div>
+                                    </div>
+                                    <input type="hidden" id="edit-icon-${item.id}" value="${item.icon || '📌'}">
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:9px;">Badge</label>
+                                    <input type="text" class="finp" id="edit-badge-${item.id}" value="${item.badge || ''}" placeholder="Badge">
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:9px;">Link</label>
+                                    <input type="text" class="finp" id="edit-link-${item.id}" value="${item.link || ''}" placeholder="/link">
+                                </div>
+                                <div class="edit-actions" style="display:flex;gap:4px;align-items:flex-end;padding-bottom:2px;">
+                                    <button class="btn btn-sm btn-success" onclick="saveEdit('${item.id}')" title="Save">
+                                        <i class="fas fa-check"></i> Save
+                                    </button>
+                                    <button class="btn btn-sm btn-outline" onclick="cancelEdit('${item.id}')" title="Cancel">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="ticker-item-row" data-id="${item.id}">
+                        <span class="ti-status ${item.active !== false ? 'active' : 'inactive'}"></span>
+                        <span class="ti-icon">${item.icon || '📌'}</span>
+                        <span class="ti-text">${item.text || 'Untitled'}</span>
+                        ${item.badge ? `<span class="ti-badge" style="background:${item.badge_color || 'var(--warn-bg)'};color:${item.badge_color ? '#fff' : '#92400e'}">${item.badge}</span>` : ''}
+                        ${item.link ? `<span class="ti-link"><i class="fas fa-link"></i> ${item.link}</span>` : ''}
+                        <div class="ti-actions">
+                            <button class="btn btn-xs btn-outline" onclick="startEdit('${item.id}')" title="Edit">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="btn btn-xs btn-outline" onclick="toggleTicker('${item.id}', ${!item.active})" title="${item.active ? 'Deactivate' : 'Activate'}">
+                                <i class="fas ${item.active ? 'fa-pause' : 'fa-play'}"></i>
+                            </button>
+                            <button class="btn btn-xs btn-danger" onclick="deleteTicker('${item.id}')" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Render icon pickers for edit mode
+            items.forEach(item => {
+                if (editingId === item.id) {
+                    renderIconPicker(`edit-dropdown-${item.id}`, item.icon || '📌');
+                }
+            });
+        }
+
+        function renderPreview(items) {
+            const track = document.getElementById('previewTrack');
+            if (!items || items.length === 0) {
+                track.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:.74rem;color:var(--text-faint);">
+                        No items to preview
+                    </div>
+                `;
+                return;
+            }
+
+            const triple = [...items, ...items, ...items];
+            track.innerHTML = triple.map(item => `
+                <div class="ticker-item">
+                    <span class="ti-icon">${item.icon || '📌'}</span>
+                    <span class="ti-text">${item.text || ''}</span>
+                    ${item.badge ? `<span class="ti-badge" style="background:${item.badge_color || 'var(--gold)'};color:#fff;">${item.badge}</span>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // ─── START EDIT ───
+        function startEdit(id) {
+            editingId = id;
+            loadTicker();
+            setTimeout(() => {
+                const input = document.getElementById(`edit-text-${id}`);
+                if (input) input.focus();
+            }, 100);
+        }
+
+        // ─── CANCEL EDIT ───
+        function cancelEdit(id) {
+            editingId = null;
+            loadTicker();
+        }
+
+        // ─── SAVE EDIT ───
+        async function saveEdit(id) {
+            const text = document.getElementById(`edit-text-${id}`)?.value?.trim();
+            if (!text) {
+                showToast('Text is required', 'error');
+                return;
+            }
+
+            const icon = document.getElementById(`edit-icon-${id}`)?.value?.trim() || '📌';
+            const badge = document.getElementById(`edit-badge-${id}`)?.value?.trim() || '';
+            const link = document.getElementById(`edit-link-${id}`)?.value?.trim() || '';
+
+            try {
+                const result = await adminFetch(`/ticker/items/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ icon, text, badge, link })
+                });
+
+                if (result?.success) {
+                    showToast('✅ Ticker item updated!', 'success');
+                    editingId = null;
+                    await loadTicker();
+                } else {
+                    throw new Error(result?.error || 'Failed to update');
+                }
+            } catch (error) {
+                console.error('Save edit error:', error);
+                showToast(error.message || 'Failed to update', 'error');
+            }
+        }
+
+        // ─── ADD TICKER ───
+        async function addTickerItem() {
+            const text = document.getElementById('tickerText').value.trim();
+            if (!text) {
+                showToast('Please enter text', 'error');
+                document.getElementById('tickerText').focus();
+                return;
+            }
+
+            const icon = document.getElementById('tickerIcon').value.trim() || '📌';
+            const badge = document.getElementById('tickerBadge').value.trim();
+            const link = document.getElementById('tickerLink').value.trim();
+
+            const btn = event?.target || document.querySelector('.btn-primary');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+            }
+
+            try {
+                const result = await adminFetch('/ticker/items', {
+                    method: 'POST',
+                    body: JSON.stringify({ icon, text, badge, link })
+                });
+
+                if (result?.success) {
+                    showToast('✅ Ticker item added!', 'success');
+                    document.getElementById('tickerText').value = '';
+                    document.getElementById('tickerBadge').value = '';
+                    document.getElementById('tickerLink').value = '';
+                    await loadTicker();
+                } else {
+                    throw new Error(result?.error || 'Failed to add');
+                }
+            } catch (error) {
+                console.error('Add ticker error:', error);
+                showToast(error.message || 'Failed to add ticker item', 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-plus"></i> Add Item';
+                }
+            }
+        }
+
+        // ─── TOGGLE TICKER ───
+        async function toggleTicker(id, active) {
+            try {
+                const result = await adminFetch(`/ticker/items/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ active })
+                });
+
+                if (result?.success) {
+                    showToast(active ? '✅ Item activated' : '⏸️ Item deactivated', 'success');
+                    await loadTicker();
+                } else {
+                    throw new Error(result?.error || 'Failed to toggle');
+                }
+            } catch (error) {
+                console.error('Toggle ticker error:', error);
+                showToast(error.message || 'Failed to toggle', 'error');
+            }
+        }
+
+        // ─── DELETE TICKER ───
+        async function deleteTicker(id) {
+            if (!confirm('Delete this ticker item?')) return;
+
+            try {
+                const result = await adminFetch(`/ticker/items/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (result?.success) {
+                    showToast('🗑️ Ticker item deleted', 'success');
+                    await loadTicker();
+                } else {
+                    throw new Error(result?.error || 'Failed to delete');
+                }
+            } catch (error) {
+                console.error('Delete ticker error:', error);
+                showToast(error.message || 'Failed to delete', 'error');
+            }
+        }
+
+        // ─── ADMIN PROFILE ───
+        function loadAdminProfile() {
+            const session = getAdminSession();
+            if (session?.user) {
+                const name = session.user.username || session.user.email?.split('@')[0] || 'Admin';
+                const role = session.user.role || 'Admin';
+                const initials = getInitials(name);
+
+                document.getElementById('adminName').textContent = name;
+                document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+                document.getElementById('adminAvatar').textContent = initials;
+                document.getElementById('chipName').textContent = name;
+                document.getElementById('chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+                document.getElementById('chipAvatar').textContent = initials;
+            }
+        }
+
+        // ─── SIDEBAR ───
+        document.getElementById('hamburger')?.addEventListener('click', () => {
+            document.getElementById('sidebar').classList.add('open');
+            document.getElementById('scrim').classList.add('show');
+        });
+
+        document.getElementById('scrim')?.addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('scrim').classList.remove('show');
+        });
+
+        document.getElementById('adminChip')?.addEventListener('click', () => {
+            if (confirm('Logout?')) {
+                localStorage.removeItem(SESSION_KEY);
+                sessionStorage.removeItem(SESSION_KEY);
+                window.location.href = '/admin/login';
+            }
+        });
+
+        document.getElementById('refreshBtn')?.addEventListener('click', () => {
+            loadTicker();
+            showToast('🔄 Refreshed', 'info');
+        });
+
+        // ✅ FIX: Updated to remove stacking context on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.id === 'tickerText') {
+                e.preventDefault();
+                addTickerItem();
+            }
+            if (e.key === 'r' && e.ctrlKey) {
+                e.preventDefault();
+                loadTicker();
+                showToast('🔄 Refreshed', 'info');
+            }
+            if (e.key === 'Escape' && editingId) {
+                cancelEdit(editingId);
+            }
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.icon-dropdown.open').forEach(d => {
+                    d.classList.remove('open');
+                    d.closest('.card')?.classList.remove('dropdown-active');
+                });
+            }
+        });
+
+        // ✅ FIX: Updated to remove stacking context on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.icon-picker-wrap')) {
+                document.querySelectorAll('.icon-dropdown.open').forEach(d => {
+                    d.classList.remove('open');
+                    d.closest('.card')?.classList.remove('dropdown-active');
+                });
+            }
+        });
+
+        // ─── INIT ───
+        function init() {
+            const token = getAdminToken();
+            if (!token) {
+                window.location.href = '/admin/login';
+                return;
+            }
+
+            loadAdminProfile();
+            renderIconPicker('addIconDropdown', '📌');
+            loadTicker();
+
+            console.log('📢 Ticker Manager loaded');
+            console.log('✏️ Click the pen icon to edit');
+            console.log('🗑️ Click the trash icon to delete');
+            console.log('📱 Click the icon to open icon picker');
+            console.log('⌨️ Ctrl+R to refresh');
+            console.log('⌨️ Esc to cancel edit');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

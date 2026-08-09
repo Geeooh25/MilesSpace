@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>MilesSpace — Admin Intelligence Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="/js/admin-session.js"></script>
+    <script src="/js/presence.js"></script>
+    <style>
+        /* ─── ALL YOUR EXISTING STYLES ─── */
+        /* ... (keep all your styles as they are) ... */
+        :root {
+            --navy: #0c3d4a;
+            --navy-light: #12556a;
+            --navy-deep: #082a33;
+            --gold: #f59e0b;
+            --gold-soft: #fde3ad;
+            --white: #ffffff;
+            --bg: #f4f7fb;
+            --bg-card: rgba(255, 255, 255, 0.72);
+            --border: rgba(12, 61, 74, 0.08);
+            --text: #0c1f26;
+            --text-dim: #5b7480;
+            --text-faint: #8fa3ab;
+            --success: #16a34a;
+            --success-bg: #e9f9ef;
+            --danger: #dc2626;
+            --danger-bg: #fdecec;
+            --warn: #f59e0b;
+            --warn-bg: #fef3d9;
+            --info: #2563a8;
+            --info-bg: #e8f1fb;
+            --purple: #8b5cf6;
+            --purple-bg: #ede9fe;
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --shadow-sm: 0 1px 2px rgba(8, 42, 51, 0.06);
+            --shadow-md: 0 8px 24px -8px rgba(8, 42, 51, 0.16);
+            --shadow-lg: 0 16px 48px -12px rgba(8, 42, 51, 0.26);
+            --sidebar-w: 260px;
+            --topbar-h: 68px;
+            --transition: 180ms cubic-bezier(.4, 0, .2, 1);
+        }
+        html.dark {
+            --bg: #08151a;
+            --bg-card: rgba(18, 38, 44, 0.75);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #eaf3f5;
+            --text-dim: #9db4bb;
+            --text-faint: #5b7480;
+            --success-bg: rgba(22, 163, 74, 0.15);
+            --danger-bg: rgba(220, 38, 38, 0.15);
+            --warn-bg: rgba(245, 158, 11, 0.15);
+            --info-bg: rgba(37, 99, 168, 0.18);
+            --purple-bg: rgba(139, 92, 246, 0.18);
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+            --shadow-lg: 0 16px 48px -12px rgba(0, 0, 0, 0.6);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        html { overflow-x: hidden; }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            transition: background var(--transition), color var(--transition);
+            overflow-x: hidden;
+            width: 100%;
+        }
+        img, svg, canvas { max-width: 100%; }
+        .table-scroll, .sidebar, .nav-scroll, .dd-body, .feed { -webkit-overflow-scrolling: touch; }
+        ::-webkit-scrollbar { width: 9px; height: 9px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(12, 61, 74, 0.18); border-radius: 99px; }
+        html.dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.4); border-radius: 99px; }
+        .sidebar::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.6); }
+        .sidebar { scrollbar-width: thin; scrollbar-color: rgba(245, 158, 11, 0.4) transparent; }
+        .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+        .sidebar {
+            background: linear-gradient(180deg, var(--navy-deep), var(--navy) 70%);
+            color: #eaf6f8;
+            padding: 22px 16px 18px;
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            z-index: 40;
+            transition: transform var(--transition);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 6px 10px 22px;
+            flex-shrink: 0;
+        }
+        .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+        .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+        .brand-text strong { font-size: 15.5px; font-weight: 800; letter-spacing: -0.01em; }
+        .brand-text span { font-size: 11px; color: #9fd4de; letter-spacing: .06em; text-transform: uppercase; }
+        .nav-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
+        .nav-group { margin-bottom: 4px; }
+        .nav-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: #6fa2ad; font-weight: 700; padding: 14px 12px 6px; }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 9.5px 12px;
+            border-radius: 10px;
+            color: #cfe7ea;
+            font-size: 13.6px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background var(--transition), color var(--transition);
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .nav-item .ic { width: 18px; text-align: center; font-size: 14.5px; flex-shrink: 0; }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+        .nav-item.active { background: rgba(245, 158, 11, 0.14); color: #ffd899; border-color: rgba(245, 158, 11, 0.28); font-weight: 600; }
+        .nav-item .badge-count { margin-left: auto; background: var(--gold); color: var(--navy-deep); font-size: 10.5px; font-weight: 800; padding: 1.5px 6.5px; border-radius: 99px; }
+        .sidebar-foot {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 12px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-left: 6px;
+            flex-shrink: 0;
+        }
+        .sidebar-foot .av {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg, #25748a, #0c3d4a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700; font-size: 12.5px; color: #fff;
+            border: 1.5px solid rgba(255, 255, 255, 0.18);
+        }
+        .sidebar-foot .who { display: flex; flex-direction: column; line-height: 1.2; }
+        .sidebar-foot .who strong { font-size: 12.8px; color: #fff; }
+        .sidebar-foot .who span { font-size: 11px; color: #8fbac2; }
+        .main { min-width: 0; display: flex; flex-direction: column; }
+        .topbar {
+            height: var(--topbar-h);
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 26px;
+            background: var(--bg-card);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+        .hamburger {
+            display: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--navy);
+        }
+        html.dark .hamburger { background: rgba(255, 255, 255, 0.05); }
+        .topbar-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: nowrap; }
+        .page-title { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+        .page-title h1 { margin: 0; font-size: clamp(16px, 2.4vw, 19px); font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .breadcrumb { font-size: 11px; color: var(--text-faint); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .breadcrumb a { color: var(--text-faint); text-decoration: none; }
+        .breadcrumb a:hover { color: var(--gold); }
+        .breadcrumb .bc-sep { color: var(--text-faint); opacity: .5; }
+        .breadcrumb [aria-current="page"] { color: var(--text-dim); font-weight: 600; }
+        .page-title .crumb { font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .page-title .crumb .live-dot {
+            width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+            display: inline-block; margin-right: 5px;
+            box-shadow: 0 0 0 0 rgba(22, 163, 74, .6);
+            animation: pulse-dot 1.8s infinite;
+        }
+        @keyframes pulse-dot {
+            0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, .45); }
+            70% { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+        }
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            padding: 8px 12px;
+            width: 280px;
+            color: var(--text-dim);
+        }
+        html.dark .search-box { background: rgba(255, 255, 255, 0.04); }
+        .search-box input { border: none; outline: none; background: transparent; color: var(--text); font-size: 13px; width: 100%; }
+        .search-box input::placeholder { color: var(--text-faint); }
+        .kbd { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; background: var(--bg); border: 1px solid var(--border); padding: 1.5px 5px; border-radius: 5px; color: var(--text-faint); }
+        .topbar-time { font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+        .topbar-date { font-size: 11.5px; color: var(--text-dim); margin-left: 6px; }
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            color: var(--navy);
+            font-size: 15px;
+            transition: transform var(--transition), background var(--transition);
+        }
+        html.dark .icon-btn { background: rgba(255, 255, 255, 0.04); color: #dff0f2; }
+        .icon-btn:hover { transform: translateY(-1px); background: var(--gold-soft); color: var(--navy-deep); }
+        .icon-btn .dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); border: 2px solid var(--bg); }
+        .icon-btn .badge-count { position: absolute; top: -4px; right: -4px; background: var(--danger); color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 99px; min-width: 18px; text-align: center; }
+        .admin-chip {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 5px 10px 5px 5px;
+            border-radius: 99px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            cursor: pointer;
+        }
+        html.dark .admin-chip { background: rgba(255, 255, 255, 0.04); }
+        .admin-chip .av { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #d97e06); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--navy-deep); }
+        .admin-chip .info { display: flex; flex-direction: column; line-height: 1.15; }
+        .admin-chip .info strong { font-size: 12.3px; }
+        .admin-chip .info span { font-size: 10.5px; color: var(--text-dim); }
+        .content { padding: clamp(14px, 2vw, 22px) clamp(14px, 2.6vw, 26px) 60px; min-width: 0; }
+        @media(min-width: 1920px) { .content { max-width: 1800px; margin: 0 auto; } }
+        .welcome-section {
+            background: linear-gradient(135deg, var(--navy), var(--navy-deep));
+            border-radius: var(--radius-lg);
+            padding: 28px 32px;
+            color: #fff;
+            margin-bottom: 22px;
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.15), transparent 70%);
+            border-radius: 50%;
+        }
+        .welcome-section .greeting { font-size: 11px; color: rgba(255, 255, 255, 0.6); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; }
+        .welcome-section h2 { font-size: clamp(17px, 3vw, 22px); font-weight: 800; margin: 4px 0 2px; }
+        .welcome-section .sub { font-size: 14px; color: rgba(255, 255, 255, 0.7); }
+        .welcome-section .datetime { position: absolute; right: 32px; top: 50%; transform: translateY(-50%); text-align: right; color: rgba(255, 255, 255, 0.8); }
+        .welcome-section .datetime .time { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .welcome-section .datetime .date { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+        @media(max-width:768px) { .welcome-section .datetime { position: static; transform: none; text-align: left; margin-top: 10px; }
+            .welcome-section .datetime .time { font-size: 18px; } }
+        .grid { display: grid; gap: 14px; }
+        .grid.cols-6 { grid-template-columns: repeat(6, 1fr); }
+        .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+        @media(max-width:1400px) { .grid.cols-6 { grid-template-columns: repeat(3, 1fr); }
+            .grid.cols-4 { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width:900px) { .grid.cols-6 { grid-template-columns: repeat(2, 1fr); }
+            .grid.cols-4 { grid-template-columns: 1fr 1fr; }
+            .grid.cols-3 { grid-template-columns: 1fr; }
+            .grid.cols-2 { grid-template-columns: 1fr; } }
+        @media(max-width:540px) { .grid.cols-6 { grid-template-columns: repeat(2, 1fr); }
+            .grid.cols-4 { grid-template-columns: 1fr; } }
+        @media(max-width:600px) { .grid.cols-6 { grid-template-columns: 1fr; }
+            .grid.cols-4 { grid-template-columns: 1fr; } }
+        .kpi-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px 18px 14px;
+            cursor: pointer;
+            transition: transform var(--transition), box-shadow var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::after { content: '';
+            position: absolute;
+            right: -30px;
+            top: -30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--kc, rgba(245, 158, 11, 0.12)), transparent 70%);
+            pointer-events: none; }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+        .kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .kpi-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .kpi-icon.gold { background: var(--warn-bg); color: #b3720a; }
+        .kpi-icon.green { background: var(--success-bg); color: var(--success); }
+        .kpi-icon.blue { background: var(--info-bg); color: var(--info); }
+        .kpi-icon.purple { background: var(--purple-bg); color: var(--purple); }
+        .kpi-icon.red { background: var(--danger-bg); color: var(--danger); }
+        .kpi-icon.orange { background: var(--warn-bg); color: #b3720a; }
+        .trend { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; display: flex; align-items: center; gap: 3px; }
+        .trend.up { color: var(--success); background: var(--success-bg); }
+        .trend.down { color: var(--danger); background: var(--danger-bg); }
+        .trend.neutral { color: var(--text-dim); background: var(--bg); }
+        .kpi-value { font-size: clamp(16px, 2vw, 22px); font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+        .kpi-label { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; font-weight: 500; }
+        .kpi-desc { font-size: 10.3px; color: var(--text-faint); margin-top: 5px; padding-top: 6px; border-top: 1px dashed var(--border); line-height: 1.3; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); backdrop-filter: blur(10px); }
+        .panel { padding: 18px 20px; }
+        .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+        .panel-head h3 { font-size: 14px; margin: 0; font-weight: 700; }
+        .panel-head .hint { font-size: 11.5px; color: var(--text-faint); }
+        .panel-head .link { font-size: 12px; color: var(--gold); font-weight: 600; cursor: pointer; }
+        .panel-head .link:hover { text-decoration: underline; }
+        .chart-wrap { position: relative; width: 100%; }
+        .chart-wrap.h-260 { height: 260px; }
+        .chart-wrap.h-220 { height: 220px; }
+        .chart-wrap.h-200 { height: 200px; }
+        .chart-wrap.h-170 { height: 170px; }
+        .chart-wrap.h-140 { height: 140px; }
+        .feed {
+            display: flex;
+            flex-direction: column;
+            max-height: 340px;
+            overflow-y: auto;
+        }
+        .feed-item {
+            display: flex;
+            gap: 11px;
+            padding: 10px 4px;
+            border-bottom: 1px dashed var(--border);
+            animation: slidein .35s ease;
+        }
+        .feed-item:last-child { border-bottom: none; }
+        @keyframes slidein { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+        .feed-av { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--info-bg); }
+        .feed-body { font-size: 12.6px; line-height: 1.4; }
+        .feed-body b { font-weight: 700; }
+        .feed-time { font-size: 10.8px; color: var(--text-faint); margin-top: 2px; }
+        .online-user-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); transition: background var(--transition); margin-bottom: 6px; }
+        .online-user-item:hover { background: var(--bg); }
+        .online-user-item .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .online-user-item .status-dot.online { background: var(--success); box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }
+        .online-user-item .status-dot.idle { background: var(--warn); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+        .online-user-item .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--navy-light), var(--navy-deep)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+        .online-user-item .user-info { flex: 1; min-width: 0; }
+        .online-user-item .user-info .name { font-weight: 600; font-size: 13px; }
+        .online-user-item .user-info .details { font-size: 11px; color: var(--text-dim); }
+        .online-user-item .user-info .page { font-size: 10.5px; color: var(--text-faint); background: var(--bg); padding: 1px 8px; border-radius: 99px; display: inline-block; margin-top: 2px; }
+        .online-user-item .session-time { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+        .qa-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .qa-card { padding: 14px 12px; text-align: center; border-radius: 14px; cursor: pointer; background: var(--bg-card); border: 1px solid var(--border); transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition); }
+        .qa-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: rgba(245, 158, 11, 0.4); }
+        .qa-card .qa-ic { font-size: 22px; display: block; margin-bottom: 6px; }
+        .qa-card .qa-title { font-size: 12px; font-weight: 600; }
+        .qa-card .qa-desc { font-size: 10.5px; color: var(--text-dim); margin-top: 2px; }
+        @media(max-width:768px) { .qa-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width:480px) { .qa-grid { grid-template-columns: 1fr; } }
+        .badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .badge.success { background: var(--success-bg); color: var(--success); }
+        .badge.danger { background: var(--danger-bg); color: var(--danger); }
+        .badge.warn { background: var(--warn-bg); color: #b3720a; }
+        .badge.info { background: var(--info-bg); color: var(--info); }
+        .badge.purple { background: var(--purple-bg); color: var(--purple); }
+        .badge.neutral { background: var(--bg); color: var(--text-dim); border: 1px solid var(--border); }
+        .table-scroll { overflow-x: auto; overflow-y: auto; max-height: 460px; }
+        table.data-table { width: 100%; border-collapse: collapse; font-size: 12.6px; min-width: 640px; }
+        table.data-table th { text-align: left; padding: 10px 14px; color: var(--text-dim); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; background: var(--bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
+        table.data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        table.data-table tbody tr { transition: background var(--transition); }
+        table.data-table tbody tr:hover { background: rgba(245, 158, 11, 0.04); }
+        table.data-table tbody tr:last-child td { border-bottom: none; }
+        .cell-user { display: flex; align-items: center; gap: 10px; }
+        .cell-user .av { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, var(--navy-light), var(--navy-deep)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+        .cell-user .meta { display: flex; flex-direction: column; line-height: 1.3; }
+        .cell-user .meta strong { font-size: 12.5px; font-weight: 700; }
+        .cell-user .meta span { font-size: 11px; color: var(--text-dim); }
+        .sys-status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .sys-status-item { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; gap: 10px; }
+        .sys-status-item .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .sys-status-item .dot.green { background: var(--success); box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }
+        .sys-status-item .dot.orange { background: var(--warn); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+        .sys-status-item .dot.red { background: var(--danger); box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2); }
+        .sys-status-item .info { flex: 1; }
+        .sys-status-item .info .label { font-size: 11.5px; font-weight: 600; }
+        .sys-status-item .info .value { font-size: 11px; color: var(--text-dim); }
+        .notif-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); transition: background var(--transition); cursor: pointer; }
+        .notif-item:hover { background: var(--bg-card); }
+        .notif-item.unread { border-left: 3px solid var(--gold); background: var(--warn-bg); }
+        .notif-item .nic { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .notif-item .nbody { flex: 1; }
+        .notif-item .nbody .ntitle { font-size: 12.5px; font-weight: 600; }
+        .notif-item .nbody .nmsg { font-size: 11.5px; color: var(--text-dim); }
+        .notif-item .ntime { font-size: 10.5px; color: var(--text-faint); }
+        .drawer-scrim { position: fixed; inset: 0; background: rgba(5, 15, 20, .5); backdrop-filter: blur(2px); z-index: 300; opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
+        .drawer-scrim.show { opacity: 1; pointer-events: auto; }
+        .detail-drawer { position: fixed; top: 0; right: 0; height: 100vh; width: min(980px, 96vw); background: var(--bg); z-index: 301; box-shadow: var(--shadow-lg); transform: translateX(100%); transition: transform 260ms cubic-bezier(.4, 0, .2, 1); display: flex; flex-direction: column; overflow: hidden; }
+        .detail-drawer.open { transform: translateX(0); }
+        .dd-head { display: flex; align-items: center; gap: 14px; padding: clamp(14px, 3vw, 20px) clamp(16px, 4vw, 26px); background: linear-gradient(135deg, var(--navy), var(--navy-deep)); color: #fff; flex-shrink: 0; }
+        .dd-head .dd-ic { width: 44px; height: 44px; border-radius: 12px; background: rgba(255, 255, 255, 0.12); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .dd-head .dd-titles { flex: 1; min-width: 0; }
+        .dd-head h2 { margin: 0; font-size: 18px; font-weight: 800; }
+        .dd-head .dd-sub { font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-top: 2px; }
+        .dd-close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.08); color: #fff; cursor: pointer; font-size: 15px; flex-shrink: 0; transition: background var(--transition); }
+        .dd-close:hover { background: rgba(255, 255, 255, 0.2); }
+        .dd-body { flex: 1; overflow-y: auto; padding: clamp(14px, 3vw, 20px) clamp(16px, 4vw, 26px) 40px; }
+        .dd-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .dd-toolbar .search-box { width: 240px; }
+        .dd-toolbar .spacer { flex: 1; }
+        .dd-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--white); color: var(--navy); border-radius: 10px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: transform var(--transition), background var(--transition); }
+        html.dark .dd-btn { background: rgba(255, 255, 255, 0.04); color: #dff0f2; }
+        .dd-btn:hover { transform: translateY(-1px); background: var(--gold-soft); color: var(--navy-deep); }
+        .dd-btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+        .dd-btn.primary:hover { background: var(--navy-light); color: #fff; }
+        .dd-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        .dd-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+        .dd-stat .dd-stat-label { font-size: 10.8px; color: var(--text-dim); font-weight: 600; }
+        .dd-stat .dd-stat-value { font-size: 17px; font-weight: 800; margin-top: 3px; }
+        @media(max-width:800px) { .dd-stats { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width:480px) { .dd-stats { grid-template-columns: 1fr; } }
+        .dd-charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 16px; }
+        @media(max-width:800px) { .dd-charts { grid-template-columns: 1fr; } }
+        .dd-pagination { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 12px; color: var(--text-dim); }
+        .dd-pagination .dd-page-btns { display: flex; gap: 6px; }
+        .dd-pagination button { border: 1px solid var(--border); background: var(--white); border-radius: 8px; width: 36px; height: 36px; min-width: 36px; min-height: 36px; cursor: pointer; color: var(--text); }
+        html.dark .dd-pagination button { background: rgba(255, 255, 255, 0.04); }
+        .dd-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+        .dd-pagination button.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+        .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .4); z-index: 39; display: none; }
+        .scrim.show { display: block; }
+        .toast-stack { position: fixed; bottom: 22px; right: 22px; display: flex; flex-direction: column; gap: 10px; z-index: 200; }
+        .toast { background: var(--navy-deep); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 12.8px; font-weight: 600; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 10px; min-width: 230px; animation: toastIn .25s ease; border-left: 3px solid var(--gold); }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+        .online-users-section { margin: 18px 0 14px; }
+        .online-users-section .online-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+        .online-users-section .online-header h3 { font-size: 14px; font-weight: 700; margin: 0; }
+        .online-users-section .online-header .count-badge { background: var(--success-bg); color: var(--success); padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+        .online-users-list { max-height: 400px; overflow-y: auto; }
+        .online-users-list .empty-state { text-align: center; color: var(--text-faint); padding: 30px; }
+        .skeleton { background: linear-gradient(90deg, var(--bg) 25%, var(--border) 50%, var(--bg) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .skeleton-text { height: 14px; width: 70%; }
+        .skeleton-title { height: 20px; width: 40%; }
+        .skeleton-card { height: 80px; }
+        .skeleton-value { height: 28px; width: 50%; }
+        .skeleton-badge { height: 22px; width: 60px; border-radius: 99px; }
+        .loading-shimmer { background: var(--bg); border-radius: 8px; padding: 16px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
+        .cal-day { padding: 6px 4px; text-align: center; font-size: 11px; border-radius: 6px; font-weight: 500; background: var(--bg-card); border: 1px solid var(--border); }
+        .cal-day.other { color: var(--text-faint); background: transparent; border-color: transparent; }
+        .cal-day.today { background: var(--gold); color: var(--navy-deep); font-weight: 700; border-color: var(--gold); }
+        .cal-day.event { background: var(--info-bg); color: var(--info); border-color: var(--info); }
+        .cal-head { font-size: 10px; font-weight: 700; color: var(--text-dim); text-align: center; padding: 4px 0 8px; text-transform: uppercase; letter-spacing: .05em; }
+        .cal-events { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+        .cal-event { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); font-size: 11px; }
+        .cal-event .e-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .cal-event .e-dot.gold { background: var(--gold); }
+        .cal-event .e-dot.green { background: var(--success); }
+        .cal-event .e-dot.blue { background: var(--info); }
+        .cal-event .e-dot.purple { background: var(--purple); }
+        .cal-month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .cal-month-nav button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 13px; cursor: pointer; color: var(--text-dim); transition: all 0.15s; min-height: 32px; min-width: 32px; display: flex; align-items: center; justify-content: center; }
+        .cal-month-nav button:hover { border-color: var(--gold); color: var(--gold); background: var(--warn-bg); }
+        .cal-month-nav .month-label { font-weight: 700; font-size: 14px; color: var(--text); }
+        .trend-indicator { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+        .trend-indicator.up { color: var(--success); background: var(--success-bg); }
+        .trend-indicator.down { color: var(--danger); background: var(--danger-bg); }
+        .trend-indicator.flat { color: var(--text-dim); background: var(--bg); }
+        @media(max-width:900px) {
+            .app { grid-template-columns: 1fr; }
+            .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); width: 280px; box-shadow: var(--shadow-lg); z-index: 50; }
+            .sidebar.open { transform: translateX(0); }
+            .hamburger { display: flex; }
+            .search-box { display: none; }
+            .content { padding: 16px 14px 50px; }
+            .welcome-section { padding: 20px; }
+            .welcome-section h2 { font-size: 18px; }
+            .sys-status-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media(max-width:540px) {
+            .sys-status-grid { grid-template-columns: 1fr; }
+            .admin-chip .info { display: none; }
+            .topbar-date { display: none; }
+            .topbar-time { font-size: 12px; }
+            .welcome-section .datetime .time { font-size: 16px; }
+            .kpi-value { font-size: 18px; }
+        }
+        @media(max-width:480px) {
+            .topbar { padding: 0 14px; gap: 8px; }
+            .topbar-right { gap: 6px; }
+            .icon-btn { width: 34px; height: 34px; font-size: 13px; }
+            .admin-chip { padding: 4px 8px 4px 4px; }
+            .admin-chip .av { width: 26px; height: 26px; }
+            .kpi-card { padding: 13px 14px 12px; }
+            .qa-card { padding: 12px 10px; }
+            .welcome-section { padding: 18px 16px; }
+            .welcome-section .sub { font-size: 12.5px; }
+        }
+        @media(max-width:360px) {
+            .topbar-time { display: none; }
+            .content { padding: 12px 10px 40px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <img src="../images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+                <div class="brand-text"><strong>MilesSpace</strong><span>Admin Intelligence</span></div>
+            </div>
+            <div class="nav-scroll">
+                <div class="nav-group">
+                    <div class="nav-label">Main</div>
+                    <a href="/admin/dashboard" class="nav-item active"><span class="ic">📊</span>Dashboard</a>
+                </div>
+                <div class="nav-group"><a href="/admin/sellgift" class="nav-item"><span class="ic">💳</span>Gift Cards</a></div>
+                <div class="nav-group"><a href="/admin/Sendgift" class="nav-item"><span class="ic">🎁</span>Gift Delivery</a></div>
+                <div class="nav-group"><a href="/admin/marketplace-products" class="nav-item"><span class="ic">📦</span>Products</a></div>
+                <div class="nav-group"><a href="/admin/wallet-deposits" class="nav-item"><span class="ic">📈</span>Wallet<span class="badge-count" id="depositsBadge">0</span></a></div>
+                <div class="nav-group"><a href="/admin/virtual-sms" class="nav-item"><span class="ic">📱</span>Virtual SMS</a></div>
+                <div class="nav-group">
+                    <div class="nav-label">Intelligence</div>
+                    <a href="#" class="nav-item" onclick="showOnlineUsersDetails()"><span class="ic">🟢</span>Live Users</a>
+                    <a href="#" class="nav-item" onclick="showGeographicDetails()"><span class="ic">🌍</span>Geographic</a>
+                    <a href="#" class="nav-item" onclick="showWalletIntelligence()"><span class="ic">💰</span>Wallet Intel</a>
+                    <a href="#" class="nav-item" onclick="showTopCustomers()"><span class="ic">👑</span>Top Customers</a>
+                    <a href="#" class="nav-item" onclick="showFraudAlerts()"><span class="ic">🚨</span>Fraud Alerts</a>
+                    <a href="#" class="nav-item" onclick="showPlatformHealth()"><span class="ic">🖥️</span>Platform Health</a>
+                </div>
+                <div class="nav-group">
+                    <div class="nav-label">Other</div>
+                    <a href="/admin/users" class="nav-item"><span class="ic">👥</span>Users<span class="badge-count" id="usersBadge">0</span></a>
+                    <a href="/admin/reports" class="nav-item"><span class="ic">📊</span>Reports</a>
+                    <a href="/admin/support" class="nav-item"><span class="ic">💬</span>Support<span class="badge-count" id="supportBadge">0</span></a>
+                    <a href="/admin/ticker-manager" class="nav-item"><span class="ic">📢</span>Ticker Manager</a>
+                    <a href="#" class="nav-item" onclick="showNotifications()"><span class="ic">🔔</span>Notifications</a>
+                    <a href="#" class="nav-item" onclick="showMessages()"><span class="ic">💬</span>Messages</a>
+                    <a href="#" class="nav-item" onclick="showSettings()"><span class="ic">⚙️</span>Settings</a>
+                </div>
+            </div>
+            <div class="sidebar-foot">
+                <div class="av" id="adminAvatar">DA</div>
+                <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Super Admin</span></div>
+            </div>
+        </aside>
+        <div class="scrim" id="scrim"></div>
+        <div class="main">
+            <header class="topbar">
+                <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+                <div class="topbar-left">
+                    <div class="page-title">
+                        <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/admin/dashboard">Home</a><span class="bc-sep">/</span><span aria-current="page">Dashboard</span></nav>
+                        <h1>Intelligence Dashboard</h1>
+                        <div class="crumb"><span class="live-dot"></span>Live data · <span id="lastUpdated">updating...</span></div>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <div class="search-box" id="globalSearchBox">
+                        <span>🔎</span>
+                        <input type="text" placeholder="Search users, transactions, campaigns…" id="globalSearch" onkeydown="if(event.key==='Enter') handleGlobalSearch()">
+                        <span class="kbd">⌘K</span>
+                    </div>
+                    <span class="topbar-time" id="topbarTime">12:00 PM</span>
+                    <span class="topbar-date" id="topbarDate">Jul 9, 2026</span>
+                    <button class="icon-btn" id="messagesBtn" title="Messages" aria-label="Messages" onclick="showMessages()">💬<span class="badge-count" id="messagesCount">0</span></button>
+                    <button class="icon-btn" id="settingsBtn" title="Quick settings" aria-label="Quick settings" onclick="showSettings()">⚙️</button>
+                    <button class="icon-btn" id="darkToggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                    <button class="icon-btn" title="Notifications" id="notifBtn" aria-label="Notifications" onclick="showNotifications()">🔔<span class="badge-count" id="notifCount">0</span></button>
+                    <div class="admin-chip" id="adminChip" role="button" tabindex="0" aria-label="Administrator profile menu">
+                        <div class="av" id="chipAvatar">DA</div>
+                        <div class="info"><strong id="chipName">Admin</strong><span id="chipRole">Super Admin</span></div>
+                        <span style="font-size:10px;color:var(--text-faint);">▾</span>
+                    </div>
+                </div>
+            </header>
+            <div class="content">
+                <!-- The rest of your content remains the same -->
+                <!-- ... (all the dashboard content) ... -->
+                <div class="welcome-section">
+                    <div class="greeting" id="greetingText">Good Morning 👋</div>
+                    <h2 id="welcomeName">Admin</h2>
+                    <div class="sub">Welcome back. Here's what's happening on MilesSpace today.</div>
+                    <div class="datetime"><div class="time" id="liveTime">12:00:00</div><div class="date" id="liveDate">Thursday, July 9, 2026</div></div>
+                </div>
+
+                <div class="grid cols-6" id="kpiGrid"></div>
+
+                <div class="online-users-section">
+                    <div class="card panel">
+                        <div class="online-header">
+                            <div><h3>🟢 Live Online Users</h3><span class="hint">Auto-refreshes every 30 seconds</span></div>
+                            <div><span class="count-badge" id="onlineCountBadge">0 online</span><span class="badge info" style="margin-left:8px;" id="activeTodayBadge">0 today</span></div>
+                        </div>
+                        <div class="online-users-list" id="onlineUsersList"><div class="empty-state">Loading online users...</div></div>
+                    </div>
+                </div>
+
+                <div style="margin: 18px 0 14px;">
+                    <div class="grid cols-2">
+                        <div class="card panel">
+                            <div class="panel-head">
+                                <div><h3>🕐 Real-Time Activity</h3><span class="hint">Live feed · updates every 30s</span></div>
+                                <span class="badge success">● Live</span>
+                            </div>
+                            <div class="feed" id="realtimeFeed" style="max-height:280px;" aria-live="polite" role="log">
+                                <div style="text-align:center;color:var(--text-faint);padding:40px 0;">Loading activity feed...</div>
+                            </div>
+                        </div>
+                        <div class="card panel">
+                            <div class="panel-head"><h3>⚡ Quick Actions</h3><span class="hint">Press 1–8 for shortcuts</span></div>
+                            <div class="qa-grid" id="quickActions"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="chartsContainer">
+                    <div style="margin: 0 0 14px;">
+                        <div class="grid cols-3">
+                            <div class="card panel"><div class="panel-head"><h3>Revenue (Last 12 Months)</h3></div><div class="chart-wrap h-220"><canvas id="chartRevenue"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>User Growth</h3></div><div class="chart-wrap h-220"><canvas id="chartUserGrowth"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>Wallet Transactions</h3></div><div class="chart-wrap h-220"><canvas id="chartWallet"></canvas></div></div>
+                        </div>
+                    </div>
+                    <div style="margin: 0 0 14px;">
+                        <div class="grid cols-4">
+                            <div class="card panel"><div class="panel-head"><h3>Campaign Status</h3></div><div class="chart-wrap h-170"><canvas id="chartCampaignStatus"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>Gift Orders</h3></div><div class="chart-wrap h-170"><canvas id="chartGiftOrders"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>Marketplace Orders</h3></div><div class="chart-wrap h-170"><canvas id="chartMarketplaceOrders"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>Virtual SMS Orders</h3></div><div class="chart-wrap h-170"><canvas id="chartSmsOrders"></canvas></div></div>
+                        </div>
+                    </div>
+                    <div style="margin: 0 0 14px;">
+                        <div class="grid cols-4">
+                            <div class="card panel"><div class="panel-head"><h3>Top Countries</h3></div><div class="chart-wrap h-170"><canvas id="chartCountries"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>Top Services</h3></div><div class="chart-wrap h-170"><canvas id="chartServices"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>Support Tickets</h3></div><div class="chart-wrap h-170"><canvas id="chartSupport"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><h3>Platform Activity</h3></div><div class="chart-wrap h-170"><canvas id="chartActivity"></canvas></div></div>
+                        </div>
+                    </div>
+                    <div style="margin: 0 0 14px;">
+                        <div class="grid cols-3">
+                            <div class="card panel"><div class="panel-head"><div><h3>Revenue vs Expenses</h3><span class="hint">Last 6 months</span></div></div><div class="chart-wrap h-200"><canvas id="chartRevExpense"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><div><h3>Weekly Revenue</h3><span class="hint">This week, by day</span></div></div><div class="chart-wrap h-200"><canvas id="chartWeeklyRevenue"></canvas></div></div>
+                            <div class="card panel"><div class="panel-head"><div><h3>Top Customers</h3><span class="hint">By lifetime spend</span></div></div><div class="chart-wrap h-200"><canvas id="chartTopCustomers"></canvas></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin: 0 0 14px;">
+                    <div class="card panel">
+                        <div class="panel-head"><h3>👤 Recent Users</h3><a class="link" href="/admin/users">View all →</a></div>
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead><tr><th>User</th><th>Location</th><th>Registered</th><th>Verification</th><th>Wallet</th><th>Status</th><th>Action</th></tr></thead>
+                                <tbody id="recentUsersBody"><tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:24px;">Loading users...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin: 0 0 14px;">
+                    <div class="card panel">
+                        <div class="panel-head"><h3>🎁 Recent Gift Orders</h3><a class="link" href="/admin/Sendgift">View all →</a></div>
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead><tr><th>Order ID</th><th>Customer</th><th>Product</th><th>Recipient</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+                                <tbody id="recentGiftOrdersBody"><tr><td colspan="8" style="text-align:center;color:var(--text-faint);padding:24px;">Loading gift orders...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin: 0 0 14px;">
+                    <div class="card panel">
+                        <div class="panel-head"><h3>💳 Recent Transactions</h3><a class="link" href="/admin/wallet/transactions">View all →</a></div>
+                        <div class="table-scroll">
+                            <table class="data-table">
+                                <thead><tr><th>Transaction ID</th><th>User</th><th>Amount</th><th>Type</th><th>Status</th><th>Date</th></tr></thead>
+                                <tbody id="recentTransactionsBody"><tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:24px;">Loading transactions...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin: 0 0 14px;">
+                    <div class="card panel">
+                        <div class="panel-head"><h3>🖥️ System Status</h3></div>
+                        <div class="sys-status-grid" id="systemStatusGrid"><div style="text-align:center;color:var(--text-faint);padding:20px;grid-column:1/-1;">Loading system status...</div></div>
+                    </div>
+                </div>
+
+                <div style="margin: 0 0 14px;">
+                    <div class="grid cols-2">
+                        <div class="card panel">
+                            <div class="panel-head"><h3>🔔 Recent Notifications</h3><a class="link" href="/admin/notifications">View all →</a></div>
+                            <div id="notificationsList" style="display:flex;flex-direction:column;gap:8px;"><div style="text-align:center;color:var(--text-faint);padding:20px;">Loading notifications...</div></div>
+                        </div>
+                        <div class="card panel">
+                            <div class="panel-head"><h3>📅 Calendar</h3></div>
+                            <div id="calendarWidget"></div>
+                            <div class="panel-head" style="margin:16px 0 8px;"><h3 style="font-size:12.5px;">📌 Business Reminders</h3></div>
+                            <div class="cal-events" id="businessReminders"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="drawer-scrim" id="drawerScrim"></div>
+    <aside class="detail-drawer" id="detailDrawer" role="dialog" aria-modal="true" aria-labelledby="ddTitle">
+        <div class="dd-head"><div class="dd-ic" id="ddIcon">📊</div><div class="dd-titles"><h2 id="ddTitle">Detail View</h2><div class="dd-sub" id="ddSub">Loading…</div></div><button class="dd-close" id="ddClose" aria-label="Close detail view">✕</button></div>
+        <div class="dd-body" id="ddBody">
+            <div class="dd-toolbar">
+                <div class="search-box"><span>🔎</span><input type="text" id="ddSearch" placeholder="Search…" oninput="filterDrawerTable()"></div>
+                <div id="ddFilters" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+                <div class="spacer"></div>
+                <button class="dd-btn" id="ddRefresh">🔄 Refresh</button>
+                <button class="dd-btn" id="ddExportCsv">⬇️ CSV</button>
+                <button class="dd-btn primary" id="ddPrint">🖨️ Print</button>
+            </div>
+            <div class="dd-stats" id="ddStats"></div>
+            <div class="dd-charts" id="ddCharts"></div>
+            <div class="card panel" style="margin-bottom:16px;">
+                <div class="panel-head"><h3>Records</h3><span class="hint" id="ddRecordCount"></span></div>
+                <div class="table-scroll"><table class="data-table" id="ddTable"><thead id="ddThead"></thead><tbody id="ddTbody"></tbody></table></div>
+                <div class="dd-pagination" id="ddPagination"></div>
+            </div>
+        </div>
+    </aside>
+    <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- ─── MAIN APPLICATION SCRIPT ─── -->
+    <script>
+        'use strict';
+
+        // ─── CONFIGURATION ───
+        const CONFIG = {
+            ADMIN_API: '/api/admin',
+            CACHE_TTL: 60000,
+            PRESENCE_INTERVAL: 30000,
+            ACTIVITY_INTERVAL: 30000,
+            CHART_LOAD_DELAY: 1500,
+            TABLE_LOAD_DELAY: 2000,
+            PAGE_SIZE: 10
+        };
+
+        // ─── STATE ───
+        const State = {
+            stats: null,
+            onlineUsers: [],
+            activities: [],
+            chartsLoaded: false,
+            tablesLoaded: false,
+            systemStatusLoaded: false,
+            notificationsLoaded: false,
+            chartRefs: {},
+            activityCache: [],
+            activityCacheTime: 0
+        };
+
+        // ─── CACHE ───
+        const Cache = {
+            _store: new Map(),
+            _timestamps: new Map(),
+
+            get(key) {
+                if (!this._store.has(key)) return null;
+                const ts = this._timestamps.get(key) || 0;
+                if (Date.now() - ts > CONFIG.CACHE_TTL) {
+                    this._store.delete(key);
+                    this._timestamps.delete(key);
+                    return null;
+                }
+                return this._store.get(key);
+            },
+
+            set(key, value) {
+                this._store.set(key, value);
+                this._timestamps.set(key, Date.now());
+            },
+
+            clear() {
+                this._store.clear();
+                this._timestamps.clear();
+            },
+
+            invalidate(key) {
+                this._store.delete(key);
+                this._timestamps.delete(key);
+            }
+        };
+
+        // ─── API REQUEST ───
+        async function adminFetch(endpoint, options = {}, useCache = true) {
+            const token = window.getAdminToken();
+            if (!token) {
+                window.redirectToAdminLogin();
+                throw new Error('Not authenticated');
+            }
+
+            const cacheKey = endpoint + JSON.stringify(options);
+
+            if (useCache) {
+                const cached = Cache.get(cacheKey);
+                if (cached) return cached;
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                ...options.headers
+            };
+
+            try {
+                const response = await fetch(`${CONFIG.ADMIN_API}${endpoint}`, { ...options, headers });
+
+                if (response.status === 401 || response.status === 403) {
+                    window.redirectToAdminLogin();
+                    throw new Error('Session expired');
+                }
+
+                const data = await response.json();
+
+                if (useCache && data.success) {
+                    Cache.set(cacheKey, data);
+                }
+
+                return data;
+            } catch (error) {
+                if (error.message === 'Failed to fetch') {
+                    window.redirectToAdminLogin();
+                }
+                throw error;
+            }
+        }
+
+        // ─── HELPERS ───
+        function formatCurrency(amount, currency = 'NGN') {
+            if (!amount) return '0';
+            const num = typeof amount === 'number' ? amount : parseFloat(amount);
+            if (isNaN(num)) return '0';
+            return currency === 'NGN' ? `₦${num.toLocaleString()}` : `$${num.toLocaleString()}`;
+        }
+
+        function getInitials(name) {
+            if (!name) return 'U';
+            return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        }
+
+        function getStatusBadge(status) {
+            const map = {
+                'active': 'success', 'completed': 'success', 'delivered': 'success',
+                'verified': 'success', 'approved': 'success', 'paid': 'success',
+                'resolved': 'success', 'running': 'success', 'online': 'success',
+                'pending': 'warn', 'pending_review': 'warn', 'processing': 'warn',
+                'packed': 'warn', 'shipped': 'warn', 'in_transit': 'warn',
+                'cancelled': 'danger', 'rejected': 'danger', 'failed': 'danger',
+                'suspended': 'danger', 'refunded': 'danger', 'returned': 'danger'
+            };
+            return map[status] || 'neutral';
+        }
+
+        function timeAgo(date) {
+            if (!date) return 'just now';
+            const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+            return Math.floor(diff / 604800) + 'w ago';
+        }
+
+        function showToast(message, type = 'info') {
+            const stack = document.getElementById('toastStack');
+            if (!stack) return;
+            const el = document.createElement('div');
+            el.className = 'toast';
+            const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+            el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+            stack.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(30px)';
+                el.style.transition = 'all .25s ease';
+                setTimeout(() => el.remove(), 260);
+            }, 3200);
+        }
+
+        function closeDetailDrawer() {
+            document.getElementById('detailDrawer').classList.remove('open');
+            document.getElementById('drawerScrim').classList.remove('show');
+        }
+
+        function openDetailDrawer(title, subtitle, icon = '📊') {
+            document.getElementById('ddIcon').textContent = icon;
+            document.getElementById('ddTitle').textContent = title;
+            document.getElementById('ddSub').textContent = subtitle || 'Loading details...';
+            document.getElementById('detailDrawer').classList.add('open');
+            document.getElementById('drawerScrim').classList.add('show');
+        }
+
+        // ─── NAVIGATION ───
+        function showMessages() { window.location.href = '/admin/messages'; }
+
+        function showNotifications() { window.location.href = '/admin/notifications'; }
+
+        function showSettings() { window.location.href = '/admin/settings'; }
+
+        // ─── KPI CONFIG ───
+        const KPI_CONFIG = [
+            { key: 'totalUsers', icon: '👥', color: 'blue', label: 'Total Users', prefix: '', desc: 'All-time registered accounts' },
+            { key: 'usersOnline', icon: '🟢', color: 'green', label: 'Users Online', prefix: '', desc: 'Active sessions right now' },
+            { key: 'newUsersToday', icon: '👤', color: 'purple', label: 'New Users Today', prefix: '', desc: 'Sign-ups since midnight' },
+            { key: 'walletBalanceNGN', icon: '💰', color: 'gold', label: 'Wallet Balance (NGN)', prefix: '₦', desc: 'Total NGN funds held' },
+            { key: 'walletBalanceUSD', icon: '💵', color: 'green', label: 'Wallet Balance (USD)', prefix: '$', desc: 'Total USD funds held' },
+            { key: 'revenueTodayNGN', icon: '📈', color: 'gold', label: "Today's Revenue (NGN)", prefix: '₦', desc: 'NGN revenue earned today' },
+            { key: 'revenueTodayUSD', icon: '📈', color: 'green', label: "Today's Revenue (USD)", prefix: '$', desc: 'USD revenue earned today' },
+            { key: 'revenueMonthlyNGN', icon: '📊', color: 'gold', label: 'Monthly Revenue (NGN)', prefix: '₦', desc: 'NGN revenue this month' },
+            { key: 'revenueMonthlyUSD', icon: '📊', color: 'green', label: 'Monthly Revenue (USD)', prefix: '$', desc: 'USD revenue this month' },
+            { key: 'pendingDeposits', icon: '📥', color: 'blue', label: 'Pending Deposits', prefix: '', desc: 'Deposits awaiting approval' },
+            { key: 'pendingWithdrawals', icon: '📤', color: 'red', label: 'Pending Withdrawals', prefix: '', desc: 'Withdrawals awaiting payout' },
+            { key: 'runningCampaigns', icon: '▶️', color: 'green', label: 'Running Campaigns', prefix: '', desc: 'Campaigns currently live' },
+            { key: 'pendingCampaigns', icon: '⏳', color: 'orange', label: 'Pending Campaigns', prefix: '', desc: 'Awaiting admin review' },
+            { key: 'completedCampaigns', icon: '✅', color: 'blue', label: 'Completed Campaigns', prefix: '', desc: 'Successfully finished campaigns' },
+            { key: 'pendingGiftOrders', icon: '🎁', color: 'gold', label: 'Pending Gift Orders', prefix: '', desc: 'Gift orders awaiting fulfillment' },
+            { key: 'pendingMarketplaceOrders', icon: '🛒', color: 'green', label: 'Pending Marketplace Orders', prefix: '', desc: 'Marketplace orders in progress' },
+            { key: 'pendingSmsOrders', icon: '📱', color: 'blue', label: 'Pending Virtual SMS', prefix: '', desc: 'Virtual SMS numbers to activate' },
+            { key: 'openSupportTickets', icon: '💬', color: 'purple', label: 'Open Support Tickets', prefix: '', desc: 'Tickets needing a response' },
+            { key: 'unreadNotifications', icon: '🔔', color: 'gold', label: 'Unread Notifications', prefix: '', desc: 'System alerts not yet viewed' }
+        ];
+
+        const intelligenceMap = {
+            'totalUsers': showGeographicDetails,
+            'usersOnline': showOnlineUsersDetails,
+            'newUsersToday': showGeographicDetails,
+            'walletBalanceNGN': showWalletIntelligence,
+            'walletBalanceUSD': showWalletIntelligence,
+            'revenueTodayNGN': showWalletIntelligence,
+            'revenueTodayUSD': showWalletIntelligence,
+            'revenueMonthlyNGN': showWalletIntelligence,
+            'revenueMonthlyUSD': showWalletIntelligence,
+            'pendingDeposits': showWalletIntelligence,
+            'pendingWithdrawals': showWalletIntelligence,
+            'runningCampaigns': showOnlineUsersDetails,
+            'pendingCampaigns': showOnlineUsersDetails,
+            'completedCampaigns': showOnlineUsersDetails,
+            'pendingGiftOrders': showOnlineUsersDetails,
+            'pendingMarketplaceOrders': showOnlineUsersDetails,
+            'pendingSmsOrders': showOnlineUsersDetails,
+            'openSupportTickets': showOnlineUsersDetails,
+            'unreadNotifications': showOnlineUsersDetails
+        };
+
+        // ─── RENDER KPI CARDS ───
+        function renderKpiCards(data) {
+            const grid = document.getElementById('kpiGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            KPI_CONFIG.forEach(k => {
+                let value = 0;
+                switch (k.key) {
+                    case 'totalUsers':
+                        value = data.totalUsers || 0;
+                        break;
+                    case 'usersOnline':
+                        value = data.usersOnline || 0;
+                        break;
+                    case 'newUsersToday':
+                        value = data.newUsersToday || 0;
+                        break;
+                    case 'walletBalanceNGN':
+                        value = data.walletBalance?.ngn || 0;
+                        break;
+                    case 'walletBalanceUSD':
+                        value = data.walletBalance?.usd || 0;
+                        break;
+                    case 'revenueTodayNGN':
+                        value = data.revenue?.today?.ngn || 0;
+                        break;
+                    case 'revenueTodayUSD':
+                        value = data.revenue?.today?.usd || 0;
+                        break;
+                    case 'revenueMonthlyNGN':
+                        value = data.revenue?.monthly?.ngn || 0;
+                        break;
+                    case 'revenueMonthlyUSD':
+                        value = data.revenue?.monthly?.usd || 0;
+                        break;
+                    case 'pendingDeposits':
+                        value = data.pending?.deposits || 0;
+                        break;
+                    case 'pendingWithdrawals':
+                        value = data.pending?.withdrawals || 0;
+                        break;
+                    case 'runningCampaigns':
+                        value = data.campaigns?.running || 0;
+                        break;
+                    case 'pendingCampaigns':
+                        value = data.campaigns?.pending || 0;
+                        break;
+                    case 'completedCampaigns':
+                        value = data.campaigns?.completed || 0;
+                        break;
+                    case 'pendingGiftOrders':
+                        value = data.pending?.giftOrders || 0;
+                        break;
+                    case 'pendingMarketplaceOrders':
+                        value = data.pending?.marketplaceOrders || 0;
+                        break;
+                    case 'pendingSmsOrders':
+                        value = data.pending?.smsOrders || 0;
+                        break;
+                    case 'openSupportTickets':
+                        value = data.support?.open || 0;
+                        break;
+                    case 'unreadNotifications':
+                        value = data.notifications?.unread || 0;
+                        break;
+                    default:
+                        value = data[k.key] || 0;
+                }
+
+                const displayValue = typeof value === 'number' ? value.toLocaleString() : value;
+                const el = document.createElement('div');
+                el.className = 'kpi-card';
+                el.style.setProperty('--kc', 'rgba(245,158,11,0.12)');
+
+                el.innerHTML = `
+                        <div class="kpi-top">
+                            <div class="kpi-icon ${k.color}">${k.icon}</div>
+                        </div>
+                        <div class="kpi-value">${k.prefix}${displayValue}</div>
+                        <div class="kpi-label">${k.label}</div>
+                        <div class="kpi-desc">${k.desc}</div>
+                    `;
+                el.setAttribute('role', 'button');
+                el.setAttribute('tabindex', '0');
+
+                const handler = intelligenceMap[k.key] || (() => openDetailDrawer(k.label, 'Detailed breakdown'));
+                el.addEventListener('click', handler);
+                grid.appendChild(el);
+            });
+        }
+
+        // ─── QUICK ACTIONS ───
+        const QUICK_ACTIONS = [
+            { icon: '📢', label: 'Create Campaign', desc: 'Launch a new ad campaign', url: '/admin/campaigns/create' },
+            { icon: '✅', label: 'Approve Deposits', desc: 'Review pending deposits', url: '/admin/wallet/deposits' },
+            { icon: '👥', label: 'View Users', desc: 'Manage platform users', url: '/admin/users' },
+            { icon: '💰', label: 'Manage Wallet', desc: 'View wallet balances', url: '/admin/wallet' },
+            { icon: '📦', label: 'Manage Orders', desc: 'Process orders', url: '/admin/marketplace/orders' },
+            { icon: '📊', label: 'Reports', desc: 'Generate reports', url: '/admin/reports' },
+            { icon: '📈', label: 'Analytics', desc: 'View platform analytics', url: '/admin/analytics' },
+            { icon: '🔔', label: 'Notifications', desc: 'Send notifications', url: '/admin/notifications' },
+        ];
+
+        function renderQuickActions() {
+            const grid = document.getElementById('quickActions');
+            if (!grid) return;
+            grid.innerHTML = '';
+            QUICK_ACTIONS.forEach((a, idx) => {
+                const el = document.createElement('div');
+                el.className = 'qa-card';
+                el.innerHTML = `<span class="qa-ic">${a.icon}</span><span class="qa-title">${a.label}</span><span class="qa-desc">${a.desc}</span>`;
+                el.setAttribute('role', 'button');
+                el.setAttribute('tabindex', '0');
+                el.setAttribute('data-shortcut', idx + 1);
+                el.addEventListener('click', () => { showToast('Opening: ' + a.label, 'info');
+                    window.location.href = a.url; });
+                grid.appendChild(el);
+            });
+        }
+        renderQuickActions();
+
+        // ─── THEME COLORS ───
+        function getThemeColors() {
+            const dark = document.documentElement.classList.contains('dark');
+            return {
+                grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(12,61,74,0.06)',
+                text: dark ? '#93aab1' : '#5b7480',
+                navy: dark ? '#3fb6d3' : '#0c3d4a',
+                gold: '#f59e0b',
+                success: '#16a34a',
+                danger: '#dc2626',
+                purple: '#8b5cf6',
+                info: '#2563a8'
+            };
+        }
+
+        // ─── CHART HELPERS ───
+        function buildChart(id, config) {
+            const canvas = document.getElementById(id);
+            if (!canvas) return null;
+            if (State.chartRefs[id]) {
+                State.chartRefs[id].destroy();
+                delete State.chartRefs[id];
+            }
+            const ctx = canvas.getContext('2d');
+            const chart = new Chart(ctx, config);
+            State.chartRefs[id] = chart;
+            return chart;
+        }
+
+        // ─── INTELLIGENCE FUNCTIONS ───
+        async function showOnlineUsersDetails() {
+            openDetailDrawer('👥 Users Online', 'Real-time user activity');
+            document.getElementById('ddStats').innerHTML =
+                `<div class="dd-stat"><div class="dd-stat-label">Loading...</div><div class="dd-stat-value">⏳</div></div>`;
+            document.getElementById('ddTbody').innerHTML =
+                '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-faint);">Loading...</td></tr>';
+            try {
+                const result = await adminFetch('/presence/online');
+                if (!result.success) throw new Error(result.error);
+                const data = result.data;
+                const users = data.users || [];
+                const onlineUsers = users.filter(u => u.is_online === true);
+
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat" style="background:var(--success-bg);"><div class="dd-stat-label">Online Now</div><div class="dd-stat-value" style="color:var(--success);">${onlineUsers.length}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Last 5 min</div><div class="dd-stat-value">${data.active_5min || 0}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Last 30 min</div><div class="dd-stat-value">${data.active_30min || 0}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Today</div><div class="dd-stat-value">${data.active_today || 0}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>User</th><th>Email</th><th>Location</th><th>Device</th><th>Page</th><th>Status</th>`;
+                document.getElementById('ddTbody').innerHTML = onlineUsers.slice(0, 50).map(u => `
+                        <tr><td><strong>${u.username || 'Unknown'}</strong></td><td>${u.email || 'Unknown'}</td><td>${u.location || 'N/A'}</td><td>${u.browser || 'Unknown'} · ${u.device || 'Desktop'}</td><td>${u.current_page || '/dashboard'}</td><td><span class="badge success">🟢 Online</span></td></tr>
+                    `).join('');
+                document.getElementById('ddRecordCount').textContent = onlineUsers.length + ' online users';
+            } catch (error) {
+                document.getElementById('ddTbody').innerHTML =
+                    `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--danger);">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function showGeographicDetails() {
+            openDetailDrawer('🌍 Geographic Intelligence', 'User locations');
+            document.getElementById('ddStats').innerHTML =
+                `<div class="dd-stat"><div class="dd-stat-label">Loading...</div><div class="dd-stat-value">⏳</div></div>`;
+            document.getElementById('ddTbody').innerHTML =
+                '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-faint);">Loading...</td></tr>';
+            try {
+                const result = await adminFetch('/intelligence/geographic');
+                if (!result.success) throw new Error(result.error);
+                const countries = result.data.countries || [];
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat"><div class="dd-stat-label">Total Countries</div><div class="dd-stat-value">${result.data.total_countries}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Total Users</div><div class="dd-stat-value">${result.data.total_users}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Top Country</div><div class="dd-stat-value">${countries[0]?.name || 'N/A'}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Top Users</div><div class="dd-stat-value">${countries[0]?.users || 0}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>Country</th><th>Users</th><th>Revenue (NGN)</th><th>Revenue (USD)</th><th>%</th>`;
+                document.getElementById('ddTbody').innerHTML = countries.slice(0, 30).map(c => `
+                        <tr><td><strong>${c.name}</strong></td><td>${c.users}</td><td>${formatCurrency(c.revenue_ngn, 'NGN')}</td><td>${formatCurrency(c.revenue_usd, 'USD')}</td><td>${c.percentage || 0}%</td></tr>
+                    `).join('');
+                document.getElementById('ddRecordCount').textContent = countries.length + ' countries';
+            } catch (error) {
+                document.getElementById('ddTbody').innerHTML =
+                    `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--danger);">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function showWalletIntelligence() {
+            openDetailDrawer('💰 Wallet Intelligence', 'NGN and USD analytics');
+            document.getElementById('ddStats').innerHTML =
+                `<div class="dd-stat"><div class="dd-stat-label">Loading...</div><div class="dd-stat-value">⏳</div></div>`;
+            document.getElementById('ddTbody').innerHTML =
+                '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-faint);">Loading...</td></tr>';
+            try {
+                const result = await adminFetch('/intelligence/wallets');
+                if (!result.success) throw new Error(result.error);
+                const w = result.data;
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat" style="background:var(--warn-bg);"><div class="dd-stat-label">🇳🇬 NGN Balance</div><div class="dd-stat-value" style="color:var(--gold);">${formatCurrency(w.ngn.total_balance, 'NGN')}</div></div>
+                        <div class="dd-stat" style="background:var(--success-bg);"><div class="dd-stat-label">🇺🇸 USD Balance</div><div class="dd-stat-value" style="color:var(--success);">${formatCurrency(w.usd.total_balance, 'USD')}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">NGN Active</div><div class="dd-stat-value">${w.ngn.active_wallets}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">USD Active</div><div class="dd-stat-value">${w.usd.active_wallets}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>Metric</th><th>NGN</th><th>USD</th>`;
+                document.getElementById('ddTbody').innerHTML = `
+                        <tr><td>Total Balance</td><td>${formatCurrency(w.ngn.total_balance, 'NGN')}</td><td>${formatCurrency(w.usd.total_balance, 'USD')}</td></tr>
+                        <tr><td>Total Deposits</td><td>${formatCurrency(w.ngn.total_deposits, 'NGN')}</td><td>${formatCurrency(w.usd.total_deposits, 'USD')}</td></tr>
+                        <tr><td>Total Withdrawals</td><td>${formatCurrency(w.ngn.total_withdrawals, 'NGN')}</td><td>${formatCurrency(w.usd.total_withdrawals, 'USD')}</td></tr>
+                        <tr><td>Active Wallets</td><td>${w.ngn.active_wallets}</td><td>${w.usd.active_wallets}</td></tr>
+                    `;
+                document.getElementById('ddRecordCount').textContent = 'Wallet analytics';
+            } catch (error) {
+                document.getElementById('ddTbody').innerHTML =
+                    `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--danger);">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function showTopCustomers() {
+            openDetailDrawer('👑 Top Customers', 'Users with highest lifetime spend');
+            document.getElementById('ddStats').innerHTML =
+                `<div class="dd-stat"><div class="dd-stat-label">Loading...</div><div class="dd-stat-value">⏳</div></div>`;
+            document.getElementById('ddTbody').innerHTML =
+                '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-faint);">Loading...</td></tr>';
+            try {
+                const result = await adminFetch('/intelligence/top-customers');
+                if (!result.success) throw new Error(result.error);
+                const customers = result.data.top_customers || [];
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat" style="background:var(--gold-soft);"><div class="dd-stat-label">🏆 Top Spender</div><div class="dd-stat-value" style="color:var(--gold);">${customers[0]?.username || 'N/A'}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Total Customers</div><div class="dd-stat-value">${result.data.total_customers || 0}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Most Active</div><div class="dd-stat-value">${result.data.most_active?.username || 'N/A'}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Largest Wallet</div><div class="dd-stat-value">${result.data.largest_wallet_ngn?.username || 'N/A'}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML =
+                `<th>User</th><th>Total Spent</th><th>Orders</th><th>Campaigns</th><th>Gifts</th><th>Wallet</th>`;
+                document.getElementById('ddTbody').innerHTML = customers.slice(0, 20).map(c => `
+                        <tr><td><strong>${c.username || 'Unknown'}</strong></td><td>${formatCurrency(c.total_spent, 'NGN')}</td><td>${c.total_orders || 0}</td><td>${c.campaigns || 0}</td><td>${c.gift_orders || 0}</td><td>${formatCurrency(c.wallet_ngn || 0, 'NGN')} / ${formatCurrency(c.wallet_usd || 0, 'USD')}</td></tr>
+                    `).join('');
+                document.getElementById('ddRecordCount').textContent = customers.length + ' top customers';
+            } catch (error) {
+                document.getElementById('ddTbody').innerHTML =
+                    `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--danger);">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function showFraudAlerts() {
+            openDetailDrawer('🚨 Fraud Monitoring', 'Security alerts');
+            document.getElementById('ddStats').innerHTML =
+                `<div class="dd-stat"><div class="dd-stat-label">Loading...</div><div class="dd-stat-value">⏳</div></div>`;
+            document.getElementById('ddTbody').innerHTML =
+                '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-faint);">Loading...</td></tr>';
+            try {
+                const result = await adminFetch('/intelligence/fraud');
+                if (!result.success) throw new Error(result.error);
+                const alerts = result.data.alerts || [];
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat" style="background:var(--danger-bg);"><div class="dd-stat-label">Critical</div><div class="dd-stat-value" style="color:var(--danger);">${result.data.critical || 0}</div></div>
+                        <div class="dd-stat" style="background:var(--warn-bg);"><div class="dd-stat-label">Warning</div><div class="dd-stat-value" style="color:var(--warn);">${result.data.warning || 0}</div></div>
+                        <div class="dd-stat" style="background:var(--info-bg);"><div class="dd-stat-label">Info</div><div class="dd-stat-value" style="color:var(--info);">${result.data.info || 0}</div></div>
+                        <div class="dd-stat" style="background:var(--purple-bg);"><div class="dd-stat-label">Total</div><div class="dd-stat-value" style="color:var(--purple);">${result.data.total_alerts || 0}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>Type</th><th>Severity</th><th>Details</th><th>Time</th>`;
+                document.getElementById('ddTbody').innerHTML = alerts.slice(0, 50).map(a => `
+                        <tr><td><strong>${a.type.replace(/_/g, ' ').toUpperCase()}</strong></td><td><span class="badge ${a.severity === 'high' ? 'danger' : a.severity === 'medium' ? 'warn' : 'info'}">${a.severity}</span></td><td>${a.details || 'N/A'}</td><td>${a.time ? timeAgo(a.time) : 'N/A'}</td></tr>
+                    `).join('');
+                document.getElementById('ddRecordCount').textContent = alerts.length + ' alerts';
+            } catch (error) {
+                document.getElementById('ddTbody').innerHTML =
+                    `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--danger);">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        async function showPlatformHealth() {
+            openDetailDrawer('🖥️ Platform Health', 'System status');
+            document.getElementById('ddStats').innerHTML =
+                `<div class="dd-stat"><div class="dd-stat-label">Loading...</div><div class="dd-stat-value">⏳</div></div>`;
+            document.getElementById('ddTbody').innerHTML =
+                '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-faint);">Loading...</td></tr>';
+            try {
+                const result = await adminFetch('/intelligence/health');
+                if (!result.success) throw new Error(result.error);
+                const h = result.data;
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat" style="background:${h.status === 'operational' ? 'var(--success-bg)' : 'var(--danger-bg)'};">
+                            <div class="dd-stat-label">Status</div>
+                            <div class="dd-stat-value" style="color:${h.status === 'operational' ? 'var(--success)' : 'var(--danger)'};">${h.status === 'operational' ? '✅ Operational' : '⚠️ Degraded'}</div>
+                        </div>
+                        <div class="dd-stat"><div class="dd-stat-label">API Latency</div><div class="dd-stat-value">${h.api_latency || 'N/A'}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Active Sessions</div><div class="dd-stat-value">${h.ws_connections || 0}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Error Rate</div><div class="dd-stat-value">${h.error_rate || '0%'}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>Metric</th><th>Value</th><th>Status</th>`;
+                document.getElementById('ddTbody').innerHTML = `
+                        <tr><td>API Response Time</td><td>${h.api_latency || 'N/A'}</td><td><span class="badge success">✅ Healthy</span></td></tr>
+                        <tr><td>Database Latency</td><td>${h.db_latency || 'N/A'}</td><td><span class="badge ${h.database_health === 'healthy' ? 'success' : 'danger'}">${h.database_health === 'healthy' ? '✅ Healthy' : '⚠️ Degraded'}</span></td></tr>
+                        <tr><td>Memory Usage</td><td>${h.memory_usage || 'N/A'}</td><td><span class="badge ${parseInt(h.memory_usage) < 80 ? 'success' : 'warn'}">${parseInt(h.memory_usage) < 80 ? '✅ Normal' : '⚠️ High'}</span></td></tr>
+                        <tr><td>CPU Usage</td><td>${h.cpu_usage || 'N/A'}</td><td><span class="badge ${parseInt(h.cpu_usage) < 70 ? 'success' : 'warn'}">${parseInt(h.cpu_usage) < 70 ? '✅ Normal' : '⚠️ High'}</span></td></tr>
+                        <tr><td>Active Sessions</td><td>${h.ws_connections || 0}</td><td><span class="badge success">✅ Active</span></td></tr>
+                        <tr><td>Error Rate</td><td>${h.error_rate || '0%'}</td><td><span class="badge success">✅ Normal</span></td></tr>
+                    `;
+                document.getElementById('ddRecordCount').textContent = 'Platform health';
+            } catch (error) {
+                document.getElementById('ddTbody').innerHTML =
+                    `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--danger);">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        // ─── LOAD ONLINE USERS ───
+        async function loadOnlineUsers() {
+            try {
+                const result = await adminFetch('/presence/online');
+                if (!result.success) throw new Error(result.error || 'Failed to load presence');
+                const data = result.data;
+                const users = data.users || [];
+
+                const onlineUsers = users.filter(u => u.is_online === true);
+
+                const list = document.getElementById('onlineUsersList');
+                if (!list) return;
+
+                if (onlineUsers.length === 0) {
+                    list.innerHTML =
+                        `<div class="empty-state"><div style="font-size:40px;margin-bottom:10px;">🟢</div><div style="font-weight:600;font-size:16px;">No users online</div><div style="font-size:13px;margin-top:4px;">Users will appear here when they're active</div></div>`;
+                } else {
+                    list.innerHTML = onlineUsers.map(u => {
+                        const displayName = u.username || u.email || 'Unknown';
+                        return `
+                                <div class="online-user-item">
+                                    <div class="status-dot online"></div>
+                                    <div class="user-avatar">${getInitials(displayName)}</div>
+                                    <div class="user-info">
+                                        <div class="name">${displayName}</div>
+                                        <div class="details">${u.location || 'Unknown'} · ${u.browser || 'Unknown'} · ${u.device || 'Desktop'}</div>
+                                        <div class="page">📄 ${u.current_page || '/dashboard'} · ${u.current_action || 'viewing'}</div>
+                                    </div>
+                                    <div class="session-time">${timeAgo(u.last_seen)}</div>
+                                </div>
+                            `;
+                    }).join('');
+                }
+
+                const countBadge = document.getElementById('onlineCountBadge');
+                if (countBadge) countBadge.textContent = `${onlineUsers.length} online`;
+                const todayBadge = document.getElementById('activeTodayBadge');
+                if (todayBadge) {
+                    const today = new Date().toDateString();
+                    const todayUsers = users.filter(u => u.last_seen && new Date(u.last_seen).toDateString() === today);
+                    todayBadge.textContent = `${todayUsers.length || 0} today`;
+                }
+                const usersBadge = document.getElementById('usersBadge');
+                if (usersBadge) usersBadge.textContent = data.total_users || 0;
+                State.onlineUsers = onlineUsers;
+                return data;
+            } catch (error) {
+                console.error('Presence error:', error);
+                const list = document.getElementById('onlineUsersList');
+                if (list) list.innerHTML =
+                `<div class="empty-state" style="color:var(--danger);">⚠️ Error: ${error.message}</div>`;
+                return null;
+            }
+        }
+
+        // ─── LOAD DASHBOARD SUMMARY ───
+        async function loadDashboardSummary() {
+            try {
+                const result = await adminFetch('/stats');
+                if (!result.success) throw new Error(result.error);
+                const stats = result.data || result;
+                State.stats = stats;
+                renderKpiCards(stats);
+
+                if (stats.pending) {
+                    const depositsBadge = document.getElementById('depositsBadge');
+                    if (depositsBadge) depositsBadge.textContent = stats.pending.deposits || 0;
+                }
+                if (stats.totalUsers) {
+                    const usersBadge = document.getElementById('usersBadge');
+                    if (usersBadge) usersBadge.textContent = stats.totalUsers;
+                }
+                if (stats.support) {
+                    const supportBadge = document.getElementById('supportBadge');
+                    if (supportBadge) supportBadge.textContent = stats.support.open || 0;
+                }
+                if (stats.notifications) {
+                    const notifCount = document.getElementById('notifCount');
+                    if (notifCount) notifCount.textContent = stats.notifications.unread || 0;
+                }
+                const updated = document.getElementById('lastUpdated');
+                if (updated) updated.textContent = 'just now';
+                return stats;
+            } catch (error) {
+                console.error('Stats error:', error);
+                showToast('Failed to load stats', 'error');
+                return null;
+            }
+        }
+
+        // ─── LOAD CHARTS (Lazy) ───
+        async function loadCharts() {
+            if (State.chartsLoaded) return;
+            State.chartsLoaded = true;
+
+            try {
+                const result = await adminFetch('/charts');
+                if (!result.success) throw new Error(result.error);
+                const data = result.data || result;
+
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                const tc = getThemeColors();
+
+                // Revenue Chart
+                if (data.revenue && data.revenueUSD) {
+                    buildChart('chartRevenue', {
+                        type: 'line',
+                        data: {
+                            labels: months,
+                            datasets: [
+                                { label: 'NGN Revenue', data: data.revenue, borderColor: tc.navy, backgroundColor: tc.navy + '20', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5 },
+                                { label: 'USD Revenue', data: data.revenueUSD, borderColor: tc.gold, backgroundColor: tc.gold + '20', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5 }
+                            ]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { color: tc.text, boxWidth: 10, font: { size: 11 } } } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                // User Growth
+                if (data.userGrowth) {
+                    buildChart('chartUserGrowth', {
+                        type: 'line',
+                        data: { labels: months, datasets: [{ data: data.userGrowth, borderColor: tc.purple, backgroundColor: tc.purple + '20', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                // Wallet Transactions
+                if (data.walletBreakdown && data.walletBreakdown.data) {
+                    const wb = data.walletBreakdown;
+                    buildChart('chartWallet', {
+                        type: 'doughnut',
+                        data: { labels: wb.labels || ['Deposits', 'Withdrawals'], datasets: [{ data: wb.data, backgroundColor: [tc.navy, tc.gold], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: tc.text, boxWidth: 10, padding: 14, font: { size: 11 } } } } }
+                    });
+                }
+
+                // Campaign Status
+                if (data.campaignStatus) {
+                    const cs = data.campaignStatus;
+                    buildChart('chartCampaignStatus', {
+                        type: 'doughnut',
+                        data: { labels: cs.labels || ['Running', 'Pending', 'Completed', 'Cancelled'], datasets: [{ data: cs.data || [0, 0, 0, 0], backgroundColor: [tc.success, tc.gold, tc.navy, tc.danger], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { color: tc.text, boxWidth: 10, padding: 12, font: { size: 10 } } } } }
+                    });
+                }
+
+                // Gift Orders
+                if (data.giftOrders) {
+                    const go = data.giftOrders;
+                    buildChart('chartGiftOrders', {
+                        type: 'doughnut',
+                        data: { labels: go.labels || ['Pending', 'Processing', 'Delivered', 'Failed'], datasets: [{ data: go.data || [0, 0, 0, 0], backgroundColor: [tc.gold, tc.navy, tc.success, tc.danger], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { color: tc.text, boxWidth: 10, padding: 12, font: { size: 10 } } } } }
+                    });
+                }
+
+                // Marketplace Orders
+                if (data.marketplaceOrders) {
+                    const mo = data.marketplaceOrders;
+                    buildChart('chartMarketplaceOrders', {
+                        type: 'doughnut',
+                        data: { labels: mo.labels || ['Pending', 'Processing', 'Completed'], datasets: [{ data: mo.data || [0, 0, 0], backgroundColor: [tc.gold, tc.navy, tc.success], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { color: tc.text, boxWidth: 10, padding: 12, font: { size: 10 } } } } }
+                    });
+                }
+
+                // SMS Orders
+                if (data.smsOrders) {
+                    const so = data.smsOrders;
+                    buildChart('chartSmsOrders', {
+                        type: 'doughnut',
+                        data: { labels: so.labels || ['Pending', 'Active', 'Completed'], datasets: [{ data: so.data || [0, 0, 0], backgroundColor: [tc.gold, tc.navy, tc.success], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { color: tc.text, boxWidth: 10, padding: 12, font: { size: 10 } } } } }
+                    });
+                }
+
+                // Top Countries
+                if (data.topCountries) {
+                    const tcData = data.topCountries;
+                    buildChart('chartCountries', {
+                        type: 'bar',
+                        data: { labels: tcData.labels || [], datasets: [{ data: tcData.data || [], backgroundColor: tc.navy + '80', borderColor: tc.navy, borderWidth: 1 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                // Top Services
+                if (data.topServices) {
+                    const tsData = data.topServices;
+                    buildChart('chartServices', {
+                        type: 'bar',
+                        data: { labels: tsData.labels || [], datasets: [{ data: tsData.data || [], backgroundColor: tc.gold + '80', borderColor: tc.gold, borderWidth: 1 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                // Support Tickets
+                if (data.supportTickets) {
+                    const st = data.supportTickets;
+                    buildChart('chartSupport', {
+                        type: 'doughnut',
+                        data: { labels: st.labels || ['Open', 'In Progress', 'Resolved'], datasets: [{ data: st.data || [0, 0, 0], backgroundColor: [tc.danger, tc.gold, tc.success], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { color: tc.text, boxWidth: 10, padding: 12, font: { size: 10 } } } } }
+                    });
+                }
+
+                // Platform Activity
+                if (data.platformActivity) {
+                    const pa = data.platformActivity;
+                    buildChart('chartActivity', {
+                        type: 'line',
+                        data: { labels: days, datasets: [{ data: pa.data || [0, 0, 0, 0, 0, 0, 0], borderColor: tc.purple, backgroundColor: tc.purple + '20', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                // Revenue vs Expenses
+                if (data.revenueExpense) {
+                    const re = data.revenueExpense;
+                    buildChart('chartRevExpense', {
+                        type: 'bar',
+                        data: {
+                            labels: re.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                            datasets: [
+                                { label: 'Revenue', data: re.revenue || [], backgroundColor: tc.navy + '80', borderColor: tc.navy, borderWidth: 1 },
+                                { label: 'Expenses', data: re.expenses || [], backgroundColor: tc.danger + '80', borderColor: tc.danger, borderWidth: 1 }
+                            ]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: tc.text, boxWidth: 10, font: { size: 11 } } } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                // Weekly Revenue
+                if (data.weeklyRevenue) {
+                    const wr = data.weeklyRevenue;
+                    buildChart('chartWeeklyRevenue', {
+                        type: 'bar',
+                        data: { labels: days, datasets: [{ label: 'Revenue', data: wr.ngn || wr.data || [], backgroundColor: tc.gold + '80', borderColor: tc.gold, borderWidth: 1 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                // Top Customers
+                if (data.topCustomers) {
+                    const tcData = data.topCustomers;
+                    buildChart('chartTopCustomers', {
+                        type: 'bar',
+                        data: { labels: tcData.labels || [], datasets: [{ data: tcData.data || [], backgroundColor: tc.purple + '80', borderColor: tc.purple, borderWidth: 1 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } } }
+                    });
+                }
+
+                console.log('✅ Charts loaded lazily');
+            } catch (error) {
+                console.warn('Chart data error:', error.message);
+            }
+        }
+
+        // ─── LOAD TABLES (Lazy) ───
+        async function loadTables() {
+            if (State.tablesLoaded) return;
+            State.tablesLoaded = true;
+
+            await Promise.all([
+                loadRecentUsers(),
+                loadRecentGiftOrders(),
+                loadRecentTransactions()
+            ]);
+
+            console.log('✅ Tables loaded lazily');
+        }
+
+        // ─── LOAD RECENT USERS ───
+        async function loadRecentUsers() {
+            try {
+                const result = await adminFetch('/users/recent?limit=6');
+                if (!result.success) throw new Error(result.error);
+                const users = result.data || [];
+                const tbody = document.getElementById('recentUsersBody');
+                if (!tbody) return;
+                if (!users || users.length === 0) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:24px;">No users found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = users.map(u => {
+                    const location = u.last_location || 'N/A';
+                    const status = u.status || 'active';
+                    const displayName = u.username || u.email || 'Unknown';
+                    return `
+                            <tr onclick="viewUserDetails('${u.id}')" style="cursor:pointer;">
+                                <td>
+                                    <div class="cell-user">
+                                        <div class="av">${getInitials(displayName)}</div>
+                                        <div class="meta"><strong>${displayName}</strong><span>${u.email || ''}</span></div>
+                                    </div>
+                                </td>
+                                <td>${location}</td>
+                                <td>${timeAgo(u.created_at)}</td>
+                                <td><span class="badge ${u.is_verified ? 'success' : 'warn'}">${u.is_verified ? '✅ Verified' : '⏳ Pending'}</span></td>
+                                <td>${formatCurrency(u.wallet_ngn || 0, 'NGN')} / ${formatCurrency(u.wallet_usd || 0, 'USD')}</td>
+                                <td><span class="badge ${status === 'active' ? 'success' : status === 'suspended' ? 'danger' : 'warn'}">${status}</span></td>
+                                <td><button class="badge info" onclick="event.stopPropagation();viewUserDetails('${u.id}')" style="cursor:pointer;">View</button></td>
+                            </tr>
+                        `;
+                }).join('');
+            } catch (error) {
+                console.error('Users error:', error);
+                const tbody = document.getElementById('recentUsersBody');
+                if (tbody) tbody.innerHTML =
+                    '<tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:24px;">Error loading users</td></tr>';
+            }
+        }
+
+        // ─── LOAD RECENT GIFT ORDERS ───
+        async function loadRecentGiftOrders() {
+            try {
+                const result = await adminFetch('/gift-orders/recent?limit=5');
+                if (!result.success) throw new Error(result.error);
+                const orders = result.data || [];
+                const tbody = document.getElementById('recentGiftOrdersBody');
+                if (!tbody) return;
+
+                if (!orders || orders.length === 0) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="8" style="text-align:center;color:var(--text-faint);padding:24px;">No gift orders found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = orders.map(o => {
+                    const amount = o.wallet_used === 'USD' ? formatCurrency(o.price_usd || 0, 'USD') : formatCurrency(o
+                        .price_ngn || 0, 'NGN');
+                    const status = o.status || 'pending';
+                    const user = o.user_username || o.user_email || 'User';
+                    return `
+                            <tr>
+                                <td><span class="mono">${o.order_ref || 'N/A'}</span></td>
+                                <td>${user}</td>
+                                <td>${o.product_name || 'Gift'}</td>
+                                <td>${o.recipient_name || o.recipient_contact || 'N/A'}</td>
+                                <td>${amount}</td>
+                                <td><span class="badge ${getStatusBadge(status)}">${status}</span></td>
+                                <td>${timeAgo(o.created_at)}</td>
+                                <td>
+                                    <button class="badge info" onclick="viewGiftOrder('${o.id}')" style="cursor:pointer;">View</button>
+                                    ${o.tracking_number ? `<button class="badge success" onclick="trackGift('${o.tracking_number}')" style="cursor:pointer;">Track</button>` : ''}
+                                </td>
+                            </tr>
+                        `;
+                }).join('');
+            } catch (error) {
+                console.warn('Gift orders error:', error.message);
+                const tbody = document.getElementById('recentGiftOrdersBody');
+                if (tbody) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="8" style="text-align:center;color:var(--text-faint);padding:24px;">No gift orders found</td></tr>';
+                }
+            }
+        }
+
+        // ─── VIEW GIFT ORDER ───
+        async function viewGiftOrder(orderId) {
+            try {
+                const result = await adminFetch(`/gift-orders/${orderId}`);
+                if (!result.success) throw new Error(result.error);
+                const order = result.data;
+                openDetailDrawer('🎁 Gift Order Details', `Order: ${order.order_ref}`);
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat"><div class="dd-stat-label">Status</div><div class="dd-stat-value">${order.status || 'pending'}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Amount</div><div class="dd-stat-value">${order.wallet_used === 'USD' ? formatCurrency(order.price_usd, 'USD') : formatCurrency(order.price_ngn, 'NGN')}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Wallet Used</div><div class="dd-stat-value">${order.wallet_used || 'NGN'}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Tracking</div><div class="dd-stat-value">${order.tracking_number || 'N/A'}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>Field</th><th>Value</th>`;
+                document.getElementById('ddTbody').innerHTML = `
+                        <tr><td>Order ID</td><td class="mono">${order.order_ref}</td></tr>
+                        <tr><td>Product</td><td>${order.product_name || 'Gift'}</td></tr>
+                        <tr><td>Recipient</td><td>${order.recipient_name || 'N/A'}</td></tr>
+                        <tr><td>Recipient Contact</td><td>${order.recipient_phone || order.recipient_email || 'N/A'}</td></tr>
+                        <tr><td>Country</td><td>${order.recipient_country || 'N/A'}</td></tr>
+                        <tr><td>City</td><td>${order.recipient_city || 'N/A'}</td></tr>
+                        <tr><td>Address</td><td>${order.recipient_address || 'N/A'}</td></tr>
+                        <tr><td>Status</td><td>${order.status || 'pending'}</td></tr>
+                        <tr><td>Wallet Used</td><td>${order.wallet_used || 'NGN'}</td></tr>
+                        <tr><td>Amount</td><td>${order.wallet_used === 'USD' ? formatCurrency(order.price_usd, 'USD') : formatCurrency(order.price_ngn, 'NGN')}</td></tr>
+                        <tr><td>Tracking</td><td>${order.tracking_number || 'N/A'}</td></tr>
+                        <tr><td>Created</td><td>${new Date(order.created_at).toLocaleString()}</td></tr>
+                        ${order.message ? `<tr><td>Message</td><td>${order.message}</td></tr>` : ''}
+                    `;
+                document.getElementById('ddRecordCount').textContent = 'Gift order details';
+            } catch (error) {
+                showToast('Failed to load gift order', 'error');
+            }
+        }
+
+        function trackGift(trackingNumber) {
+            if (trackingNumber) {
+                window.open(`https://www.17track.net/en/track?nums=${trackingNumber}`, '_blank');
+            } else {
+                showToast('No tracking number available', 'warning');
+            }
+        }
+
+        // ─── LOAD RECENT TRANSACTIONS ───
+        async function loadRecentTransactions() {
+            try {
+                const result = await adminFetch('/transactions/recent?limit=10');
+                if (!result.success) throw new Error(result.error);
+                const transactions = result.transactions || [];
+                const tbody = document.getElementById('recentTransactionsBody');
+                if (!tbody) return;
+                if (!transactions || transactions.length === 0) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:24px;">No transactions found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = transactions.map(t => {
+                    const amount = t.currency === 'NGN' ? formatCurrency(t.amount_ngn, 'NGN') : formatCurrency(t
+                        .amount_usd, 'USD');
+                    const user = t.user_name || t.user_email || 'User';
+                    const type = t.type || 'N/A';
+                    const status = t.status || 'completed';
+                    const description = t.description || type;
+                    return `
+                            <tr>
+                                <td><span class="mono">${t.ref || 'N/A'}</span></td>
+                                <td>${user}</td>
+                                <td>${amount}</td>
+                                <td>${description}</td>
+                                <td><span class="badge ${getStatusBadge(status)}">${status}</span></td>
+                                <td>${timeAgo(t.created_at)}</td>
+                            </tr>
+                        `;
+                }).join('');
+            } catch (error) {
+                console.warn('Transactions error:', error.message);
+                const tbody = document.getElementById('recentTransactionsBody');
+                if (tbody) tbody.innerHTML =
+                    '<tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:24px;">No recent transactions</td></tr>';
+            }
+        }
+
+        // ─── LOAD SYSTEM STATUS ───
+        async function loadSystemStatus() {
+            if (State.systemStatusLoaded) return;
+            State.systemStatusLoaded = true;
+
+            try {
+                const result = await adminFetch('/intelligence/health');
+                if (!result.success) throw new Error(result.error);
+                const h = result.data;
+                const grid = document.getElementById('systemStatusGrid');
+                if (!grid) return;
+                const statuses = [
+                    { label: 'Server Status', value: h.status === 'operational' ? 'Operational ✅' : 'Degraded ⚠️',
+                    dot: h.status === 'operational' ? 'green' : 'orange' },
+                    { label: 'Database Status', value: h.database_health === 'healthy' ? 'Connected ✅' :
+                            'Degraded ⚠️', dot: h.database_health === 'healthy' ? 'green' : 'orange' },
+                    { label: 'Memory Usage', value: h.memory_usage || 'N/A',
+                    dot: h.memory_usage ? (parseInt(h.memory_usage) < 70 ? 'green' : 'orange') : 'orange' },
+                    { label: 'CPU Usage', value: h.cpu_usage || 'N/A',
+                    dot: h.cpu_usage ? (parseInt(h.cpu_usage) < 70 ? 'green' : 'orange') : 'orange' },
+                    { label: 'Storage Usage', value: h.storage_usage || 'N/A',
+                    dot: h.storage_usage ? (parseInt(h.storage_usage) < 80 ? 'green' : 'orange') : 'orange' },
+                    { label: 'Network Status', value: h.network_status || 'Healthy', dot: 'green' },
+                    { label: 'Active Sessions', value: h.ws_connections || '0', dot: 'green' },
+                    { label: 'Error Rate', value: h.error_rate || '0%', dot: 'green' },
+                ];
+                grid.innerHTML = statuses.map(s => `
+                        <div class="sys-status-item"><div class="dot ${s.dot}"></div><div class="info"><div class="label">${s.label}</div><div class="value">${s.value}</div></div></div>
+                    `).join('');
+            } catch (error) {
+                console.error('System status error:', error);
+                const grid = document.getElementById('systemStatusGrid');
+                if (grid) grid.innerHTML =
+                    `<div style="text-align:center;color:var(--danger);padding:20px;grid-column:1/-1;">⚠️ Unable to load system status</div>`;
+            }
+        }
+
+        // ─── LOAD NOTIFICATIONS ───
+        async function loadNotifications() {
+            if (State.notificationsLoaded) return;
+            State.notificationsLoaded = true;
+
+            try {
+                const result = await adminFetch('/notifications/recent?limit=5');
+                if (!result.success) return;
+                const notifications = result.data || [];
+                const container = document.getElementById('notificationsList');
+                if (!container) return;
+                if (!notifications || notifications.length === 0) {
+                    container.innerHTML =
+                        '<div style="text-align:center;color:var(--text-faint);padding:20px;">No notifications</div>';
+                    return;
+                }
+                container.innerHTML = notifications.map(n => `
+                        <div class="notif-item ${!n.is_read ? 'unread' : ''}" onclick="showToast('${n.title}: ${n.message}', 'info')">
+                            <div class="nic" style="background:var(--info-bg);color:var(--info);">${n.icon || '📌'}</div>
+                            <div class="nbody">
+                                <div class="ntitle">${n.title || 'Notification'}</div>
+                                <div class="nmsg">${n.message || ''}</div>
+                            </div>
+                            <div class="ntime">${timeAgo(n.created_at)}</div>
+                        </div>
+                    `).join('');
+            } catch (error) {
+                console.warn('Notifications error:', error.message);
+                const container = document.getElementById('notificationsList');
+                if (container) container.innerHTML =
+                    '<div style="text-align:center;color:var(--text-faint);padding:20px;">No notifications</div>';
+            }
+        }
+
+        // ─── LOAD ADMIN PROFILE ───
+        async function loadAdminProfile() {
+            try {
+                const result = await adminFetch('/me');
+                if (!result.success) throw new Error(result.error);
+                const user = result.data?.user || result.user;
+                if (user) {
+                    const name = user.username || user.email?.split('@')[0] || 'Admin';
+                    const role = user.role || 'Admin';
+                    const initials = getInitials(name);
+                    document.getElementById('adminName').textContent = name;
+                    document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+                    document.getElementById('adminAvatar').textContent = initials;
+                    document.getElementById('chipName').textContent = name;
+                    document.getElementById('chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+                    document.getElementById('chipAvatar').textContent = initials;
+                    document.getElementById('welcomeName').textContent = name;
+                    const hour = new Date().getHours();
+                    let greeting = 'Good Evening 👋';
+                    if (hour < 12) greeting = 'Good Morning 👋';
+                    else if (hour < 17) greeting = 'Good Afternoon 👋';
+                    document.getElementById('greetingText').textContent = greeting;
+                }
+                return user;
+            } catch (error) {
+                console.error('Admin profile error:', error);
+                return null;
+            }
+        }
+
+        // ─── LOAD ACTIVITY FEED ───
+        const ACTIVITY_CACHE_TTL = 30000;
+
+        async function loadActivityFeed() {
+            try {
+                if (Date.now() - State.activityCacheTime < ACTIVITY_CACHE_TTL && State.activityCache.length > 0) {
+                    renderActivityFeed(State.activityCache);
+                    return;
+                }
+
+                const result = await adminFetch('/recent-activity?limit=20');
+                if (!result.success) throw new Error(result.error);
+
+                const activities = result.data || [];
+                const seen = new Set();
+                const unique = activities.filter(a => {
+                    const key = `${a.type}_${a.user_id}_${a.created_at}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+
+                State.activityCache = unique;
+                State.activityCacheTime = Date.now();
+                renderActivityFeed(unique);
+
+            } catch (error) {
+                console.warn('Activity feed error:', error);
+                const feed = document.getElementById('realtimeFeed');
+                if (feed && State.activityCache.length === 0) {
+                    feed.innerHTML =
+                        `<div style="text-align:center;color:var(--text-faint);padding:20px;font-size:13px;">No recent activity</div>`;
+                }
+            }
+        }
+
+        function renderActivityFeed(activities) {
+            const feed = document.getElementById('realtimeFeed');
+            if (!feed) return;
+
+            if (!activities || activities.length === 0) {
+                feed.innerHTML =
+                    `<div style="text-align:center;color:var(--text-faint);padding:20px;font-size:13px;">No recent activity</div>`;
+                return;
+            }
+
+            feed.innerHTML = activities.slice(0, 15).map(a => {
+                const details = typeof a.details === 'string' ? a.details : 'Activity';
+                let icon = '📌';
+                let bgColor = 'var(--info-bg)';
+                let textColor = 'var(--info)';
+
+                switch (a.type) {
+                    case 'deposit':
+                    case 'wallet_funding':
+                        icon = '📥';
+                        bgColor = 'var(--success-bg)';
+                        textColor = 'var(--success)';
+                        break;
+                    case 'withdrawal':
+                    case 'wallet_withdrawal':
+                        icon = '📤';
+                        bgColor = 'var(--danger-bg)';
+                        textColor = 'var(--danger)';
+                        break;
+                    case 'marketplace':
+                    case 'purchase':
+                        icon = '🛒';
+                        bgColor = 'var(--info-bg)';
+                        textColor = 'var(--info)';
+                        break;
+                    case 'boost':
+                        icon = '📈';
+                        bgColor = 'var(--warn-bg)';
+                        textColor = '#b3720a';
+                        break;
+                    case 'campaign':
+                        icon = '📢';
+                        bgColor = 'var(--purple-bg)';
+                        textColor = 'var(--purple)';
+                        break;
+                    case 'giftcard':
+                    case 'gift_card':
+                    case 'sale':
+                        icon = '💳';
+                        bgColor = 'var(--warn-bg)';
+                        textColor = '#b3720a';
+                        break;
+                    case 'virtual_sms':
+                        icon = '📱';
+                        bgColor = 'var(--info-bg)';
+                        textColor = 'var(--info)';
+                        break;
+                    case 'registration':
+                        icon = '👤';
+                        bgColor = 'var(--info-bg)';
+                        textColor = 'var(--info)';
+                        break;
+                    default:
+                        icon = '📌';
+                        bgColor = 'var(--info-bg)';
+                        textColor = 'var(--info)';
+                }
+
+                return `
+                        <div class="feed-item">
+                            <div class="feed-av" style="background:${bgColor};color:${textColor}">${icon}</div>
+                            <div>
+                                <div class="feed-body">${details}</div>
+                                <div class="feed-time">${timeAgo(a.created_at)}</div>
+                            </div>
+                        </div>
+                    `;
+            }).join('');
+        }
+
+        // ─── CALENDAR ───
+        let calendarMonth = new Date().getMonth();
+        let calendarYear = new Date().getFullYear();
+
+        function renderCalendar(month = calendarMonth, year = calendarYear) {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
+                'October', 'November', 'December'
+            ];
+            const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date().getDate();
+            const todayMonth = new Date().getMonth();
+            const todayYear = new Date().getFullYear();
+
+            let html = `
+                    <div class="cal-month-nav">
+                        <button onclick="changeCalendarMonth(-1)" title="Previous month"><i class="fas fa-chevron-left"></i></button>
+                        <span class="month-label">${monthNames[month]} ${year}</span>
+                        <button onclick="changeCalendarMonth(1)" title="Next month"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="cal-head">${labels.map(l => `<span>${l}</span>`).join('')}</div>
+                    <div class="cal-grid">
+                `;
+
+            const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+            for (let i = 0; i < startOffset; i++) {
+                html += `<div class="cal-day other"></div>`;
+            }
+            for (let d = 1; d <= daysInMonth; d++) {
+                const isToday = (d === today && month === todayMonth && year === todayYear);
+                html += `<div class="cal-day ${isToday ? 'today' : ''}">${d}</div>`;
+            }
+            html += '</div>';
+
+            const widget = document.getElementById('calendarWidget');
+            if (widget) widget.innerHTML = html;
+
+            const reminders = document.getElementById('businessReminders');
+            if (reminders) {
+                const todayStr =
+                    `${todayYear}-${String(todayMonth + 1).padStart(2, '0')}-${String(today).padStart(2, '0')}`;
+                const demoReminders = [
+                    { date: todayStr, title: '📊 Monthly Report Due', dot: 'gold' },
+                    { date: new Date(Date.now() + 86400000).toISOString().slice(0, 10), title: '📈 Campaign Review',
+                        dot: 'blue' },
+                    { date: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
+                        title: '💳 Gift Card Promo Launch', dot: 'purple' },
+                ];
+                const todayReminders = demoReminders.filter(r => r.date === todayStr);
+                if (todayReminders.length > 0) {
+                    reminders.innerHTML = todayReminders.map(r =>
+                        `<div class="cal-event"><div class="e-dot ${r.dot}"></div><span>${r.title}</span></div>`
+                    ).join('');
+                } else {
+                    reminders.innerHTML =
+                        `<div style="text-align:center;color:var(--text-faint);padding:10px 4px;font-size:11px;">No reminders for today</div>`;
+                }
+            }
+        }
+
+        function changeCalendarMonth(delta) {
+            calendarMonth += delta;
+            if (calendarMonth < 0) { calendarMonth = 11;
+                calendarYear--; } else if (calendarMonth > 11) { calendarMonth = 0;
+                calendarYear++; }
+            renderCalendar(calendarMonth, calendarYear);
+        }
+
+        // ─── VIEW USER DETAILS ───
+        async function viewUserDetails(userId) {
+            try {
+                const result = await adminFetch(`/users/${userId}`);
+                if (!result.success) throw new Error(result.error);
+                const u = result.user;
+                const stats = result.stats || {};
+                openDetailDrawer('👤 User Profile', `${u.username || u.email || 'User'}`);
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat"><div class="dd-stat-label">Wallet (NGN)</div><div class="dd-stat-value">${formatCurrency(u.wallet_ngn || 0, 'NGN')}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Wallet (USD)</div><div class="dd-stat-value">${formatCurrency(u.wallet_usd || 0, 'USD')}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Transactions</div><div class="dd-stat-value">${stats.transactionCount || 0}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Gift Orders</div><div class="dd-stat-value">${stats.giftOrderCount || 0}</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>Field</th><th>Value</th>`;
+                document.getElementById('ddTbody').innerHTML = `
+                        <tr><td>User ID</td><td class="mono">${u.id}</td></tr>
+                        <tr><td>Username</td><td>${u.username || 'N/A'}</td></tr>
+                        <tr><td>Email</td><td>${u.email || 'N/A'}</td></tr>
+                        <tr><td>Phone</td><td>${u.phone || 'N/A'}</td></tr>
+                        <tr><td>Role</td><td>${u.role || 'user'}</td></tr>
+                        <tr><td>Status</td><td>${u.status || 'active'}</td></tr>
+                        <tr><td>Verified</td><td>${u.is_verified ? '✅ Yes' : '⏳ No'}</td></tr>
+                        <tr><td>Location</td><td>${u.last_location || 'N/A'}</td></tr>
+                        <tr><td>Joined</td><td>${timeAgo(u.created_at)}</td></tr>
+                        <tr><td>Last Login</td><td>${timeAgo(u.last_login)}</td></tr>
+                        <tr><td>Wallet (NGN)</td><td>${formatCurrency(u.wallet_ngn || 0, 'NGN')}</td></tr>
+                        <tr><td>Wallet (USD)</td><td>${formatCurrency(u.wallet_usd || 0, 'USD')}</td></tr>
+                        <tr><td>Total Transactions</td><td>${stats.transactionCount || 0}</td></tr>
+                        <tr><td>Gift Orders</td><td>${stats.giftOrderCount || 0}</td></tr>
+                    `;
+                document.getElementById('ddRecordCount').textContent = 'User profile';
+            } catch (error) {
+                showToast('Failed to load user details', 'error');
+            }
+        }
+
+        // ─── SEARCH ───
+        async function handleGlobalSearch() {
+            const query = document.getElementById('globalSearch').value.trim();
+            if (!query) { showToast('Please enter a search term', 'warning'); return; }
+            showToast('Searching for: ' + query, 'info');
+            try {
+                const result = await adminFetch(`/search?q=${encodeURIComponent(query)}`);
+                if (!result.success) throw new Error(result.error);
+                const results = result.data || [];
+                if (results.length === 0) { showToast('No results found', 'warning'); return; }
+                openDetailDrawer('🔍 Search Results', `Found ${results.length} results`);
+                document.getElementById('ddStats').innerHTML = `
+                        <div class="dd-stat"><div class="dd-stat-label">Results</div><div class="dd-stat-value">${results.length}</div></div>
+                        <div class="dd-stat"><div class="dd-stat-label">Query</div><div class="dd-stat-value">"${query}"</div></div>
+                    `;
+                document.getElementById('ddThead').innerHTML = `<th>Type</th><th>Name</th><th>Details</th>`;
+                document.getElementById('ddTbody').innerHTML = results.slice(0, 50).map(r => `
+                        <tr><td><span class="badge info">${r.type || 'Result'}</span></td><td><strong>${r.name || r.id || 'N/A'}</strong></td><td>${r.details || 'N/A'}</td></tr>
+                    `).join('');
+                document.getElementById('ddRecordCount').textContent = results.length + ' results';
+            } catch (error) {
+                showToast('Search failed: ' + error.message, 'error');
+            }
+        }
+
+        // ─── EVENT LISTENERS ───
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check token immediately
+            const token = window.getAdminToken();
+            if (!token) {
+                window.redirectToAdminLogin();
+                return;
+            }
+
+            renderCalendar();
+            loadAdminProfile();
+            loadDashboardSummary();
+            loadOnlineUsers();
+            loadActivityFeed();
+
+            // Lazy load charts after 1.5s
+            setTimeout(loadCharts, CONFIG.CHART_LOAD_DELAY);
+            setTimeout(loadTables, CONFIG.TABLE_LOAD_DELAY);
+            setTimeout(() => {
+                loadSystemStatus();
+                loadNotifications();
+            }, CONFIG.TABLE_LOAD_DELAY + 500);
+
+            // ─── INTERVALS ───
+            setInterval(loadActivityFeed, CONFIG.ACTIVITY_INTERVAL);
+            setInterval(loadOnlineUsers, CONFIG.PRESENCE_INTERVAL);
+
+            // ─── Sidebar toggle ───
+            document.getElementById('hamburger')?.addEventListener('click', () => {
+                document.getElementById('sidebar').classList.add('open');
+                document.getElementById('scrim').classList.add('show');
+            });
+
+            document.getElementById('scrim')?.addEventListener('click', () => {
+                document.getElementById('sidebar').classList.remove('open');
+                document.getElementById('scrim').classList.remove('show');
+            });
+
+            // ─── Dark mode ───
+            document.getElementById('darkToggle')?.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                const btn = document.getElementById('darkToggle');
+                if (btn) btn.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+                if (State.chartsLoaded) {
+                    setTimeout(loadCharts, 300);
+                }
+            });
+
+            // ─── Admin logout ───
+            document.getElementById('adminChip')?.addEventListener('click', async () => {
+                if (confirm('Are you sure you want to logout?')) {
+                    if (window.logoutPresence) { window.logoutPresence(); }
+                    try { await adminFetch('/logout', { method: 'POST' }); } catch (e) {}
+                    window.clearAdminSession();
+                    window.location.href = '/admin/login.html';
+                }
+            });
+
+            // ─── Drawer close ───
+            document.getElementById('ddClose')?.addEventListener('click', closeDetailDrawer);
+            document.getElementById('drawerScrim')?.addEventListener('click', closeDetailDrawer);
+
+            // ─── Keyboard shortcuts ───
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeDetailDrawer();
+                if (e.ctrlKey && e.key === 'k') { e.preventDefault();
+                    document.getElementById('globalSearch')?.focus(); }
+                if (e.key >= '1' && e.key <= '8' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement
+                        ?.tagName || '')) {
+                    const idx = parseInt(e.key) - 1;
+                    if (QUICK_ACTIONS[idx]) {
+                        showToast('Opening: ' + QUICK_ACTIONS[idx].label, 'info');
+                        window.location.href = QUICK_ACTIONS[idx].url;
+                    }
+                }
+            });
+
+            // ─── Refresh button ───
+            document.getElementById('ddRefresh')?.addEventListener('click', () => {
+                showToast('Refreshing…', 'info');
+                loadOnlineUsers();
+                loadDashboardSummary();
+                loadActivityFeed();
+                if (State.chartsLoaded) loadCharts();
+                if (State.tablesLoaded) loadTables();
+                loadSystemStatus();
+                loadNotifications();
+            });
+
+            // ─── CSV export ───
+            document.getElementById('ddExportCsv')?.addEventListener('click', () => {
+                const table = document.getElementById('ddTable');
+                if (!table) return;
+                const rows = table.querySelectorAll('tr');
+                const csv = Array.from(rows).map(row => Array.from(row.querySelectorAll('th,td')).map(cell =>
+                    cell.textContent.trim()).join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'export.csv';
+                a.click();
+                showToast('CSV exported', 'success');
+            });
+
+            // ─── Print ───
+            document.getElementById('ddPrint')?.addEventListener('click', () => window.print());
+
+            console.log('🧠 MilesSpace Intelligence Dashboard loaded (optimized)');
+            console.log('⚡ Performance: Lazy loading enabled');
+            console.log('📊 Initial load: Summary only');
+            console.log('📈 Charts loaded after 1.5s');
+            console.log('📋 Tables loaded after 2s');
+            console.log('🟢 Presence tracking active - refreshes every 30s');
+            console.log('🔄 Activity feed auto-refreshes every 30s');
+        });
+
+        // ─── CLEANUP ───
+        window.addEventListener('beforeunload', () => {
+            Object.values(State.chartRefs).forEach(chart => {
+                try { chart.destroy(); } catch (e) {}
+            });
+        });
+
+        // ─── GLOBAL EXPOSED FUNCTIONS ───
+        window.showOnlineUsersDetails = showOnlineUsersDetails;
+        window.showGeographicDetails = showGeographicDetails;
+        window.showWalletIntelligence = showWalletIntelligence;
+        window.showTopCustomers = showTopCustomers;
+        window.showFraudAlerts = showFraudAlerts;
+        window.showPlatformHealth = showPlatformHealth;
+        window.viewGiftOrder = viewGiftOrder;
+        window.trackGift = trackGift;
+        window.viewUserDetails = viewUserDetails;
+        window.showNotifications = showNotifications;
+        window.showMessages = showMessages;
+        window.showSettings = showSettings;
+        window.handleGlobalSearch = handleGlobalSearch;
+        window.filterDrawerTable = function() {
+            const search = document.getElementById('ddSearch')?.value?.toLowerCase() || '';
+            const rows = document.querySelectorAll('#ddTbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(search) ? '' : 'none';
+            });
+        };
+        window.changeCalendarMonth = changeCalendarMonth;
+    </script>
+</body>
+</html>
