@@ -1,434 +1,392 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1,user-scalable=yes"/>
-<title>Admin Login | MilesSpace</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<style>
-/* ─── ALL YOUR EXISTING STYLES ─── */
-:root {
-  --p:#0c3d4a;
-  --pm:#155e72;
-  --pl:#e8f4f7;
-  --acc:#f59e0b;
-  --acd:#d97706;
-  --ok:#10b981;
-  --err:#ef4444;
-  --bg:#edf1f4;
-  --srf:#fff;
-  --bdr:#dde4e9;
-  --t1:#0a2530;
-  --t2:#456475;
-  --t3:#8aa4ae;
-  --r:12px;
-  --rl:18px;
-  --rxl:24px;
-  --rp:999px;
-  --fd:'Syne',sans-serif;
-  --fb:'DM Sans',sans-serif;
-}
-* {
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-}
-body {
-  font-family:var(--fb);
-  background:var(--bg);
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-}
-.login-container {
-  background:var(--srf);
-  border-radius:var(--rxl);
-  padding:40px 36px;
-  max-width:420px;
-  width:100%;
-  box-shadow:0 20px 60px rgba(10,37,48,.12);
-  border:1px solid var(--bdr);
-}
-.admin-badge {
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  background:var(--pl);
-  color:var(--p);
-  padding:4px 14px;
-  border-radius:var(--rp);
-  font-size:.7rem;
-  font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:.06em;
-  margin-bottom:14px;
-}
-.admin-badge i {
-  font-size:.65rem;
-}
-.logo {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:20px;
-}
-.logo img {
-  width:36px;
-  height:36px;
-  border-radius:8px;
-}
-.logo h1 {
-  font-family:var(--fd);
-  font-size:1.2rem;
-  font-weight:800;
-  color:var(--t1);
-}
-.logo span {
-  color:var(--t3);
-  font-weight:400;
-  font-size:.85rem;
-}
-.title {
-  font-family:var(--fd);
-  font-size:1.5rem;
-  font-weight:800;
-  color:var(--t1);
-  margin-bottom:4px;
-}
-.subtitle {
-  font-size:.85rem;
-  color:var(--t3);
-  margin-bottom:24px;
-}
-.alert {
-  padding:10px 14px;
-  border-radius:var(--r);
-  font-size:.8rem;
-  font-weight:500;
-  display:none;
-  align-items:center;
-  gap:8px;
-  margin-bottom:16px;
-}
-.alert.show {
-  display:flex;
-}
-.alert.err {
-  background:#fee2e2;
-  border:1px solid #fca5a5;
-  color:#991b1b;
-}
-.alert.ok {
-  background:#d1fae5;
-  border:1px solid #a7f3d0;
-  color:#065f46;
-}
-.fg {
-  margin-bottom:16px;
-}
-.flbl {
-  display:block;
-  font-size:.7rem;
-  font-weight:700;
-  color:var(--t2);
-  margin-bottom:5px;
-  text-transform:uppercase;
-  letter-spacing:.04em;
-}
-.inp-wrap {
-  position:relative;
-}
-.inp-wrap i {
-  position:absolute;
-  left:12px;
-  top:50%;
-  transform:translateY(-50%);
-  color:var(--t3);
-  font-size:.85rem;
-}
-.finp {
-  width:100%;
-  padding:10px 14px 10px 38px;
-  border:1.5px solid var(--bdr);
-  border-radius:var(--r);
-  font-size:.9rem;
-  color:var(--t1);
-  background:#f7f9fb;
-  outline:none;
-  transition:all .2s;
-}
-.finp:focus {
-  border-color:var(--p);
-  background:var(--srf);
-  box-shadow:0 0 0 3px rgba(12,61,74,.07);
-}
-.finp.err-inp {
-  border-color:var(--err);
-}
-.eye-btn {
-  position:absolute;
-  right:12px;
-  top:50%;
-  transform:translateY(-50%);
-  background:none;
-  border:none;
-  color:var(--t3);
-  cursor:pointer;
-  font-size:.85rem;
-}
-.btn-primary {
-  width:100%;
-  padding:12px;
-  background:var(--p);
-  color:#fff;
-  border:none;
-  border-radius:var(--rp);
-  font-family:var(--fd);
-  font-weight:700;
-  font-size:.9rem;
-  cursor:pointer;
-  transition:all .22s;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-}
-.btn-primary:hover {
-  background:var(--pm);
-  transform:translateY(-1px);
-  box-shadow:0 4px 14px rgba(12,61,74,.22);
-}
-.btn-primary:disabled {
-  opacity:.5;
-  cursor:not-allowed;
-  transform:none!important;
-}
-.footer-links {
-  display:flex;
-  justify-content:space-between;
-  margin-top:16px;
-  font-size:.78rem;
-}
-.footer-links a {
-  color:var(--t2);
-  text-decoration:none;
-  transition:color .2s;
-}
-.footer-links a:hover {
-  color:var(--p);
-}
-.security-badge {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  margin-top:20px;
-  font-size:.7rem;
-  color:var(--t3);
-}
-.security-badge i {
-  color:var(--ok);
-}
-@media(max-width:480px) {
-  .login-container {
-    padding:28px 20px;
-  }
-  .title {
-    font-size:1.25rem;
-  }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MilesSpace — Admin Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="/js/admin-session.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f4f7fb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-container {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px 48px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 16px 48px -12px rgba(8, 42, 51, 0.26);
+        }
+        .login-container .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .login-container .logo h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0c3d4a;
+            letter-spacing: -0.02em;
+        }
+        .login-container .logo h1 span {
+            color: #f59e0b;
+        }
+        .login-container .logo p {
+            color: #5b7480;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #0c1f26;
+            margin-bottom: 6px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(12, 61, 74, 0.12);
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #f8fafb;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #0c3d4a;
+            box-shadow: 0 0 0 3px rgba(12, 61, 74, 0.1);
+            background: #fff;
+        }
+        .form-group input::placeholder {
+            color: #8fa3ab;
+        }
+        .form-group .input-icon {
+            position: relative;
+        }
+        .form-group .input-icon i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #8fa3ab;
+            font-size: 14px;
+        }
+        .form-group .input-icon input {
+            padding-left: 42px;
+        }
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: #0c3d4a;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-login:hover {
+            background: #12556a;
+        }
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .error-message {
+            background: #fdecec;
+            color: #dc2626;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+            border-left: 3px solid #dc2626;
+        }
+        .error-message.show {
+            display: block;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .login-footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 13px;
+            color: #5b7480;
+        }
+        .login-footer a {
+            color: #0c3d4a;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #8fa3ab;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+        }
+        .password-toggle:hover {
+            color: #0c3d4a;
+        }
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 28px 24px;
+            }
+        }
+    </style>
 </head>
 <body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>Miles<span>Space</span></h1>
+            <p>Admin Intelligence Portal</p>
+        </div>
 
-<div class="login-container">
-  <div class="admin-badge">
-    <i class="fas fa-shield-alt"></i>
-    Admin Access
-  </div>
+        <div class="error-message" id="errorMessage">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="errorText">Invalid credentials</span>
+        </div>
 
-  <div class="logo">
-    <img src="/images/miles.png" alt="MilesSpace"/>
-    <div>
-      <h1>MilesSpace <span>Admin</span></h1>
+        <form id="loginForm" autocomplete="off">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <div class="input-icon">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="email" placeholder="admin@example.com" required autofocus>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                    <button type="button" class="password-toggle" id="passwordToggle" aria-label="Toggle password visibility">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-login" id="loginBtn">
+                <span id="loginBtnText">Sign In</span>
+                <span id="loginBtnIcon"><i class="fas fa-arrow-right"></i></span>
+            </button>
+        </form>
+
+        <div class="login-footer">
+            Secure admin access only · <a href="/">Back to site</a>
+        </div>
     </div>
-  </div>
 
-  <h2 class="title">Welcome Back</h2>
-  <p class="subtitle">Sign in to your admin dashboard</p>
+    <script>
+        (function() {
+            'use strict';
 
-  <div class="alert" id="loginAlert"></div>
+            // ─── DOM Elements ──────────────────────────────────────────
+            const form = document.getElementById('loginForm');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const loginBtn = document.getElementById('loginBtn');
+            const loginBtnText = document.getElementById('loginBtnText');
+            const loginBtnIcon = document.getElementById('loginBtnIcon');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            const passwordToggle = document.getElementById('passwordToggle');
 
-  <form id="loginForm" novalidate>
-    <div class="fg">
-      <label class="flbl">Email Address</label>
-      <div class="inp-wrap">
-        <i class="fas fa-envelope"></i>
-        <input type="email" class="finp" id="email" placeholder="admin@miles.com" autocomplete="email"/>
-      </div>
-    </div>
+            // ─── Password Toggle ──────────────────────────────────────
+            let passwordVisible = false;
+            passwordToggle.addEventListener('click', () => {
+                passwordVisible = !passwordVisible;
+                passwordInput.type = passwordVisible ? 'text' : 'password';
+                passwordToggle.innerHTML = `<i class="fas fa-${passwordVisible ? 'eye-slash' : 'eye'}"></i>`;
+            });
 
-    <div class="fg">
-      <label class="flbl">Password</label>
-      <div class="inp-wrap">
-        <i class="fas fa-lock"></i>
-        <input type="password" class="finp" id="password" placeholder="············" autocomplete="current-password"/>
-        <button type="button" class="eye-btn" onclick="togglePassword()">
-          <i class="fas fa-eye" id="eyeIcon"></i>
-        </button>
-      </div>
-    </div>
+            // ─── Show/Hide Error ──────────────────────────────────────
+            function showError(message) {
+                errorText.textContent = message;
+                errorMessage.classList.add('show');
+            }
 
-    <button type="submit" class="btn-primary" id="loginBtn">
-      <i class="fas fa-arrow-right"></i> Sign In
-    </button>
-  </form>
+            function hideError() {
+                errorMessage.classList.remove('show');
+            }
 
-  <div class="footer-links">
-    <a href="/">← Back to Home</a>
-    <a href="#" id="forgotLink">Forgot Password?</a>
-  </div>
+            // ─── Set Loading State ────────────────────────────────────
+            function setLoading(isLoading) {
+                if (isLoading) {
+                    loginBtn.disabled = true;
+                    loginBtnText.textContent = 'Signing In...';
+                    loginBtnIcon.innerHTML = '<span class="loading-spinner"></span>';
+                } else {
+                    loginBtn.disabled = false;
+                    loginBtnText.textContent = 'Sign In';
+                    loginBtnIcon.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                }
+            }
 
-  <div class="security-badge">
-    <i class="fas fa-lock"></i>
-    <span>Secure admin access · Role-based authentication</span>
-  </div>
-</div>
+            // ─── Admin Login ───────────────────────────────────────────
+            async function handleLogin(e) {
+                e.preventDefault();
+                hideError();
 
-<script>
-'use strict';
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
 
-const API_BASE = '/api/admin';
-const SESSION_KEY = 'admin_sess';
+                if (!email || !password) {
+                    showError('Please enter both email and password');
+                    return;
+                }
 
-function togglePassword() {
-  const inp = document.getElementById('password');
-  const icon = document.getElementById('eyeIcon');
-  const show = inp.type === 'password';
-  inp.type = show ? 'text' : 'password';
-  icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
-}
+                setLoading(true);
 
-function showAlert(msg, type = 'err') {
-  const el = document.getElementById('loginAlert');
-  el.className = `alert show ${type}`;
-  el.innerHTML = `<i class="fas ${type === 'ok' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i><span>${msg}</span>`;
-  if (type === 'ok') setTimeout(() => hideAlert(), 5000);
-}
+                try {
+                    // ✅ CORRECT: Use /api/admin/login
+                    const response = await fetch('/api/admin/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email: email,
+                            password: password
+                        })
+                    });
 
-function hideAlert() {
-  const el = document.getElementById('loginAlert');
-  el.className = 'alert';
-  el.innerHTML = '';
-}
+                    const data = await response.json();
 
-// ─── CHECK IF ALREADY LOGGED IN ───
-(function checkAdminSession() {
-  try {
-    const sess = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null');
-    if (sess?.token) {
-      // Verify token is still valid
-      fetch(`${API_BASE}/verify`, {
-        headers: { 'Authorization': `Bearer ${sess.token}` }
-      })
-      .then(res => {
-        if (res.ok) {
-          window.location.href = '/admin/dashboard';
-        } else {
-          // Token invalid, clear it
-          localStorage.removeItem(SESSION_KEY);
-          sessionStorage.removeItem(SESSION_KEY);
-        }
-      })
-      .catch(() => {
-        // If verify fails, clear session
-        localStorage.removeItem(SESSION_KEY);
-        sessionStorage.removeItem(SESSION_KEY);
-      });
-    }
-  } catch (e) {
-    localStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(SESSION_KEY);
-  }
-})();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || data.message || 'Login failed');
+                    }
 
-// ─── LOGIN FORM ───
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+                    const { token, user, refreshToken } = data.data || {};
 
-  const email = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
-  const btn = document.getElementById('loginBtn');
+                    if (!token) {
+                        throw new Error('Server did not return an authentication token');
+                    }
 
-  if (!email || !password) {
-    showAlert('Please enter your email and password.', 'err');
-    return;
-  }
+                    console.log('✅ Login successful, saving session...');
 
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in…';
-  hideAlert();
+                    // ─── Save session using AdminSession ──────────────
+                    if (typeof window.AdminSession !== 'undefined' && window.AdminSession.save) {
+                        window.AdminSession.save(token, user, refreshToken);
+                        console.log('✅ Admin session saved via AdminSession');
+                    } else {
+                        // Fallback: save directly
+                        const session = {
+                            token: token,
+                            refreshToken: refreshToken || null,
+                            user: user || null,
+                            loggedAt: Date.now()
+                        };
+                        localStorage.setItem('admin_sess', JSON.stringify(session));
+                        console.log('✅ Admin session saved (fallback)');
+                    }
 
-  try {
-    const response = await fetch(`${API_BASE}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
+                    // ─── Redirect to dashboard ─────────────────────────
+                    const dashboardUrl = data.data?.dashboardUrl || '/admin/dashboard.html';
+                    console.log('🔄 Redirecting to:', dashboardUrl);
+                    
+                    // Small delay to ensure session is saved
+                    setTimeout(() => {
+                        window.location.replace(dashboardUrl);
+                    }, 200);
 
-    const data = await response.json();
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showError(error.message || 'Invalid email or password. Please try again.');
+                    setLoading(false);
+                }
+            }
 
-    if (response.ok && data.success) {
-      const sessData = JSON.stringify({
-        token: data.data.token,
-        user: data.data.user,
-        isAdmin: true,
-        loggedAt: Date.now()
-      });
-      localStorage.setItem(SESSION_KEY, sessData);
-      
-      showAlert('✅ Welcome, Admin! Redirecting…', 'ok');
-      setTimeout(() => {
-        window.location.href = '/admin/dashboard';
-      }, 800);
-    } else {
-      showAlert(data.error || 'Login failed. Please check your credentials.', 'err');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-arrow-right"></i> Sign In';
-    }
-  } catch (err) {
-    console.error('Login error:', err);
-    showAlert('Could not connect to server. Please try again.', 'err');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-arrow-right"></i> Sign In';
-  }
-});
+            // ─── Event Listeners ──────────────────────────────────────
+            form.addEventListener('submit', handleLogin);
 
-document.getElementById('forgotLink').addEventListener('click', (e) => {
-  e.preventDefault();
-  const email = document.getElementById('email').value.trim();
-  if (!email) {
-    showAlert('Enter your email address first, then click Forgot password.', 'err');
-    return;
-  }
-  showAlert('Password reset link sent to your email.', 'ok');
-});
+            // Clear error on input
+            emailInput.addEventListener('input', hideError);
+            passwordInput.addEventListener('input', hideError);
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    const form = document.getElementById('loginForm');
-    if (document.activeElement === document.getElementById('email') || 
-        document.activeElement === document.getElementById('password')) {
-      form.dispatchEvent(new Event('submit'));
-    }
-  }
-});
-</script>
+            // ─── Check if already logged in ──────────────────────────
+            function checkExistingSession() {
+                try {
+                    const session = localStorage.getItem('admin_sess');
+                    if (session) {
+                        const parsed = JSON.parse(session);
+                        if (parsed.token) {
+                            // Check if token is expired
+                            try {
+                                const parts = parsed.token.split('.');
+                                if (parts.length === 3) {
+                                    let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                                    while (payload.length % 4) payload += '=';
+                                    const decoded = JSON.parse(atob(payload));
+                                    if (decoded.exp && decoded.exp * 1000 > Date.now()) {
+                                        console.log('✅ Valid session found, redirecting to dashboard');
+                                        window.location.replace('/admin/dashboard.html');
+                                        return;
+                                    }
+                                }
+                            } catch (e) {
+                                // Invalid token, clear it
+                                localStorage.removeItem('admin_sess');
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+            }
+
+            // Run session check after a small delay
+            setTimeout(checkExistingSession, 300);
+
+            console.log('🔐 Admin Login Page loaded');
+            console.log('📍 Login endpoint: /api/admin/login');
+            console.log('📄 Dashboard: /admin/dashboard.html');
+
+        })();
+    </script>
 </body>
 </html>

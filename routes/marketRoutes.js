@@ -1,322 +1,638 @@
+// routes/marketRoutes.js
+// MilesSpace Marketplace — Production router
+// Handles: products, purchase (atomic), orders history, order detail, redownload.
+
 'use strict';
 
 const express = require('express');
+const crypto = require('crypto');
 const { supabaseAdmin } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
-const crypto = require('crypto');
+const { LedgerService, AdminConfigService } = require('../services/ledgerService');
+const IdempotencyService = require('../services/idempotencyService');
+const marketplace = require('../services/marketplaceService');
 
 const router = express.Router();
-const USD_NGN = 1600;
 
-/* ════════════════════════════════════════════════
-   GET /api/market/products
-════════════════════════════════════════════════ */
-router.get('/products', async (req, res) => {
-  try {
-    const { data: products, error } = await supabaseAdmin
-      .from('products')
-      .select('*')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
+// ═══════════════════════════════════════════════════════════════════
+//  GET /api/market/products
+//  Auth: required
+//  Query: page, limit, category, search, sort
+// ═══════════════════════════════════════════════════════════════════
+router.get('/products', authMiddleware, async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 30));
+        const offset = (page - 1) * limit;
+        const category = (req.query.category || '').trim();
+        const search = (req.query.search || '').trim();
+        const sort = (req.query.sort || 'default').trim();
 
-    if (error) throw error;
+        // Explicit column selection — NEVER select inventory_raw
+        let query = supabaseAdmin
+            .from('marketplace_products')
+            .select(`
+                id,
+                name,
+                category_id,
+                description,
+                country,
+                price_usd,
+                price_ngn,
+                stock,
+                sold,
+                delivery_type,
+                status,
+                created_at
+            `, { count: 'exact' })
+            .eq('status', 'Active');
 
-    const { data: categories } = await supabaseAdmin
-      .from('categories')
-      .select('id, name, slug, icon');
+        if (category && category !== 'all') {
+            query = query.eq('category_id', category);
+        }
+        if (search) {
+            // Escape ILIKE wildcards
+            const safe = search.replace(/[%_]/g, (m) => '\\' + m);
+            query = query.ilike('name', `%${safe}%`);
+        }
 
-    const catMap = {};
-    (categories || []).forEach(c => {
-      catMap[c.id] = c;
-    });
+        // Sort
+        if (sort === 'price-asc') query = query.order('price_usd', { ascending: true });
+        else if (sort === 'price-desc') query = query.order('price_usd', { ascending: false });
+        else if (sort === 'qty-desc') query = query.order('stock', { ascending: false });
+        else if (sort === 'name-asc') query = query.order('name', { ascending: true });
+        else query = query.order('created_at', { ascending: false });
 
-    const result = (products || []).map(p => {
-      const cat = catMap[p.category_id] || {};
-      const priceUSD = parseFloat(p.price_usd) || 0;
-      const priceNGN = parseFloat(p.price_ngn) || (priceUSD * USD_NGN);
+        query = query.range(offset, offset + limit - 1);
 
-      let tags = [];
-      if (Array.isArray(p.tags)) {
-        tags = p.tags.map(t => String(t).trim()).filter(Boolean);
-      } else if (typeof p.tags === 'string' && p.tags.trim()) {
-        tags = p.tags.split(',').map(t => t.trim()).filter(Boolean);
-      }
+        const { data, error, count } = await query;
 
-      return {
-        id: p.id,
-        cat: cat.slug || 'other',
-        catName: cat.name || 'Other',
-        catIcon: cat.icon || 'fas fa-box',
-        name: p.title || 'Unknown',
-        price: priceUSD,
-        priceNGN: priceNGN,
-        qty: parseInt(p.quantity) || 0,
-        desc: p.description || '',
-        login_format: p.login_format || '',
-        login_instructions: p.login_instructions || '',
-        country: p.country || '',
-        quality: p.quality || '',
-        tags,
-        guarantee: p.guarantee || '48h',
-        badge: p.badge || '',
-        delivered_data: p.delivered_data || ''
-      };
-    });
+        if (error) throw error;
 
-    res.json({ success: true, products: result });
-  } catch (error) {
-    console.error('GET /products error:', error);
-    res.status(500).json({ error: 'Failed to fetch products' });
-  }
+        const products = (data || []).map(marketplace.sanitizeProduct);
+
+        res.json({
+            success: true,
+            products,
+            meta: {
+                page,
+                limit,
+                total: count || 0,
+                hasMore: offset + products.length < (count || 0),
+            }
+        });
+    } catch (err) {
+        console.error('[MARKET] /products error:', err.message);
+        res.status(500).json({
+            success: false,
+            error: 'Could not load marketplace products',
+            code: 'PRODUCTS_FETCH_FAILED'
+        });
+    }
 });
 
-/* ════════════════════════════════════════════════
-   POST /api/market/purchase - TRIGGER COMPLIANT
-════════════════════════════════════════════════ */
+// ═══════════════════════════════════════════════════════════════════
+//  GET /api/market/products/:id
+// ═══════════════════════════════════════════════════════════════════
+router.get('/products/:id', authMiddleware, async (req, res) => {
+    try {
+        const { data, error } = await supabaseAdmin
+            .from('marketplace_products')
+            .select(`
+                id,
+                name,
+                category_id,
+                description,
+                country,
+                price_usd,
+                price_ngn,
+                stock,
+                sold,
+                delivery_type,
+                status,
+                created_at
+            `)
+            .eq('id', req.params.id)
+            .eq('status', 'Active')
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) {
+            return res.status(404).json({ success: false, error: 'Product not found', code: 'NOT_FOUND' });
+        }
+
+        res.json({ success: true, product: marketplace.sanitizeProduct(data) });
+    } catch (err) {
+        console.error('[MARKET] /products/:id error:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load product', code: 'PRODUCT_FETCH_FAILED' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  POST /api/market/purchase
+//  Body: { product_id, wallet_type }
+//  Header: Idempotency-Key (preferred)
+// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  POST /api/market/purchase
+// ═══════════════════════════════════════════════════════════════════
 router.post('/purchase', authMiddleware, async (req, res) => {
-  try {
-    const { product_id, wallet_type } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    const idempotencyKey = req.headers['idempotency-key'] || req.body?.idempotency_key;
+    let createdOrderId = null;
+    let ledgerTransactionId = null;
+    let inventoryId = null;
+    let unifiedTxId = null;
 
-    if (!product_id || !wallet_type) {
-      return res.status(400).json({ error: 'Product ID and wallet type required' });
+    try {
+        const { product_id, wallet_type } = req.body || {};
+        const wallet = String(wallet_type || '').toUpperCase();
+
+        if (!product_id) {
+            return res.status(400).json({ success: false, error: 'product_id is required', code: 'MISSING_PRODUCT' });
+        }
+        if (wallet !== 'NGN' && wallet !== 'USD') {
+            return res.status(400).json({ success: false, error: 'wallet_type must be NGN or USD', code: 'INVALID_WALLET' });
+        }
+
+        // ─── 1. Idempotency ───
+        const endpoint = '/api/market/purchase';
+        if (idempotencyKey) {
+            const existing = await IdempotencyService.check(userId, idempotencyKey, endpoint);
+            if (existing) {
+                return res.json({ success: true, already_processed: true, purchase: existing });
+            }
+        }
+
+        // ─── 2. Fetch product ───
+        const { data: product, error: prodErr } = await supabaseAdmin
+            .from('marketplace_products')
+            .select('id, name, category_id, price_usd, price_ngn, stock, status, delivery_type')
+            .eq('id', product_id)
+            .eq('status', 'Active')
+            .maybeSingle();
+
+        if (prodErr) throw prodErr;
+        if (!product) {
+            return res.status(404).json({ success: false, error: 'Product not found', code: 'NOT_FOUND' });
+        }
+
+        // ─── 3. Price ───
+        const pricing = await marketplace.computePrice(product, wallet);
+        const requiredAmount = pricing.charge;
+
+        if (!Number.isFinite(requiredAmount) || requiredAmount <= 0) {
+            return res.status(400).json({ success: false, error: 'Invalid product price', code: 'INVALID_PRICE' });
+        }
+
+        // ─── 4. Balance ───
+        const balance = await LedgerService.getBalance(userId, wallet);
+        if (balance < requiredAmount) {
+            return res.status(400).json({
+                success: false,
+                error: `Insufficient ${wallet} balance. Need ${wallet === 'USD' ? '$' : '₦'}${requiredAmount.toFixed(2)}`,
+                code: 'INSUFFICIENT_BALANCE'
+            });
+        }
+
+        // ─── 5. IDs ─── (orderId is now UUID)
+        const orderId = marketplace.generateOrderId();       // UUID
+        const orderRef = marketplace.generateOrderRef();
+        const downloadToken = marketplace.generateDownloadToken();
+
+        // ─── 6. Allocate inventory ───
+        const { data: allocRows, error: allocError } = await supabaseAdmin.rpc(
+            'allocate_marketplace_inventory',
+            {
+                p_product_id: product.id,
+                p_user_id: userId,
+                p_order_id: orderId,
+            }
+        );
+
+        if (allocError) throw allocError;
+        if (!allocRows || allocRows.length === 0) {
+            return res.status(400).json({ success: false, error: 'Out of stock', code: 'OUT_OF_STOCK' });
+        }
+
+        const inventoryRow = allocRows[0];
+        inventoryId = inventoryRow.id;
+
+        // ─── 7. Create order ───
+        const deliveryPayload = marketplace.buildDeliveryPayload(inventoryRow, {
+            product_title: product.name
+        }, product);
+
+        const { data: order, error: orderError } = await supabaseAdmin
+            .from('marketplace_orders')
+            .insert({
+                id: orderId,                    // UUID
+                order_ref: orderRef,
+                user_id: userId,
+                product_id: product.id,
+                product_name: product.name,
+                product_title: product.name,
+                quantity: 1,
+                total: requiredAmount,
+                currency: wallet,
+                wallet: wallet,
+                wallet_used: wallet,
+                price_usd: pricing.usd,
+                price_ngn: pricing.ngn,
+                status: 'pending',
+                inventory_id: inventoryId,
+                download_token: downloadToken,
+                download_count: 0,
+                delivered_data: deliveryPayload,
+                idempotency_key: idempotencyKey || null,
+                created_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+        if (orderError) {
+            await supabaseAdmin
+                .from('marketplace_inventory')
+                .update({ status: 'available', sold_to_user_id: null, sold_order_id: null, sold_at: null })
+                .eq('id', inventoryId);
+            throw orderError;
+        }
+        createdOrderId = order.id;
+
+        // ─── 8. Debit wallet ───
+        let txResult;
+        try {
+            txResult = await LedgerService.createTransaction({
+                userId,
+                type: 'marketplace_purchase',
+                amount: -requiredAmount,
+                currency: wallet,
+                description: `Purchased: ${product.name}`,
+                reference: orderRef,
+                sourceType: 'order',
+                sourceId: order.id,             // ← now valid UUID
+                provider: 'marketplace',
+                metadata: {
+                    product_id: product.id,
+                    product_name: product.name,
+                    order_ref: orderRef,
+                    inventory_id: inventoryId,
+                },
+                idempotencyKey: idempotencyKey || IdempotencyService.generateKey('MP'),
+            });
+        } catch (txErr) {
+            await supabaseAdmin.from('marketplace_orders').delete().eq('id', order.id);
+            await supabaseAdmin
+                .from('marketplace_inventory')
+                .update({ status: 'available', sold_to_user_id: null, sold_order_id: null, sold_at: null })
+                .eq('id', inventoryId);
+            throw txErr;
+        }
+
+        if (!txResult?.success) {
+            await supabaseAdmin.from('marketplace_orders').delete().eq('id', order.id);
+            await supabaseAdmin
+                .from('marketplace_inventory')
+                .update({ status: 'available', sold_to_user_id: null, sold_order_id: null, sold_at: null })
+                .eq('id', inventoryId);
+            throw new Error(txResult?.error || 'Ledger debit failed');
+        }
+        ledgerTransactionId = txResult.transaction_id;
+
+        // ─── 9. Mark order completed ───
+        await supabaseAdmin
+            .from('marketplace_orders')
+            .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', order.id);
+
+        // ─── 9b. Insert into UNIFIED transactions table ───
+        // This is what makes it appear in the user's overall history.
+        try {
+            const walletLabel = wallet === 'USD' ? 'USD' : 'NGN';
+            const unifiedRow = {
+                user_id: userId,
+                reference: orderRef,
+                type: 'marketplace_purchase',
+                status: 'completed',
+                currency: walletLabel,
+                amount: requiredAmount,
+                fee: 0,
+                description: `Marketplace: ${product.name}`,
+                source_type: 'marketplace',
+                source_id: order.id,           // ← UUID
+                provider: 'marketplace',
+                provider_reference: null,
+                metadata: {
+                    product_id: product.id,
+                    product_name: product.name,
+                    order_ref: orderRef,
+                    inventory_id: inventoryId,
+                    ledger_transaction_id: ledgerTransactionId,
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                completed_at: new Date().toISOString(),
+            };
+
+            const { data: unifiedTx, error: unifiedErr } = await supabaseAdmin
+                .from('transactions')
+                .insert(unifiedRow)
+                .select('id')
+                .single();
+
+            if (!unifiedErr && unifiedTx) {
+                unifiedTxId = unifiedTx.id;
+                await supabaseAdmin
+                    .from('marketplace_orders')
+                    .update({ unified_transaction_id: unifiedTxId })
+                    .eq('id', order.id);
+            } else if (unifiedErr) {
+                console.warn('[MARKET] Unified tx insert failed (non-fatal):', unifiedErr.message);
+            }
+        } catch (e) {
+            console.warn('[MARKET] Unified tx error (non-fatal):', e.message);
+        }
+
+        // ─── 10. Increment sold (best-effort) ───
+        try {
+            await supabaseAdmin.rpc('increment_marketplace_sold', { p_product_id: product.id });
+        } catch {}
+
+        // ─── 11. Save idempotency ───
+        const purchaseResponse = {
+            order_ref: orderRef,
+            order_id: order.id,
+            product_name: product.name,
+            price: requiredAmount,
+            currency: wallet,
+            new_balance: txResult.balance_after,
+            download_token: downloadToken,
+            transaction_id: txResult.transaction_id,
+            unified_transaction_id: unifiedTxId,
+        };
+
+        if (idempotencyKey) {
+            await IdempotencyService.save(userId, idempotencyKey, endpoint, purchaseResponse);
+        }
+
+        if (global.invalidateDashboardCache) global.invalidateDashboardCache();
+
+        res.json({ success: true, purchase: purchaseResponse });
+    } catch (error) {
+        console.error('[MARKET] Purchase error:', error);
+        try {
+            if (createdOrderId && !ledgerTransactionId) {
+                await supabaseAdmin.from('marketplace_orders').delete().eq('id', createdOrderId);
+            }
+            if (inventoryId && !ledgerTransactionId) {
+                await supabaseAdmin
+                    .from('marketplace_inventory')
+                    .update({ status: 'available', sold_to_user_id: null, sold_order_id: null, sold_at: null })
+                    .eq('id', inventoryId);
+            }
+        } catch (cleanupErr) {
+            console.error('[MARKET] Cleanup error:', cleanupErr.message);
+        }
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Purchase failed',
+            code: 'PURCHASE_FAILED'
+        });
     }
-
-    // ─── Get product ───
-    const { data: product, error: prodErr } = await supabaseAdmin
-      .from('products')
-      .select('*')
-      .eq('id', product_id)
-      .eq('status', 'active')
-      .single();
-
-    if (prodErr || !product) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
-    if (product.quantity <= 0) {
-      return res.status(400).json({ error: 'Out of stock' });
-    }
-
-    // ─── Determine currency and amounts ───
-    const isUSD = wallet_type === 'USD';
-    const costUSD = parseFloat(product.price_usd || 0);
-    const costNGN = parseFloat(product.price_ngn || costUSD * USD_NGN);
-    const requiredAmount = isUSD ? costUSD : costNGN;
-    const walletField = isUSD ? 'wallet_usd' : 'wallet_ngn';
-
-    // ─── Get user balance ───
-    const { data: userData } = await supabaseAdmin
-      .from('profiles')
-      .select(`${walletField}, total_spent_usd, total_orders, completed_orders`)
-      .eq('id', userId)
-      .single();
-
-    const balance = parseFloat(userData?.[walletField] || 0);
-    if (balance < requiredAmount) {
-      return res.status(400).json({
-        error: `Insufficient balance. Need ${isUSD ? '$' : '₦'}${requiredAmount.toLocaleString()}`
-      });
-    }
-
-    // ─── Generate order reference and download token ───
-    const orderRef = 'ORD-' + Date.now().toString(36).toUpperCase();
-    const downloadToken = crypto.randomBytes(32).toString('hex');
-    const newBalance = balance - requiredAmount;
-
-    // ─── Deduct wallet ───
-    await supabaseAdmin
-      .from('profiles')
-      .update({ [walletField]: newBalance })
-      .eq('id', userId);
-
-    // ─── Prepare delivered data ───
-    const deliveredData = {
-      login_format: product.login_format || '',
-      login_instructions: product.login_instructions || '',
-      product_title: product.title,
-      purchased_at: new Date().toISOString()
-    };
-
-    // ─── Create order ───
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
-      .insert({
-        user_id: userId,
-        product_id: product.id,
-        product_title: product.title,
-        category_name: 'marketplace',
-        quantity: 1,
-        price_usd: costUSD,
-        price_ngn: costNGN,
-        wallet_used: wallet_type,
-        status: 'completed',
-        order_ref: orderRef,
-        delivered_data: deliveredData,
-        download_token: downloadToken,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (orderError) {
-      console.error('Order creation error:', orderError);
-      return res.status(500).json({ error: 'Failed to create order' });
-    }
-
-    // ─── ✅ FIXED: Create transaction record (TRIGGER COMPLIANT) ───
-    // When currency is NGN:
-    //   - amount_usd MUST be 0
-    //   - revenue_usd MUST be 0
-    // When currency is USD:
-    //   - amount_ngn MUST be 0
-    //   - revenue_ngn MUST be 0
-    
-    const transactionData = {
-      user_id: userId,
-      order_id: order.id,
-      type: 'marketplace',
-      category: 'debit',
-      description: `Purchased: ${product.title}`,
-      currency: wallet_type,
-      status: 'completed',
-      ref: orderRef,
-      wallet_used: wallet_type,
-      meta: {
-        product_id: product.id,
-        product_name: product.title,
-        quantity: 1,
-        wallet_balance_before: balance,
-        wallet_balance_after: newBalance
-      },
-      created_at: new Date().toISOString()
-    };
-
-    // ✅ Set amounts based on currency (ONLY ONE currency has values)
-    if (isUSD) {
-      // USD purchase: only USD fields have values
-      transactionData.amount_ngn = 0;
-      transactionData.amount_usd = -requiredAmount;
-      transactionData.revenue_ngn = 0;
-      transactionData.revenue_usd = requiredAmount;
-    } else {
-      // NGN purchase: only NGN fields have values
-      transactionData.amount_ngn = -requiredAmount;
-      transactionData.amount_usd = 0;
-      transactionData.revenue_ngn = requiredAmount;
-      transactionData.revenue_usd = 0;
-    }
-
-    const { error: txError } = await supabaseAdmin
-      .from('transactions')
-      .insert(transactionData);
-
-    if (txError) {
-      console.error('Transaction creation error:', txError);
-      // Don't fail the purchase, but log it
-    }
-
-    // ─── Update product stock ───
-    await supabaseAdmin
-      .from('products')
-      .update({ quantity: product.quantity - 1 })
-      .eq('id', product_id);
-
-    // ─── Update user stats ───
-    const prevSpent = parseFloat(userData?.total_spent_usd || 0);
-    const prevOrders = parseInt(userData?.total_orders || 0);
-    const prevCompleted = parseInt(userData?.completed_orders || 0);
-
-    await supabaseAdmin
-      .from('profiles')
-      .update({
-        total_spent_usd: prevSpent + costUSD,
-        total_orders: prevOrders + 1,
-        completed_orders: prevCompleted + 1
-      })
-      .eq('id', userId);
-
-    // ─── Invalidate dashboard cache ───
-    if (global.invalidateDashboardCache) {
-      global.invalidateDashboardCache();
-    }
-
-    // ─── Return success ───
-    res.json({
-      success: true,
-      purchase: {
-        order_ref: orderRef,
-        product_name: product.title,
-        price: requiredAmount,
-        currency: wallet_type,
-        new_balance: newBalance,
-        download_token: downloadToken,
-        delivered_data: deliveredData
-      }
-    });
-
-  } catch (error) {
-    console.error('Purchase error:', error);
-    res.status(500).json({ error: error.message || 'Purchase failed' });
-  }
 });
 
-/* ════════════════════════════════════════════════
-   GET /api/market/download/:token
-════════════════════════════════════════════════ */
-router.get('/download/:token', async (req, res) => {
-  try {
-    const { data: order, error } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('download_token', req.params.token)
-      .single();
+// ═══════════════════════════════════════════════════════════════════
+//  GET /api/market/orders
+// ═══════════════════════════════════════════════════════════════════
+router.get('/orders', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+        const offset = (page - 1) * limit;
 
-    if (error || !order) {
-      return res.status(404).json({ error: 'Order not found' });
+        const { data, error, count } = await supabaseAdmin
+            .from('marketplace_orders')
+            .select(`
+                id,
+                order_ref,
+                product_id,
+                product_name,
+                product_title,
+                quantity,
+                total,
+                currency,
+                wallet,
+                wallet_used,
+                price_usd,
+                price_ngn,
+                status,
+                download_count,
+                last_download_at,
+                created_at,
+                completed_at
+            `, { count: 'exact' })
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) throw error;
+
+        const orders = (data || []).map(marketplace.sanitizeOrderRow);
+
+        res.json({
+            success: true,
+            data: orders,
+            meta: {
+                page,
+                limit,
+                total: count || 0,
+                hasMore: offset + orders.length < (count || 0),
+            }
+        });
+    } catch (err) {
+        console.error('[MARKET] /orders error:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load orders', code: 'ORDERS_FETCH_FAILED' });
     }
+});
 
-    // Update download count
-    await supabaseAdmin
-      .from('orders')
-      .update({
-        download_count: (order.download_count || 0) + 1,
-        last_download_at: new Date().toISOString()
-      })
-      .eq('id', order.id);
+// ═══════════════════════════════════════════════════════════════════
+//  GET /api/market/orders/:id
+// ═══════════════════════════════════════════════════════════════════
+router.get('/orders/:id', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user?.id;
 
-    const log = order.delivered_data || {};
-    const content = [
-      '═══════════════════════════════════════════════',
-      '  📦 MILESPACE ORDER DETAILS',
-      '═══════════════════════════════════════════════',
-      '',
-      `Order ID:    ${order.order_ref}`,
-      `Product:     ${order.product_title}`,
-      `Date:        ${new Date(order.created_at).toLocaleString()}`,
-      `Wallet:      ${order.wallet_used || 'NGN'}`,
-      `Amount:      ${order.wallet_used === 'USD' ? '$' : '₦'}${(order.wallet_used === 'USD' ? order.price_usd : order.price_ngn).toFixed(2)}`,
-      `Downloads:   ${(order.download_count || 0) + 1}`,
-      '',
-      '────────── ACCOUNT LOGIN DETAILS ──────────',
-      '',
-      `Format:      ${log.login_format || 'N/A'}`,
-      '',
-      'Instructions:',
-      log.login_instructions || 'No instructions provided.',
-      '',
-      '───────────────────────────────────────────',
-      `Downloaded:  ${new Date().toISOString()}`,
-      '═══════════════════════════════════════════════'
-    ].join('\n');
+        const { data, error } = await supabaseAdmin
+            .from('marketplace_orders')
+            .select(`
+                id,
+                order_ref,
+                user_id,
+                product_id,
+                product_name,
+                product_title,
+                quantity,
+                total,
+                currency,
+                wallet,
+                wallet_used,
+                price_usd,
+                price_ngn,
+                status,
+                download_count,
+                last_download_at,
+                created_at,
+                completed_at,
+                delivered_data
+            `)
+            .eq('id', req.params.id)
+            .eq('user_id', userId)  // ← ownership check
+            .maybeSingle();
 
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Content-Disposition', `attachment; filename="order_${order.order_ref}.txt"`);
-    res.send(content);
-  } catch (error) {
-    console.error('Download error:', error);
-    res.status(500).json({ error: 'Download failed' });
-  }
+        if (error) throw error;
+        if (!data) {
+            return res.status(404).json({ success: false, error: 'Order not found', code: 'NOT_FOUND' });
+        }
+
+        const order = marketplace.sanitizeOrderRow(data);
+
+        // Delivery details exposed only on this endpoint
+        order.delivery = data.delivered_data || null;
+
+        res.json({ success: true, order });
+    } catch (err) {
+        console.error('[MARKET] /orders/:id error:', err.message);
+        res.status(500).json({ success: false, error: 'Could not load order', code: 'ORDER_FETCH_FAILED' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  GET /api/market/orders/:id/download
+//  Authenticated + ownership-checked download.
+// ═══════════════════════════════════════════════════════════════════
+router.get('/orders/:id/download', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+
+        const { data: order, error } = await supabaseAdmin
+            .from('marketplace_orders')
+            .select(`
+                id,
+                order_ref,
+                user_id,
+                product_name,
+                product_title,
+                wallet,
+                wallet_used,
+                price_usd,
+                price_ngn,
+                status,
+                download_count,
+                delivered_data,
+                created_at
+            `)
+            .eq('id', req.params.id)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!order) {
+            return res.status(404).json({ success: false, error: 'Order not found', code: 'NOT_FOUND' });
+        }
+        if (order.status !== 'completed') {
+            return res.status(400).json({ success: false, error: 'Order is not completed', code: 'ORDER_NOT_COMPLETED' });
+        }
+
+        // Atomic download count increment
+        let downloadCount = (order.download_count || 0) + 1;
+        try {
+            const { data: newCount, error: incErr } = await supabaseAdmin.rpc(
+                'increment_marketplace_download',
+                { p_order_id: order.id }
+            );
+            if (!incErr && Number.isFinite(newCount)) downloadCount = newCount;
+        } catch (incErr) {
+            console.warn('[MARKET] Download counter RPC failed (non-fatal):', incErr.message);
+        }
+
+        // Build text receipt
+        const delivery = order.delivered_data || {};
+        const wallet = order.wallet_used || order.wallet || 'NGN';
+        const amount = wallet === 'USD'
+            ? parseFloat(order.price_usd) || 0
+            : parseFloat(order.price_ngn) || parseFloat(order.total) || 0;
+
+        const lines = [
+            '═══════════════════════════════════════════════',
+            '  📦 MILESPACE ORDER DETAILS',
+            '═══════════════════════════════════════════════',
+            '',
+            `Order ID:    ${order.order_ref}`,
+            `Product:     ${order.product_title || order.product_name}`,
+            `Date:        ${new Date(order.created_at).toLocaleString('en-NG')}`,
+            `Wallet:      ${wallet}`,
+            `Amount:      ${wallet === 'USD' ? '$' : '₦'}${amount.toFixed(2)}`,
+            `Downloads:   ${downloadCount}`,
+            '',
+            '────────── DELIVERY DETAILS ──────────',
+            '',
+            `Format:      ${delivery.login_format || 'N/A'}`,
+            '',
+            'Instructions:',
+            delivery.login_instructions || 'No instructions provided.',
+            '',
+            'Content:',
+            typeof delivery.content === 'string'
+                ? delivery.content
+                : JSON.stringify(delivery.content || {}, null, 2),
+            '',
+            '───────────────────────────────────────',
+            `Downloaded:  ${new Date().toISOString()}`,
+            '═══════════════════════════════════════════════',
+        ];
+
+        const filename = `order_${order.order_ref}.txt`;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(lines.join('\n'));
+    } catch (err) {
+        console.error('[MARKET] /orders/:id/download error:', err.message);
+        res.status(500).json({ success: false, error: 'Download failed', code: 'DOWNLOAD_FAILED' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  LEGACY: GET /api/market/download/:token
+//  Kept for backward compatibility with old order links.
+//  DEPRECATED — logs warning, requires token.
+// ═══════════════════════════════════════════════════════════════════
+router.get('/download/:token', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+
+        const { data: order, error } = await supabaseAdmin
+            .from('marketplace_orders')
+            .select('id')
+            .eq('download_token', req.params.token)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!order) {
+            return res.status(404).json({ success: false, error: 'Order not found', code: 'NOT_FOUND' });
+        }
+
+        // Redirect to the new endpoint
+        return res.redirect(`/api/market/orders/${order.id}/download`);
+    } catch (err) {
+        console.error('[MARKET] legacy /download error:', err.message);
+        res.status(500).json({ success: false, error: 'Download failed', code: 'DOWNLOAD_FAILED' });
+    }
 });
 
 module.exports = router;

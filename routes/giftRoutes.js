@@ -1,3 +1,4 @@
+// routes/giftRoutes.js - Complete User Gift Routes
 const express = require('express');
 const router = express.Router();
 const { supabaseAdmin } = require('../db/supabase');
@@ -7,6 +8,10 @@ const crypto = require('crypto');
 // ─── HELPERS ───
 function generateRef(prefix = 'GFT') {
     return `${prefix}-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+}
+
+function generateTrackingToken() {
+    return crypto.randomBytes(32).toString('hex');
 }
 
 // ─── SAMPLE PRODUCTS (Fallback) ───
@@ -22,7 +27,12 @@ const SAMPLE_PRODUCTS = [
         description: 'A beautiful luxury gift basket with premium items',
         delivery: '3-5 days',
         occasions: ['Birthday', 'Anniversary', 'Corporate'],
-        popular: true
+        popular: true,
+        countries: [
+            { name: 'Nigeria', flag: '🇳🇬', cities: ['Lagos', 'Abuja', 'Port Harcourt'] },
+            { name: 'United States', flag: '🇺🇸', cities: ['New York', 'Los Angeles', 'Chicago'] },
+            { name: 'United Kingdom', flag: '🇬🇧', cities: ['London', 'Manchester', 'Birmingham'] }
+        ]
     },
     {
         id: 2,
@@ -35,7 +45,12 @@ const SAMPLE_PRODUCTS = [
         description: 'Fresh flowers for any occasion',
         delivery: '1-2 days',
         occasions: ['Birthday', 'Anniversary', 'Just Because'],
-        popular: true
+        popular: true,
+        countries: [
+            { name: 'Nigeria', flag: '🇳🇬', cities: ['Lagos', 'Abuja'] },
+            { name: 'United States', flag: '🇺🇸', cities: ['New York', 'Los Angeles'] },
+            { name: 'United Kingdom', flag: '🇬🇧', cities: ['London'] }
+        ]
     },
     {
         id: 3,
@@ -48,7 +63,12 @@ const SAMPLE_PRODUCTS = [
         description: 'Assorted premium chocolates in a beautiful box',
         delivery: '2-3 days',
         occasions: ['Birthday', 'Anniversary', 'Sympathy'],
-        popular: false
+        popular: false,
+        countries: [
+            { name: 'Nigeria', flag: '🇳🇬', cities: ['Lagos'] },
+            { name: 'United States', flag: '🇺🇸', cities: ['New York'] },
+            { name: 'United Kingdom', flag: '🇬🇧', cities: ['London'] }
+        ]
     },
     {
         id: 4,
@@ -61,7 +81,11 @@ const SAMPLE_PRODUCTS = [
         description: 'Custom printed mug with personalized message',
         delivery: '3-5 days',
         occasions: ['Birthday', 'Just Because'],
-        popular: false
+        popular: false,
+        countries: [
+            { name: 'Nigeria', flag: '🇳🇬', cities: ['Lagos'] },
+            { name: 'United States', flag: '🇺🇸', cities: ['New York'] }
+        ]
     },
     {
         id: 5,
@@ -74,7 +98,11 @@ const SAMPLE_PRODUCTS = [
         description: 'Complete birthday gift hamper with cake, flowers, and gifts',
         delivery: '2-4 days',
         occasions: ['Birthday'],
-        popular: true
+        popular: true,
+        countries: [
+            { name: 'Nigeria', flag: '🇳🇬', cities: ['Lagos', 'Abuja'] },
+            { name: 'United States', flag: '🇺🇸', cities: ['New York'] }
+        ]
     },
     {
         id: 6,
@@ -87,7 +115,11 @@ const SAMPLE_PRODUCTS = [
         description: 'Romantic anniversary gift set with flowers and chocolates',
         delivery: '2-3 days',
         occasions: ['Anniversary'],
-        popular: true
+        popular: true,
+        countries: [
+            { name: 'Nigeria', flag: '🇳🇬', cities: ['Lagos'] },
+            { name: 'United Kingdom', flag: '🇬🇧', cities: ['London'] }
+        ]
     }
 ];
 
@@ -181,17 +213,11 @@ function getNotificationIcon(type) {
     return icons[type] || '📌';
 }
 
-// ════════════════════════════════════════════════
-// USER ROUTES - Mounted at /api/gifts
-// ════════════════════════════════════════════════
-
-// ─── GET /api/gifts/products ───
-// ✅ FIXED: Safe version that never crashes
+// ─── GET PRODUCTS ───
 router.get('/products', async (req, res) => {
     try {
         let products = [];
         
-        // Try to fetch from database
         const { data, error } = await supabaseAdmin
             .from('gift_products')
             .select('*')
@@ -199,7 +225,6 @@ router.get('/products', async (req, res) => {
 
         if (error) {
             console.warn('Products table error:', error.message);
-            // Return sample products if table doesn't exist
             return res.json({ 
                 success: true, 
                 products: SAMPLE_PRODUCTS,
@@ -216,7 +241,6 @@ router.get('/products', async (req, res) => {
         res.json({ success: true, products });
     } catch (error) {
         console.error('Get products error:', error);
-        // Always return sample products, never crash
         res.json({ 
             success: true, 
             products: SAMPLE_PRODUCTS,
@@ -225,7 +249,7 @@ router.get('/products', async (req, res) => {
     }
 });
 
-// ─── POST /api/gifts/order ───
+// ─── CREATE ORDER ───
 router.post('/order', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -276,6 +300,7 @@ router.post('/order', authMiddleware, async (req, res) => {
             .eq('id', userId);
 
         const orderRef = generateRef('GFT');
+        const trackingToken = generateTrackingToken();
 
         const { data: order, error: orderErr } = await supabaseAdmin
             .from('gift_orders')
@@ -303,6 +328,7 @@ router.post('/order', authMiddleware, async (req, res) => {
                 delivery_date: delivery_date || null,
                 status: 'pending',
                 order_ref: orderRef,
+                tracking_token: trackingToken,
                 created_at: new Date().toISOString(),
                 user_email: userData.email,
                 user_username: userData.username
@@ -345,12 +371,8 @@ router.post('/order', authMiddleware, async (req, res) => {
             'Gift Order Placed 🎁',
             `Your gift "${product_name || 'Bundle'}" for ${recipient_name} has been ordered.`,
             'gift_ordered',
-            `/history`
+            `/gifts/order/${orderRef}`
         );
-
-        if (global.invalidateDashboardCache) {
-            global.invalidateDashboardCache();
-        }
 
         res.json({
             success: true,
@@ -358,6 +380,7 @@ router.post('/order', authMiddleware, async (req, res) => {
             order: {
                 id: order.id,
                 order_ref: orderRef,
+                tracking_token: trackingToken,
                 product_name: order.product_name,
                 recipient_name: order.recipient_name,
                 recipient_country: order.recipient_country,
@@ -374,7 +397,7 @@ router.post('/order', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── GET /api/gifts/orders ───
+// ─── GET USER ORDERS ───
 router.get('/orders', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -410,55 +433,62 @@ router.get('/orders', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── GET /api/gifts/track ───
-router.get('/track', authMiddleware, async (req, res) => {
+// ─── GET ORDER BY REFERENCE (Public with token) ───
+router.get('/track/:token', async (req, res) => {
     try {
-        const userId = req.user.id;
-        const { query } = req.query;
+        const { token } = req.params;
 
-        if (!query) {
-            return res.status(400).json({ success: false, error: 'Order ID or email required' });
+        if (!token) {
+            return res.status(400).json({ success: false, error: 'Tracking token required' });
         }
 
-        const { data: byRef } = await supabaseAdmin
+        const { data: order, error } = await supabaseAdmin
             .from('gift_orders')
             .select('*')
-            .eq('order_ref', query.toUpperCase())
-            .eq('user_id', userId)
-            .maybeSingle();
+            .eq('tracking_token', token)
+            .single();
 
-        if (byRef) {
-            return res.json({ success: true, type: 'order', data: byRef });
+        if (error || !order) {
+            return res.status(404).json({ success: false, error: 'Order not found' });
         }
 
-        const { data: byEmail } = await supabaseAdmin
-            .from('gift_orders')
-            .select('*')
-            .eq('recipient_email', query)
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        // Don't expose sensitive info
+        const safeOrder = {
+            order_ref: order.order_ref,
+            product_name: order.product_name,
+            image_url: order.image_url,
+            recipient_name: order.recipient_name,
+            recipient_country: order.recipient_country,
+            status: order.status,
+            created_at: order.created_at,
+            shipped_at: order.shipped_at,
+            delivered_at: order.delivered_at,
+            message: order.message,
+            quantity: order.quantity,
+            delivery_speed: order.delivery_speed,
+            estimated_delivery: order.estimated_delivery
+        };
 
-        if (byEmail && byEmail.length > 0) {
-            return res.json({ success: true, type: 'orders', data: byEmail });
-        }
-
-        return res.status(404).json({ success: false, error: 'Order not found' });
+        res.json({
+            success: true,
+            order: safeOrder
+        });
     } catch (error) {
-        console.error('Track error:', error);
+        console.error('Track order error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ─── GET /api/gifts/order/:id ───
-router.get('/order/:id', authMiddleware, async (req, res) => {
+// ─── GET ORDER BY ID (User owns it) ───
+router.get('/order/:ref', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { id } = req.params;
+        const { ref } = req.params;
 
         const { data, error } = await supabaseAdmin
             .from('gift_orders')
             .select('*')
-            .eq('id', id)
+            .eq('order_ref', ref)
             .eq('user_id', userId)
             .single();
 
@@ -473,7 +503,7 @@ router.get('/order/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── POST /api/gifts/cancel ───
+// ─── CANCEL ORDER ───
 router.post('/cancel', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -494,7 +524,7 @@ router.post('/cancel', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, error: 'Order not found' });
         }
 
-        if (order.status !== 'pending') {
+        if (!['pending', 'paid'].includes(order.status)) {
             return res.status(400).json({ success: false, error: 'Order cannot be cancelled' });
         }
 
@@ -540,10 +570,6 @@ router.post('/cancel', authMiddleware, async (req, res) => {
             `/history`
         );
 
-        if (global.invalidateDashboardCache) {
-            global.invalidateDashboardCache();
-        }
-
         res.json({
             success: true,
             message: 'Gift order cancelled. Refund processed.',
@@ -552,6 +578,54 @@ router.post('/cancel', authMiddleware, async (req, res) => {
         });
     } catch (error) {
         console.error('Cancel order error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ─── UPDATE ORDER STATUS (Webhook/Admin Internal) ───
+router.post('/update-status', async (req, res) => {
+    try {
+        const { order_ref, status, tracking_number, carrier, notes } = req.body;
+
+        if (!order_ref || !status) {
+            return res.status(400).json({ success: false, error: 'Order ref and status required' });
+        }
+
+        const { data: order, error } = await supabaseAdmin
+            .from('gift_orders')
+            .update({
+                status: status,
+                tracking_number: tracking_number || null,
+                carrier: carrier || null,
+                admin_notes: notes || null,
+                shipped_at: status === 'shipped' ? new Date().toISOString() : null,
+                delivered_at: status === 'delivered' ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('order_ref', order_ref)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Notify user
+        if (order.user_id) {
+            await createNotification(
+                order.user_id,
+                `Gift ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                `Your gift "${order.product_name}" has been ${status}.`,
+                status === 'delivered' ? 'success' : 'info',
+                `/gifts/order/${order_ref}`
+            );
+        }
+
+        res.json({
+            success: true,
+            message: 'Order status updated',
+            order
+        });
+    } catch (error) {
+        console.error('Update status error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

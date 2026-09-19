@@ -1,203 +1,218 @@
-// public/js/auth.js - Frontend Authentication Handler
+// middleware/auth.js - COMPLETE FIXED VERSION
+// Uses YOUR OWN JWT verification - NO Supabase Auth calls
+// Enforces single session per user via current_session_id
 
-const SESSION_KEY = 'mx_sess';
-const USER_KEY = 'mx_user';
-const TOKEN_KEY = 'mx_token';
+const jwt = require('jsonwebtoken');
+const { supabaseAdmin } = require('../db/supabase');
 
-// ─── Get stored token ───
-function getToken() {
-    try {
-        const data = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null');
-        return data?.token || null;
-    } catch (e) {
-        return null;
-    }
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
-// ─── Get stored user ───
-function getUser() {
-    try {
-        const data = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null');
-        return data?.user || null;
-    } catch (e) {
-        return null;
-    }
-}
-
-// ─── Save session ───
-function saveSession(token, user, remember = false) {
-    const data = JSON.stringify({ token, user, loggedAt: Date.now() });
-    if (remember) {
-        localStorage.setItem(SESSION_KEY, data);
-    } else {
-        sessionStorage.setItem(SESSION_KEY, data);
-    }
-}
-
-// ─── Clear session ───
-function clearSession() {
-    localStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(SESSION_KEY);
-}
-
-// ─── Check if user is logged in ───
-function isLoggedIn() {
-    const token = getToken();
-    if (!token) return false;
-    
-    // Check if token is expired (simple check - 1 hour expiry)
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-            clearSession();
-            return false;
-        }
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
-// ─── Handle API response ───
-async function handleApiResponse(response) {
-    const data = await response.json();
-    
-    // Check for session expired
-    if (response.status === 401 && data.code === 'SESSION_EXPIRED') {
-        clearSession();
-        // Redirect to login with message
-        const currentPath = window.location.pathname;
-        if (!currentPath.includes('login') && !currentPath.includes('signup')) {
-            window.location.href = `/signup?message=${encodeURIComponent('Session expired. Please login again.')}`;
-        }
-        return null;
-    }
-    
-    return data;
-}
-
-// ─── Fetch with auth ───
-async function fetchWithAuth(url, options = {}) {
-    const token = getToken();
-    
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers
-    };
-    
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    const response = await fetch(url, {
-        ...options,
-        headers
-    });
-    
-    return handleApiResponse(response);
-}
-
-// ─── Check auth on page load ───
-function checkAuth() {
-    const publicPages = ['/signup', '/login', '/', '/index.html'];
-    const currentPath = window.location.pathname;
-    
-    // Skip check for public pages
-    if (publicPages.includes(currentPath) || currentPath.includes('login') || currentPath.includes('signup')) {
-        // If logged in and on login page, redirect to dashboard
-        if (isLoggedIn() && (currentPath === '/signup' || currentPath === '/login' || currentPath === '/')) {
-            window.location.href = '/dashboard';
-        }
-        return;
-    }
-    
-    // Check if user is logged in
-    if (!isLoggedIn()) {
-        clearSession();
-        window.location.href = `/signup?message=${encodeURIComponent('Please login to continue.')}`;
-        return;
-    }
-    
-    // Verify token with server
-    verifyTokenWithServer();
-}
-
-// ─── Verify token with server ───
-async function verifyTokenWithServer() {
-    try {
-        const token = getToken();
-        if (!token) {
-            clearSession();
-            window.location.href = '/signup';
-            return;
-        }
-        
-        const response = await fetch('/api/auth/me', {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (response.status === 401) {
-            const data = await response.json();
-            if (data.code === 'SESSION_EXPIRED') {
-                clearSession();
-                window.location.href = `/signup?message=${encodeURIComponent('Session expired. Please login again.')}`;
-            } else {
-                clearSession();
-                window.location.href = `/signup?message=${encodeURIComponent('Please login again.')}`;
-            }
-        }
-    } catch (error) {
-        console.error('Token verification error:', error);
-    }
-}
-
-// ─── Run auth check on page load ───
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if we should redirect to login
-    const publicPages = ['/signup', '/login', '/', '/index.html'];
-    const currentPath = window.location.pathname;
-    
-    if (!publicPages.includes(currentPath) && !currentPath.includes('login') && !currentPath.includes('signup')) {
-        checkAuth();
-    }
-    
-    // Check for message parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const message = urlParams.get('message');
-    if (message) {
-        showToast(decodeURIComponent(message), 'info');
-    }
-});
-
-// ─── Show toast notification ───
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(30px)';
-        toast.style.transition = 'all 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
-}
-
-// ─── Export ───
-window.Auth = {
-    getToken,
-    getUser,
-    saveSession,
-    clearSession,
-    isLoggedIn,
-    fetchWithAuth,
-    checkAuth,
-    showToast
+// ─── AUTH CODES ──────────────────────────────────────────────
+const AUTH_CODES = {
+    NO_TOKEN: 'NO_TOKEN',
+    UNAUTHORIZED: 'UNAUTHORIZED',
+    INVALID_TOKEN: 'INVALID_TOKEN',
+    SESSION_EXPIRED: 'SESSION_EXPIRED',
+    SESSION_REVOKED: 'SESSION_REVOKED',
+    INVALID_SESSION: 'INVALID_SESSION',
+    USER_NOT_FOUND: 'USER_NOT_FOUND',
+    ACCOUNT_DELETED: 'ACCOUNT_DELETED',
+    ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
+    AUTH_SERVICE_UNAVAILABLE: 'AUTH_SERVICE_UNAVAILABLE'
 };
+
+async function authMiddleware(req, res, next) {
+    try {
+        const authHeader = req.headers.authorization;
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                success: false,
+                code: AUTH_CODES.NO_TOKEN,
+                message: 'Authentication required.'
+            });
+        }
+
+        const token = authHeader.substring(7);
+        if (!token || token.length < 10) {
+            return res.status(401).json({
+                success: false,
+                code: AUTH_CODES.INVALID_TOKEN,
+                message: 'Invalid authentication token.'
+            });
+        }
+
+        // ─── VERIFY JWT WITH YOUR OWN SECRET ───
+        let decoded;
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (jwtError) {
+            if (jwtError.name === 'TokenExpiredError') {
+                return res.status(401).json({
+                    success: false,
+                    code: AUTH_CODES.SESSION_EXPIRED,
+                    message: 'Your session has expired. Please sign in again.'
+                });
+            }
+            console.error('JWT verification error:', jwtError.message);
+            return res.status(401).json({
+                success: false,
+                code: AUTH_CODES.INVALID_TOKEN,
+                message: 'Invalid or expired token.'
+            });
+        }
+
+        // ─── Validate session ID exists in JWT ──────────────────
+        if (!decoded.sid) {
+            return res.status(401).json({
+                success: false,
+                code: AUTH_CODES.INVALID_SESSION,
+                message: 'Invalid session. Please sign in again.'
+            });
+        }
+
+        // ─── Get profile from database with session info ─────────
+        const { data: profile, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select(`
+                id, 
+                email, 
+                username, 
+                role, 
+                status, 
+                deleted_at, 
+                wallet_ngn, 
+                wallet_usd, 
+                referral_code, 
+                is_verified, 
+                transaction_pin_hash,
+                current_session_id,
+                session_created_at,
+                session_expires_at
+            `)
+            .eq('id', decoded.id)
+            .single();
+
+        if (profileError || !profile) {
+            console.error('❌ [AUTH] Profile not found for user:', decoded.id);
+            return res.status(404).json({
+                success: false,
+                code: AUTH_CODES.USER_NOT_FOUND,
+                message: 'User profile not found.'
+            });
+        }
+
+        if (profile.deleted_at) {
+            return res.status(403).json({
+                success: false,
+                code: AUTH_CODES.ACCOUNT_DELETED,
+                message: 'This account has been deleted.'
+            });
+        }
+
+        if (profile.status === 'suspended') {
+            return res.status(403).json({
+                success: false,
+                code: AUTH_CODES.ACCOUNT_SUSPENDED,
+                message: 'Your account has been suspended.'
+            });
+        }
+
+        // ─── ENFORCE SINGLE SESSION ──────────────────────────────
+        // Check if the session ID in the JWT matches the current session in the database
+        if (!profile.current_session_id || profile.current_session_id !== decoded.sid) {
+            console.log(`🔐 [SESSION REVOKED] User ${decoded.id}: JWT sid ${decoded.sid}, DB sid ${profile.current_session_id}`);
+            return res.status(401).json({
+                success: false,
+                code: AUTH_CODES.SESSION_REVOKED,
+                message: 'Your session has been ended because your account was signed in on another device.'
+            });
+        }
+
+        // ─── Check if session has expired ─────────────────────────
+        if (profile.session_expires_at && new Date(profile.session_expires_at) < new Date()) {
+            return res.status(401).json({
+                success: false,
+                code: AUTH_CODES.SESSION_EXPIRED,
+                message: 'Your session has expired. Please sign in again.'
+            });
+        }
+
+        // ─── Attach user to request ──────────────────────────────
+        req.user = {
+            id: profile.id,
+            email: profile.email,
+            username: profile.username,
+            role: profile.role || 'user',
+            isAdmin: profile.role === 'admin' || profile.role === 'super_admin',
+            isSuperAdmin: profile.role === 'super_admin',
+            status: profile.status || 'active',
+            wallet_ngn: parseFloat(profile.wallet_ngn) || 0,
+            wallet_usd: parseFloat(profile.wallet_usd) || 0,
+            referral_code: profile.referral_code || '',
+            is_verified: profile.is_verified || false,
+            has_transaction_pin: !!profile.transaction_pin_hash,
+            session_id: decoded.sid
+        };
+
+        req.userId = profile.id;
+
+        next();
+
+    } catch (error) {
+        console.error('❌ [AUTH] Authentication error:', error);
+        return res.status(503).json({
+            success: false,
+            code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
+            message: 'Authentication service temporarily unavailable.'
+        });
+    }
+}
+
+async function adminAuthMiddleware(req, res, next) {
+    try {
+        // Call authMiddleware first
+        await new Promise((resolve, reject) => {
+            authMiddleware(req, res, (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+
+        if (!req.user || !req.user.isAdmin) {
+            return res.status(403).json({
+                success: false,
+                code: 'ADMIN_REQUIRED',
+                message: 'Admin access required.'
+            });
+        }
+
+        next();
+
+    } catch (error) {
+        console.error('❌ [ADMIN AUTH] Error:', error);
+        if (!res.headersSent) {
+            return res.status(503).json({
+                success: false,
+                code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
+                message: 'Authentication service temporarily unavailable.'
+            });
+        }
+    }
+}
+// =============================================
+// FILE: middleware/auth.js - ADD DEBUG LOGGING
+// =============================================
+
+// Add this to the authMiddleware function right after decoding the token:
+
+console.log(`🔐 [AUTH DEBUG] Request: ${req.method} ${req.path}`);
+console.log(`🔐 [AUTH DEBUG] JWT decoded:`, { id: decoded.id, sid: decoded.sid });
+console.log(`🔐 [AUTH DEBUG] JWT exp: ${new Date(decoded.exp * 1000).toISOString()}`);
+
+// Then after getting profile:
+console.log(`🔐 [AUTH DEBUG] Profile current_session_id: ${profile.current_session_id}`);
+console.log(`🔐 [AUTH DEBUG] JWT sid: ${decoded.sid}`);
+console.log(`🔐 [AUTH DEBUG] Match: ${profile.current_session_id === decoded.sid}`);
+
+module.exports = { authMiddleware, adminAuthMiddleware, AUTH_CODES };

@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Admin | Boost Management - MilesSpace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    <style>
+        :root {
+            --p: #0c3d4a;
+            --pm: #155e72;
+            --pl: #e8f4f7;
+            --pxl: #f2fafb;
+            --acc: #f59e0b;
+            --bg: #f4f6f8;
+            --srf: #fff;
+            --srf2: #f8f9fa;
+            --bdr: #e4e8ec;
+            --t1: #0f1923;
+            --t2: #4a6070;
+            --t3: #92a8b4;
+            --ok: #10b981;
+            --okl: #d1fae5;
+            --err: #ef4444;
+            --erl: #fee2e2;
+            --usd: #4f46e5;
+            --usdl: #eef2ff;
+            --r: 10px;
+            --rl: 16px;
+            --rxl: 20px;
+            --rp: 999px;
+            --fd: 'Syne', sans-serif;
+            --fb: 'DM Sans', sans-serif;
+            --ease: cubic-bezier(.25, .8, .25, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--fb); background: var(--bg); color: var(--t1); min-height: 100vh; }
+
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .admin-sidebar {
+            width: 240px;
+            background: var(--srf);
+            border-right: 1px solid var(--bdr);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 100;
+            overflow-y: auto;
+        }
+        .admin-sidebar .brand {
+            padding: 18px 16px;
+            border-bottom: 1px solid var(--bdr);
+            font-family: var(--fd);
+            font-weight: 800;
+            font-size: .9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .admin-sidebar .brand img {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+        }
+        .admin-sidebar .nav {
+            padding: 12px 8px;
+            flex: 1;
+        }
+        .admin-sidebar .nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--r);
+            color: var(--t2);
+            font-size: .8rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all .18s;
+            margin-bottom: 2px;
+        }
+        .admin-sidebar .nav a:hover { background: var(--bg); color: var(--t1); }
+        .admin-sidebar .nav a.active { background: var(--pl); color: var(--p); font-weight: 600; }
+        .admin-sidebar .nav a i { width: 16px; text-align: center; }
+
+        /* Main */
+        .admin-main {
+            margin-left: 240px;
+            flex: 1;
+            padding: 20px 24px;
+        }
+
+        /* Top bar */
+        .admin-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .admin-topbar h1 {
+            font-family: var(--fd);
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+        .admin-topbar .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .78rem;
+            color: var(--t2);
+            background: var(--srf);
+            padding: 6px 14px;
+            border-radius: var(--rp);
+            border: 1px solid var(--bdr);
+        }
+        .admin-topbar .user-badge i { color: var(--p); }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--srf);
+            border: 1px solid var(--bdr);
+            border-radius: var(--rl);
+            padding: 14px 16px;
+        }
+        .stat-card .num {
+            font-family: var(--fd);
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--t1);
+        }
+        .stat-card .label {
+            font-size: .65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--t3);
+            margin-top: 2px;
+        }
+        .stat-card .num.pending { color: #d97706; }
+        .stat-card .num.processing { color: #2563eb; }
+        .stat-card .num.completed { color: var(--ok); }
+        .stat-card .num.failed { color: var(--err); }
+
+        /* Config Panel */
+        .config-panel {
+            background: var(--srf);
+            border: 1px solid var(--bdr);
+            border-radius: var(--rxl);
+            padding: 18px 20px;
+            margin-bottom: 24px;
+        }
+        .config-panel h3 {
+            font-family: var(--fd);
+            font-size: .85rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .config-panel h3 i { color: var(--p); }
+        .config-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: end;
+        }
+        .config-group {
+            flex: 1;
+            min-width: 140px;
+        }
+        .config-group label {
+            display: block;
+            font-size: .65rem;
+            font-weight: 700;
+            color: var(--t2);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .config-group input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1.5px solid var(--bdr);
+            border-radius: var(--r);
+            font-size: .8rem;
+            background: var(--srf2);
+            outline: none;
+            transition: all .18s;
+        }
+        .config-group input:focus {
+            border-color: var(--p);
+            background: var(--srf);
+        }
+        .config-group .hint {
+            font-size: .6rem;
+            color: var(--t3);
+            margin-top: 3px;
+        }
+        .btn-save {
+            padding: 8px 20px;
+            background: var(--p);
+            color: #fff;
+            border: none;
+            border-radius: var(--rp);
+            font-weight: 700;
+            font-size: .75rem;
+            cursor: pointer;
+            transition: all .2s;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-save:hover { background: var(--pm); transform: translateY(-1px); }
+        .btn-save:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+        /* Orders Table */
+        .orders-panel {
+            background: var(--srf);
+            border: 1px solid var(--bdr);
+            border-radius: var(--rxl);
+            overflow: hidden;
+        }
+        .orders-panel .header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--bdr);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .orders-panel .header h3 {
+            font-family: var(--fd);
+            font-size: .85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .orders-panel .header h3 i { color: var(--p); }
+        .orders-panel .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .orders-panel .filters select,
+        .orders-panel .filters input {
+            padding: 5px 10px;
+            border: 1.5px solid var(--bdr);
+            border-radius: var(--r);
+            font-size: .72rem;
+            background: var(--srf2);
+            outline: none;
+        }
+        .orders-panel .filters select:focus,
+        .orders-panel .filters input:focus {
+            border-color: var(--p);
+        }
+        .orders-panel .filters .btn-refresh {
+            padding: 5px 12px;
+            background: var(--pl);
+            color: var(--p);
+            border: none;
+            border-radius: var(--r);
+            font-size: .72rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .orders-panel .filters .btn-refresh:hover { background: var(--p); color: #fff; }
+
+        .table-wrap {
+            overflow-x: auto;
+            padding: 0 4px 4px 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .74rem;
+            min-width: 700px;
+        }
+        th {
+            padding: 10px 12px;
+            text-align: left;
+            font-size: .6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--t3);
+            border-bottom: 1px solid var(--bdr);
+            background: var(--srf2);
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--bdr);
+            color: var(--t1);
+        }
+        tr:last-child td { border-bottom: none; }
+
+        .badge {
+            display: inline-flex;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: .58rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+        }
+        .badge-pending { background: #fef9c3; color: #854d0e; }
+        .badge-processing { background: var(--pl); color: var(--pm); }
+        .badge-in_progress { background: #dbeafe; color: #1e40af; }
+        .badge-partial { background: #fef3c7; color: #92400e; }
+        .badge-completed { background: var(--okl); color: #065f46; }
+        .badge-failed { background: var(--erl); color: #991b1b; }
+        .badge-refunded { background: #f3e8ff; color: #6b21a8; }
+
+        .status-select {
+            padding: 2px 6px;
+            border: 1.5px solid var(--bdr);
+            border-radius: 4px;
+            font-size: .68rem;
+            background: var(--srf2);
+            outline: none;
+            cursor: pointer;
+        }
+        .status-select:focus { border-color: var(--p); }
+
+        .text-truncate {
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .amt-ngn { color: var(--p); font-weight: 600; }
+        .amt-usd { color: var(--usd); font-weight: 600; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--t3);
+        }
+        .empty-state i { font-size: 2rem; display: block; margin-bottom: 10px; color: var(--bdr); }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 16px;
+            border-radius: var(--rp);
+            background: var(--srf);
+            border: 1px solid var(--bdr);
+            box-shadow: 0 8px 28px rgba(0,0,0,.12);
+            font-size: .78rem;
+            font-weight: 500;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideIn .25s var(--ease);
+        }
+        .toast.success { border-color: var(--ok); background: var(--okl); color: #065f46; }
+        .toast.error { border-color: var(--err); background: var(--erl); color: #991b1b; }
+        .toast.info { border-color: var(--p); background: var(--pl); color: var(--p); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @media (max-width: 768px) {
+            .admin-sidebar { width: 200px; }
+            .admin-main { margin-left: 0; padding: 14px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .config-row { flex-direction: column; }
+        }
+
+        /* Refresh indicator */
+        .spinning { animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="admin-layout">
+
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+        <div class="brand">
+            <img src="/images/miles.png" alt="MilesSpace"/>
+            <span>MilesSpace Admin</span>
+        </div>
+        <nav class="nav">
+            <a href="admin/dashboard.html"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="admin/users.html"><i class="fas fa-users"></i> Users</a>
+            <a href="admin/boost.html" class="active"><i class="fas fa-chart-line"></i> Boost</a>
+            <a href="admin/cashback.html"><i class="fas fa-coins"></i> Cashback</a>
+            <a href="admin/transactions.html"><i class="fas fa-receipt"></i> Transactions</a>
+            <a href="admin/settings.html"><i class="fas fa-cog"></i> Settings</a>
+        </nav>
+        <div style="padding:12px 16px;border-top:1px solid var(--bdr);font-size:.7rem;color:var(--t3)">
+            <i class="fas fa-user-shield"></i> Admin Panel v2.0
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main" id="app">
+
+        <!-- Top Bar -->
+        <div class="admin-topbar">
+            <h1><i class="fas fa-chart-line" style="color:var(--p)"></i> Boost Management</h1>
+            <div class="user-badge">
+                <i class="fas fa-user-shield"></i>
+                <span id="adminName">Admin</span>
+                <span style="color:var(--bdr)">|</span>
+                <span style="font-size:.68rem" id="adminEmail">admin@milesspace.com</span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">Total Orders</div></div>
+            <div class="stat-card"><div class="num pending" id="statPending">0</div><div class="label">Pending</div></div>
+            <div class="stat-card"><div class="num processing" id="statProcessing">0</div><div class="label">Processing</div></div>
+            <div class="stat-card"><div class="num completed" id="statCompleted">0</div><div class="label">Completed</div></div>
+            <div class="stat-card"><div class="num failed" id="statFailed">0</div><div class="label">Failed/Refunded</div></div>
+            <div class="stat-card"><div class="num" id="statRevenue">₦0</div><div class="label">Revenue (NGN)</div></div>
+            <div class="stat-card"><div class="num" id="statRevenueUSD">$0</div><div class="label">Revenue (USD)</div></div>
+            <div class="stat-card"><div class="num" id="statCustomers">0</div><div class="label">Unique Customers</div></div>
+        </div>
+
+        <!-- Config Panel -->
+        <div class="config-panel">
+            <h3><i class="fas fa-sliders-h"></i> Boost Configuration</h3>
+            <div class="config-row">
+                <div class="config-group">
+                    <label>USD to NGN Rate</label>
+                    <input type="number" id="usdRate" step="0.01" min="1" value="1620"/>
+                    <div class="hint">Used to convert USD service prices to NGN</div>
+                </div>
+                <div class="config-group">
+                    <label>Markup Percentage</label>
+                    <input type="number" id="markup" step="1" min="0" max="500" value="18"/>
+                    <div class="hint">% added to provider rate for customer pricing</div>
+                </div>
+                <div class="config-group" style="flex:0 0 auto">
+                    <label>&nbsp;</label>
+                    <button class="btn-save" id="saveConfigBtn"><i class="fas fa-save"></i> Save Config</button>
+                </div>
+                <div class="config-group" style="flex:0 0 auto">
+                    <label>&nbsp;</label>
+                    <button class="btn-save" id="syncBtn" style="background:var(--pm)"><i class="fas fa-sync"></i> Sync Orders</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="orders-panel">
+            <div class="header">
+                <h3><i class="fas fa-list"></i> All Orders</h3>
+                <div class="filters">
+                    <select id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="partial">Partial</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                        <option value="refunded">Refunded</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Search order ref..." style="width:150px"/>
+                    <button class="btn-refresh" id="refreshBtn"><i class="fas fa-refresh"></i> Refresh</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ref</th>
+                            <th>User</th>
+                            <th>Service</th>
+                            <th>Qty</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersBody">
+                        <tr><td colspan="8" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Loading orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<script>
+'use strict';
+
+// ─── API Helper ───
+async function api(path, opts = {}) {
+    const token = localStorage.getItem('admin_token') || sessionStorage.getItem('admin_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    try {
+        const res = await fetch('/api' + path, { ...opts, headers });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+        return json;
+    } catch (e) {
+        console.warn('API Error:', e.message);
+        throw e;
+    }
+}
+
+// ─── Toast ───
+function toast(msg, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-circle-info' };
+    el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${msg}`;
+    container.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+// ─── Format helpers ───
+const fNGN = n => '₦' + (Number(n) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fUSD = n => '$' + (Number(n) || 0).toFixed(2);
+
+// ─── Status Badge ───
+const statusBadge = (s) => {
+    const map = {
+        pending: 'badge-pending',
+        processing: 'badge-processing',
+        in_progress: 'badge-in_progress',
+        partial: 'badge-partial',
+        completed: 'badge-completed',
+        failed: 'badge-failed',
+        refunded: 'badge-refunded'
+    };
+    return `<span class="badge ${map[s] || 'badge-pending'}">${s || 'pending'}</span>`;
+};
+
+// ─── Load Dashboard Stats ───
+async function loadStats() {
+    try {
+        const res = await api('/boost/admin/dashboard');
+        if (res.success) {
+            const d = res.dashboard;
+            document.getElementById('statTotal').textContent = d.totalOrders || 0;
+            document.getElementById('statPending').textContent = d.pendingOrders || 0;
+            document.getElementById('statProcessing').textContent = d.processingOrders || 0;
+            document.getElementById('statCompleted').textContent = d.completedOrders || 0;
+            document.getElementById('statFailed').textContent = d.failedOrders || 0;
+            document.getElementById('statRevenue').textContent = fNGN(d.totalRevenueNGN || 0);
+            document.getElementById('statRevenueUSD').textContent = fUSD(d.totalRevenueUSD || 0);
+            document.getElementById('statCustomers').textContent = d.uniqueCustomers || 0;
+        }
+    } catch (e) {
+        console.warn('Stats load error:', e.message);
+    }
+}
+
+// ─── Load Orders ───
+async function loadOrders() {
+    const tbody = document.getElementById('ordersBody');
+    const status = document.getElementById('statusFilter').value;
+    const search = document.getElementById('searchInput').value.trim();
+
+    try {
+        let url = '/boost/admin/orders?limit=100';
+        if (status) url += `&status=${status}`;
+
+        const res = await api(url);
+
+        if (!res.success || !res.orders || !res.orders.length) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><i class="fas fa-inbox"></i> No orders found</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = res.orders.map(o => {
+            const amt = o.currency === 'USD' ? fUSD(o.total_amount) : fNGN(o.total_amount);
+            const amtClass = o.currency === 'USD' ? 'amt-usd' : 'amt-ngn';
+            const user = o.profiles || { email: 'N/A', username: 'N/A' };
+            return `<tr>
+                <td style="font-family:monospace;font-size:.7rem">${o.order_ref || '—'}</td>
+                <td class="text-truncate" title="${user.email}">${user.username || user.email || 'N/A'}</td>
+                <td class="text-truncate" title="${o.service_name}">${o.service_name || '—'}</td>
+                <td>${(o.quantity || 0).toLocaleString()}</td>
+                <td><span class="${amtClass}">${amt}</span></td>
+                <td>${statusBadge(o.status)}</td>
+                <td style="font-size:.65rem;color:var(--t3)">${o.created_at ? new Date(o.created_at).toLocaleDateString('en-NG') : '—'}</td>
+                <td>
+                    <select class="status-select" data-order-id="${o.id}" onchange="updateOrderStatus(this)">
+                        <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>Pending</option>
+                        <option value="processing" ${o.status === 'processing' ? 'selected' : ''}>Processing</option>
+                        <option value="in_progress" ${o.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="partial" ${o.status === 'partial' ? 'selected' : ''}>Partial</option>
+                        <option value="completed" ${o.status === 'completed' ? 'selected' : ''}>Completed</option>
+                        <option value="failed" ${o.status === 'failed' ? 'selected' : ''}>Failed</option>
+                        <option value="refunded" ${o.status === 'refunded' ? 'selected' : ''}>Refunded</option>
+                    </select>
+                </td>
+            </tr>`;
+        }).join('');
+
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><i class="fas fa-times-circle" style="color:var(--err)"></i> Error loading orders: ${e.message}</td></tr>`;
+    }
+}
+
+// ─── Update Order Status ───
+window.updateOrderStatus = async function(select) {
+    const orderId = select.dataset.orderId;
+    const status = select.value;
+    const original = select.querySelector(`option[value="${status}"]`)?.textContent || status;
+
+    // Confirm
+    if (!confirm(`Change order status to "${status}"? This may trigger refunds if set to "failed".`)) {
+        // Revert
+        const prev = select.querySelector('option:not([value=""])')?.value || '';
+        select.value = prev;
+        return;
+    }
+
+    try {
+        const res = await api(`/boost/admin/order/${orderId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status })
+        });
+
+        if (res.success) {
+            toast(`Order updated to ${status}`, 'success');
+            // Refresh stats and orders
+            await loadStats();
+            await loadOrders();
+        } else {
+            throw new Error(res.error || 'Update failed');
+        }
+    } catch (e) {
+        toast(`Failed: ${e.message}`, 'error');
+        await loadOrders(); // Reload to reset
+    }
+};
+
+// ─── Load Config ───
+async function loadConfig() {
+    try {
+        const res = await api('/boost/admin/config');
+        if (res.success && res.config) {
+            document.getElementById('usdRate').value = res.config.usd_to_ngn || 1620;
+            document.getElementById('markup').value = res.config.markup_percent || 18;
+        }
+    } catch (e) {
+        console.warn('Config load error:', e.message);
+    }
+}
+
+// ─── Save Config ───
+async function saveConfig() {
+    const btn = document.getElementById('saveConfigBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+    try {
+        const usd = parseFloat(document.getElementById('usdRate').value);
+        const markup = parseFloat(document.getElementById('markup').value);
+
+        if (usd < 1) { toast('USD rate must be greater than 0', 'error'); return; }
+        if (markup < 0) { toast('Markup must be 0 or greater', 'error'); return; }
+
+        const res = await api('/boost/admin/config', {
+            method: 'PUT',
+            body: JSON.stringify({ usd_to_ngn: usd, markup_percent: markup })
+        });
+
+        if (res.success) {
+            toast('Configuration saved successfully', 'success');
+        } else {
+            throw new Error(res.error || 'Save failed');
+        }
+    } catch (e) {
+        toast(`Failed: ${e.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Save Config';
+    }
+}
+
+// ─── Sync Orders ───
+async function syncOrders() {
+    const btn = document.getElementById('syncBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+
+    try {
+        const res = await api('/boost/sync', { method: 'POST' });
+
+        if (res.success) {
+            toast(`Sync complete: ${res.synced} updated, ${res.failed} failed`, res.synced > 0 ? 'success' : 'info');
+            await loadStats();
+            await loadOrders();
+        } else {
+            throw new Error(res.error || 'Sync failed');
+        }
+    } catch (e) {
+        toast(`Sync failed: ${e.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> Sync Orders';
+    }
+}
+
+// ─── Refresh All ───
+async function refreshAll() {
+    const btn = document.getElementById('refreshBtn');
+    const icon = btn.querySelector('i');
+    icon.classList.add('spinning');
+
+    try {
+        await Promise.all([loadStats(), loadOrders()]);
+        toast('Refreshed', 'info');
+    } catch (e) {
+        // handled inside each function
+    } finally {
+        icon.classList.remove('spinning');
+    }
+}
+
+// ─── Event Listeners ───
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+    document.getElementById('syncBtn').addEventListener('click', syncOrders);
+    document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+    document.getElementById('statusFilter').addEventListener('change', loadOrders);
+    document.getElementById('searchInput').addEventListener('input', loadOrders);
+
+    // Load all data
+    Promise.all([loadStats(), loadOrders(), loadConfig()]);
+});
+
+</script>
+</body>
+</html>

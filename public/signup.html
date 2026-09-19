@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -11,7 +11,7 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: "Inter", sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; display: flex; flex-direction: column; line-height: 1.5; }
-    :root { --primary-dark: #1a2c3e; --primary-light: #2c3e50; --white: #ffffff; --gray-bg: #f5f7fa; --gray-border: #e2e8f0; --text-dark: #1e293b; --text-muted: #64748b; --accent-gold: #f59e0b; --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05); --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06); --radius-card: 1rem; --radius-btn: 0.5rem; }
+    :root { --primary-dark: #0c3d4a; --primary-light: #12556a; --white: #ffffff; --gray-bg: #f5f7fa; --gray-border: #e2e8f0; --text-dark: #1e293b; --text-muted: #64748b; --accent-gold: #f59e0b; --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05); --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06); --radius-card: 1rem; --radius-btn: 0.5rem; --err: #ef4444; --err-bg: #fee2e2; --ok: #10b981; --ok-bg: #d1fae5; }
     .nav { padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-border); background: var(--white); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; gap: 1rem; }
     .nav-logo { display: flex; align-items: center; gap: 0.75rem; font-weight: 700; font-size: 1.2rem; color: var(--primary-dark); text-decoration: none; }
     .nav-logo img { height: 36px; width: auto; border-radius: 6px; }
@@ -29,50 +29,70 @@
     .inp-wrap { position: relative; }
     .inp-ic { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; pointer-events: none; }
     .finp { width: 100%; padding: 0.7rem 0.8rem 0.7rem 2.3rem; border: 1px solid var(--gray-border); border-radius: var(--radius-btn); font-size: 0.9rem; background: var(--white); transition: all 0.2s; outline: none; }
-    .finp:focus { border-color: var(--primary-dark); box-shadow: 0 0 0 3px rgba(26, 44, 62, 0.05); }
-    .finp.err-inp { border-color: #ef4444; }
-    .finp.ok-inp { border-color: #10b981; }
-    .ferr { font-size: 0.7rem; color: #ef4444; margin-top: 0.25rem; display: none; }
+    .finp:focus { border-color: var(--primary-dark); box-shadow: 0 0 0 3px rgba(12, 61, 74, 0.05); }
+    .finp.err { border-color: var(--err); background: var(--err-bg); }
+    .finp.ok { border-color: var(--ok); background: var(--ok-bg); }
+    .ferr { font-size: 0.75rem; color: var(--err); margin-top: 0.25rem; display: none; }
     .ferr.show { display: block; }
-    .eye-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; }
+    .fok { font-size: 0.75rem; color: var(--ok); margin-top: 0.25rem; display: none; }
+    .fok.show { display: block; }
+    .eye-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; }
+    .eye-btn:hover { color: var(--text-dark); }
     .pwd-bar { height: 4px; background: var(--gray-border); border-radius: 4px; margin-top: 6px; overflow: hidden; }
-    .pwd-fill { width: 0%; height: 100%; transition: width 0.2s; }
-    .pwd-fill.w { background: #ef4444; width: 25%; }
-    .pwd-fill.f { background: #f59e0b; width: 55%; }
-    .pwd-fill.g { background: #3b82f6; width: 75%; }
-    .pwd-fill.s { background: #10b981; width: 100%; }
-    .pwd-txt { font-size: 0.7rem; margin-top: 4px; color: var(--text-muted); }
+    .pwd-fill { width: 0%; height: 100%; transition: width 0.3s; }
+    .pwd-fill.weak { background: var(--err); width: 25%; }
+    .pwd-fill.fair { background: #f59e0b; width: 50%; }
+    .pwd-fill.good { background: #3b82f6; width: 75%; }
+    .pwd-fill.strong { background: var(--ok); width: 100%; }
+    .pwd-txt { font-size: 0.7rem; margin-top: 4px; color: var(--text-muted); min-height: 1.2rem; }
+    .pwd-txt.weak { color: var(--err); }
+    .pwd-txt.fair { color: #d97706; }
+    .pwd-txt.good { color: #2563eb; }
+    .pwd-txt.strong { color: var(--ok); }
     .check-row { display: flex; align-items: center; gap: 0.6rem; margin: 1rem 0 1.5rem; cursor: pointer; }
-    .check-row input { width: 16px; height: 16px; accent-color: var(--primary-dark); margin: 0; }
+    .check-row input { width: 16px; height: 16px; accent-color: var(--primary-dark); margin: 0; cursor: pointer; }
     .check-row span { font-size: 0.8rem; color: var(--text-muted); }
     .check-row a { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
+    .check-row a:hover { text-decoration: underline; }
     .btn-primary { width: 100%; background: var(--primary-dark); color: white; border: none; padding: 0.8rem; border-radius: var(--radius-btn); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
     .btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-    .alertbox { padding: 0.75rem; border-radius: var(--radius-btn); font-size: 0.8rem; margin-bottom: 1.25rem; display: none; align-items: center; gap: 0.5rem; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-secondary { width: 100%; background: transparent; color: var(--primary-dark); border: 1px solid var(--gray-border); padding: 0.7rem; border-radius: var(--radius-btn); font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+    .btn-secondary:hover { background: var(--gray-bg); }
+    .alertbox { padding: 0.75rem 1rem; border-radius: var(--radius-btn); font-size: 0.8rem; margin-bottom: 1.25rem; display: none; align-items: center; gap: 0.5rem; }
     .alertbox.show { display: flex; }
-    .alertbox.ok { background: #e6f8ee; border: 1px solid #a7f3d0; color: #065f46; }
-    .alertbox.err { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+    .alertbox.ok { background: var(--ok-bg); border: 1px solid #6ee7b7; color: #065f46; }
+    .alertbox.err { background: var(--err-bg); border: 1px solid #fca5a5; color: #991b1b; }
+    .alertbox.info { background: #dbeafe; border: 1px solid #93c5fd; color: #1e40af; }
+    .alertbox i { font-size: 1rem; flex-shrink: 0; }
     .switch-txt { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 1.5rem; }
     .switch-txt a { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
+    .switch-txt a:hover { text-decoration: underline; }
     .page-foot { padding: 1.5rem; text-align: center; font-size: 0.7rem; color: var(--text-muted); border-top: 1px solid var(--gray-border); background: var(--white); margin-top: auto; }
+    .page-foot a { color: var(--primary-dark); text-decoration: none; }
+    .page-foot a:hover { text-decoration: underline; }
     .features-strip { margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
     .feat-chip { display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.75rem; background: var(--gray-bg); border-radius: 2rem; font-size: 0.7rem; font-weight: 500; color: var(--text-muted); }
     .feat-chip i { color: var(--primary-dark); font-size: 0.65rem; }
-    .verify-code-input { font-size: 1.5rem !important; letter-spacing: 1rem !important; text-align: center !important; padding: 0.8rem 1rem !important; font-weight: 700 !important; }
+    .verify-code-input { font-size: 1.5rem !important; letter-spacing: 0.5rem !important; text-align: center !important; padding: 0.8rem 1rem !important; font-weight: 700 !important; }
     .verify-message { text-align: center; color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem; }
+    .resend-timer { font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 8px; }
+    .resend-btn { color: var(--primary-dark); font-weight: 600; cursor: pointer; background: none; border: none; font-size: 0.8rem; }
+    .resend-btn:hover:not(:disabled) { text-decoration: underline; }
+    .resend-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #verifyFormWrap { display: none; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
-    .toast { padding: 12px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; box-shadow: var(--shadow-md); animation: slideIn 0.3s ease; min-width: 200px; }
-    .toast.success { background: #e6f8ee; color: #065f46; border: 1px solid #a7f3d0; }
-    .toast.error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-    .toast.info { background: var(--white); color: var(--text-dark); border: 1px solid var(--gray-border); }
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
+    .toast { padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; box-shadow: var(--shadow-md); animation: slideIn 0.3s ease; border: 1px solid transparent; }
+    .toast.success { background: var(--ok-bg); color: #065f46; border-color: #6ee7b7; }
+    .toast.error { background: var(--err-bg); color: #991b1b; border-color: #fca5a5; }
+    .toast.info { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .toast.warning { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
     @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-    @media (max-width: 640px) { .nav { padding: 0.8rem 1.25rem; } .auth-card { padding: 1.5rem; } .panel-title { font-size: 1.5rem; } .main { padding: 1rem; } }
+    @media (max-width: 640px) { .nav { padding: 0.8rem 1.25rem; } .auth-card { padding: 1.5rem; } .panel-title { font-size: 1.5rem; } .main { padding: 1rem; } .toast-container { right: 12px; left: 12px; bottom: 12px; max-width: 100%; } }
   </style>
-  
 </head>
+<script src="/js/miles-widget.js" defer></script>
 <body>
 
 <nav class="nav">
@@ -86,22 +106,27 @@
 <main class="main">
   <div class="auth-card">
 
-    <!-- SIGNUP FORM -->
+    <!-- ─── SIGNUP FORM ─── -->
     <div id="signupFormWrap">
       <p class="panel-title">Create account 🚀</p>
       <p class="panel-sub">Join MilesSpace — it's free to get started</p>
       <div class="divider"><span>sign up with email</span></div>
+      
       <div class="alertbox" id="signupAlert"></div>
 
       <form id="signupForm" novalidate>
+        <!-- Username -->
         <div class="fg">
           <label class="flbl">Username</label>
           <div class="inp-wrap">
-            <i class="fas fa-at inp-ic"></i>
-            <input type="text" class="finp" id="signupUsername" placeholder="coolhandle" autocomplete="username" oninput="checkUsername(this)" />
+            <i class="fas fa-user inp-ic"></i>
+            <input type="text" class="finp" id="signupUsername" placeholder="coolhandle" autocomplete="username" />
           </div>
           <span class="ferr" id="usernameErr"></span>
+          <span class="fok" id="usernameOk"></span>
         </div>
+
+        <!-- Email -->
         <div class="fg">
           <label class="flbl">Email address</label>
           <div class="inp-wrap">
@@ -109,42 +134,57 @@
             <input type="email" class="finp" id="signupEmail" placeholder="you@example.com" autocomplete="email" />
           </div>
           <span class="ferr" id="emailErr"></span>
+          <span class="fok" id="emailOk"></span>
         </div>
+
+        <!-- Phone -->
         <div class="fg">
-          <label class="flbl">Phone Number</label>
-          <input type="tel" class="finp" id="signupPhone" placeholder="+234 801 234 5678" style="padding-left: 12px;" />
+          <label class="flbl">Phone Number <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+          <div class="inp-wrap">
+            <i class="fas fa-phone inp-ic"></i>
+            <input type="tel" class="finp" id="signupPhone" placeholder="+234 801 234 5678" />
+          </div>
+          <span class="ferr" id="phoneErr"></span>
         </div>
+
+        <!-- Password -->
         <div class="fg">
           <label class="flbl">Password</label>
           <div class="inp-wrap">
             <i class="fas fa-lock inp-ic"></i>
-            <input type="password" class="finp" id="signupPassword" placeholder="Create a strong password" autocomplete="new-password" oninput="checkStrength(this)" />
+            <input type="password" class="finp" id="signupPassword" placeholder="Create a strong password" autocomplete="new-password" />
             <button type="button" class="eye-btn" onclick="toggleEye('signupPassword', this)"><i class="fas fa-eye"></i></button>
           </div>
           <div class="pwd-bar"><div class="pwd-fill" id="pwdFill"></div></div>
           <p class="pwd-txt" id="pwdTxt"></p>
           <span class="ferr" id="passwordErr"></span>
         </div>
+
+        <!-- Confirm Password -->
         <div class="fg">
           <label class="flbl">Confirm Password</label>
           <div class="inp-wrap">
             <i class="fas fa-shield-alt inp-ic"></i>
-            <input type="password" class="finp" id="signupConfirm" placeholder="Repeat your password" autocomplete="new-password" oninput="checkMatch(this)" />
+            <input type="password" class="finp" id="signupConfirm" placeholder="Repeat your password" autocomplete="new-password" />
             <button type="button" class="eye-btn" onclick="toggleEye('signupConfirm', this)"><i class="fas fa-eye"></i></button>
           </div>
           <span class="ferr" id="confirmErr"></span>
+          <span class="fok" id="confirmOk"></span>
         </div>
+
+        <!-- Terms -->
         <label class="check-row">
           <input type="checkbox" id="termsCheck" />
           <span>I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></span>
         </label>
+
         <button type="submit" class="btn-primary" id="signupBtn">
           <i class="fas fa-user-plus"></i> Create free account
         </button>
       </form>
     </div>
 
-    <!-- VERIFICATION FORM -->
+    <!-- ─── VERIFICATION FORM ─── -->
     <div id="verifyFormWrap">
       <p class="panel-title" style="font-size:1.3rem">🔐 Verify Your Email</p>
       <p class="verify-message" id="verifyMessage">Enter the 6-digit code sent to your email</p>
@@ -155,18 +195,27 @@
           <i class="fas fa-shield-alt inp-ic"></i>
           <input type="text" class="finp verify-code-input" id="verifyCode" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
         </div>
+        <span class="ferr" id="verifyCodeErr"></span>
       </div>
       <button class="btn-primary" id="verifyBtn">
         <i class="fas fa-check-circle"></i> Verify & Create Account
       </button>
-      <p style="text-align:center;margin-top:12px;font-size:0.75rem;color:var(--text-muted)">
-        <i class="fas fa-clock"></i> Code expires in 10 minutes
-      </p>
+      
+      <!-- Resend Section -->
+      <div class="resend-timer" id="resendSection">
+        <span id="resendText">Didn't receive the code?</span>
+        <button class="resend-btn" id="resendBtn" onclick="resendCode()">
+          Resend code
+        </button>
+        <span id="resendTimer" style="display:none;"> (wait <span id="timerCount">60</span>s)</span>
+      </div>
+      
       <p style="text-align:center;margin-top:8px">
-        <a href="#" onclick="goBackToSignup(event)" style="font-size:0.8rem;color:var(--primary-dark)">← Back to signup</a>
+        <a href="#" onclick="goBackToSignup(event)" style="font-size:0.8rem;color:var(--primary-dark);text-decoration:none;">← Back to signup</a>
       </p>
     </div>
 
+    <!-- ─── SWITCH TO LOGIN ─── -->
     <p class="switch-txt">
       Already have an account? <a href="login.html">Sign in →</a>
     </p>
@@ -194,10 +243,74 @@ const SESSION_KEY = 'mx_sess';
 const DASHBOARD_URL = '/dashboard.html';
 
 let currentRegUserId = null;
+let resendTimer = null;
+let resendCountdown = 60;
 
-// ── TOAST ──
+// ─── DOM REFS ───
+const DOM = {
+  signupForm: document.getElementById('signupFormWrap'),
+  verifyForm: document.getElementById('verifyFormWrap'),
+  signupAlert: document.getElementById('signupAlert'),
+  verifyAlert: document.getElementById('verifyAlert'),
+  username: document.getElementById('signupUsername'),
+  email: document.getElementById('signupEmail'),
+  phone: document.getElementById('signupPhone'),
+  password: document.getElementById('signupPassword'),
+  confirm: document.getElementById('signupConfirm'),
+  terms: document.getElementById('termsCheck'),
+  signupBtn: document.getElementById('signupBtn'),
+  verifyBtn: document.getElementById('verifyBtn'),
+  verifyCode: document.getElementById('verifyCode'),
+  verifyMessage: document.getElementById('verifyMessage'),
+  verifyCodeErr: document.getElementById('verifyCodeErr'),
+  resendBtn: document.getElementById('resendBtn'),
+  resendTimer: document.getElementById('resendTimer'),
+  timerCount: document.getElementById('timerCount'),
+  toastContainer: document.getElementById('toastContainer'),
+  pwdFill: document.getElementById('pwdFill'),
+  pwdTxt: document.getElementById('pwdTxt'),
+};
+
+// ─── FIELD ERROR HELPERS ───
+function setFieldError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function clearFieldError(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = '';
+  el.classList.remove('show');
+}
+function setFieldOk(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg || '✓';
+  el.classList.add('show');
+}
+function clearFieldOk(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = '';
+  el.classList.remove('show');
+}
+function setInputState(inp, state) {
+  if (!inp) return;
+  inp.classList.remove('err', 'ok');
+  if (state === 'err') inp.classList.add('err');
+  if (state === 'ok') inp.classList.add('ok');
+}
+function clearInputState(inp) {
+  if (!inp) return;
+  inp.classList.remove('err', 'ok');
+}
+
+// ─── TOAST ───
 function toast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
+  const container = DOM.toastContainer;
+  if (!container) return;
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.textContent = message;
@@ -210,109 +323,275 @@ function toast(message, type = 'info') {
   }, 4000);
 }
 
-// ── ALERTS ──
+// ─── ALERT ───
 function showAlert(id, msg, type = 'err') {
   const el = document.getElementById(id);
   if (!el) return;
   el.className = `alertbox show ${type}`;
-  el.innerHTML = `<i class="fas ${type === 'ok' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i><span>${msg}</span>`;
-  if (type === 'ok') setTimeout(() => hideAlert(id), 5000);
+  const icons = { ok: 'fa-check-circle', err: 'fa-exclamation-circle', info: 'fa-info-circle' };
+  el.innerHTML = `<i class="fas ${icons[type] || icons.err}"></i><span>${msg}</span>`;
 }
 function hideAlert(id) {
   const el = document.getElementById(id);
   if (el) { el.className = 'alertbox'; el.innerHTML = ''; }
 }
 
-function showFieldErr(id, msg) {
-  const el = document.getElementById(id);
-  if (el) { el.textContent = msg; el.classList.add('show'); }
-}
-function clearFieldErr(id) {
-  const el = document.getElementById(id);
-  if (el) { el.textContent = ''; el.classList.remove('show'); }
-}
-function setInpState(inp, state) {
-  inp.classList.remove('err-inp', 'ok-inp');
-  if (state === 'err') inp.classList.add('err-inp');
-  if (state === 'ok') inp.classList.add('ok-inp');
-}
-
+// ─── EYE TOGGLE ───
 function toggleEye(id, btn) {
   const inp = document.getElementById(id);
+  if (!inp) return;
   const show = inp.type === 'password';
   inp.type = show ? 'text' : 'password';
   btn.innerHTML = show ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
 }
 
+// ─── PASSWORD STRENGTH ───
+function checkPasswordStrength() {
+  const v = DOM.password.value;
+  const fill = DOM.pwdFill;
+  const txt = DOM.pwdTxt;
+  if (!v) { fill.className = 'pwd-fill'; txt.textContent = ''; txt.className = 'pwd-txt'; return; }
+  let score = 0;
+  if (v.length >= 8) score++;
+  if (/[A-Z]/.test(v)) score++;
+  if (/[0-9]/.test(v)) score++;
+  if (/[^A-Za-z0-9]/.test(v)) score++;
+  const levels = [
+    { cls: '', label: '' },
+    { cls: 'weak', label: 'Weak — use uppercase, numbers & special characters' },
+    { cls: 'fair', label: 'Fair — add special characters' },
+    { cls: 'good', label: 'Good — almost there!' },
+    { cls: 'strong', label: 'Strong password ✓' }
+  ];
+  const level = levels[score];
+  fill.className = 'pwd-fill ' + level.cls;
+  txt.textContent = level.label;
+  txt.className = 'pwd-txt ' + level.cls;
+  clearFieldError('passwordErr');
+}
+
+// ─── VALIDATE FIELD ───
+function validateUsername() {
+  const v = DOM.username.value.trim();
+  const errId = 'usernameErr';
+  const okId = 'usernameOk';
+  if (!v) { setInputState(DOM.username, 'err'); setFieldError(errId, 'Username is required'); clearFieldOk(okId); return false; }
+  if (v.length < 3) { setInputState(DOM.username, 'err'); setFieldError(errId, 'Username must be at least 3 characters'); clearFieldOk(okId); return false; }
+  if (/[^a-zA-Z0-9_]/.test(v)) { setInputState(DOM.username, 'err'); setFieldError(errId, 'Letters, numbers & underscores only'); clearFieldOk(okId); return false; }
+  setInputState(DOM.username, 'ok'); clearFieldError(errId); setFieldOk(okId, '✓ Available');
+  return true;
+}
+
+function validateEmail() {
+  const v = DOM.email.value.trim();
+  const errId = 'emailErr';
+  const okId = 'emailOk';
+  if (!v) { setInputState(DOM.email, 'err'); setFieldError(errId, 'Email is required'); clearFieldOk(okId); return false; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setInputState(DOM.email, 'err'); setFieldError(errId, 'Enter a valid email address'); clearFieldOk(okId); return false; }
+  setInputState(DOM.email, 'ok'); clearFieldError(errId); setFieldOk(okId, '✓ Valid');
+  return true;
+}
+
+function validateConfirm() {
+  const pwd = DOM.password.value;
+  const v = DOM.confirm.value;
+  const errId = 'confirmErr';
+  const okId = 'confirmOk';
+  if (!v) { setInputState(DOM.confirm, 'err'); setFieldError(errId, 'Please confirm your password'); clearFieldOk(okId); return false; }
+  if (v !== pwd) { setInputState(DOM.confirm, 'err'); setFieldError(errId, 'Passwords do not match'); clearFieldOk(okId); return false; }
+  setInputState(DOM.confirm, 'ok'); clearFieldError(errId); setFieldOk(okId, '✓ Match');
+  return true;
+}
+
+function validatePassword() {
+  const v = DOM.password.value;
+  const errId = 'passwordErr';
+  if (!v) { setInputState(DOM.password, 'err'); setFieldError(errId, 'Password is required'); return false; }
+  if (v.length < 8) { setInputState(DOM.password, 'err'); setFieldError(errId, 'Password must be at least 8 characters'); return false; }
+  setInputState(DOM.password, 'ok'); clearFieldError(errId);
+  return true;
+}
+
+// ─── REAL-TIME VALIDATION ───
+DOM.username.addEventListener('input', validateUsername);
+DOM.email.addEventListener('input', validateEmail);
+DOM.password.addEventListener('input', () => { checkPasswordStrength(); validatePassword(); });
+DOM.confirm.addEventListener('input', validateConfirm);
+
+// ─── SESSION HELPERS ───
 function saveSession(token, user, remember = false) {
   const data = JSON.stringify({ token, user, loggedAt: Date.now() });
   if (remember) localStorage.setItem(SESSION_KEY, data);
   else sessionStorage.setItem(SESSION_KEY, data);
 }
 
+function getSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 function goBackToSignup(e) {
   if (e) e.preventDefault();
-  document.getElementById('signupFormWrap').style.display = 'block';
-  document.getElementById('verifyFormWrap').style.display = 'none';
+  DOM.signupForm.style.display = 'block';
+  DOM.verifyForm.style.display = 'none';
   currentRegUserId = null;
-  document.getElementById('verifyCode').value = '';
+  DOM.verifyCode.value = '';
+  clearResendTimer();
+  hideAlert('verifyAlert');
+  clearFieldError('verifyCodeErr');
 }
 
-// ── PASSWORD STRENGTH ──
-function checkStrength(inp) {
-  const v = inp.value;
-  const fill = document.getElementById('pwdFill');
-  const txt = document.getElementById('pwdTxt');
-  if (!v) { fill.className = 'pwd-fill'; txt.textContent = ''; return; }
-  let s = 0;
-  if (v.length >= 8) s++;
-  if (/[A-Z]/.test(v)) s++;
-  if (/[0-9]/.test(v)) s++;
-  if (/[^A-Za-z0-9]/.test(v)) s++;
-  const lvl = [['', ''], ['w', 'Weak — use uppercase & numbers'], ['f', 'Fair — add special characters'], ['g', 'Good — almost there!'], ['s', 'Strong password ✓']];
-  fill.className = 'pwd-fill ' + lvl[s][0];
-  txt.textContent = lvl[s][1];
-  txt.style.color = s <= 1 ? '#ef4444' : s === 2 ? '#d97706' : s === 3 ? '#3b82f6' : '#10b981';
-  clearFieldErr('passwordErr');
+// ─── RESEND CODE ───
+function startResendTimer() {
+  const btn = DOM.resendBtn;
+  const timer = DOM.resendTimer;
+  const count = DOM.timerCount;
+  
+  btn.disabled = true;
+  timer.style.display = 'inline';
+  resendCountdown = 60;
+  count.textContent = resendCountdown;
+  
+  clearResendTimer();
+  resendTimer = setInterval(() => {
+    resendCountdown--;
+    count.textContent = resendCountdown;
+    if (resendCountdown <= 0) {
+      clearResendTimer();
+      btn.disabled = false;
+      timer.style.display = 'none';
+    }
+  }, 1000);
 }
 
-function checkUsername(inp) {
-  const v = inp.value.trim();
-  if (v.length < 3) { setInpState(inp, 'err'); showFieldErr('usernameErr', 'At least 3 characters'); return; }
-  if (/[^a-zA-Z0-9_]/.test(v)) { setInpState(inp, 'err'); showFieldErr('usernameErr', 'Letters, numbers & _ only'); return; }
-  setInpState(inp, 'ok'); clearFieldErr('usernameErr');
+function clearResendTimer() {
+  if (resendTimer) {
+    clearInterval(resendTimer);
+    resendTimer = null;
+  }
+  DOM.resendBtn.disabled = false;
+  DOM.resendTimer.style.display = 'none';
 }
 
-function checkMatch(inp) {
-  const pwd = document.getElementById('signupPassword').value;
-  if (inp.value !== pwd) { setInpState(inp, 'err'); showFieldErr('confirmErr', 'Passwords do not match'); }
-  else { setInpState(inp, 'ok'); clearFieldErr('confirmErr'); }
+async function resendCode() {
+  if (!currentRegUserId) {
+    toast('Registration session expired. Please start over.', 'error');
+    return;
+  }
+
+  const btn = DOM.resendBtn;
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const res = await fetch(API_BASE + '/auth/resend-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: currentRegUserId })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      toast('New verification code sent! Check your email.', 'success');
+      DOM.verifyMessage.textContent = '📧 New code sent to your email';
+      DOM.verifyCode.value = '';
+      DOM.verifyCode.focus();
+      startResendTimer();
+    } else {
+      toast(data.message || 'Failed to resend code. Please try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Resend code';
+    }
+  } catch (err) {
+    console.error(err);
+    toast('Could not resend code. Please try again.', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Resend code';
+  }
 }
 
-// ─── SIGNUP ───
+// ─── HANDLE AUTH ERRORS ───
+function handleAuthError(error, field = null) {
+  const code = error.code || '';
+  const message = error.message || 'Something went wrong. Please try again.';
+
+  console.log('🔐 Auth Error:', code, message);
+
+  // Map error codes to fields and messages
+  const fieldMap = {
+    'EMAIL_REQUIRED': { field: 'emailErr', msg: 'Please enter your email address.' },
+    'INVALID_EMAIL': { field: 'emailErr', msg: 'Please enter a valid email address.' },
+    'EMAIL_ALREADY_EXISTS': { field: 'emailErr', msg: 'An account with this email already exists. Please sign in instead.' },
+    'PASSWORD_REQUIRED': { field: 'passwordErr', msg: 'Please create a password.' },
+    'PASSWORD_WEAK': { field: 'passwordErr', msg: 'Your password must have: at least 8 characters, one uppercase letter, one lowercase letter, one number.' },
+    'USERNAME_REQUIRED': { field: 'usernameErr', msg: 'Please enter a username.' },
+    'INVALID_USERNAME': { field: 'usernameErr', msg: 'Username can only contain letters, numbers, and underscores.' },
+    'USERNAME_TAKEN': { field: 'usernameErr', msg: 'This username is already taken. Please choose another.' },
+    'VERIFICATION_REQUIRED': { field: 'verifyCodeErr', msg: 'Please enter the verification code.' },
+    'INVALID_CODE': { field: 'verifyCodeErr', msg: message },
+    'CODE_EXPIRED': { field: 'verifyCodeErr', msg: 'This verification code has expired. Please request a new one.' },
+    'TOO_MANY_ATTEMPTS': { field: 'verifyCodeErr', msg: 'Too many incorrect attempts. Please register again.' },
+    'SESSION_EXPIRED': { field: 'verifyCodeErr', msg: 'Your session has expired. Please start over.' },
+    'ACCOUNT_LOCKED': { field: null, msg: message },
+    'ACCOUNT_SUSPENDED': { field: null, msg: message },
+    'EMAIL_ALREADY_EXISTS': { field: 'emailErr', msg: 'An account with this email already exists. Please sign in instead.' },
+  };
+
+  const mapping = fieldMap[code];
+  if (mapping) {
+    if (mapping.field) {
+      const errEl = document.getElementById(mapping.field);
+      if (errEl) {
+        errEl.textContent = mapping.msg;
+        errEl.classList.add('show');
+        // Highlight the related input
+        const inp = errEl.closest('.fg')?.querySelector('.finp');
+        if (inp) setInputState(inp, 'err');
+      }
+    } else {
+      // Show as toast
+      toast(mapping.msg, 'error');
+    }
+  } else {
+    // Default: show as toast
+    toast(message, 'error');
+  }
+
+  // Also show in alert box for general errors
+  if (code && !fieldMap[code]?.field) {
+    showAlert('signupAlert', message, 'err');
+  }
+}
+
+// ─── SIGNUP SUBMIT ───
 document.getElementById('signupForm').addEventListener('submit', async function(e) {
   e.preventDefault();
 
-  const username = document.getElementById('signupUsername').value.trim();
-  const email = document.getElementById('signupEmail').value.trim();
-  const password = document.getElementById('signupPassword').value;
-  const confirm = document.getElementById('signupConfirm').value;
-  const phone = document.getElementById('signupPhone').value.trim();
-  const terms = document.getElementById('termsCheck').checked;
+  // ─── Validate all fields ───
+  const isUsernameValid = validateUsername();
+  const isEmailValid = validateEmail();
+  const isPasswordValid = validatePassword();
+  const isConfirmValid = validateConfirm();
+  const termsChecked = DOM.terms.checked;
 
-  let ok = true;
-  if (!username || username.length < 3) { showFieldErr('usernameErr', 'Username must be at least 3 characters'); setInpState(document.getElementById('signupUsername'), 'err'); ok = false; }
-  else { clearFieldErr('usernameErr'); setInpState(document.getElementById('signupUsername'), 'ok'); }
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showFieldErr('emailErr', 'Enter a valid email address'); setInpState(document.getElementById('signupEmail'), 'err'); ok = false; }
-  else { clearFieldErr('emailErr'); setInpState(document.getElementById('signupEmail'), 'ok'); }
-  if (!password || password.length < 6) { showFieldErr('passwordErr', 'Password must be at least 6 characters'); setInpState(document.getElementById('signupPassword'), 'err'); ok = false; }
-  else { clearFieldErr('passwordErr'); setInpState(document.getElementById('signupPassword'), 'ok'); }
-  if (password !== confirm) { showFieldErr('confirmErr', 'Passwords do not match'); setInpState(document.getElementById('signupConfirm'), 'err'); ok = false; }
-  else { clearFieldErr('confirmErr'); setInpState(document.getElementById('signupConfirm'), 'ok'); }
-  if (!terms) { showAlert('signupAlert', 'You must agree to the Terms of Service.', 'err'); ok = false; }
-  if (!ok) return;
+  if (!isUsernameValid || !isEmailValid || !isPasswordValid || !isConfirmValid) {
+    toast('Please fix the highlighted errors.', 'error');
+    return;
+  }
 
-  const btn = document.getElementById('signupBtn');
+  if (!termsChecked) {
+    showAlert('signupAlert', 'You must agree to the Terms of Service.', 'err');
+    return;
+  }
+
+  const username = DOM.username.value.trim();
+  const email = DOM.email.value.trim();
+  const password = DOM.password.value;
+  const phone = DOM.phone.value.trim();
+
+  const btn = DOM.signupBtn;
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending code…';
   hideAlert('signupAlert');
@@ -328,24 +607,26 @@ document.getElementById('signupForm').addEventListener('submit', async function(
     });
     const data = await res.json();
 
-    if (res.ok && data.success && data.requires_2fa) {
+    if (res.ok && data.success && (data.requires_2fa || data.user_id)) {
       currentRegUserId = data.user_id;
-      document.getElementById('signupFormWrap').style.display = 'none';
-      document.getElementById('verifyFormWrap').style.display = 'block';
-      document.getElementById('verifyMessage').textContent = '📧 Verification code sent to ' + email;
-      document.getElementById('verifyCode').focus();
-      document.getElementById('verifyCode').value = '';
-      toast('Verification code sent!', 'info');
+      DOM.signupForm.style.display = 'none';
+      DOM.verifyForm.style.display = 'block';
+      DOM.verifyMessage.textContent = '📧 Verification code sent to ' + email;
+      DOM.verifyCode.focus();
+      DOM.verifyCode.value = '';
+      toast('Verification code sent! Check your email.', 'info');
+      startResendTimer();
     } else if (res.ok && data.success && data.data) {
       saveSession(data.data.token, data.data.user, false);
-      toast('Account created!', 'success');
+      toast('Account created! 🎉', 'success');
       setTimeout(() => { window.location.href = DASHBOARD_URL; }, 800);
     } else {
-      showAlert('signupAlert', data.error || 'Registration failed. Email may already be taken.', 'err');
+      // Handle error with proper code mapping
+      handleAuthError(data, 'signupAlert');
     }
   } catch (err) {
     console.error(err);
-    showAlert('signupAlert', 'Could not connect to server. Please try again.', 'err');
+    toast('Could not connect to server. Please check your internet connection.', 'error');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-user-plus"></i> Create free account';
@@ -354,11 +635,21 @@ document.getElementById('signupForm').addEventListener('submit', async function(
 
 // ─── VERIFY REGISTRATION ───
 document.getElementById('verifyBtn').addEventListener('click', async function() {
-  const code = document.getElementById('verifyCode').value.trim();
-  if (code.length !== 6) { toast('Please enter a valid 6-digit code', 'error'); document.getElementById('verifyCode').focus(); return; }
-  if (!currentRegUserId) { toast('Registration session expired. Please start over.', 'error'); return; }
+  const code = DOM.verifyCode.value.trim();
+  clearFieldError('verifyCodeErr');
+  
+  if (code.length !== 6) {
+    setFieldError('verifyCodeErr', 'Please enter a valid 6-digit code');
+    DOM.verifyCode.focus();
+    return;
+  }
+  
+  if (!currentRegUserId) {
+    toast('Registration session expired. Please start over.', 'error');
+    return;
+  }
 
-  const btn = document.getElementById('verifyBtn');
+  const btn = DOM.verifyBtn;
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying…';
   hideAlert('verifyAlert');
@@ -376,15 +667,15 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
       const user = data.data?.user || data.user;
       saveSession(token, user, false);
       showAlert('verifyAlert', '✅ Account created! Redirecting to dashboard…', 'ok');
-      toast('Welcome to MilesSpace!', 'success');
+      toast('Welcome to MilesSpace! 🎉', 'success');
       setTimeout(() => { window.location.href = DASHBOARD_URL; }, 1000);
     } else {
-      showAlert('verifyAlert', data.error || 'Invalid verification code', 'err');
-      toast(data.error || 'Invalid code', 'error');
+      // Handle error with proper code mapping
+      handleAuthError(data, 'verifyAlert');
     }
   } catch (err) {
     console.error(err);
-    showAlert('verifyAlert', 'Verification failed. Please try again.', 'err');
+    toast('Verification failed. Please check your internet connection.', 'error');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-check-circle"></i> Verify & Create Account';
@@ -392,27 +683,32 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
 });
 
 // ─── KEYBOARD SHORTCUTS ───
-document.getElementById('verifyCode').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') document.getElementById('verifyBtn').click();
+DOM.verifyCode.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') DOM.verifyBtn.click();
 });
-document.getElementById('verifyCode').addEventListener('focus', function() {
-  this.select();
+
+// ─── AUTO-TAB VERIFICATION CODE ───
+DOM.verifyCode.addEventListener('input', function() {
+  this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
+  clearFieldError('verifyCodeErr');
+  if (this.value.length === 6) {
+    // Auto-submit after 300ms delay
+    clearTimeout(this._autoSubmit);
+    this._autoSubmit = setTimeout(() => DOM.verifyBtn.click(), 300);
+  }
 });
 
 // ─── REDIRECT IF ALREADY LOGGED IN ───
 (function redirectIfLoggedIn() {
-  try {
-    const sess = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null');
-    if (sess && sess.token) window.location.href = DASHBOARD_URL;
-  } catch (e) {}
+  const sess = getSession();
+  if (sess && sess.token && sess.user) {
+    // Check if token is still valid
+    window.location.href = DASHBOARD_URL;
+  }
 })();
 
-// ─── PRE-FILL REFERRAL FROM URL ───
-(function prefillReferral() {
-  const params = new URLSearchParams(window.location.search);
-  const ref = params.get('ref');
-  if (ref) document.getElementById('refCode').value = ref;
-})();
+console.log('✅ MilesSpace Signup page loaded');
+console.log('   🔐 Error handling ready');
 </script>
 </body>
 </html>

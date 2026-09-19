@@ -1,887 +1,1256 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Cashback Wallet — MilesSpace</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>MilesSpace | Global Airtime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+/* ─── ROOT VARIABLES ────────────────────────────────────────────────────── */
+:root {
+  --p: #0c3d4a;
+  --pm: #1a6b80;
+  --pl: #e8f4f8;
+  --pxl: #f2fafb;
+  --acc: #f59e0b;
+  --acd: #d97706;
+  --acl: #fef3c7;
+  --ok: #10b981;
+  --okl: #d1fae5;
+  --err: #ef4444;
+  --erl: #fee2e2;
+  --warn: #f59e0b;
+  --warnl: #fef3c7;
+  --bg: #f4f7fb;
+  --srf: #fff;
+  --srf2: #f8fafc;
+  --bdr: #e2e8f0;
+  --t1: #0a2530;
+  --t2: #456475;
+  --t3: #8aa4ae;
+  --sw: 268px;
+  --r: 10px;
+  --rl: 14px;
+  --rxl: 20px;
+  --rp: 999px;
+  --s0: 0 1px 2px rgba(0,0,0,.04);
+  --s1: 0 2px 8px rgba(0,0,0,.06);
+  --fd: 'Syne', sans-serif;
+  --fb: 'DM Sans', sans-serif;
+  --tr: all .2s cubic-bezier(.25,.8,.25,1);
+}
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://api.milesspace.com" />
-  <link rel="dns-prefetch" href="https://api.milesspace.com" />
+/* ─── RESET ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html { font-size: 15px; scroll-behavior: smooth; }
+body {
+  font-family: var(--fb);
+  background: var(--bg);
+  color: var(--t1);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+a { text-decoration: none; color: inherit; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select { font-family: inherit; }
 
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+/* ─── OVERLAY ───────────────────────────────────────────────────────────── */
+.ov {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10,37,48,.4);
+  backdrop-filter: blur(5px);
+  z-index: 490;
+}
+.ov.on { display: block; }
 
-  <style>
-    /* ─── All existing styles (same as before) ─── */
-    :root {
-      --p: #0c3d4a;
-      --pm: #155e72;
-      --pl: #e8f4f7;
-      --pxl: #f2fafb;
-      --acc: #f59e0b;
-      --acd: #d97706;
-      --acl: #fef3c7;
-      --ok: #10b981;
-      --okl: #d1fae5;
-      --err: #ef4444;
-      --erl: #fee2e2;
-      --bg: #f4f6f8;
-      --srf: #ffffff;
-      --srf2: #f8f9fa;
-      --bdr: #e4e8ec;
-      --t1: #0f1923;
-      --t2: #4a6070;
-      --t3: #92a8b4;
-      --sw: 264px;
-      --r: 10px;
-      --rl: 16px;
-      --rxl: 20px;
-      --rp: 999px;
-      --s0: 0 1px 3px rgba(0,0,0,.04);
-      --s1: 0 4px 14px rgba(0,0,0,.07);
-      --s2: 0 8px 28px rgba(0,0,0,.1);
-      --fd: 'Syne', sans-serif;
-      --fb: 'DM Sans', sans-serif;
-      --ease: cubic-bezier(.25,.8,.25,1);
-    }
+/* ─── PIN MODAL ────────────────────────────────────────────────────────── */
+.pin-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.pin-modal.on { display: flex; }
+.pin-modal .pm-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,37,48,.6);
+  backdrop-filter: blur(8px);
+}
+.pin-modal .pm-box {
+  position: relative;
+  background: var(--srf);
+  border-radius: var(--rxl);
+  padding: 28px 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.15);
+}
+.pm-title {
+  font-family: var(--fd);
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 4px;
+}
+.pm-sub {
+  font-size: .74rem;
+  color: var(--t3);
+  text-align: center;
+  margin-bottom: 18px;
+}
+.pm-input-wrap {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+.pm-input {
+  width: 50px;
+  height: 56px;
+  border: 2px solid var(--bdr);
+  border-radius: var(--r);
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  background: var(--srf);
+  transition: var(--tr);
+  outline: none;
+}
+.pm-input:focus { border-color: var(--p); }
+.pm-input.filled { border-color: var(--ok); background: var(--okl); }
+.pm-input.err { border-color: var(--err); background: var(--erl); }
+.pm-actions {
+  display: flex;
+  gap: 8px;
+}
+.pm-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--rp);
+  font-weight: 700;
+  font-size: .82rem;
+  transition: var(--tr);
+}
+.pm-cancel {
+  background: var(--srf2);
+  color: var(--t2);
+  border: 1px solid var(--bdr);
+}
+.pm-cancel:hover { background: var(--bg); }
+.pm-confirm {
+  background: var(--p);
+  color: #fff;
+}
+.pm-confirm:hover { background: var(--pm); }
+.pm-confirm:disabled { opacity: .4; cursor: not-allowed; }
+.pm-error {
+  color: var(--err);
+  font-size: .7rem;
+  text-align: center;
+  margin-bottom: 12px;
+  display: none;
+}
 
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-    html { font-size: 15px; scroll-behavior: smooth; }
-    body {
-      font-family: var(--fb);
-      background: var(--bg);
-      color: var(--t1);
-      min-height: 100vh;
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { text-decoration: none; color: inherit; }
-    button { font-family: inherit; cursor: pointer; border: none; background: none; }
-    input, select { font-family: inherit; }
+/* ─── SIDEBAR ──────────────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sw);
+  background: var(--srf);
+  border-right: 1px solid var(--bdr);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 500;
+  transition: transform .3s var(--tr);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.sidebar::-webkit-scrollbar { display: none; }
+@media(min-width: 1025px) {
+  .sidebar { transform: translateX(0) !important; }
+  .tb-hbg { display: none !important; }
+}
+@media(max-width: 1024px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0 !important; }
+}
+.sb-brand {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--bdr);
+  flex-shrink: 0;
+}
+.sb-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--t1);
+  font-family: var(--fd);
+}
+.sb-lic {
+  width: 30px;
+  height: 30px;
+  background: var(--acc);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: .8rem;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.sb-lic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.sb-sec {
+  padding: 16px 16px 5px;
+  font-size: .65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--t3);
+}
+.sb-nav { padding: 0 8px; }
+.sb-lnk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r);
+  color: var(--t2);
+  font-size: .85rem;
+  font-weight: 500;
+  transition: var(--tr);
+  margin-bottom: 2px;
+  text-decoration: none;
+}
+.sb-lnk i {
+  width: 16px;
+  text-align: center;
+  font-size: .85rem;
+  flex-shrink: 0;
+}
+.sb-lnk:hover {
+  background: var(--bg);
+  color: var(--t1);
+}
+.sb-lnk.active {
+  background: var(--pl);
+  color: var(--p);
+  font-weight: 600;
+}
+.sb-lnk.active i { color: var(--p); }
+.sb-foot {
+  margin-top: auto;
+  padding: 12px 8px;
+  border-top: 1px solid var(--bdr);
+  flex-shrink: 0;
+}
+.sb-prof {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  transition: var(--tr);
+  cursor: pointer;
+  text-decoration: none;
+}
+.sb-prof:hover { background: var(--bg); }
+.sb-av {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--p);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: .82rem;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.sb-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.sb-ui {
+  flex: 1;
+  min-width: 0;
+}
+.sb-un {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-ue {
+  font-size: .68rem;
+  color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-out {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--t3);
+  font-size: .78rem;
+  transition: var(--tr);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+.sb-out:hover {
+  background: var(--erl);
+  color: var(--err);
+}
 
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--bdr); border-radius: 4px; }
+/* ─── MAIN LAYOUT ──────────────────────────────────────────────────────── */
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+.main {
+  margin-left: var(--sw);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 
-    .app { display: flex; min-height: 100vh; }
-    .main {
-      margin-left: var(--sw);
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
+/* TOPBAR */
+.topbar {
+  background: var(--srf);
+  border-bottom: 1px solid var(--bdr);
+  padding: 0 16px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 400;
+  gap: 10px;
+}
+.tb-hbg {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--pl);
+  color: var(--p);
+  font-size: .9rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: var(--tr);
+  border: none;
+}
+.tb-hbg:hover {
+  background: var(--p);
+  color: #fff;
+}
+.tb-brand {
+  font-family: var(--fd);
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--t1);
+  flex: 1;
+}
+.tb-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.tb-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--srf2);
+  border: 1px solid var(--bdr);
+  display: grid;
+  place-items: center;
+  color: var(--t2);
+  font-size: .85rem;
+  cursor: pointer;
+  transition: var(--tr);
+  position: relative;
+  text-decoration: none;
+}
+.tb-icon-btn:hover {
+  background: var(--pl);
+  color: var(--p);
+}
+.notif-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--err);
+  border: 2px solid var(--srf);
+}
+.tb-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--p);
+  display: grid;
+  place-items: center;
+  font-family: var(--fd);
+  font-weight: 800;
+  font-size: .8rem;
+  color: #fff;
+  border: 2px solid var(--acc);
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.tb-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.content {
+  padding: 16px;
+  flex: 1;
+}
 
-    .sidebar {
-      width: var(--sw);
-      background: var(--srf);
-      border-right: 1px solid var(--bdr);
-      display: flex;
-      flex-direction: column;
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 100vh;
-      z-index: 500;
-      transition: transform .3s var(--ease);
-      overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: none;
-    }
-    .sidebar::-webkit-scrollbar { display: none; }
-    @media (min-width: 1025px) {
-      .sidebar { transform: translateX(0) !important; }
-      .tb-hbg { display: none !important; }
-    }
-    @media (max-width: 1024px) {
-      .sidebar { transform: translateX(-100%); }
-      .sidebar.open { transform: translateX(0); }
-      .main { margin-left: 0 !important; }
-    }
+/* ─── AIRTIME PAGE ────────────────────────────────────────────────────── */
+.air-page {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.page-title {
+  font-family: var(--fd);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--t1);
+  margin-bottom: 2px;
+}
+.page-sub {
+  font-size: .78rem;
+  color: var(--t3);
+  margin-bottom: 20px;
+}
 
-    .sb-brand {
-      padding: 18px 16px 14px;
-      border-bottom: 1px solid var(--bdr);
-      flex-shrink: 0;
-    }
-    .sb-logo {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-weight: 800;
-      font-size: 1rem;
-      color: var(--t1);
-      font-family: var(--fd);
-    }
-    .sb-logo img { width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0; }
-    .sb-sec {
-      padding: 16px 16px 5px;
-      font-size: .65rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: var(--t3);
-    }
-    .sb-nav { padding: 0 8px; }
-    .sb-lnk {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 10px;
-      border-radius: var(--r);
-      color: var(--t2);
-      font-size: .85rem;
-      font-weight: 500;
-      transition: all .18s;
-      margin-bottom: 2px;
-      text-decoration: none;
-    }
-    .sb-lnk i { width: 16px; text-align: center; font-size: .85rem; flex-shrink: 0; opacity: .7; }
-    .sb-lnk:hover { background: var(--bg); color: var(--t1); }
-    .sb-lnk.active {
-      background: var(--pl);
-      color: var(--p);
-      font-weight: 600;
-    }
-    .sb-lnk.active i { color: var(--p); opacity: 1; }
-    .sb-lnk.proxy-lnk:hover { background: #f5f3ff; color: #7c3aed; }
+/* FORM SECTION */
+.form-section {
+  background: var(--srf);
+  border: 1px solid var(--bdr);
+  border-radius: var(--rxl);
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.fs-label {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--t3);
+  margin-bottom: 5px;
+}
+.fs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.fs-row.phone-row {
+  flex-wrap: nowrap;
+}
 
-    .sb-foot {
-      margin-top: auto;
-      padding: 12px 8px;
-      border-top: 1px solid var(--bdr);
-      flex-shrink: 0;
-    }
-    .sb-prof {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 8px 10px;
-      border-radius: var(--r);
-      transition: all .18s;
-      cursor: pointer;
-      text-decoration: none;
-    }
-    .sb-prof:hover { background: var(--bg); }
-    .sb-av {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: var(--p);
-      display: grid;
-      place-items: center;
-      font-weight: 700;
-      font-size: .82rem;
-      color: #fff;
-      flex-shrink: 0;
-      overflow: hidden;
-    }
-    .sb-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-    .sb-ui { flex: 1; min-width: 0; }
-    .sb-un {
-      font-size: .8rem;
-      font-weight: 600;
-      color: var(--t1);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .sb-ue {
-      font-size: .68rem;
-      color: var(--t3);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .sb-out {
-      width: 26px;
-      height: 26px;
-      border-radius: 6px;
-      display: grid;
-      place-items: center;
-      color: var(--t3);
-      font-size: .78rem;
-      transition: all .18s;
-      cursor: pointer;
-      border: none;
-      background: none;
-    }
-    .sb-out:hover { background: var(--erl); color: var(--err); }
+/* COUNTRY CHIP */
+.country-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 1.5px solid var(--bdr);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: var(--tr);
+  background: var(--srf);
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--t1);
+  min-width: 140px;
+}
+.country-chip:hover {
+  border-color: var(--p);
+}
+.country-chip .flag {
+  font-size: 1.1rem;
+}
+.country-chip .code {
+  color: var(--t3);
+  font-weight: 400;
+}
 
-    .topbar {
-      background: var(--srf);
-      border-bottom: 1px solid var(--bdr);
-      padding: 0 16px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 400;
-      gap: 10px;
-    }
-    .tb-hbg {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: var(--pl);
-      color: var(--p);
-      font-size: .9rem;
-      display: grid;
-      place-items: center;
-      flex-shrink: 0;
-      cursor: pointer;
-      transition: all .2s;
-      border: none;
-    }
-    .tb-hbg:hover { background: var(--p); color: #fff; }
-    .tb-brand {
-      font-family: var(--fd);
-      font-size: .9rem;
-      font-weight: 700;
-      color: var(--t1);
-      flex: 1;
-    }
-    .tb-right {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .tb-icon-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 9px;
-      background: var(--srf2);
-      border: 1px solid var(--bdr);
-      display: grid;
-      place-items: center;
-      color: var(--t2);
-      font-size: .85rem;
-      cursor: pointer;
-      transition: all .2s;
-      position: relative;
-      text-decoration: none;
-    }
-    .tb-icon-btn:hover { background: var(--pl); color: var(--p); }
-    .notif-dot {
-      position: absolute;
-      top: 7px;
-      right: 7px;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--err);
-      border: 2px solid var(--srf);
-    }
-    .tb-av {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: var(--p);
-      display: grid;
-      place-items: center;
-      font-family: var(--fd);
-      font-weight: 800;
-      font-size: .8rem;
-      color: #fff;
-      border: 2px solid var(--acc);
-      cursor: pointer;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .tb-av img { width: 100%; height: 100%; object-fit: cover; }
+/* COUNTRY LIST */
+#countryList {
+  display: none;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--bdr);
+  border-radius: var(--r);
+  margin-bottom: 12px;
+}
+#countryList .search-wrap {
+  padding: 8px;
+  border-bottom: 1px solid var(--bdr);
+}
+#countryList .search-wrap input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--bdr);
+  border-radius: var(--r);
+  font-size: .78rem;
+  outline: none;
+}
+#countryList .search-wrap input:focus {
+  border-color: var(--p);
+}
+.country-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: .78rem;
+  transition: background .15s;
+}
+.country-item:hover {
+  background: var(--srf2);
+}
+.country-item .c-flag {
+  font-size: 1rem;
+}
+.country-item .c-name {
+  font-weight: 500;
+}
+.country-item .c-dial {
+  color: var(--t3);
+  margin-left: auto;
+}
 
-    .content {
-      padding: 16px;
-      flex: 1;
-      max-width: 900px;
-      margin: 0 auto;
-      width: 100%;
-    }
-    @media (min-width: 768px) { .content { padding: 20px 22px; } }
-    @media (max-width: 768px) { .content { padding: 12px 10px 78px; } }
+/* PHONE INPUT */
+.phone-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1.5px solid var(--bdr);
+  border-radius: var(--r);
+  font-size: .88rem;
+  outline: none;
+  background: var(--srf);
+  transition: var(--tr);
+  min-width: 0;
+}
+.phone-input:focus {
+  border-color: var(--p);
+}
+.phone-input.err {
+  border-color: var(--err);
+}
+.phone-validation {
+  font-size: .7rem;
+  margin-top: -6px;
+  margin-bottom: 10px;
+  display: none;
+}
+.phone-validation.valid {
+  display: block;
+  color: var(--ok);
+}
+.phone-validation.invalid {
+  display: block;
+  color: var(--err);
+}
 
-    .mnav {
-      display: none;
-      position: fixed;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: calc(100% - 20px);
-      max-width: 400px;
-      height: 52px;
-      background: rgba(255,255,255,.86);
-      backdrop-filter: blur(24px);
-      border: 1px solid rgba(255,255,255,.8);
-      border-radius: 18px;
-      box-shadow: 0 6px 24px rgba(12,61,74,.15);
-      z-index: 450;
-      align-items: center;
-      justify-content: space-around;
-      padding: 0 4px;
-    }
-    .mni {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
-      font-size: .48rem;
-      font-weight: 600;
-      color: var(--t3);
-      text-decoration: none;
-      flex: 1;
-    }
-    .mni i {
-      font-size: .78rem;
-      padding: 4px 6px;
-      border-radius: 8px;
-      transition: all .18s;
-    }
-    .mni.active { color: var(--p); }
-    .mni.active i { background: var(--pl); color: var(--p); }
-    @media (max-width: 768px) { .mnav { display: flex; } }
+/* OPERATOR SECTION */
+.operator-section {
+  margin-bottom: 12px;
+}
+.operator-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.operator-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--bdr);
+  border-radius: var(--r);
+  background: var(--srf);
+  cursor: pointer;
+  transition: var(--tr);
+  font-size: .78rem;
+}
+.operator-option:hover {
+  border-color: var(--p);
+  background: var(--srf2);
+}
+.operator-option.selected {
+  border-color: var(--p);
+  background: var(--pl);
+}
+.operator-option .op-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--bdr);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--tr);
+}
+.operator-option.selected .op-check {
+  border-color: var(--p);
+  background: var(--p);
+  color: #fff;
+}
+.operator-option .op-check i {
+  font-size: .6rem;
+  opacity: 0;
+  transition: var(--tr);
+}
+.operator-option.selected .op-check i {
+  opacity: 1;
+}
+.operator-option .op-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--t1);
+}
+.operator-option .op-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.operator-loading,
+.operator-empty,
+.operator-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--t3);
+  font-size: .78rem;
+}
+.operator-loading .spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--bdr);
+  border-top-color: var(--p);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+.operator-error button {
+  color: var(--p);
+  font-weight: 600;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
-    .ov {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.35);
-      z-index: 499;
-    }
-    .ov.on { display: block; }
+/* AMOUNT PRESETS */
+.amt-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.amt-btn {
+  padding: 7px 14px;
+  border: 1.5px solid var(--bdr);
+  border-radius: var(--rp);
+  font-size: .76rem;
+  font-weight: 600;
+  color: var(--t2);
+  cursor: pointer;
+  transition: var(--tr);
+  background: var(--srf);
+}
+.amt-btn:hover {
+  border-color: var(--p);
+  color: var(--p);
+}
+.amt-btn.active {
+  background: var(--p);
+  color: #fff;
+  border-color: var(--p);
+}
+.amt-custom {
+  width: 120px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--bdr);
+  border-radius: var(--r);
+  font-size: .88rem;
+  outline: none;
+  text-align: center;
+}
+.amt-custom:focus {
+  border-color: var(--p);
+}
 
-    .toasts {
-      position: fixed;
-      bottom: 72px;
-      right: 12px;
-      z-index: 900;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      max-width: 280px;
-      pointer-events: none;
-    }
-    .toast {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 12px;
-      border-radius: var(--rp);
-      box-shadow: var(--s2);
-      font-size: .7rem;
-      font-weight: 500;
-      pointer-events: auto;
-      animation: tIn .22s ease;
-    }
-    .toast.ok { background: var(--okl); color: #065f46; }
-    .toast.err { background: var(--erl); color: #991b1b; }
-    .toast.info { background: var(--srf); color: var(--t1); border: 1px solid var(--bdr); }
-    @keyframes tIn {
-      from { opacity: 0; transform: translateX(36px); }
-      to { opacity: 1; transform: none; }
-    }
+/* BUTTONS */
+.btn-proceed {
+  width: 100%;
+  padding: 12px;
+  background: var(--p);
+  color: #fff;
+  border-radius: var(--rp);
+  font-family: var(--fd);
+  font-weight: 700;
+  font-size: .88rem;
+  transition: var(--tr);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+}
+.btn-proceed:hover {
+  background: var(--pm);
+  transform: translateY(-1px);
+}
+.btn-proceed:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+}
 
-    .fu {
-      animation: fadeUp .4s var(--ease) both;
-    }
-    .d1 { animation-delay: .03s; }
-    .d2 { animation-delay: .07s; }
-    .d3 { animation-delay: .11s; }
-    .d4 { animation-delay: .15s; }
-    .d5 { animation-delay: .19s; }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(14px); }
-      to { opacity: 1; transform: none; }
-    }
+/* ─── WALLET STEP ────────────────────────────────────────────────────── */
+.wallet-step {
+  display: none;
+  background: var(--srf);
+  border: 1px solid var(--bdr);
+  border-radius: var(--rxl);
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.ws-title {
+  font-family: var(--fd);
+  font-size: .9rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.ws-sub {
+  font-size: .72rem;
+  color: var(--t3);
+  margin-bottom: 14px;
+}
+.wallet-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid var(--bdr);
+  border-radius: var(--rl);
+  cursor: pointer;
+  transition: var(--tr);
+  margin-bottom: 8px;
+}
+.wallet-opt:hover {
+  border-color: var(--p);
+}
+.wallet-opt.selected {
+  border-color: var(--p);
+  background: var(--pl);
+}
+.wallet-opt .wo-ic {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--pl);
+  color: var(--p);
+  display: grid;
+  place-items: center;
+  font-size: .85rem;
+  flex-shrink: 0;
+}
+.wallet-opt.usd .wo-ic {
+  background: #eef2ff;
+  color: #1652f0;
+}
+.wallet-opt .wo-info {
+  flex: 1;
+}
+.wallet-opt .wo-lbl {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--t1);
+}
+.wallet-opt .wo-bal {
+  font-size: .7rem;
+  color: var(--t3);
+  margin-top: 1px;
+}
+.wallet-opt .wo-status {
+  font-size: .68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--rp);
+  flex-shrink: 0;
+}
+.wallet-opt .wo-status.ok {
+  background: var(--okl);
+  color: #065f46;
+}
+.wallet-opt .wo-status.insufficient {
+  background: var(--erl);
+  color: #991b1b;
+}
+.wallet-opt .wo-status.error {
+  background: var(--warnl);
+  color: #92400e;
+}
+.wallet-opt.disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.btn-continue {
+  width: 100%;
+  padding: 11px;
+  background: var(--p);
+  color: #fff;
+  border-radius: var(--rp);
+  font-weight: 700;
+  font-size: .84rem;
+  border: none;
+  cursor: pointer;
+  transition: var(--tr);
+}
+.btn-continue:hover {
+  background: var(--pm);
+}
+.btn-continue:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
 
-    /* ─── Page Header ─── */
-    .page-header {
-      margin-bottom: 20px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .page-header h1 {
-      font-family: var(--fd);
-      font-size: 1.3rem;
-      font-weight: 800;
-      color: var(--t1);
-      letter-spacing: -.3px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .page-header h1 i { color: var(--acc); }
-    .page-header p {
-      font-size: .8rem;
-      color: var(--t3);
-      margin-top: 2px;
-    }
-    .header-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 12px;
-      background: var(--acl);
-      border: 1px solid var(--acc);
-      border-radius: var(--rp);
-      font-size: .6rem;
-      font-weight: 700;
-      color: #92400e;
-      font-family: var(--fd);
-    }
+/* ─── PREVIEW STEP ───────────────────────────────────────────────────── */
+.preview-step {
+  display: none;
+  background: var(--srf);
+  border: 1px solid var(--bdr);
+  border-radius: var(--rxl);
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.pv-title {
+  font-family: var(--fd);
+  font-size: .9rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.pv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bdr);
+  font-size: .8rem;
+}
+.pv-row:last-child {
+  border-bottom: none;
+}
+.pv-lbl {
+  color: var(--t3);
+}
+.pv-val {
+  font-weight: 600;
+  color: var(--t1);
+  text-align: right;
+}
+.pv-val.total {
+  font-family: var(--fd);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--p);
+}
+.btn-pay {
+  width: 100%;
+  padding: 12px;
+  background: var(--ok);
+  color: #fff;
+  border-radius: var(--rp);
+  font-family: var(--fd);
+  font-weight: 700;
+  font-size: .88rem;
+  transition: var(--tr);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  margin-top: 12px;
+}
+.btn-pay:hover {
+  background: #0e8f50;
+  transform: translateY(-1px);
+}
+.btn-pay:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+}
+.btn-back {
+  width: 100%;
+  padding: 9px;
+  background: none;
+  color: var(--t3);
+  border: none;
+  font-size: .76rem;
+  cursor: pointer;
+  text-align: center;
+  margin-top: 6px;
+}
+.btn-back:hover {
+  color: var(--t1);
+}
 
-    /* ─── Wallet Card ─── */
-    .wallet-card {
-      background: linear-gradient(145deg, var(--p) 0%, #0a2f3a 100%);
-      border-radius: var(--rxl);
-      padding: 24px 20px;
-      color: #fff;
-      margin-bottom: 24px;
-      position: relative;
-      overflow: hidden;
-      box-shadow: var(--s2);
-    }
-    .wallet-card::before {
-      content: '';
-      position: absolute;
-      top: -40px;
-      right: -40px;
-      width: 150px;
-      height: 150px;
-      background: radial-gradient(circle, rgba(245,158,11,.12), transparent 70%);
-      pointer-events: none;
-    }
-    .wallet-card::after {
-      content: '';
-      position: absolute;
-      bottom: -30px;
-      left: -30px;
-      width: 100px;
-      height: 100px;
-      background: radial-gradient(circle, rgba(16,185,129,.08), transparent 70%);
-      pointer-events: none;
-    }
-    .wc-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      position: relative;
-      z-index: 1;
-    }
-    .wc-label {
-      font-size: .65rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: rgba(255,255,255,.5);
-    }
-    .wc-redeem-btn {
-      padding: 4px 14px;
-      background: rgba(255,255,255,.12);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: var(--rp);
-      color: #fff;
-      font-size: .7rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all .2s;
-      backdrop-filter: blur(4px);
-    }
-    .wc-redeem-btn:hover {
-      background: rgba(255,255,255,.2);
-      transform: scale(1.02);
-    }
-    .wc-balance { position: relative; z-index: 1; }
-    .wc-amount {
-      font-family: var(--fd);
-      font-size: 2.4rem;
-      font-weight: 800;
-      letter-spacing: -1px;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-    .wc-amount .currency {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: rgba(255,255,255,.5);
-      margin-right: 4px;
-    }
-    .wc-sub {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .wc-sub-item {
-      font-size: .7rem;
-      color: rgba(255,255,255,.5);
-    }
-    .wc-sub-item span { color: rgba(255,255,255,.9); font-weight: 600; }
-    .wc-progress { margin-top: 14px; position: relative; z-index: 1; }
-    .wc-progress-bar {
-      height: 4px;
-      background: rgba(255,255,255,.12);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 6px;
-    }
-    .wc-progress-fill {
-      height: 100%;
-      background: var(--acc);
-      border-radius: 4px;
-      transition: width .6s ease;
-    }
-    .wc-progress-label {
-      display: flex;
-      justify-content: space-between;
-      font-size: .58rem;
-      color: rgba(255,255,255,.4);
-    }
-    .wc-progress-label .highlight { color: var(--acc); font-weight: 600; }
+/* ─── RESULT STEP ────────────────────────────────────────────────────── */
+.result-step {
+  display: none;
+  background: var(--srf);
+  border: 1px solid var(--bdr);
+  border-radius: var(--rxl);
+  padding: 24px 20px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.result-ic {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 12px;
+  font-size: 1.4rem;
+}
+.result-ic.success {
+  background: var(--okl);
+  color: var(--ok);
+}
+.result-ic.pending {
+  background: var(--warnl);
+  color: var(--warn);
+}
+.result-ic.failed {
+  background: var(--erl);
+  color: var(--err);
+}
+.result-ic.manual_review {
+  background: var(--warnl);
+  color: var(--warn);
+}
+.result-title {
+  font-family: var(--fd);
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 3px;
+}
+.result-sub {
+  font-size: .76rem;
+  color: var(--t3);
+  margin-bottom: 14px;
+}
+.result-ref {
+  background: var(--srf2);
+  border-radius: var(--r);
+  padding: 10px;
+  font-family: monospace;
+  font-size: .75rem;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.result-ref button {
+  font-size: .68rem;
+  color: var(--p);
+  font-weight: 600;
+  cursor: pointer;
+}
+.result-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.result-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--rp);
+  font-weight: 700;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: var(--tr);
+}
+.btn-done {
+  background: var(--p);
+  color: #fff;
+}
+.btn-done:hover {
+  background: var(--pm);
+}
+.btn-again {
+  background: var(--srf2);
+  color: var(--t1);
+  border: 1px solid var(--bdr);
+}
+.btn-again:hover {
+  border-color: var(--p);
+}
 
-    /* ─── Service Tabs ─── */
-    .service-tabs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 20px;
-    }
-    @media (max-width: 480px) { .service-tabs { grid-template-columns: 1fr; } }
-    .service-tab {
-      padding: 12px 10px;
-      background: var(--srf);
-      border: 2px solid var(--bdr);
-      border-radius: var(--rl);
-      text-align: center;
-      cursor: pointer;
-      transition: all .22s;
-      font-family: var(--fd);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-    .service-tab:hover {
-      border-color: var(--p);
-      transform: translateY(-2px);
-      box-shadow: var(--s1);
-    }
-    .service-tab.active {
-      border-color: var(--acc);
-      background: var(--acl);
-    }
-    .service-tab .st-icon { font-size: 1.4rem; margin-bottom: 2px; }
-    .service-tab .st-name { font-size: .75rem; font-weight: 700; color: var(--t1); }
-    .service-tab .st-sub {
-      font-size: .55rem;
-      color: var(--t3);
-      font-family: var(--fb);
-      font-weight: 500;
-    }
-    .service-tab.active .st-name { color: var(--acd); }
+/* ─── HISTORY ─────────────────────────────────────────────────────────── */
+.history-section {
+  margin-top: 24px;
+}
+.hs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.hs-title {
+  font-family: var(--fd);
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--t1);
+}
+.hs-filter {
+  font-size: .7rem;
+  color: var(--t3);
+  cursor: pointer;
+}
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.history-item {
+  background: var(--srf);
+  border: 1px solid var(--bdr);
+  border-radius: var(--rl);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: var(--tr);
+}
+.history-item:hover {
+  border-color: var(--p);
+}
+.hi-flag {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.hi-info {
+  flex: 1;
+  min-width: 0;
+}
+.hi-phone {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--t1);
+}
+.hi-meta {
+  font-size: .66rem;
+  color: var(--t3);
+  margin-top: 1px;
+}
+.hi-amt {
+  font-family: var(--fd);
+  font-size: .82rem;
+  font-weight: 800;
+  color: var(--t1);
+  text-align: right;
+  white-space: nowrap;
+}
+.hi-status {
+  font-size: .62rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--rp);
+  flex-shrink: 0;
+}
+.hi-status.completed {
+  background: var(--okl);
+  color: #065f46;
+}
+.hi-status.processing {
+  background: var(--warnl);
+  color: #92400e;
+}
+.hi-status.pending {
+  background: var(--warnl);
+  color: #92400e;
+}
+.hi-status.failed {
+  background: var(--erl);
+  color: #991b1b;
+}
+.hi-status.manual_review {
+  background: var(--warnl);
+  color: #92400e;
+}
+.hi-status.refunded {
+  background: var(--warnl);
+  color: #92400e;
+}
 
-    /* ─── Validation Status ─── */
-    .validation-status {
-      font-size: .7rem;
-      font-weight: 600;
-      padding: 6px 10px;
-      border-radius: var(--r);
-      margin-top: -6px;
-      margin-bottom: 10px;
-      display: none;
-    }
-    .validation-status.show { display: block; }
-    .validation-status.valid {
-      background: var(--okl);
-      color: #065f46;
-      border: 1px solid var(--ok);
-    }
-    .validation-status.invalid {
-      background: var(--erl);
-      color: #991b1b;
-      border: 1px solid var(--err);
-    }
-    .validation-status.loading {
-      background: #fef9c3;
-      color: #854d0e;
-      border: 1px solid #fcd34d;
-    }
+/* ─── TOAST ────────────────────────────────────────────────────────────── */
+.toasts {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 320px;
+}
+.toast {
+  background: var(--t1);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: var(--rp);
+  font-size: .76rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--s1);
+  animation: tIn .25s ease;
+}
+.toast.ok {
+  background: var(--ok);
+}
+.toast.err {
+  background: var(--err);
+}
+.toast.warn {
+  background: var(--warn);
+}
+@keyframes tIn {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: none; }
+}
 
-    /* ─── Purchase Form ─── */
-    .purchase-panel {
-      background: var(--srf);
-      border: 1px solid var(--bdr);
-      border-radius: var(--rxl);
-      padding: 20px;
-      box-shadow: var(--s0);
-      margin-bottom: 20px;
-    }
-    .pp-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--bdr);
-    }
-    .pp-header .pp-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-    .pp-header h3 {
-      font-family: var(--fd);
-      font-size: .85rem;
-      font-weight: 700;
-      color: var(--t1);
-    }
-    .pp-header .pp-sub { font-size: .62rem; color: var(--t3); }
+/* ─── RESPONSIVE ──────────────────────────────────────────────────────── */
+@media(max-width: 768px) {
+  .content { padding: 12px; }
+  .form-section, .wallet-step, .preview-step, .result-step { padding: 16px; }
+  .fs-row.phone-row { flex-direction: column; align-items: stretch; }
+  .country-chip { width: 100%; }
+  .phone-input { width: 100%; }
+  .operator-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  .pm-box { padding: 20px 16px; }
+  .pm-input { width: 44px; height: 48px; font-size: 1rem; }
+  .toasts { bottom: 12px; right: 12px; max-width: 280px; }
+}
 
-    .form-group { margin-bottom: 14px; }
-    .form-group label {
-      display: block;
-      font-size: .7rem;
-      font-weight: 600;
-      color: var(--t2);
-      margin-bottom: 4px;
-    }
-    .form-group input,
-    .form-group select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1.5px solid var(--bdr);
-      border-radius: var(--r);
-      font-size: .85rem;
-      background: var(--srf2);
-      transition: all .2s;
-      outline: none;
-      font-family: var(--fb);
-    }
-    .form-group input:focus,
-    .form-group select:focus {
-      border-color: var(--p);
-      background: var(--srf);
-      box-shadow: 0 0 0 3px rgba(12,61,74,.08);
-    }
-    .form-group input::placeholder { color: var(--t3); }
-
-    .price-display {
-      background: var(--srf2);
-      border: 1px solid var(--bdr);
-      border-radius: var(--rl);
-      padding: 12px 14px;
-      margin: 12px 0 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .price-display .pd-label {
-      font-size: .7rem;
-      font-weight: 600;
-      color: var(--t2);
-    }
-    .price-display .pd-amount {
-      font-family: var(--fd);
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: var(--p);
-    }
-    .price-display .pd-amount .pd-fee {
-      font-size: .65rem;
-      font-weight: 600;
-      color: var(--t3);
-    }
-
-    .btn-primary {
-      width: 100%;
-      padding: 12px;
-      background: var(--p);
-      color: #fff;
-      border: none;
-      border-radius: var(--rp);
-      font-family: var(--fd);
-      font-weight: 700;
-      font-size: .85rem;
-      cursor: pointer;
-      transition: all .22s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: var(--pm);
-      transform: translateY(-2px);
-      box-shadow: var(--s1);
-    }
-    .btn-primary:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-      transform: none;
-    }
-    .btn-primary .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ─── Recent Purchases ─── */
-    .recent-card {
-      background: var(--srf);
-      border: 1px solid var(--bdr);
-      border-radius: var(--rxl);
-      padding: 16px;
-      box-shadow: var(--s0);
-    }
-    .recent-card .rc-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    .recent-card .rc-header h4 {
-      font-family: var(--fd);
-      font-size: .78rem;
-      font-weight: 700;
-      color: var(--t1);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .recent-card .rc-header h4 i { color: var(--p); }
-    .recent-card .rc-empty {
-      text-align: center;
-      padding: 20px;
-      color: var(--t3);
-      font-size: .75rem;
-    }
-    .recent-card .rc-empty i {
-      font-size: 1.4rem;
-      display: block;
-      margin-bottom: 6px;
-      color: var(--bdr);
-    }
-    .rc-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--bdr);
-    }
-    .rc-item:last-child { border-bottom: none; }
-    .rc-item .rc-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
-      font-size: .8rem;
-      flex-shrink: 0;
-    }
-    .rc-item .rc-info { flex: 1; min-width: 0; }
-    .rc-item .rc-name {
-      font-size: .75rem;
-      font-weight: 600;
-      color: var(--t1);
-    }
-    .rc-item .rc-meta { font-size: .6rem; color: var(--t3); }
-    .rc-item .rc-amount {
-      font-family: var(--fd);
-      font-size: .8rem;
-      font-weight: 700;
-      color: var(--ok);
-      flex-shrink: 0;
-    }
-    .rc-item .rc-status {
-      font-size: .55rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 4px;
-      flex-shrink: 0;
-    }
-    .rc-status.success { background: var(--okl); color: #065f46; }
-    .rc-status.pending { background: #fef9c3; color: #854d0e; }
-    .rc-status.failed { background: var(--erl); color: #991b1b; }
-
-    .toast-container {
-      position: fixed;
-      bottom: 76px;
-      right: 14px;
-      z-index: 900;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-width: 320px;
-      pointer-events: none;
-    }
-    .toast-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      border-radius: var(--rp);
-      background: var(--srf);
-      border: 1px solid var(--bdr);
-      box-shadow: var(--s2);
-      font-size: .75rem;
-      font-weight: 600;
-      pointer-events: auto;
-      animation: slideIn .3s ease;
-    }
-    .toast-item.success { border-color: var(--ok); background: var(--okl); color: #065f46; }
-    .toast-item.error { border-color: var(--err); background: var(--erl); color: #991b1b; }
-    .toast-item.warning { border-color: var(--acc); background: var(--acl); color: #92400e; }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(30px); }
-      to { opacity: 1; transform: none; }
-    }
-
-    @media (max-width: 480px) {
-      .wallet-card { padding: 18px 14px; }
-      .wc-amount { font-size: 1.8rem; }
-      .purchase-panel { padding: 14px; }
-      .service-tab .st-icon { font-size: 1.2rem; }
-      .service-tab .st-name { font-size: .68rem; }
-      .price-display .pd-amount { font-size: .95rem; }
-    }
-  </style>
-
-  <script src="/js/session.js"></script>
-  <script src="/js/presence.js" defer></script>
+@media(max-width: 480px) {
+  .topbar { padding: 0 10px; }
+  .tb-brand { font-size: .78rem; }
+  .tb-hbg { width: 34px; height: 34px; font-size: .8rem; }
+  .tb-icon-btn { width: 32px; height: 32px; font-size: .75rem; }
+  .tb-av { width: 30px; height: 30px; font-size: .7rem; }
+  .page-title { font-size: 1rem; }
+  .amt-presets { gap: 4px; }
+  .amt-btn { padding: 5px 10px; font-size: .7rem; }
+  .amt-custom { width: 80px; padding: 6px 8px; font-size: .8rem; }
+  .operator-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .operator-option { padding: 6px 8px; font-size: .7rem; }
+  .result-actions button { font-size: .7rem; padding: 8px; }
+}
+</style>
 </head>
 <body>
 
+<!-- ═══ OVERLAY ═══ -->
 <div class="ov" id="ov"></div>
+
+<!-- ═══ PIN MODAL ═══ -->
+<div class="pin-modal" id="pinModal">
+  <div class="pm-bg" onclick="closePinModal()"></div>
+  <div class="pm-box">
+    <p class="pm-title">Confirm Payment</p>
+    <p class="pm-sub">Enter your 4-digit transaction PIN</p>
+    <div class="pm-error" id="pinError">Invalid PIN. Please try again.</div>
+    <div class="pm-input-wrap" id="pinInputWrap">
+      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0" autocomplete="off">
+      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1" autocomplete="off">
+      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2" autocomplete="off">
+      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3" autocomplete="off">
+    </div>
+    <div class="pm-actions">
+      <button class="pm-cancel" onclick="closePinModal()">Cancel</button>
+      <button class="pm-confirm" id="pmConfirm" disabled onclick="confirmPin()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
 <div class="app">
 
-  <!-- SIDEBAR -->
+  <!-- ═══ SIDEBAR ═══ -->
   <aside class="sidebar" id="sb">
     <div class="sb-brand">
-      <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">MilesSpace</div>
+      <div class="sb-logo">
+        <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" style="width:100%;height:100%;object-fit:cover"></div>
+        MilesSpace
+      </div>
     </div>
     <p class="sb-sec">Menu</p>
     <nav class="sb-nav">
@@ -889,1362 +1258,1196 @@
       <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
       <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
       <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
-      <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
-      <a href="Sendgift.html"  class="sb-lnk"><i class="fas fa-gift"></i> Send Gift</a>
+      <a href="airtime.html" class="sb-lnk active"><i class="fas fa-globe"></i> Global Airtime</a>
       <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
       <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
     </nav>
     <p class="sb-sec">Account</p>
     <nav class="sb-nav">
-      <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+      <a href="usersettings.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Settings</a>
       <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
-      <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk">
-        <i class="fas fa-shield-alt"></i> Buy Proxy
-      </a>
+      <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk proxy-lnk"><i class="fas fa-shield-alt"></i> Buy Proxy</a>
     </nav>
     <div class="sb-foot">
-      <a href="profile.html" class="sb-prof">
+      <a href="usersettings.html" class="sb-prof">
         <div class="sb-av" id="sbAv">U</div>
-        <div class="sb-ui">
-          <p class="sb-un" id="sbName">Loading…</p>
-          <p class="sb-ue" id="sbEmail"></p>
-        </div>
-        <button class="sb-out" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button>
+        <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
+        <button class="sb-out" id="logoutBtn" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
       </a>
     </div>
   </aside>
 
-  <!-- MAIN -->
+  <!-- ═══ MAIN ═══ -->
   <div class="main">
     <header class="topbar">
       <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
-      <p class="tb-brand">⭐ Cashback</p>
+      <p class="tb-brand">MilesSpace</p>
       <div class="tb-right">
-        <a href="notifications.html" class="tb-icon-btn">
-          <i class="fas fa-bell"></i>
-          <span class="notif-dot"></span>
-        </a>
-        <div class="tb-av" id="tbAv">U</div>
+        <a href="notifications.html" class="tb-icon-btn"><i class="fas fa-bell"></i><span class="notif-dot"></span></a>
+        <div class="tb-av" id="tbAv" onclick="location.href='usersettings.html'">U</div>
       </div>
     </header>
 
     <main class="content">
-      <div class="page-header fu d1">
-        <div>
-          <h1><i class="fas fa-coins"></i> Cashback Wallet</h1>
-          <p>Use your cashback rewards for Airtime, Data, and Electricity bills.</p>
+      <div class="air-page">
+
+        <p class="page-title">Global Airtime</p>
+        <p class="page-sub">Send airtime to mobile numbers worldwide.</p>
+
+        <!-- ═══ FORM STEP ═══ -->
+        <div class="form-section" id="formStep">
+          <!-- Country -->
+          <div class="fs-row"><p class="fs-label">Country</p></div>
+          <div class="fs-row">
+            <button class="country-chip" id="countryChip" onclick="toggleCountryList()">
+              <span class="flag" id="countryFlag">🌐</span>
+              <span id="countryName">Select country</span>
+              <span class="code" id="countryCode"></span>
+              <i class="fas fa-chevron-down" style="margin-left:auto;font-size:.7rem;color:var(--t3)"></i>
+            </button>
+          </div>
+          <div id="countryList">
+            <div class="search-wrap">
+              <input type="text" placeholder="Search countries..." oninput="searchCountries(this.value)"/>
+            </div>
+            <div id="countryListInner"></div>
+          </div>
+
+          <!-- Mobile Network -->
+          <div class="operator-section">
+            <p class="fs-label">Mobile network</p>
+            <div id="operatorContainer">
+              <div class="operator-empty">Select a country to see available networks</div>
+            </div>
+          </div>
+
+          <!-- Phone Number -->
+          <div class="fs-row"><p class="fs-label">Mobile number</p></div>
+          <div class="fs-row phone-row">
+            <span class="country-chip" style="min-width:auto;padding:9px 12px" id="dialCodeDisplay">+—</span>
+            <input type="tel" class="phone-input" id="phoneInput" placeholder="Enter mobile number (e.g. 08031234567 or +2348031234567)" oninput="onPhoneChange(this.value)" autocomplete="tel"/>
+          </div>
+          <div class="phone-validation" id="phoneValidation"></div>
+
+          <!-- Amount -->
+          <div class="fs-row"><p class="fs-label">Amount (USD)</p></div>
+          <div class="amt-presets" id="amtPresets">
+            <button class="amt-btn" onclick="setAmount(5)">$5</button>
+            <button class="amt-btn" onclick="setAmount(10)">$10</button>
+            <button class="amt-btn" onclick="setAmount(20)">$20</button>
+            <button class="amt-btn" onclick="setAmount(50)">$50</button>
+            <button class="amt-btn" onclick="setAmount(100)">$100</button>
+            <input type="number" class="amt-custom" id="amtCustom" placeholder="Custom" min="1" oninput="setCustomAmount(this.value)"/>
+          </div>
+
+          <button class="btn-proceed" id="btnProceed" disabled onclick="goToWallet()">Proceed</button>
         </div>
-        <span class="header-badge"><i class="fas fa-lock"></i> PIN Protected</span>
+
+        <!-- ═══ WALLET STEP ═══ -->
+        <div class="wallet-step" id="walletStep">
+          <p class="ws-title">Select account to debit</p>
+          <p class="ws-sub">Choose which wallet to use for this purchase</p>
+          <div id="walletOptions"></div>
+          <button class="btn-continue" id="btnContinue" disabled onclick="goToPreview()">Continue</button>
+        </div>
+
+        <!-- ═══ PREVIEW STEP ═══ -->
+        <div class="preview-step" id="previewStep">
+          <p class="pv-title">Review airtime purchase</p>
+          <div class="pv-row"><span class="pv-lbl">Recipient</span><span class="pv-val" id="pvPhone">—</span></div>
+          <div class="pv-row"><span class="pv-lbl">Country</span><span class="pv-val" id="pvCountry">—</span></div>
+          <div class="pv-row"><span class="pv-lbl">Network</span><span class="pv-val" id="pvOperator">—</span></div>
+          <div class="pv-row"><span class="pv-lbl">Airtime</span><span class="pv-val" id="pvAmount">—</span></div>
+          <div class="pv-row"><span class="pv-lbl">Fee</span><span class="pv-val" id="pvFee">—</span></div>
+          <div class="pv-row"><span class="pv-lbl">Payment</span><span class="pv-val" id="pvWallet">—</span></div>
+          <div class="pv-row"><span class="pv-lbl">You pay</span><span class="pv-val total" id="pvTotal">—</span></div>
+          <button class="btn-pay" id="btnPay" onclick="openPinModal()"><i class="fas fa-lock"></i> Pay Now</button>
+          <button class="btn-back" onclick="backToWallet()">← Back</button>
+        </div>
+
+        <!-- ═══ RESULT STEP ═══ -->
+        <div class="result-step" id="resultStep">
+          <div class="result-ic" id="resultIc"></div>
+          <p class="result-title" id="resultTitle"></p>
+          <p class="result-sub" id="resultSub"></p>
+          <div class="result-ref" id="resultRefWrap" style="display:none">
+            <span id="resultRef"></span>
+            <button onclick="copyRef()">Copy</button>
+          </div>
+          <div class="result-actions">
+            <button class="btn-again" onclick="resetAll()">Buy Again</button>
+            <button class="btn-done" onclick="location.href='history.html'">View History</button>
+          </div>
+        </div>
+
+        <!-- ═══ HISTORY ═══ -->
+        <div class="history-section">
+          <div class="hs-header">
+            <span class="hs-title">Recent Airtime Purchases</span>
+          </div>
+          <div class="history-list" id="historyList">
+            <div style="text-align:center;padding:20px;color:var(--t3);font-size:.76rem">No transactions yet</div>
+          </div>
+        </div>
+
       </div>
-
-      <!-- WALLET CARD -->
-      <div class="wallet-card fu d2" id="walletCard">
-        <div class="wc-top">
-          <span class="wc-label"><i class="fas fa-wallet"></i> Available Cashback</span>
-          <button class="wc-redeem-btn" onclick="window.location.href='history.html'">
-            <i class="fas fa-history"></i> History
-          </button>
-        </div>
-        <div class="wc-balance">
-          <div class="wc-amount">
-            <span class="currency">₦</span>
-            <span id="cashbackBalance">0.00</span>
-          </div>
-          <div class="wc-sub">
-            <span class="wc-sub-item">Lifetime Earned: <span id="lifetimeEarned">₦0.00</span></span>
-            <span class="wc-sub-item">Used: <span id="lifetimeUsed">₦0.00</span></span>
-          </div>
-        </div>
-        <div class="wc-progress">
-          <div class="wc-progress-bar">
-            <div class="wc-progress-fill" id="progressFill" style="width: 0%"></div>
-          </div>
-          <div class="wc-progress-label">
-            <span>Min redemption: <strong>₦100</strong></span>
-            <span class="highlight" id="progressLabel">0% of ₦5,000 goal</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- SERVICE TABS -->
-      <div class="service-tabs fu d3" id="serviceTabs">
-        <div class="service-tab active" data-service="airtime" onclick="selectService('airtime')">
-          <span class="st-icon">📱</span>
-          <span class="st-name">Airtime</span>
-          <span class="st-sub">MTN, Glo, Airtel, 9mobile</span>
-        </div>
-        <div class="service-tab" data-service="data" onclick="selectService('data')">
-          <span class="st-icon">📶</span>
-          <span class="st-name">Data</span>
-          <span class="st-sub">MTN, Airtel, Glo, 9mobile</span>
-        </div>
-        <div class="service-tab" data-service="electricity" onclick="selectService('electricity')">
-          <span class="st-icon">💡</span>
-          <span class="st-name">Electricity</span>
-          <span class="st-sub">IKEDC, EKEDC, PHCN</span>
-        </div>
-      </div>
-
-      <!-- PURCHASE PANEL -->
-      <div class="purchase-panel fu d4" id="purchasePanel">
-        <div class="pp-header">
-          <div class="pp-icon" id="serviceIcon" style="background:var(--acl);color:var(--acd);">
-            <i class="fas fa-phone-alt"></i>
-          </div>
-          <div>
-            <h3 id="serviceTitle">Buy Airtime</h3>
-            <span class="pp-sub" id="serviceDesc">Recharge your phone instantly</span>
-          </div>
-        </div>
-
-        <!-- FORM -->
-        <div id="formContainer">
-          <!-- Dynamic form rendered by JS -->
-        </div>
-
-        <!-- VALIDATION STATUS -->
-        <div id="validationStatus" class="validation-status"></div>
-
-        <!-- PRICE DISPLAY -->
-        <div class="price-display" id="priceDisplay">
-          <span class="pd-label">Total Cost</span>
-          <span class="pd-amount">
-            ₦<span id="totalCost">0.00</span>
-            <span class="pd-fee" id="feeDisplay"></span>
-          </span>
-        </div>
-
-        <!-- CONFIRM BUTTON -->
-        <button class="btn-primary" id="purchaseBtn" onclick="confirmPurchase()">
-          <i class="fas fa-check-circle"></i> Confirm Purchase
-        </button>
-        <p style="font-size:.6rem;color:var(--t3);text-align:center;margin-top:6px;">
-          <i class="fas fa-lock"></i> Deducted from your Cashback wallet
-        </p>
-      </div>
-
-      <!-- RECENT PURCHASES -->
-      <div class="recent-card fu d5">
-        <div class="rc-header">
-          <h4><i class="fas fa-clock-rotate-left"></i> Recent Purchases</h4>
-          <a href="history.html" class="view-all" style="font-size:.7rem;font-weight:600;color:var(--pm);cursor:pointer;">
-            View all →
-          </a>
-        </div>
-        <div id="recentList">
-          <div class="rc-empty">
-            <i class="fas fa-receipt"></i>
-            No recent purchases yet
-          </div>
-        </div>
-      </div>
-
     </main>
   </div>
-
-  <!-- MOBILE NAV -->
-  <nav class="mnav">
-    <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
-    <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
-    <a href="cashback.html" class="mni active"><i class="fas fa-coins"></i><span>Cashback</span></a>
-    <a href="market.html" class="mni"><i class="fas fa-store"></i><span>Market</span></a>
-    <a href="profile.html" class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
-  </nav>
-
-  <div class="toast-container" id="toastContainer"></div>
-
 </div>
 
-<!-- ─── PIN MODAL ─── -->
-<div class="modal-overlay" id="pinModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);z-index:1000;align-items:center;justify-content:center;padding:20px;">
-  <div class="modal" style="background:var(--srf);border-radius:var(--rxl);padding:30px 24px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto;">
-    <h3 style="font-family:var(--fd);font-size:1.1rem;font-weight:800;text-align:center;margin-bottom:4px;">🔐 Enter Transaction PIN</h3>
-    <p class="sub" style="text-align:center;color:var(--t3);font-size:.8rem;margin-bottom:20px;">Enter your 4-digit PIN to confirm this purchase</p>
-    <div class="pin-inputs" style="display:flex;gap:10px;justify-content:center;margin-bottom:16px;">
-      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin1">
-      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin2">
-      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin3">
-      <input type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:var(--fd);border:2px solid var(--bdr);border-radius:var(--r);background:var(--srf2);transition:all .2s;outline:none;" id="pin4">
-    </div>
-    <div id="pinError" style="text-align:center;font-size:.75rem;font-weight:600;color:var(--err);min-height:20px;margin-bottom:8px;"></div>
-    <div id="pinAttempts" style="text-align:center;font-size:.65rem;color:var(--t3);margin-bottom:12px;"></div>
-    <div id="pinLockedMsg" style="display:none;background:var(--erl);border:1px solid var(--err);border-radius:var(--r);padding:12px;text-align:center;margin-bottom:12px;">
-      <span style="font-size:1.5rem;display:block;">🔒</span>
-      <div style="font-weight:700;color:var(--err);">PIN Locked</div>
-      <div style="font-size:.75rem;color:var(--t2);">Too many failed attempts. Please wait <span id="lockTimer">60</span> minutes.</div>
-    </div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn-cancel" onclick="closePinModal()" style="flex:1;padding:10px;border-radius:var(--rp);background:var(--srf2);border:1px solid var(--bdr);font-weight:600;font-size:.8rem;color:var(--t2);cursor:pointer;transition:all .2s;">Cancel</button>
-      <button class="btn-confirm-pin" id="pinConfirmBtn" onclick="confirmPin()" style="flex:2;padding:10px;border-radius:var(--rp);background:var(--p);color:#fff;font-weight:700;font-size:.8rem;cursor:pointer;transition:all .2s;border:none;" disabled>Confirm</button>
-    </div>
-  </div>
-</div>
+<!-- ═══ TOASTS ═══ -->
+<div class="toasts" id="toastWrap"></div>
 
 <script>
 'use strict';
 
-// ─── CONFIG ───
-const API_BASE = '/api';
-const SESSION_KEY = 'mx_sess';
-const MIN_REDEEM = 100; // ─── CHANGED: Minimum ₦100 ───
-const MAX_PIN_ATTEMPTS = 4;
-const PIN_LOCK_DURATION = 60 * 60 * 1000;
+// ─── CONFIG ──────────────────────────────────────────────────────────────
+const SK = 'mx_sess';
+const API = '/api';
+const MIN_AMOUNT = 1;
+const MAX_AMOUNT = 500;
 
-// ─── REAL VTpass DATA PLANS ───
-const DATA_PLANS = {
-  mtn: {
-    label: 'MTN Data',
-    serviceID: 'mtn-data',
-    variations: [
-      { code: 'mtn-50', name: '50MB - 1 Day', amount: 50 },
-      { code: 'mtn-100', name: '100MB - 1 Day', amount: 100 },
-      { code: 'mtn-200', name: '200MB - 2 Days', amount: 200 },
-      { code: 'mtn-350', name: '350MB - 7 Days', amount: 350 },
-      { code: 'mtn-500', name: '500MB - 7 Days', amount: 500 },
-      { code: 'mtn-750', name: '750MB - 14 Days', amount: 750 },
-      { code: 'mtn-1000', name: '1GB - 30 Days', amount: 1000 },
-      { code: 'mtn-1500', name: '1.5GB - 30 Days', amount: 1500 },
-      { code: 'mtn-2000', name: '2GB - 30 Days', amount: 2000 },
-      { code: 'mtn-2500', name: '2.5GB - 30 Days', amount: 2500 },
-      { code: 'mtn-3000', name: '3GB - 30 Days', amount: 3000 },
-      { code: 'mtn-5000', name: '5GB - 30 Days', amount: 5000 }
-    ]
-  },
-  airtel: {
-    label: 'Airtel Data',
-    serviceID: 'airtel-data',
-    variations: [
-      { code: 'airt-50', name: '25MB - 1 Day', amount: 50 },
-      { code: 'airt-100', name: '75MB - 1 Day', amount: 100 },
-      { code: 'airt-200', name: '200MB - 3 Days', amount: 200 },
-      { code: 'airt-300', name: '350MB - 7 Days', amount: 300 },
-      { code: 'airt-500', name: '750MB - 14 Days', amount: 500 },
-      { code: 'airt-600', name: '1GB - 14 Days', amount: 600 },
-      { code: 'airt-1000', name: '1.5GB - 30 Days', amount: 1000 },
-      { code: 'airt-1500', name: '3GB - 30 Days', amount: 1500 },
-      { code: 'airt-2000', name: '4.5GB - 30 Days', amount: 2000 },
-      { code: 'airt-3000', name: '8GB - 30 Days', amount: 3000 },
-      { code: 'airt-4000', name: '11GB - 30 Days', amount: 4000 },
-      { code: 'airt-5000', name: '15GB - 30 Days', amount: 5000 }
-    ]
-  },
-  glo: {
-    label: 'Glo Data',
-    serviceID: 'glo-data',
-    variations: [
-      { code: 'glo-50', name: '50MB - 1 Day', amount: 50 },
-      { code: 'glo-100', name: '100MB - 1 Day', amount: 100 },
-      { code: 'glo-200', name: '200MB - 2 Days', amount: 200 },
-      { code: 'glo-350', name: '350MB - 7 Days', amount: 350 },
-      { code: 'glo-500', name: '500MB - 7 Days', amount: 500 },
-      { code: 'glo-1000', name: '1GB - 30 Days', amount: 1000 },
-      { code: 'glo-1500', name: '1.5GB - 30 Days', amount: 1500 },
-      { code: 'glo-2000', name: '2GB - 30 Days', amount: 2000 },
-      { code: 'glo-3000', name: '3GB - 30 Days', amount: 3000 },
-      { code: 'glo-5000', name: '5GB - 30 Days', amount: 5000 }
-    ]
-  },
-  '9mobile': {
-    label: '9mobile Data',
-    serviceID: '9mobile-data',
-    variations: [
-      { code: 'etisalat-50', name: '50MB - 1 Day', amount: 50 },
-      { code: 'etisalat-100', name: '100MB - 1 Day', amount: 100 },
-      { code: 'etisalat-200', name: '200MB - 2 Days', amount: 200 },
-      { code: 'etisalat-350', name: '350MB - 7 Days', amount: 350 },
-      { code: 'etisalat-500', name: '500MB - 7 Days', amount: 500 },
-      { code: 'etisalat-1000', name: '1GB - 30 Days', amount: 1000 },
-      { code: 'etisalat-1500', name: '1.5GB - 30 Days', amount: 1500 },
-      { code: 'etisalat-2000', name: '2GB - 30 Days', amount: 2000 },
-      { code: 'etisalat-3000', name: '3GB - 30 Days', amount: 3000 },
-      { code: 'etisalat-5000', name: '5GB - 30 Days', amount: 5000 }
-    ]
-  }
-};
-
-// ─── STATE ───
-const State = {
-  balance: 0,
-  lifetimeEarned: 0,
-  lifetimeUsed: 0,
-  service: 'airtime',
+// ─── STATE ──────────────────────────────────────────────────────────────
+const state = {
+  country: null,
+  phoneNumber: '',
+  phoneValid: false,
+  operator: null,
   amount: 0,
-  phone: '',
-  network: 'mtn',
-  meterNumber: '',
-  provider: 'ikeja',
-  loading: false,
-  recent: [],
-  hasPin: null,
-  pendingPurchase: null,
-  isValidating: false,
-  validationResult: null
+  fee: 0,
+  exchangeRate: 1600,
+  quoteId: null,
+  quoteExpires: null,
+  selectedWallet: null,
+  balances: { ngn: 0, usd: 0 },
+  transaction: null,
+  idempotencyKey: null,
+  isProcessing: false,
+  pollTimer: null,
+  pollAttempts: 0,
+  countries: []
 };
 
-// ─── DOM REFS ───
-const $ = id => document.getElementById(id);
-const DOM = {
-  sb: $('sb'),
-  ov: $('ov'),
-  hbg: $('hbg'),
-  sbAv: $('sbAv'),
-  sbName: $('sbName'),
-  sbEmail: $('sbEmail'),
-  tbAv: $('tbAv'),
-  logoutBtn: $('logoutBtn'),
-  cashbackBalance: $('cashbackBalance'),
-  lifetimeEarned: $('lifetimeEarned'),
-  lifetimeUsed: $('lifetimeUsed'),
-  progressFill: $('progressFill'),
-  progressLabel: $('progressLabel'),
-  serviceTabs: $('serviceTabs'),
-  serviceIcon: $('serviceIcon'),
-  serviceTitle: $('serviceTitle'),
-  serviceDesc: $('serviceDesc'),
-  formContainer: $('formContainer'),
-  totalCost: $('totalCost'),
-  feeDisplay: $('feeDisplay'),
-  priceDisplay: $('priceDisplay'),
-  purchaseBtn: $('purchaseBtn'),
-  recentList: $('recentList'),
-  toastContainer: $('toastContainer'),
-  validationStatus: $('validationStatus'),
-  pinModal: $('pinModal'),
-  pin1: $('pin1'),
-  pin2: $('pin2'),
-  pin3: $('pin3'),
-  pin4: $('pin4'),
-  pinError: $('pinError'),
-  pinAttempts: $('pinAttempts'),
-  pinLockedMsg: $('pinLockedMsg'),
-  lockTimer: $('lockTimer'),
-  pinConfirmBtn: $('pinConfirmBtn')
-};
+// ─── AUTH HELPERS ──────────────────────────────────────────────────────
 
-// ─── HELPERS ───
-const getToken = () => {
+const getSess = () => {
   try {
-    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw).token : null;
-  } catch { return null; }
+    return JSON.parse(localStorage.getItem(SK) || sessionStorage.getItem(SK) || 'null');
+  } catch (e) { return null; }
 };
 
-const getSession = () => {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-};
+const getToken = () => getSess()?.token || '';
 
-const redirectToLogin = () => window.location.href = 'login.html';
+// ─── SESSION CHECK ─────────────────────────────────────────────────────
 
-const formatNaira = (n) => {
-  return Number(n).toLocaleString('en-NG', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-};
-
-// ─── API REQUEST ───
-const apiCache = new Map();
-const CACHE_TTL = 60000;
-
-async function apiRequest(endpoint, options = {}, useCache = false) {
-  const token = getToken();
-  if (!token) { redirectToLogin(); return null; }
-
-  const cacheKey = endpoint + JSON.stringify(options);
-  if (useCache && apiCache.has(cacheKey)) {
-    const cached = apiCache.get(cacheKey);
-    if (Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.data;
-    }
-    apiCache.delete(cacheKey);
+function checkSession() {
+  const sess = getSess();
+  if (!sess || !sess.token) {
+    toast('Please login to access this page', 'warn');
+    setTimeout(() => { window.location.href = '/login.html'; }, 1500);
+    return false;
   }
-
-  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-
-  try {
-    const resp = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-    let data = {};
-    try { data = await resp.json(); } catch { /* no json */ }
-
-    if (resp.status === 401) {
-      const authFailures = ['NO_TOKEN', 'INVALID_TOKEN', 'SESSION_EXPIRED', 'AUTH_SERVICE_UNAVAILABLE'];
-      if (!data.code || authFailures.includes(data.code)) {
-        redirectToLogin();
-        return null;
-      }
-      return { success: false, ...data };
-    }
-
-    if (!resp.ok) {
-      return { success: false, error: data.error || 'Request failed', ...data };
-    }
-
-    if (useCache) {
-      apiCache.set(cacheKey, { data, timestamp: Date.now() });
-    }
-    return data;
-  } catch (e) {
-    console.error('API Error:', e);
-    return { success: false, error: e.message || 'Network error' };
-  }
+  return true;
 }
 
-// ─── TOAST ───
-const showToast = (msg, type = 'info') => {
+// ─── API CLIENT ─────────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(getToken() && { 'Authorization': `Bearer ${getToken()}` })
+  };
+
+  if (path === '/airtime/purchase' && opts.method === 'POST') {
+    if (!state.idempotencyKey) {
+      state.idempotencyKey = generateIdempotencyKey();
+    }
+    headers['Idempotency-Key'] = state.idempotencyKey;
+  }
+
+  const response = await fetch(API + path, { ...opts, headers });
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 401) {
+    localStorage.removeItem(SK);
+    sessionStorage.removeItem(SK);
+    const redirectPath = encodeURIComponent(window.location.pathname);
+    window.location.href = `/login.html?redirect=${redirectPath}`;
+    throw new Error('Your session has expired. Please login again.');
+  }
+
+  if (!response.ok) {
+    const errorMsg = mapErrorCode(data.code) || data.error || `HTTP ${response.status}`;
+    const error = new Error(errorMsg);
+    error.code = data.code;
+    error.data = data.data;
+    throw error;
+  }
+
+  return data;
+}
+
+// ─── ERROR MAPPER ──────────────────────────────────────────────────────
+
+function mapErrorCode(code) {
+  const errors = {
+    'INSUFFICIENT_BALANCE': 'Your wallet balance is insufficient for this purchase.',
+    'INVALID_PHONE': 'The phone number is invalid. Please check and try again.',
+    'INVALID_COUNTRY': 'The selected country is not supported.',
+    'INVALID_AMOUNT': `Amount must be between $${MIN_AMOUNT} and $${MAX_AMOUNT}.`,
+    'RATE_LIMITED': 'Too many requests. Please wait a moment and try again.',
+    'PROVIDER_ERROR': 'The network provider is temporarily unavailable. Please try again later.',
+    'PIN_REQUIRED': 'Please enter your transaction PIN.',
+    'PIN_NOT_SET': 'You need to set a transaction PIN first. Go to Settings.',
+    'INVALID_PIN': 'Invalid transaction PIN. Please try again.',
+    'UNAUTHORIZED': 'Your session has expired. Please login again.',
+    'DAILY_LIMIT_EXCEEDED': 'You have reached your daily spending limit.',
+    'PROVIDER_INSUFFICIENT_BALANCE': 'Our airtime provider has insufficient balance. Please try again later.',
+    'DUPLICATE_TRANSFER': 'This transaction has already been processed.',
+    'SERVER_ERROR': 'An unexpected error occurred. Please try again later.',
+    'QUOTE_EXPIRED': 'Your quote has expired. Please refresh and try again.',
+    'QUOTE_INVALID': 'Invalid quote. Please refresh and try again.',
+    'INVALID_OPERATOR': 'The selected network is not supported for this country.'
+  };
+  return errors[code] || null;
+}
+
+// ─── IDEMPOTENCY ────────────────────────────────────────────────────────
+
+function generateIdempotencyKey() {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).substring(2, 10).toUpperCase();
+  return `AIR-${ts}-${rand}`;
+}
+
+// ─── TOAST ──────────────────────────────────────────────────────────────
+
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toastWrap');
   const el = document.createElement('div');
-  el.className = `toast-item ${type}`;
-  const icons = {
-    success: 'fa-check-circle',
-    error: 'fa-times-circle',
-    warning: 'fa-triangle-exclamation',
-    info: 'fa-info-circle'
-  };
-  el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${msg}`;
-  DOM.toastContainer.appendChild(el);
-  setTimeout(() => {
-    el.style.cssText = 'opacity:0;transition:.3s;transform:translateX(30px)';
-    setTimeout(() => el.remove(), 300);
-  }, 3800);
-};
+  el.className = `toast ${type}`;
+  const iconMap = { ok: 'fa-check-circle', err: 'fa-times-circle', warn: 'fa-exclamation-circle' };
+  const icon = iconMap[type] || 'fa-info-circle';
+  el.innerHTML = `<i class="fas ${icon}"></i> ${msg}`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
 
-// ─── USER UI ───
-const updateUserUI = () => {
-  const session = getSession();
-  if (session?.user) {
-    const u = session.user;
-    const name = u.username || u.email || 'User';
-    const email = u.email || '';
-    const init = name.charAt(0).toUpperCase();
-    DOM.sbName.textContent = name;
-    DOM.sbEmail.textContent = email;
-    DOM.sbAv.textContent = init;
-    DOM.tbAv.textContent = init;
-  }
-};
+// ─── COUNTRY MANAGEMENT ────────────────────────────────────────────────
 
-// ─── SIDEBAR ───
-const initSidebar = () => {
-  DOM.hbg.addEventListener('click', () => {
-    if (window.innerWidth < 1025) {
-      DOM.sb.classList.toggle('open');
-      DOM.ov.classList.toggle('on');
-    }
-  });
-  DOM.ov.addEventListener('click', () => {
-    DOM.sb.classList.remove('open');
-    DOM.ov.classList.remove('on');
-  });
-  window.addEventListener('resize', () => {
-    if (window.innerWidth >= 1025) {
-      DOM.sb.classList.remove('open');
-      DOM.ov.classList.remove('on');
-    }
-  });
-};
+async function loadCountries() {
+  if (!checkSession()) return;
 
-// ─── LOGOUT ───
-DOM.logoutBtn.addEventListener('click', async (e) => {
-  e.preventDefault();
-  try { await apiRequest('/auth/logout', { method: 'POST' }); } catch {}
-  localStorage.removeItem(SESSION_KEY);
-  sessionStorage.removeItem(SESSION_KEY);
-  window.location.href = 'login.html';
-});
-
-// ════════════════════════════════════════════════
-//  CASHBACK WALLET
-// ════════════════════════════════════════════════
-
-const loadBalance = async () => {
   try {
-    const resp = await apiRequest('/cashback/balance');
-    if (resp?.success) {
-      State.balance = resp.data.balance || 0;
-      State.lifetimeEarned = resp.data.lifetime_earned || 0;
-      State.lifetimeUsed = resp.data.lifetime_used || 0;
-      updateWalletUI();
+    const response = await api('/airtime/countries');
+    if (response.success && response.data) {
+      state.countries = response.data;
+      renderCountries();
     }
-  } catch (e) {
-    console.error('Balance load error:', e);
+  } catch (error) {
+    console.error('Failed to load countries:', error);
+    if (error.message && !error.message.includes('session has expired')) {
+      toast('Failed to load countries.', 'warn');
+    }
+    state.countries = [
+      { code: 'NG', name: 'Nigeria', flag: '🇳🇬', dial: '+234' },
+      { code: 'US', name: 'United States', flag: '🇺🇸', dial: '+1' },
+      { code: 'GB', name: 'United Kingdom', flag: '🇬🇧', dial: '+44' },
+      { code: 'GH', name: 'Ghana', flag: '🇬🇭', dial: '+233' },
+      { code: 'KE', name: 'Kenya', flag: '🇰🇪', dial: '+254' },
+      { code: 'ZA', name: 'South Africa', flag: '🇿🇦', dial: '+27' },
+      { code: 'IN', name: 'India', flag: '🇮🇳', dial: '+91' },
+      { code: 'CA', name: 'Canada', flag: '🇨🇦', dial: '+1' }
+    ];
+    renderCountries();
   }
-};
+}
 
-const updateWalletUI = () => {
-  DOM.cashbackBalance.textContent = formatNaira(State.balance);
-  DOM.lifetimeEarned.textContent = `₦${formatNaira(State.lifetimeEarned)}`;
-  DOM.lifetimeUsed.textContent = `₦${formatNaira(State.lifetimeUsed)}`;
+function toggleCountryList() {
+  const list = document.getElementById('countryList');
+  list.style.display = list.style.display === 'none' ? 'block' : 'none';
+  if (list.style.display === 'block') renderCountries();
+}
 
-  const goal = 5000;
-  const pct = Math.min(100, (State.balance / goal) * 100);
-  DOM.progressFill.style.width = pct + '%';
-  DOM.progressLabel.textContent = `${pct.toFixed(0)}% of ₦${formatNaira(goal)} goal`;
+function renderCountries(filter = '') {
+  const inner = document.getElementById('countryListInner');
+  const filtered = filter ?
+    state.countries.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()) || c.code.toLowerCase().includes(filter.toLowerCase())) :
+    state.countries;
 
-  DOM.purchaseBtn.disabled = State.balance < MIN_REDEEM;
-  if (State.balance < MIN_REDEEM) {
-    DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Need ₦${formatNaira(MIN_REDEEM)} minimum`;
+  inner.innerHTML = filtered.map(c => `
+    <div class="country-item" onclick="selectCountry('${c.code}','${c.name}','${c.flag || '🌐'}','${c.dial || '+' + c.code}')">
+      <span class="c-flag">${c.flag || '🌐'}</span>
+      <span class="c-name">${c.name}</span>
+      <span class="c-dial">${c.dial || '+' + c.code}</span>
+    </div>
+  `).join('');
+}
+
+function searchCountries(q) { renderCountries(q); }
+
+// ─── COUNTRY SELECTION ─────────────────────────────────────────────────
+
+async function selectCountry(code, name, flag, dial) {
+  state.country = { code, name, flag, dial };
+  state.operator = null;
+  state.phoneNumber = '';
+  state.phoneValid = false;
+  state.quoteId = null;
+
+  document.getElementById('countryFlag').textContent = flag || '🌐';
+  document.getElementById('countryName').textContent = name;
+  document.getElementById('countryCode').textContent = dial || '+' + code;
+  document.getElementById('dialCodeDisplay').textContent = dial || '+' + code;
+  document.getElementById('countryList').style.display = 'none';
+  document.getElementById('phoneInput').value = '';
+  document.getElementById('phoneValidation').className = 'phone-validation';
+  document.getElementById('phoneValidation').textContent = '';
+
+  updateProceedState();
+  await loadOperators(code);
+}
+
+// ─── OPERATOR MANAGEMENT ───────────────────────────────────────────────
+
+let operatorAbortController = null;
+let operatorRequestId = 0;
+
+async function loadOperators(countryCode) {
+  const container = document.getElementById('operatorContainer');
+
+  operatorRequestId++;
+  const requestId = operatorRequestId;
+
+  if (operatorAbortController) {
+    operatorAbortController.abort();
+  }
+
+  operatorAbortController = new AbortController();
+
+  container.innerHTML = `
+    <div class="operator-loading">
+      <span class="spinner"></span>
+      Loading networks...
+    </div>
+  `;
+
+  try {
+    const response = await api(
+      `/airtime/operators?country=${encodeURIComponent(countryCode)}`,
+      { signal: operatorAbortController.signal }
+    );
+
+    if (requestId !== operatorRequestId) {
+      return;
+    }
+
+    if (!response.success || !Array.isArray(response.data) || response.data.length === 0) {
+      container.innerHTML = `
+        <div class="operator-empty">
+          <i class="fas fa-info-circle"></i>
+          No mobile networks found for this country.
+        </div>
+      `;
+      return;
+    }
+
+    renderOperators(response.data);
+
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return;
+    }
+
+    console.error('Operator loading failed:', error);
+
+    if (requestId !== operatorRequestId) {
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="operator-error">
+        <i class="fas fa-exclamation-circle"></i>
+        Could not load networks. Please try again.
+        <button type="button" onclick="loadOperators('${countryCode}')">Retry</button>
+      </div>
+    `;
+  }
+}
+
+function renderOperators(operators) {
+  const container = document.getElementById('operatorContainer');
+
+  container.innerHTML = `
+    <div class="operator-grid">
+      ${operators.map(op => `
+        <button
+          type="button"
+          class="operator-option"
+          data-operator-id="${escapeHtml(op.id)}"
+          data-operator-name="${escapeHtml(op.name)}"
+        >
+          <span class="op-check"><i class="fas fa-check"></i></span>
+          ${op.logo ? `<img src="${escapeHtml(op.logo)}" class="op-logo" alt="">` : ''}
+          <span class="op-name">${escapeHtml(op.name)}</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+
+  container.querySelectorAll('.operator-option').forEach(button => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.operatorId;
+      const name = button.dataset.operatorName;
+      if (!id || !name) return;
+      selectOperator(id, name);
+    });
+  });
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    return m;
+  });
+}
+
+function selectOperator(id, name) {
+  state.operator = { id, name };
+
+  document.querySelectorAll('.operator-option').forEach(el => {
+    el.classList.toggle('selected', el.dataset.operatorId === String(id));
+  });
+
+  updateProceedState();
+}
+
+// ─── PHONE VALIDATION ───────────────────────────────────────────────────
+
+let phoneValidationTimer = null;
+
+function onPhoneChange(value) {
+  state.phoneNumber = value.replace(/\s/g, '');
+  state.quoteId = null;
+  
+  const validationEl = document.getElementById('phoneValidation');
+  
+  if (state.phoneNumber.length >= 5 && state.country) {
+    clearTimeout(phoneValidationTimer);
+    validationEl.className = 'phone-validation';
+    validationEl.textContent = 'Checking...';
+    validationEl.style.display = 'block';
+    validationEl.style.color = 'var(--t3)';
+    
+    phoneValidationTimer = setTimeout(async () => {
+      await validatePhone();
+    }, 500);
   } else {
-    DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Confirm with PIN`;
-    DOM.purchaseBtn.disabled = false;
+    validationEl.className = 'phone-validation';
+    validationEl.textContent = '';
+    validationEl.style.display = 'none';
+    state.phoneValid = false;
   }
-};
+  
+  updateProceedState();
+}
 
-// ════════════════════════════════════════════════
-//  SERVICE CONFIG
-// ════════════════════════════════════════════════
-
-const SERVICE_CONFIG = {
-  airtime: {
-    icon: 'fas fa-phone-alt',
-    bg: '#e8f4f7',
-    color: '#0c3d4a',
-    title: 'Buy Airtime',
-    desc: 'Recharge your phone instantly',
-    fields: [
-      { id: 'network', label: 'Network', type: 'select', options: [
-        { value: 'mtn', label: 'MTN' },
-        { value: 'glo', label: 'Glo' },
-        { value: 'airtel', label: 'Airtel' },
-        { value: '9mobile', label: '9mobile' }
-      ]},
-      { id: 'phone', label: 'Phone Number', type: 'text', placeholder: '08012345678', maxlength: 11, validation: true },
-      { id: 'amount', label: 'Amount (₦)', type: 'number', placeholder: '100', min: 50 }
-    ]
-  },
-  data: {
-    icon: 'fas fa-wifi',
-    bg: '#e8f4f7',
-    color: '#0c3d4a',
-    title: 'Buy Data',
-    desc: 'Get data plans for all networks',
-    fields: [
-      { id: 'network', label: 'Network', type: 'select', options: [
-        { value: 'mtn', label: 'MTN' },
-        { value: 'glo', label: 'Glo' },
-        { value: 'airtel', label: 'Airtel' },
-        { value: '9mobile', label: '9mobile' }
-      ]},
-      { id: 'phone', label: 'Phone Number', type: 'text', placeholder: '08012345678', maxlength: 11, validation: true },
-      { id: 'dataPlan', label: 'Data Plan', type: 'select', options: [] } // Dynamic from VTpass
-    ]
-  },
-  electricity: {
-    icon: 'fas fa-lightbulb',
-    bg: '#fef3c7',
-    color: '#d97706',
-    title: 'Pay Electricity',
-    desc: 'Pay your electricity bills',
-    fields: [
-      { id: 'provider', label: 'Provider', type: 'select', options: [
-        { value: 'ikeja', label: 'IKEDC' },
-        { value: 'eko', label: 'EKEDC' },
-        { value: 'phcn', label: 'PHCN' },
-        { value: 'abuja', label: 'AEDC' },
-        { value: 'ibadan', label: 'IBEDC' }
-      ]},
-      { id: 'meterType', label: 'Meter Type', type: 'select', options: [
-        { value: 'prepaid', label: 'Prepaid' },
-        { value: 'postpaid', label: 'Postpaid' }
-      ]},
-      { id: 'meterNumber', label: 'Meter Number', type: 'text', placeholder: 'Enter 11-digit meter number', maxlength: 11, validation: true },
-      { id: 'amount', label: 'Amount (₦)', type: 'number', placeholder: '1000', min: 100 }
-    ]
-  }
-};
-
-// ════════════════════════════════════════════════
-//  DEBOUNCE
-// ════════════════════════════════════════════════
-
-const debounce = (fn, delay = 400) => {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
-  };
-};
-
-// ════════════════════════════════════════════════
-//  VALIDATION FUNCTIONS - VTpass API Integration
-// ════════════════════════════════════════════════
-
-const getValidationStatusEl = () => DOM.validationStatus;
-
-const showValidationStatus = (message, type = 'loading') => {
-  const el = getValidationStatusEl();
-  if (!el) return;
-  el.textContent = message;
-  el.className = `validation-status show ${type}`;
-};
-
-const hideValidationStatus = () => {
-  const el = getValidationStatusEl();
-  if (!el) return;
-  el.className = 'validation-status';
-};
-
-// ─── Validate Phone Number (Network detection) ───
-const validatePhoneNumber = debounce(async function() {
-  const service = State.service;
-  if (service === 'electricity') return;
-
-  const phone = document.getElementById('form_phone')?.value?.trim();
-  if (!phone || phone.length < 10) {
-    hideValidationStatus();
+async function validatePhone() {
+  const validationEl = document.getElementById('phoneValidation');
+  
+  if (!state.country || state.phoneNumber.length < 5) {
+    validationEl.className = 'phone-validation';
+    validationEl.textContent = '';
+    validationEl.style.display = 'none';
+    state.phoneValid = false;
     return;
   }
-
-  State.isValidating = true;
-  showValidationStatus('⏳ Verifying phone number...', 'loading');
-
+  
   try {
-    const resp = await apiRequest('/utils/validate-phone', {
+    const response = await api('/airtime/validate-phone', {
       method: 'POST',
-      body: JSON.stringify({ phone })
-    }, false);
-
-    if (resp?.success) {
-      const data = resp.data;
-      if (data.is_valid) {
-        const networkLabels = { mtn: 'MTN', glo: 'Glo', airtel: 'Airtel', '9mobile': '9mobile' };
-        const label = networkLabels[data.network] || data.network;
-        showValidationStatus(`✅ Valid ${label} number`, 'valid');
-        State.validationResult = { valid: true, network: data.network };
-        
-        // Auto-select network
-        const networkSelect = document.getElementById('form_network');
-        if (networkSelect && data.network) {
-          networkSelect.value = data.network;
-        }
-      } else {
-        showValidationStatus(`❌ Invalid phone number`, 'invalid');
-        State.validationResult = { valid: false };
-        DOM.purchaseBtn.disabled = true;
-        DOM.purchaseBtn.innerHTML = '<i class="fas fa-times-circle"></i> Invalid number';
-      }
-    } else {
-      showValidationStatus('⚠️ Could not verify number. Please check and try again.', 'invalid');
-      State.validationResult = { valid: false };
-    }
-  } catch (e) {
-    showValidationStatus('⚠️ Validation error. Please try again.', 'invalid');
-    State.validationResult = { valid: false };
-  } finally {
-    State.isValidating = false;
-    updateTotal();
-  }
-}, 500);
-
-// ─── Validate Meter Number (VTpass API) ───
-const validateMeterNumber = debounce(async function() {
-  const service = State.service;
-  if (service !== 'electricity') return;
-
-  const meterNumber = document.getElementById('form_meterNumber')?.value?.trim();
-  const provider = document.getElementById('form_provider')?.value;
-  const meterType = document.getElementById('form_meterType')?.value || 'prepaid';
-
-  if (!meterNumber || meterNumber.length < 10) {
-    hideValidationStatus();
-    return;
-  }
-
-  State.isValidating = true;
-  showValidationStatus('⏳ Verifying meter number...', 'loading');
-
-  try {
-    // ─── Call VTpass verification API ───
-    const resp = await apiRequest('/vtpass/verify-meter', {
-      method: 'POST',
-      body: JSON.stringify({ 
-        meterNumber, 
-        provider, 
-        type: meterType 
+      body: JSON.stringify({
+        country: state.country.code,
+        phone: state.phoneNumber
       })
-    }, false);
-
-    if (resp?.success) {
-      const data = resp.data;
-      if (data.is_valid) {
-        const providerLabels = { ikeja: 'IKEDC', eko: 'EKEDC', phcn: 'PHCN', abuja: 'AEDC', ibadan: 'IBEDC' };
-        const label = providerLabels[provider] || provider;
-        const customerName = data.customer_name ? ` - ${data.customer_name}` : '';
-        showValidationStatus(`✅ Valid ${label} meter${customerName}`, 'valid');
-        State.validationResult = { 
-          valid: true, 
-          customerName: data.customer_name,
-          address: data.address,
-          meterType: data.meter_type || meterType
-        };
-      } else {
-        showValidationStatus(`❌ Invalid meter number for ${provider.toUpperCase()}`, 'invalid');
-        State.validationResult = { valid: false };
-        DOM.purchaseBtn.disabled = true;
-        DOM.purchaseBtn.innerHTML = '<i class="fas fa-times-circle"></i> Invalid meter';
-      }
+    });
+    
+    if (response.success && response.data && response.data.valid) {
+      validationEl.className = 'phone-validation valid';
+      validationEl.textContent = `✓ Valid: ${response.data.formatted || response.data.e164}`;
+      state.phoneValid = true;
+      // Update the phone number with the normalized version
+      state.phoneNumber = response.data.e164 || state.phoneNumber;
     } else {
-      showValidationStatus('⚠️ Could not verify meter. Please check and try again.', 'invalid');
-      State.validationResult = { valid: false };
+      validationEl.className = 'phone-validation invalid';
+      validationEl.textContent = `✗ ${response.data?.error || 'Invalid phone number'}`;
+      state.phoneValid = false;
     }
-  } catch (e) {
-    showValidationStatus('⚠️ Validation error. Please try again.', 'invalid');
-    State.validationResult = { valid: false };
-  } finally {
-    State.isValidating = false;
-    updateTotal();
+  } catch (error) {
+    validationEl.className = 'phone-validation invalid';
+    validationEl.textContent = `✗ ${error.message}`;
+    state.phoneValid = false;
   }
-}, 500);
-
-// ════════════════════════════════════════════════
-//  SERVICE SELECTION
-// ════════════════════════════════════════════════
-
-const selectService = (service) => {
-  State.service = service;
-  State.validationResult = null;
-  hideValidationStatus();
-
-  document.querySelectorAll('.service-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.service === service);
-  });
-
-  const config = SERVICE_CONFIG[service];
-  DOM.serviceIcon.innerHTML = `<i class="${config.icon}"></i>`;
-  DOM.serviceIcon.style.background = config.bg;
-  DOM.serviceIcon.style.color = config.color;
-  DOM.serviceTitle.textContent = config.title;
-  DOM.serviceDesc.textContent = config.desc;
-
-  renderForm(service);
-  State.amount = 0;
-  DOM.totalCost.textContent = '0.00';
-  DOM.feeDisplay.textContent = '';
-};
-
-// ─── RENDER FORM ───
-let renderTimeout = null;
-const renderForm = (service) => {
-  clearTimeout(renderTimeout);
-  renderTimeout = setTimeout(() => {
-    const config = SERVICE_CONFIG[service];
-    if (!config) return;
-
-    let html = '';
-    config.fields.forEach(field => {
-      if (field.type === 'select') {
-        let options = field.options || [];
-        
-        // ─── For data plans, load from VTpass config ───
-        if (field.id === 'dataPlan' && service === 'data') {
-          const network = document.getElementById('form_network')?.value || 'mtn';
-          const plans = DATA_PLANS[network]?.variations || [];
-          options = plans.map(p => ({ value: p.code, label: `${p.name} - ₦${p.amount}` }));
-        }
-        
-        html += `
-          <div class="form-group">
-            <label>${field.label}</label>
-            <select id="form_${field.id}" ${field.onchange ? `onchange="${field.onchange}"` : ''}>
-              ${options.map(opt =>
-                `<option value="${opt.value}">${opt.label}</option>`
-              ).join('')}
-            </select>
-          </div>
-        `;
-      } else {
-        const validationAttr = field.validation ? 'oninput="handleValidationInput()"' : '';
-        html += `
-          <div class="form-group">
-            <label>${field.label}</label>
-            <input type="${field.type}" id="form_${field.id}"
-              placeholder="${field.placeholder || ''}"
-              ${field.maxlength ? `maxlength="${field.maxlength}"` : ''}
-              ${field.min ? `min="${field.min}"` : ''}
-              ${field.type === 'number' ? 'step="any"' : ''}
-              ${validationAttr}
-            />
-          </div>
-        `;
-      }
-    });
-
-    DOM.formContainer.innerHTML = html;
-
-    // ─── Data plan dynamic loading ───
-    if (service === 'data') {
-      const networkSelect = document.getElementById('form_network');
-      if (networkSelect) {
-        networkSelect.addEventListener('change', () => {
-          const network = networkSelect.value;
-          const plans = DATA_PLANS[network]?.variations || [];
-          const planSelect = document.getElementById('form_dataPlan');
-          if (planSelect) {
-            planSelect.innerHTML = plans.map(p => 
-              `<option value="${p.code}">${p.name} - ₦${p.amount}</option>`
-            ).join('');
-            updateTotal();
-          }
-        });
-        // Trigger initial load
-        networkSelect.dispatchEvent(new Event('change'));
-      }
-    }
-
-    // Add event listeners
-    document.querySelectorAll('#formContainer input, #formContainer select').forEach(el => {
-      el.addEventListener('input', updateTotal);
-      el.addEventListener('change', updateTotal);
-    });
-
-    // Add validation triggers
-    if (service === 'airtime' || service === 'data') {
-      const phoneEl = document.getElementById('form_phone');
-      if (phoneEl) {
-        phoneEl.addEventListener('input', validatePhoneNumber);
-        phoneEl.addEventListener('blur', validatePhoneNumber);
-      }
-      const networkEl = document.getElementById('form_network');
-      if (networkEl) {
-        networkEl.addEventListener('change', validatePhoneNumber);
-      }
-    }
-
-    if (service === 'electricity') {
-      const meterEl = document.getElementById('form_meterNumber');
-      if (meterEl) {
-        meterEl.addEventListener('input', validateMeterNumber);
-        meterEl.addEventListener('blur', validateMeterNumber);
-      }
-      const providerEl = document.getElementById('form_provider');
-      if (providerEl) {
-        providerEl.addEventListener('change', validateMeterNumber);
-      }
-      const typeEl = document.getElementById('form_meterType');
-      if (typeEl) {
-        typeEl.addEventListener('change', validateMeterNumber);
-      }
-    }
-
-    updateTotal();
-  }, 100);
-};
-
-const handleValidationInput = () => {
-  const el = getValidationStatusEl();
-  if (el) el.className = 'validation-status';
-  State.validationResult = null;
-  DOM.purchaseBtn.disabled = false;
-  updateTotal();
-};
-
-// ─── UPDATE TOTAL ───
-let totalTimeout = null;
-const updateTotal = () => {
-  clearTimeout(totalTimeout);
-  totalTimeout = setTimeout(() => {
-    const service = State.service;
-    let amount = 0;
-
-    if (service === 'airtime') {
-      const amtEl = document.getElementById('form_amount');
-      if (amtEl) amount = parseFloat(amtEl.value) || 0;
-    } else if (service === 'data') {
-      const planEl = document.getElementById('form_dataPlan');
-      const network = document.getElementById('form_network')?.value || 'mtn';
-      if (planEl) {
-        const plan = DATA_PLANS[network]?.variations?.find(p => p.code === planEl.value);
-        if (plan) amount = plan.amount;
-      }
-    } else if (service === 'electricity') {
-      const amtEl = document.getElementById('form_amount');
-      if (amtEl) amount = parseFloat(amtEl.value) || 0;
-    }
-
-    State.amount = amount;
-    DOM.totalCost.textContent = formatNaira(amount);
-
-    if (amount > 0) {
-      DOM.feeDisplay.textContent = `(No fee · Cashback only)`;
-    } else {
-      DOM.feeDisplay.textContent = '';
-    }
-
-    const hasValidAmount = amount >= MIN_REDEEM;
-    const hasSufficientBalance = State.balance >= amount;
-    
-    let isValid = hasValidAmount && hasSufficientBalance;
-    
-    // Check validation status
-    if (service !== 'electricity') {
-      const phone = document.getElementById('form_phone')?.value?.trim();
-      if (phone && phone.length >= 10 && State.validationResult !== null) {
-        isValid = isValid && State.validationResult.valid;
-      }
-    } else {
-      const meter = document.getElementById('form_meterNumber')?.value?.trim();
-      if (meter && meter.length >= 10 && State.validationResult !== null) {
-        isValid = isValid && State.validationResult.valid;
-      }
-    }
-
-    DOM.purchaseBtn.disabled = !isValid || State.isValidating;
-
-    if (State.isValidating) {
-      DOM.purchaseBtn.innerHTML = '<span class="spinner"></span> Validating...';
-    } else if (!hasValidAmount) {
-      DOM.purchaseBtn.innerHTML = `<i class="fas fa-exclamation-circle"></i> Min ₦${formatNaira(MIN_REDEEM)}`;
-    } else if (!hasSufficientBalance) {
-      DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Insufficient cashback (₦${formatNaira(State.balance)})`;
-    } else if (State.validationResult !== null && !State.validationResult.valid) {
-      DOM.purchaseBtn.innerHTML = `<i class="fas fa-times-circle"></i> Invalid ${service === 'electricity' ? 'meter' : 'number'}`;
-    } else {
-      DOM.purchaseBtn.innerHTML = `<i class="fas fa-lock"></i> Confirm with PIN (₦${formatNaira(amount)})`;
-    }
-  }, 200);
-};
-
-// ════════════════════════════════════════════════
-//  PIN SYSTEM
-// ════════════════════════════════════════════════
-
-function setupPinInputs() {
-  const boxes = [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4];
-  boxes.forEach((box, idx) => {
-    box.addEventListener('input', function() {
-      this.value = this.value.replace(/\D/g, '').slice(0, 1);
-      this.style.borderColor = this.value ? 'var(--ok)' : 'var(--bdr)';
-      this.style.background = this.value ? 'var(--okl)' : 'var(--srf2)';
-      if (this.value && idx < boxes.length - 1) {
-        boxes[idx + 1].focus();
-      }
-      updatePinStatus();
-    });
-    box.addEventListener('keydown', function(e) {
-      if (e.key === 'Backspace' && !this.value && idx > 0) {
-        boxes[idx - 1].focus();
-        boxes[idx - 1].select();
-      }
-    });
-    box.addEventListener('paste', function(e) {
-      e.preventDefault();
-      const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 4);
-      paste.split('').forEach((ch, i) => {
-        if (boxes[i]) { boxes[i].value = ch; boxes[i].style.borderColor = 'var(--ok)'; boxes[i].style.background = 'var(--okl)'; }
-      });
-      const lastIdx = Math.min(paste.length, boxes.length) - 1;
-      if (lastIdx >= 0) boxes[lastIdx].focus();
-      updatePinStatus();
-    });
-  });
+  
+  updateProceedState();
 }
 
-function getPinValue() {
-  let pin = '';
-  [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4].forEach(box => pin += box.value);
-  return pin;
+// ─── AMOUNT ─────────────────────────────────────────────────────────────
+
+function setAmount(amt) {
+  state.amount = amt;
+  state.quoteId = null;
+  document.querySelectorAll('.amt-btn').forEach(b => b.classList.remove('active'));
+  if (event?.target) event.target.classList.add('active');
+  document.getElementById('amtCustom').value = '';
+  updateProceedState();
 }
 
-function clearPinInputs() {
-  [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4].forEach(box => {
-    box.value = '';
-    box.style.borderColor = 'var(--bdr)';
-    box.style.background = 'var(--srf2)';
-  });
-  DOM.pin1.focus();
+function setCustomAmount(value) {
+  state.amount = parseFloat(value) || 0;
+  state.quoteId = null;
+  document.querySelectorAll('.amt-btn').forEach(b => b.classList.remove('active'));
+  updateProceedState();
 }
 
-function updatePinStatus() {
-  const pin = getPinValue();
-  DOM.pinConfirmBtn.disabled = pin.length !== 4;
-  if (pin.length === 4) {
-    DOM.pinError.textContent = '';
+// ─── PROCEED STATE ─────────────────────────────────────────────────────
+
+function updateProceedState() {
+  const valid = state.country &&
+                state.operator &&
+                state.phoneNumber.length >= 7 &&
+                state.phoneValid &&
+                state.amount >= MIN_AMOUNT &&
+                state.amount <= MAX_AMOUNT;
+
+  document.getElementById('btnProceed').disabled = !valid;
+}
+
+// ─── QUOTE ─────────────────────────────────────────────────────────────
+
+async function getQuote() {
+  try {
+    const response = await api('/airtime/quote', {
+      method: 'POST',
+      body: JSON.stringify({
+        country: state.country.code,
+        phone: state.phoneNumber,
+        operator: state.operator,
+        amount: state.amount
+      })
+    });
+
+    if (response.success && response.data) {
+      const data = response.data;
+      state.quoteId = data.quote_id;
+      state.quoteExpires = data.expires_at;
+      state.exchangeRate = data.exchange_rate || 1600;
+      state.fee = data.fee.usd || 0;
+      return data;
+    }
+    return null;
+  } catch (error) {
+    toast('Failed to get quote: ' + error.message, 'err');
+    return null;
   }
 }
 
-function openPinModal(purchaseData) {
-  State.pendingPurchase = purchaseData;
-  DOM.pinModal.style.display = 'flex';
-  clearPinInputs();
-  DOM.pinError.textContent = '';
-  DOM.pinAttempts.textContent = '';
-  DOM.pinLockedMsg.style.display = 'none';
-  DOM.pinConfirmBtn.disabled = true;
-  DOM.pinConfirmBtn.textContent = 'Confirm';
-  checkPinStatus();
+// ─── WALLET SELECTION ──────────────────────────────────────────────────
+
+async function goToWallet() {
+  document.getElementById('formStep').style.display = 'none';
+  document.getElementById('walletStep').style.display = 'block';
+  state.selectedWallet = null;
+  state.idempotencyKey = generateIdempotencyKey();
+  await loadBalancesAndQuote();
+}
+
+async function loadBalancesAndQuote() {
+  const container = document.getElementById('walletOptions');
+  container.innerHTML = `
+    <div style="text-align:center;padding:20px">
+      <span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid var(--bdr);border-top-color:var(--p);border-radius:50%;animation:spin .6s linear infinite"></span>
+      <p style="margin-top:10px;font-size:.76rem;color:var(--t3)">Loading balances &amp; quote...</p>
+    </div>
+  `;
+
+  try {
+    const quote = await getQuote();
+    if (!quote) {
+      toast('Failed to get price quote', 'err');
+      renderWalletOptions();
+      return;
+    }
+
+    const userResponse = await api('/auth/me');
+    if (userResponse.success && userResponse.data) {
+      state.balances = {
+        ngn: parseFloat(userResponse.data.wallet_ngn) || 0,
+        usd: parseFloat(userResponse.data.wallet_usd) || 0
+      };
+    }
+
+    renderWalletOptions();
+  } catch (error) {
+    if (error.message && !error.message.includes('session has expired')) {
+      toast('Failed to load data: ' + error.message, 'err');
+    }
+    renderWalletOptions();
+  }
+}
+
+function renderWalletOptions() {
+  const container = document.getElementById('walletOptions');
+  const totalUSD = state.amount + state.fee;
+  const totalNGN = totalUSD * state.exchangeRate;
+  const b = state.balances;
+
+  const ngnOk = b.ngn >= totalNGN;
+  const usdOk = b.usd >= totalUSD;
+
+  container.innerHTML = `
+    <div class="wallet-opt ${ngnOk ? '' : 'disabled'} ${state.selectedWallet === 'ngn' ? 'selected' : ''}"
+         onclick="${ngnOk ? "selectWallet('ngn')" : ''}"
+         style="${!ngnOk ? 'opacity:0.5;cursor:not-allowed' : ''}">
+      <div class="wo-ic"><i class="fas fa-naira-sign"></i></div>
+      <div class="wo-info">
+        <p class="wo-lbl">NGN Wallet</p>
+        <p class="wo-bal">₦${b.ngn.toLocaleString()}</p>
+        <p class="wo-bal" style="font-size:.6rem;color:var(--t3)">Required: ₦${totalNGN.toLocaleString()}</p>
+      </div>
+      <span class="wo-status ${ngnOk ? 'ok' : 'insufficient'}">
+        ${ngnOk ? 'Available' : 'Insufficient'}
+      </span>
+    </div>
+    <div class="wallet-opt usd ${usdOk ? '' : 'disabled'} ${state.selectedWallet === 'usd' ? 'selected' : ''}"
+         onclick="${usdOk ? "selectWallet('usd')" : ''}"
+         style="${!usdOk ? 'opacity:0.5;cursor:not-allowed' : ''}">
+      <div class="wo-ic"><i class="fas fa-dollar-sign"></i></div>
+      <div class="wo-info">
+        <p class="wo-lbl">USD Wallet</p>
+        <p class="wo-bal">$${b.usd.toFixed(2)}</p>
+        <p class="wo-bal" style="font-size:.6rem;color:var(--t3)">Required: $${totalUSD.toFixed(2)}</p>
+      </div>
+      <span class="wo-status ${usdOk ? 'ok' : 'insufficient'}">
+        ${usdOk ? 'Available' : 'Insufficient'}
+      </span>
+    </div>
+  `;
+
+  document.getElementById('btnContinue').disabled = !state.selectedWallet;
+}
+
+function selectWallet(type) {
+  state.selectedWallet = type;
+  renderWalletOptions();
+  document.getElementById('btnContinue').disabled = false;
+}
+
+// ─── PREVIEW ──────────────────────────────────────────────────────────
+
+function goToPreview() {
+  document.getElementById('walletStep').style.display = 'none';
+  document.getElementById('previewStep').style.display = 'block';
+
+  const totalUSD = state.amount + state.fee;
+  const totalNGN = totalUSD * state.exchangeRate;
+  const isUSD = state.selectedWallet === 'usd';
+
+  document.getElementById('pvPhone').textContent = state.country.dial + ' ' + state.phoneNumber;
+  document.getElementById('pvCountry').textContent = state.country.name;
+  document.getElementById('pvOperator').textContent = state.operator?.name || '—';
+  document.getElementById('pvAmount').textContent = (isUSD ? '$' : '₦') + (isUSD ? state.amount.toFixed(2) : (state.amount * state.exchangeRate).toFixed(2));
+  document.getElementById('pvFee').textContent = (isUSD ? '$' : '₦') + (isUSD ? state.fee.toFixed(2) : (state.fee * state.exchangeRate).toFixed(2));
+  document.getElementById('pvTotal').textContent = (isUSD ? '$' : '₦') + (isUSD ? totalUSD.toFixed(2) : totalNGN.toFixed(2));
+  document.getElementById('pvWallet').textContent = (isUSD ? 'USD' : 'NGN') + ' Wallet';
+}
+
+function backToWallet() {
+  document.getElementById('previewStep').style.display = 'none';
+  document.getElementById('walletStep').style.display = 'block';
+}
+
+// ─── PIN MODAL ─────────────────────────────────────────────────────────
+
+function openPinModal() {
+  const modal = document.getElementById('pinModal');
+  modal.classList.add('on');
+  document.getElementById('pinError').style.display = 'none';
+  document.getElementById('pmConfirm').disabled = true;
+
+  const inputs = document.querySelectorAll('.pm-input');
+  inputs.forEach((input, i) => {
+    input.value = '';
+    input.className = 'pm-input';
+    input.addEventListener('input', onPinInput);
+    input.addEventListener('keydown', onPinKeydown);
+    input.addEventListener('paste', onPinPaste);
+  });
+  inputs[0].focus();
 }
 
 function closePinModal() {
-  DOM.pinModal.style.display = 'none';
-  State.pendingPurchase = null;
+  document.getElementById('pinModal').classList.remove('on');
 }
 
-// ─── PIN STATUS ───
-async function checkPinStatus() {
-  try {
-    const resp = await apiRequest('/cashback/pin-status');
-    if (resp?.success) {
-      State.hasPin = resp.data.has_pin;
-      const attempts = resp.data.attempts_remaining || MAX_PIN_ATTEMPTS;
-      const locked = resp.data.is_locked;
-      const remaining = resp.data.remaining_lock_minutes || 0;
+function onPinInput(e) {
+  const input = e.target;
+  const index = parseInt(input.dataset.index);
+  const inputs = document.querySelectorAll('.pm-input');
 
-      if (locked) {
-        DOM.pinLockedMsg.style.display = 'block';
-        DOM.lockTimer.textContent = remaining;
-        DOM.pinConfirmBtn.disabled = true;
-        let rem = remaining;
-        const timer = setInterval(() => {
-          rem--;
-          DOM.lockTimer.textContent = Math.max(0, rem);
-          if (rem <= 0) {
-            clearInterval(timer);
-            DOM.pinLockedMsg.style.display = 'none';
-            DOM.pinConfirmBtn.disabled = false;
-          }
-        }, 60000);
-      } else {
-        DOM.pinLockedMsg.style.display = 'none';
-        DOM.pinConfirmBtn.disabled = false;
-        if (attempts < MAX_PIN_ATTEMPTS && attempts > 0) {
-          DOM.pinAttempts.textContent = `${attempts} attempt${attempts > 1 ? 's' : ''} remaining`;
-        }
-      }
+  input.value = input.value.replace(/\D/g, '');
+
+  if (input.value) {
+    input.className = 'pm-input filled';
+    if (index < 3) {
+      inputs[index + 1].focus();
     }
-  } catch (e) {
-    console.error('PIN status error:', e);
+  } else {
+    input.className = 'pm-input';
+  }
+
+  const allFilled = Array.from(inputs).every(inp => inp.value.length === 1);
+  document.getElementById('pmConfirm').disabled = !allFilled;
+
+  if (allFilled) {
+    document.getElementById('pinError').style.display = 'none';
   }
 }
 
-// ─── CONFIRM PIN ───
+function onPinKeydown(e) {
+  const input = e.target;
+  const index = parseInt(input.dataset.index);
+  const inputs = document.querySelectorAll('.pm-input');
+
+  if (e.key === 'Backspace') {
+    if (input.value === '' && index > 0) {
+      inputs[index - 1].focus();
+      inputs[index - 1].value = '';
+      inputs[index - 1].className = 'pm-input';
+    } else if (input.value === '') {
+      // Do nothing
+    } else {
+      input.value = '';
+      input.className = 'pm-input';
+      document.getElementById('pmConfirm').disabled = true;
+    }
+  }
+
+  if (e.key === 'Enter') {
+    const allFilled = Array.from(inputs).every(inp => inp.value.length === 1);
+    if (allFilled) {
+      confirmPin();
+    }
+  }
+}
+
+function onPinPaste(e) {
+  e.preventDefault();
+  const paste = (e.clipboardData || window.clipboardData).getData('text');
+  const digits = paste.replace(/\D/g, '').slice(0, 4);
+  const inputs = document.querySelectorAll('.pm-input');
+
+  digits.split('').forEach((digit, i) => {
+    if (i < 4) {
+      inputs[i].value = digit;
+      inputs[i].className = 'pm-input filled';
+    }
+  });
+
+  const allFilled = Array.from(inputs).every(inp => inp.value.length === 1);
+  document.getElementById('pmConfirm').disabled = !allFilled;
+
+  if (allFilled && digits.length === 4) {
+    setTimeout(confirmPin, 300);
+  }
+}
+
 async function confirmPin() {
-  const pin = getPinValue();
+  const inputs = document.querySelectorAll('.pm-input');
+  const pin = Array.from(inputs).map(inp => inp.value).join('');
+
   if (pin.length !== 4) {
-    DOM.pinError.textContent = 'Please enter a 4-digit PIN';
+    document.getElementById('pinError').style.display = 'block';
+    document.getElementById('pinError').textContent = 'Please enter all 4 digits.';
     return;
   }
 
-  DOM.pinConfirmBtn.disabled = true;
-  DOM.pinConfirmBtn.innerHTML = '<span class="spinner"></span> Verifying...';
+  document.getElementById('pmConfirm').disabled = true;
+  document.getElementById('pinError').style.display = 'none';
+
+  closePinModal();
+  await processPayment(pin);
+}
+
+// ─── PROCESS PAYMENT ──────────────────────────────────────────────────
+
+async function processPayment(pin) {
+  if (state.isProcessing) return;
+  state.isProcessing = true;
+
+  const btn = document.getElementById('btnPay');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
   try {
-    const verifyResp = await apiRequest('/cashback/verify-pin', {
+    const response = await api('/airtime/purchase', {
       method: 'POST',
-      body: JSON.stringify({ pin })
+      body: JSON.stringify({
+        country: state.country.code,
+        phone: state.phoneNumber,
+        operator: state.operator,
+        amount: state.amount,
+        wallet_type: state.selectedWallet.toUpperCase(),
+        quote_id: state.quoteId,
+        transaction_pin: pin
+      })
     });
 
-    if (!verifyResp?.success) {
-      if (verifyResp?.code === 'PIN_NOT_SET') {
-        DOM.pinError.textContent = 'No PIN set. Please set a PIN first.';
-        DOM.pinConfirmBtn.disabled = false;
-        DOM.pinConfirmBtn.textContent = 'Confirm';
-        setTimeout(() => {
-          closePinModal();
-          showToast('Please set a transaction PIN first from your dashboard.', 'warning');
-          window.location.href = '/dashboard';
-        }, 1500);
-        return;
-      }
+    if (response.success) {
+      const data = response.data;
+      state.transaction = data;
 
-      if (verifyResp?.code === 'PIN_LOCKED') {
-        DOM.pinLockedMsg.style.display = 'block';
-        DOM.lockTimer.textContent = verifyResp.remaining_minutes || 60;
-        DOM.pinConfirmBtn.disabled = true;
-        DOM.pinConfirmBtn.textContent = 'Confirm';
-        return;
-      }
-
-      DOM.pinError.textContent = verifyResp?.error || 'Invalid PIN';
-      [DOM.pin1, DOM.pin2, DOM.pin3, DOM.pin4].forEach(box => {
-        box.style.borderColor = 'var(--err)';
-        box.style.background = 'var(--erl)';
-        setTimeout(() => {
-          box.style.borderColor = 'var(--bdr)';
-          box.style.background = 'var(--srf2)';
-        }, 800);
-      });
-      clearPinInputs();
-      DOM.pinConfirmBtn.disabled = false;
-      DOM.pinConfirmBtn.textContent = 'Confirm';
-
-      if (verifyResp?.attempts_remaining !== undefined) {
-        DOM.pinAttempts.textContent = `${verifyResp.attempts_remaining} attempt${verifyResp.attempts_remaining > 1 ? 's' : ''} remaining`;
-      }
-      return;
-    }
-
-    // ─── PIN VERIFIED - Process purchase ───
-    if (State.pendingPurchase) {
-      const purchaseData = State.pendingPurchase;
-      purchaseData.transaction_pin = pin;
-
-      DOM.pinConfirmBtn.innerHTML = '<span class="spinner"></span> Processing...';
-
-      const resp = await apiRequest('/cashback/purchase', {
-        method: 'POST',
-        body: JSON.stringify(purchaseData)
-      });
-
-      if (resp?.success) {
-        showToast(`✅ ${SERVICE_CONFIG[purchaseData.service].title} successful!`, 'success');
-        State.balance = resp.data.new_balance || (State.balance - purchaseData.amount);
-        State.lifetimeUsed = (State.lifetimeUsed || 0) + purchaseData.amount;
-        updateWalletUI();
-        loadRecent();
-        resetForm();
-        closePinModal();
-        hideValidationStatus();
+      if (data.status === 'completed') {
+        showResult('success', '✅ Airtime Sent!',
+          `Successfully sent ${data.amount} ${data.currency} airtime to ${data.country} ${data.phone}`);
+        toast('Airtime sent successfully!', 'ok');
+        await loadHistory();
+      } else if (data.status === 'processing' || data.status === 'pending') {
+        showResult('pending', '⏳ Processing',
+          'Your airtime purchase is being processed. Please wait, we are confirming with the network.');
+        toast('Airtime is being processed', 'warn');
+        startPolling(data.reference);
+      } else if (data.status === 'failed') {
+        const msg = data.message || 'Your purchase failed. Your funds have been refunded.';
+        showResult('failed', '❌ Purchase Failed', msg);
+        toast(msg, 'err');
+      } else if (data.status === 'manual_review') {
+        showResult('manual_review', '📋 Under Review',
+          'Your transaction is being reviewed. You will receive a notification when resolved.');
+        toast('Transaction under review', 'warn');
+        startPolling(data.reference);
       } else {
-        showToast(resp?.error || 'Purchase failed', 'error');
-        if (resp?.code === 'PIN_LOCKED') {
-          DOM.pinLockedMsg.style.display = 'block';
-          DOM.lockTimer.textContent = resp.remaining_minutes || 60;
-          DOM.pinConfirmBtn.disabled = true;
-        }
+        showResult('pending', '⏳ Processing', 'Your transaction is being processed.');
+        toast('Transaction processing', 'warn');
+        startPolling(data.reference);
       }
     }
-  } catch (e) {
-    DOM.pinError.textContent = e.message || 'Something went wrong';
-  } finally {
-    DOM.pinConfirmBtn.disabled = false;
-    DOM.pinConfirmBtn.textContent = 'Confirm';
+  } catch (error) {
+    if (error.code === 'INVALID_PIN') {
+      toast('Invalid PIN. Please try again.', 'err');
+      setTimeout(() => openPinModal(), 500);
+    } else if (error.code === 'PIN_REQUIRED') {
+      toast('PIN required. Please enter your PIN.', 'warn');
+      setTimeout(() => openPinModal(), 500);
+    } else {
+      showResult('failed', '❌ Purchase Failed', error.message);
+      toast(error.message, 'err');
+    }
+  }
+
+  state.isProcessing = false;
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-lock"></i> Pay Now';
+}
+
+// ─── POLLING ──────────────────────────────────────────────────────────
+
+function startPolling(reference) {
+  if (state.pollTimer) {
+    clearTimeout(state.pollTimer);
+  }
+  state.pollAttempts = 0;
+  pollTransaction(reference);
+}
+
+async function pollTransaction(reference) {
+  state.pollAttempts++;
+
+  const delays = [2000, 3000, 5000, 8000, 10000, 15000, 30000];
+  const delay = delays[Math.min(state.pollAttempts - 1, delays.length - 1)];
+
+  try {
+    const response = await api(`/airtime/${reference}`);
+
+    if (response.success && response.data) {
+      const tx = response.data;
+
+      if (tx.status === 'completed') {
+        showResult('success', '✅ Airtime Sent!',
+          `Successfully sent ${tx.amount} ${tx.currency} airtime to ${tx.country} ${tx.phone_display || tx.phone}`);
+        toast('Airtime delivered!', 'ok');
+        await loadHistory();
+        return;
+      }
+
+      if (tx.status === 'failed') {
+        const msg = tx.failure_message || 'Purchase failed. Funds have been refunded.';
+        showResult('failed', '❌ Purchase Failed', msg);
+        toast('Purchase failed', 'err');
+        await loadHistory();
+        return;
+      }
+
+      if (tx.status === 'refunded') {
+        showResult('failed', '💰 Refunded', 'Your funds have been refunded.');
+        toast('Refund processed', 'ok');
+        await loadHistory();
+        return;
+      }
+
+      if (tx.status === 'manual_review') {
+        showResult('manual_review', '📋 Under Review',
+          'Your transaction is still being reviewed.');
+        state.pollTimer = setTimeout(() => pollTransaction(reference), 30000);
+        return;
+      }
+
+      if (state.pollAttempts < 20) {
+        state.pollTimer = setTimeout(() => pollTransaction(reference), delay);
+      } else {
+        showResult('pending', '⏳ Still Processing',
+          'Your transaction is taking longer than expected. Check history for updates.');
+        toast('Still processing - check history', 'warn');
+      }
+    }
+  } catch (error) {
+    console.error('Poll error:', error);
+    if (state.pollAttempts < 10) {
+      state.pollTimer = setTimeout(() => pollTransaction(reference), 5000);
+    }
   }
 }
 
-// ════════════════════════════════════════════════
-//  CONFIRM PURCHASE
-// ════════════════════════════════════════════════
+// ─── RESULT DISPLAY ──────────────────────────────────────────────────
 
-const confirmPurchase = () => {
-  if (State.loading) return;
+function showResult(type, title, sub) {
+  document.getElementById('previewStep').style.display = 'none';
+  document.getElementById('resultStep').style.display = 'block';
 
-  const service = State.service;
-  const amount = State.amount;
+  const ic = document.getElementById('resultIc');
+  ic.className = 'result-ic ' + type;
 
-  if (amount <= 0) {
-    showToast('Please enter a valid amount', 'warning');
-    return;
+  const iconMap = {
+    success: '<i class="fas fa-check"></i>',
+    pending: '<i class="fas fa-clock"></i>',
+    failed: '<i class="fas fa-times"></i>',
+    manual_review: '<i class="fas fa-clipboard-list"></i>'
+  };
+  ic.innerHTML = iconMap[type] || iconMap.failed;
+
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultSub').textContent = sub;
+
+  if (type === 'success' || type === 'pending' || type === 'manual_review') {
+    const ref = state.transaction?.reference || 'AIR-' + Date.now().toString(36).toUpperCase();
+    document.getElementById('resultRefWrap').style.display = 'flex';
+    document.getElementById('resultRef').textContent = ref;
+  } else {
+    document.getElementById('resultRefWrap').style.display = 'none';
+  }
+}
+
+function copyRef() {
+  const ref = document.getElementById('resultRef').textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(ref).then(() => toast('Reference copied!', 'ok'));
+  } else {
+    const input = document.createElement('input');
+    input.value = ref;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    input.remove();
+    toast('Reference copied!', 'ok');
+  }
+}
+
+// ─── RESET ───────────────────────────────────────────────────────────
+
+function resetAll() {
+  if (state.pollTimer) {
+    clearTimeout(state.pollTimer);
+    state.pollTimer = null;
   }
 
-  if (amount > State.balance) {
-    showToast(`Insufficient cashback. Available: ₦${formatNaira(State.balance)}`, 'error');
-    return;
+  if (operatorAbortController) {
+    operatorAbortController.abort();
+    operatorAbortController = null;
   }
 
-  if (amount < MIN_REDEEM) {
-    showToast(`Minimum redemption is ₦${formatNaira(MIN_REDEEM)}`, 'warning');
-    return;
-  }
+  state.country = null;
+  state.phoneNumber = '';
+  state.phoneValid = false;
+  state.operator = null;
+  state.amount = 0;
+  state.fee = 0;
+  state.exchangeRate = 1600;
+  state.quoteId = null;
+  state.quoteExpires = null;
+  state.selectedWallet = null;
+  state.balances = { ngn: 0, usd: 0 };
+  state.transaction = null;
+  state.idempotencyKey = null;
+  state.isProcessing = false;
+  state.pollAttempts = 0;
 
-  const payload = { service, amount };
+  document.getElementById('formStep').style.display = 'block';
+  document.getElementById('walletStep').style.display = 'none';
+  document.getElementById('previewStep').style.display = 'none';
+  document.getElementById('resultStep').style.display = 'none';
 
-  // ─── Build payload based on service ───
-  if (service === 'airtime') {
-    const network = document.getElementById('form_network')?.value;
-    const phone = document.getElementById('form_phone')?.value?.trim();
-    if (!phone || phone.length < 10) {
-      showToast('Please enter a valid phone number', 'error');
-      return;
-    }
-    if (State.validationResult && !State.validationResult.valid) {
-      showToast('Phone number is invalid', 'error');
-      return;
-    }
-    // Get actual network from validation or use selected
-    const actualNetwork = State.validationResult?.network || network;
-    payload.network = actualNetwork;
-    payload.phone = phone;
-    // ─── VTpass service mapping ───
-    const serviceMap = {
-      mtn: 'mtn-airtime',
-      glo: 'glo-airtime',
-      airtel: 'airtel-airtime',
-      '9mobile': 'etisalat-airtime'
-    };
-    payload.vtpass_service = serviceMap[actualNetwork] || serviceMap[network];
-  }
+  document.getElementById('countryFlag').textContent = '🌐';
+  document.getElementById('countryName').textContent = 'Select country';
+  document.getElementById('countryCode').textContent = '';
+  document.getElementById('phoneInput').value = '';
+  document.getElementById('dialCodeDisplay').textContent = '+—';
+  document.getElementById('phoneValidation').className = 'phone-validation';
+  document.getElementById('phoneValidation').textContent = '';
+  document.getElementById('amtCustom').value = '';
+  document.querySelectorAll('.amt-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('operatorContainer').innerHTML = '<div class="operator-empty">Select a country to see available networks</div>';
 
-  if (service === 'data') {
-    const network = document.getElementById('form_network')?.value;
-    const phone = document.getElementById('form_phone')?.value?.trim();
-    const plan = document.getElementById('form_dataPlan')?.value;
-    if (!phone || phone.length < 10) {
-      showToast('Please enter a valid phone number', 'error');
-      return;
-    }
-    if (State.validationResult && !State.validationResult.valid) {
-      showToast('Phone number is invalid', 'error');
-      return;
-    }
-    const actualNetwork = State.validationResult?.network || network;
-    payload.network = actualNetwork;
-    payload.phone = phone;
-    payload.plan = plan;
-    payload.vtpass_service = DATA_PLANS[actualNetwork]?.serviceID || DATA_PLANS[network]?.serviceID;
-  }
+  updateProceedState();
+  loadHistory();
+}
 
-  if (service === 'electricity') {
-    const provider = document.getElementById('form_provider')?.value;
-    const meterType = document.getElementById('form_meterType')?.value;
-    const meterNumber = document.getElementById('form_meterNumber')?.value?.trim();
-    if (!meterNumber || meterNumber.length < 10) {
-      showToast('Please enter a valid meter number', 'error');
-      return;
-    }
-    if (State.validationResult && !State.validationResult.valid) {
-      showToast('Meter number is invalid', 'error');
-      return;
-    }
-    payload.provider = provider;
-    payload.meterType = meterType || 'prepaid';
-    payload.meterNumber = meterNumber;
-    payload.vtpass_service = `${provider}-electric`;
-  }
+// ─── HISTORY ──────────────────────────────────────────────────────────
 
-  // ─── Check PIN status ───
-  if (State.hasPin === null) {
-    showToast('Checking PIN status...', 'info');
-    checkPinStatus();
-    return;
-  }
+async function loadHistory() {
+  if (!checkSession()) return;
 
-  if (!State.hasPin) {
-    showToast('Please set a transaction PIN first from your dashboard.', 'warning');
-    setTimeout(() => window.location.href = '/dashboard', 1500);
-    return;
-  }
-
-  openPinModal(payload);
-};
-
-// ════════════════════════════════════════════════
-//  RECENT PURCHASES
-// ════════════════════════════════════════════════
-
-let recentCache = null;
-let recentCacheTime = 0;
-const RECENT_CACHE_TTL = 60000;
-
-const loadRecent = async (force = false) => {
-  if (!force && recentCache && (Date.now() - recentCacheTime < RECENT_CACHE_TTL)) {
-    renderRecent(recentCache);
-    return;
-  }
+  const container = document.getElementById('historyList');
+  container.innerHTML = `
+    <div style="text-align:center;padding:20px">
+      <span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid var(--bdr);border-top-color:var(--p);border-radius:50%;animation:spin .6s linear infinite"></span>
+    </div>
+  `;
 
   try {
-    const resp = await apiRequest('/cashback/recent');
-    if (resp?.success) {
-      recentCache = resp.data;
-      recentCacheTime = Date.now();
-      renderRecent(recentCache);
+    const response = await api('/airtime/history?limit=5');
+    if (response.success && response.data && response.data.length > 0) {
+      container.innerHTML = response.data.map(t => {
+        const statusMap = {
+          completed: 'Completed',
+          processing: 'Processing',
+          pending: 'Pending',
+          failed: 'Failed',
+          manual_review: 'Review',
+          refunded: 'Refunded'
+        };
+        const flag = t.country ? state.countries.find(c => c.code === t.country)?.flag || '📱' : '📱';
+        const currencySymbol = t.currency === 'NGN' ? '₦' : '$';
+        return `
+          <div class="history-item" onclick="viewTransaction('${t.reference}')">
+            <span class="hi-flag">${flag}</span>
+            <div class="hi-info">
+              <p class="hi-phone">${t.phone_display || t.phone}</p>
+              <p class="hi-meta">${t.country || ''} • ${new Date(t.created_at).toLocaleDateString()} • ${t.operator || 'Auto'}</p>
+            </div>
+            <div style="text-align:right">
+              <p class="hi-amt">${currencySymbol}${t.amount}</p>
+              <span class="hi-status ${t.status}">${statusMap[t.status] || t.status}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (response.pagination && response.pagination.total > 5) {
+        container.innerHTML += `
+          <div style="text-align:center;padding:10px">
+            <a href="history.html" style="font-size:.76rem;color:var(--p);font-weight:600">View all history →</a>
+          </div>
+        `;
+      }
+    } else {
+      container.innerHTML = `
+        <div style="text-align:center;padding:20px;color:var(--t3);font-size:.76rem">
+          <i class="fas fa-clock" style="font-size:1.2rem;display:block;margin-bottom:6px"></i>
+          No transactions yet
+        </div>
+      `;
     }
-  } catch (e) {
-    console.error('Recent load error:', e);
-  }
-};
-
-const renderRecent = (data) => {
-  const list = DOM.recentList;
-  if (!data || data.length === 0) {
-    list.innerHTML = `
-      <div class="rc-empty">
-        <i class="fas fa-receipt"></i>
-        No recent purchases yet
-      </div>
-    `;
-    return;
-  }
-
-  list.innerHTML = data.slice(0, 5).map(item => {
-    const icons = {
-      airtime: 'fa-phone-alt',
-      data: 'fa-wifi',
-      electricity: 'fa-lightbulb'
-    };
-    const colors = {
-      airtime: '#0c3d4a',
-      data: '#7c3aed',
-      electricity: '#d97706'
-    };
-    const bgColors = {
-      airtime: '#e8f4f7',
-      data: '#f3f0ff',
-      electricity: '#fef3c7'
-    };
-
-    return `
-      <div class="rc-item">
-        <div class="rc-icon" style="background:${bgColors[item.service]};color:${colors[item.service]};">
-          <i class="fas ${icons[item.service] || 'fa-coins'}"></i>
+  } catch (error) {
+    if (error.message && !error.message.includes('session has expired')) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:20px;color:var(--err);font-size:.76rem">
+          <i class="fas fa-exclamation-circle" style="font-size:1.2rem;display:block;margin-bottom:6px"></i>
+          Could not load history
         </div>
-        <div class="rc-info">
-          <div class="rc-name">${item.description || item.service}</div>
-          <div class="rc-meta">${item.details || ''} · ${new Date(item.created_at).toLocaleDateString()}</div>
-        </div>
-        <span class="rc-amount">-₦${formatNaira(item.amount)}</span>
-        <span class="rc-status ${item.status}">${item.status}</span>
-      </div>
-    `;
-  }).join('');
-};
+      `;
+    }
+  }
+}
 
-// ─── RESET FORM ───
-const resetForm = () => {
-  document.querySelectorAll('#formContainer input').forEach(el => {
-    el.value = '';
+function viewTransaction(reference) {
+  window.location.href = `/airtime-order.html?ref=${reference}`;
+}
+
+// ─── SIDEBAR ──────────────────────────────────────────────────────────
+
+function initSidebar() {
+  const sb = document.getElementById('sb');
+  const ov = document.getElementById('ov');
+  const hbg = document.getElementById('hbg');
+
+  hbg?.addEventListener('click', () => {
+    sb.classList.toggle('open');
+    ov.classList.toggle('on');
   });
-  document.querySelectorAll('#formContainer select').forEach(el => {
-    if (el.id === 'form_dataPlan') el.value = '';
-    if (el.id === 'form_network') el.value = 'mtn';
-    if (el.id === 'form_provider') el.value = 'ikeja';
-    if (el.id === 'form_meterType') el.value = 'prepaid';
+
+  ov?.addEventListener('click', () => {
+    sb.classList.remove('open');
+    ov.classList.remove('on');
   });
-  State.amount = 0;
-  State.validationResult = null;
-  hideValidationStatus();
-  DOM.totalCost.textContent = '0.00';
-  DOM.feeDisplay.textContent = '';
-  updateTotal();
-};
+}
 
-// ════════════════════════════════════════════════
-//  INIT
-// ════════════════════════════════════════════════
+function loadUser() {
+  const sess = getSess();
+  const user = sess?.user;
+  if (user) {
+    const name = user.username || user.email?.split('@')[0] || 'User';
+    document.getElementById('sbName').textContent = name;
+    document.getElementById('sbEmail').textContent = user.email || '';
+    document.getElementById('sbAv').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('tbAv').textContent = name.charAt(0).toUpperCase();
+  }
+}
 
-document.addEventListener('DOMContentLoaded', async () => {
-  if (!getToken()) { redirectToLogin(); return; }
-
-  updateUserUI();
-  initSidebar();
-  setupPinInputs();
-
-  await Promise.all([
-    loadBalance(),
-    loadRecent()
-  ]);
-
-  selectService('airtime');
-
-  setInterval(() => {
-    loadBalance();
-  }, 30000);
-
-  console.log('⭐ Cashback Wallet ready');
-  console.log(`   Balance: ₦${formatNaira(State.balance)}`);
-  console.log(`   Min Redeem: ₦${MIN_REDEEM}`);
+document.getElementById('logoutBtn')?.addEventListener('click', () => {
+  localStorage.removeItem(SK);
+  sessionStorage.removeItem(SK);
+  location.href = 'login.html';
 });
 
-// ─── Expose ───
-window.selectService = selectService;
-window.confirmPurchase = confirmPurchase;
-window.updateTotal = updateTotal;
-window.handleValidationInput = handleValidationInput;
-window.closePinModal = closePinModal;
-window.confirmPin = confirmPin;
-window.validatePhoneNumber = validatePhoneNumber;
-window.validateMeterNumber = validateMeterNumber;
-</script>
+// ─── INIT ──────────────────────────────────────────────────────────────
 
+document.addEventListener('DOMContentLoaded', () => {
+  if (!checkSession()) return;
+
+  initSidebar();
+  loadUser();
+  loadCountries();
+  loadHistory();
+
+  document.addEventListener('click', (e) => {
+    const chip = document.getElementById('countryChip');
+    const list = document.getElementById('countryList');
+    if (!chip?.contains(e.target) && !list?.contains(e.target)) {
+      list.style.display = 'none';
+    }
+  });
+
+  document.getElementById('phoneInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const btn = document.getElementById('btnProceed');
+      if (!btn.disabled) btn.click();
+    }
+  });
+});
+</script>
 </body>
 </html>

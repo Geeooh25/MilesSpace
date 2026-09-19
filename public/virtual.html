@@ -16,9 +16,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
 <style>
-/* ════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════
    CSS VARIABLES & RESET
-════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 :root{
   --p:#0B1220;--pm:#1A2C3E;--pl:#eef1f6;--pxl:#f5f7fa;
   --acc:#F5A623;--acd:#d98c12;--acl:#fff6e6;
@@ -121,6 +121,46 @@ input,select{font-family:inherit}
 .step-dot.active .step-dot-lbl{color:var(--p)}
 .step-dot.done .step-dot-lbl{color:var(--ok)}
 @media(max-width:500px){.step-dot-lbl{display:none}.steps-bar{padding:12px 14px}}
+
+/* ── CURRENCY & WALLET BAR ── */
+.cw-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);padding:10px 14px;margin-bottom:16px;box-shadow:var(--s0)}
+.cw-wallets{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cw-wallet{display:flex;align-items:center;gap:6px;font-size:.74rem;color:var(--t2)}
+.cw-wallet i{font-size:.66rem;color:var(--t3)}
+.cw-wallet b{font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums;transition:color .2s}
+.cw-wallet.hi b{color:var(--acd)}
+.cw-curr{display:flex;align-items:center;gap:8px}
+.cw-curr-lbl{font-size:.68rem;color:var(--t3);font-weight:600}
+.seg{display:flex;background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--rp);padding:2px}
+.seg-opt{padding:5px 13px;border-radius:var(--rp);font-size:.74rem;font-weight:700;color:var(--t2);transition:all .18s;cursor:pointer;white-space:nowrap}
+.seg-opt.on{background:var(--p);color:#fff}
+@media(max-width:560px){.cw-bar{flex-direction:column;align-items:stretch}.cw-wallets{justify-content:space-between}}
+
+/* ── RECENT COUNTRIES ── */
+.recent-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.recent-lbl{font-size:.66rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;flex-shrink:0;margin-right:2px}
+.recent-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--rp);background:var(--srf2);border:1px solid var(--bdr);font-size:.71rem;font-weight:600;color:var(--t2);cursor:pointer;transition:all .18s}
+.recent-chip:hover{border-color:var(--p);background:var(--pl);color:var(--p)}
+
+/* ── ERROR / STATUS BANNER (order card) ── */
+.oc-error{margin:13px;padding:11px 13px;border-radius:var(--r);background:var(--erl);border:1px solid #fecaca;display:none;gap:8px;align-items:flex-start}
+.oc-error.on{display:flex}
+.oc-error i{color:var(--err);margin-top:1px;flex-shrink:0}
+.oc-error span{font-size:.76rem;color:#991b1b;line-height:1.5}
+
+/* ── SUCCESS PANEL ── */
+.success-panel{margin:13px;padding:15px;border-radius:var(--rl);background:linear-gradient(135deg,var(--okl),#ecfdf5);border:1px solid #a7f3d0;display:none}
+.success-panel.on{display:block;animation:popIn .35s var(--ease)}
+.sp-head{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.sp-head i{width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:.72rem;flex-shrink:0}
+.sp-head span{font-family:var(--fd);font-size:.86rem;font-weight:800;color:#065f46}
+.sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.sp-row{background:rgba(255,255,255,.55);border-radius:var(--r);padding:7px 10px}
+.sp-row.full{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sp-k{font-size:.6rem;color:#065f46;opacity:.7;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.sp-v{font-size:.78rem;font-weight:700;color:#064e3b;font-variant-numeric:tabular-nums;word-break:break-word}
+.sp-copy{background:rgba(255,255,255,.7);border:1px solid #a7f3d0;border-radius:6px;padding:3px 9px;font-size:.66rem;font-weight:700;color:#065f46;cursor:pointer;transition:all .18s;flex-shrink:0}
+.sp-copy:hover{background:#fff}
 
 /* ── LAYOUT ── */
 .virtual-layout{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
@@ -251,18 +291,24 @@ input,select{font-family:inherit}
 .ab-btn:disabled{opacity:.4;cursor:not-allowed}
 .ab-timer{font-size:.6rem;color:rgba(255,255,255,.5);text-align:center}
 
-/* ── MINI HISTORY ── */
+/* ── MINI HISTORY (Real Orders) ── */
 .mini-hist{padding:13px 16px;border-top:1px solid var(--bdr)}
-.mini-hist h4{font-family:var(--fd);font-size:.76rem;font-weight:700;color:var(--t1);margin-bottom:9px}
-.mh-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--bdr)}
+.mini-hist h4{font-family:var(--fd);font-size:.76rem;font-weight:700;color:var(--t1);margin-bottom:9px;display:flex;align-items:center;justify-content:space-between}
+.mini-hist h4 .badge-count{font-size:.6rem;font-weight:600;color:var(--t3);background:var(--bg);padding:2px 8px;border-radius:99px}
+.mh-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .15s}
 .mh-row:last-child{border-bottom:none}
-.mh-flag{font-size:1.05rem}
+.mh-row:hover{background:var(--bg);border-radius:var(--r)}
+.mh-flag{font-size:1.05rem;flex-shrink:0}
 .mh-info{flex:1;min-width:0}
 .mh-name{font-size:.75rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mh-meta{font-size:.63rem;color:var(--t3)}
-.mh-bdg{font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase}
+.mh-price{font-size:.65rem;font-weight:700;color:var(--t2);flex-shrink:0}
+.mh-bdg{font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;flex-shrink:0}
 .bdg-ok{background:var(--okl);color:#065f46}
 .bdg-pe{background:var(--warnl);color:#92400e}
+.bdg-err{background:var(--erl);color:#991b1b}
+.bdg-active{background:var(--pl);color:var(--p)}
+.bdg-refunded{background:var(--bg);color:var(--t3)}
 
 /* ── TOASTS ── */
 .toasts{position:fixed;bottom:76px;right:14px;z-index:900;display:flex;flex-direction:column;gap:5px;max-width:300px;pointer-events:none}
@@ -287,48 +333,55 @@ input,select{font-family:inherit}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 </style>
 
-<!-- ════════════════════════════════════════════════════════════ -->
-<!-- SESSION MANAGER -->
-<!-- ════════════════════════════════════════════════════════════ -->
+<!-- ─── SESSION MANAGER ─── -->
 <script src="/js/session.js"></script>
+<script src="/js/presence.js"></script>
+<script src="/js/miles-widget.js" defer></script>
+
 </head>
 <body>
 
 <div class="ov" id="ov"></div>
 <div class="app">
 
-<!-- ════ SIDEBAR ════ -->
+<!-- ─── SIDEBAR ─── -->
 <aside class="sidebar" id="sb">
   <div class="sb-brand">
-    <div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace" style="width:28px;height:28px;border-radius:7px;flex-shrink:0">MilesSpace</div>
+    <div class="sb-logo">
+      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
+      MilesSpace
+    </div>
   </div>
   <p class="sb-sec">Menu</p>
   <nav class="sb-nav">
     <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
     <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
-    <a href="virtual.html" class="sb-lnk active"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
     <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="airtime.html" class="sb-lnk active"><i class="fas fa-globe"></i> Global Airtime</a>
+    <a href="bills.html" class="sb-lnk active"><i class="fas fa-file-invoice-dollar"></i> Airtime, Data & Bills</a>
+    <a href="esim.html" class="sb-lnk"><i class="fas fa-sim-card"></i> Buy eSIM</a>
     <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
     <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
     <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
-    <a href="social-ads.html" class="sb-lnk"><i class="fas fa-ad"></i> Social Ads</a>
   </nav>
   <p class="sb-sec">Account</p>
   <nav class="sb-nav">
-    <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="usersettings.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Settings</a>
     <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
-    <a href="https://proxy-store.com/?ref=176764" target="_blank" class="sb-lnk"><i class="fas fa-shield-alt"></i> Buy Proxy</a>
   </nav>
   <div class="sb-foot">
-    <a href="profile.html" class="sb-prof">
-      <div class="sb-av" id="sbAv">U</div>
-      <div class="sb-ui"><p class="sb-un" id="sbName">User</p><p class="sb-ue" id="sbEmail"></p></div>
-      <button class="sb-out" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button>
-    </a>
+    <div class="sb-prof">
+      <a href="usersettings.html" class="sb-prof-link">
+        <div class="sb-av" id="sbAv">U</div>
+        <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
+      </a>
+      <button class="sb-out" id="logoutBtn" title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
   </div>
 </aside>
 
-<!-- ════ MAIN ════ -->
+<!-- ─── MAIN ─── -->
 <div class="main">
   <header class="topbar">
     <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
@@ -350,6 +403,21 @@ input,select{font-family:inherit}
         <span class="ph-pill"><i class="fas fa-sim-card"></i> Real SIM cards</span>
         <span class="ph-pill"><span class="live-dot"></span>&nbsp;Live inventory</span>
         <span class="ph-pill"><i class="fas fa-shield-halved"></i> Auto-refund</span>
+      </div>
+    </div>
+
+    <!-- CURRENCY & WALLET -->
+    <div class="cw-bar fu d2">
+      <div class="cw-wallets">
+        <span class="cw-wallet" id="cwNgn"><i class="fas fa-wallet"></i> NGN Wallet&nbsp;<b id="cwNgnVal">—</b></span>
+        <span class="cw-wallet" id="cwUsd"><i class="fas fa-wallet"></i> USD Wallet&nbsp;<b id="cwUsdVal">—</b></span>
+      </div>
+      <div class="cw-curr">
+        <span class="cw-curr-lbl">Pay with</span>
+        <div class="seg" id="currSeg">
+          <span class="seg-opt on" data-curr="NGN" onclick="setCurrency('NGN')">₦ NGN</span>
+          <span class="seg-opt" data-curr="USD" onclick="setCurrency('USD')">$ USD</span>
+        </div>
       </div>
     </div>
 
@@ -380,6 +448,9 @@ input,select{font-family:inherit}
               <i class="fas fa-search si"></i>
               <input class="search-inp" id="cSearch" placeholder="Search 150+ countries…" autocomplete="off"/>
               <i class="fas fa-xmark search-clr" id="cClr"></i>
+            </div>
+            <div class="recent-row" id="recentRow" style="display:none">
+              <span class="recent-lbl">Recent</span>
             </div>
             <div class="country-grid" id="cGrid">
               <div class="skel skel-cc skeleton"></div><div class="skel skel-cc skeleton"></div>
@@ -438,6 +509,27 @@ input,select{font-family:inherit}
             <div class="ab-timer" id="abTimer">0:00 / 20:00</div>
           </div>
 
+          <!-- Order success -->
+          <div class="success-panel" id="successPanel">
+            <div class="sp-head"><i class="fas fa-check"></i><span>Order confirmed</span></div>
+            <div class="sp-grid">
+              <div class="sp-row"><div class="sp-k">Country</div><div class="sp-v" id="spCountry">—</div></div>
+              <div class="sp-row"><div class="sp-k">Service</div><div class="sp-v" id="spService">—</div></div>
+              <div class="sp-row full">
+                <div><div class="sp-k">Phone number</div><div class="sp-v" id="spPhone">—</div></div>
+                <button class="sp-copy" onclick="copyPhone()"><i class="fas fa-copy"></i> Copy</button>
+              </div>
+              <div class="sp-row"><div class="sp-k">Price paid</div><div class="sp-v" id="spPrice">—</div></div>
+              <div class="sp-row"><div class="sp-k">Reference</div><div class="sp-v" id="spRef">—</div></div>
+            </div>
+          </div>
+
+          <!-- Error banner -->
+          <div class="oc-error" id="ocError">
+            <i class="fas fa-triangle-exclamation"></i>
+            <span id="ocErrorMsg">Something went wrong.</span>
+          </div>
+
           <!-- Pricing hero -->
           <div class="oc-hero" id="ocHero">
             <div class="oc-top">
@@ -452,8 +544,8 @@ input,select{font-family:inherit}
               </div>
             </div>
             <div class="price-box">
-              <div class="pb-row"><span class="pb-lbl">Price (USD)</span><span class="pb-val" id="pbUSD">—</span></div>
-              <div class="pb-row"><span class="pb-lbl">Price (NGN)</span><span class="pb-val pb-hi" id="pbNGN">—</span></div>
+              <div class="pb-row"><span class="pb-lbl" id="pbPrimaryLbl">Price</span><span class="pb-val pb-hi" id="pbPrimary">—</span></div>
+              <div class="pb-row"><span class="pb-lbl">≈</span><span class="pb-val" id="pbSecondary">—</span></div>
             </div>
           </div>
 
@@ -484,12 +576,16 @@ input,select{font-family:inherit}
             </div>
           </div>
 
-          <!-- Recent rentals -->
+          <!-- Recent rentals (REAL DATA from API) -->
           <div class="mini-hist">
-            <h4>Recent Rentals</h4>
-            <div class="mh-row"><span class="mh-flag">🇺🇸</span><div class="mh-info"><div class="mh-name">WhatsApp · USA</div><div class="mh-meta">2h ago</div></div><span class="mh-bdg bdg-ok">Done</span></div>
-            <div class="mh-row"><span class="mh-flag">🇬🇧</span><div class="mh-info"><div class="mh-name">Telegram · UK</div><div class="mh-meta">1d ago</div></div><span class="mh-bdg bdg-ok">Done</span></div>
-            <div class="mh-row"><span class="mh-flag">🇮🇳</span><div class="mh-info"><div class="mh-name">Google · India</div><div class="mh-meta">3d ago</div></div><span class="mh-bdg bdg-pe">Pending</span></div>
+            <h4>Recent Rentals <span class="badge-count" id="orderCount">0</span></h4>
+            <div id="recentOrdersList">
+              <div class="state-empty" style="padding:16px 8px;">
+                <i class="fas fa-clock-rotate-left" style="font-size:1.2rem;"></i>
+                <p style="font-size:.7rem;">No rentals yet</p>
+                <span style="font-size:.65rem;">Your orders will appear here</span>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -499,7 +595,7 @@ input,select{font-family:inherit}
 </div>
 </div>
 
-<!-- ════ MOBILE NAV ════ -->
+<!-- ─── MOBILE NAV ─── -->
 <nav class="mnav">
   <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
   <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
@@ -508,12 +604,10 @@ input,select{font-family:inherit}
   <a href="profile.html" class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
 </nav>
 
-<!-- ════ TOASTS ════ -->
+<!-- ─── TOASTS ─── -->
 <div class="toasts" id="toastWrap"></div>
 
-<!-- ════════════════════════════════════════════════════════════ -->
-<!-- MAIN APPLICATION SCRIPT - OPTIMIZED with Code Splitting -->
-<!-- ════════════════════════════════════════════════════════════ -->
+<!-- ─── MAIN APPLICATION SCRIPT ─── -->
 <script>
 'use strict';
 
@@ -522,10 +616,13 @@ const CONFIG = {
     API: '/api/virtual',
     CACHE_TTL: 5 * 60 * 1000,
     MAX_RETRIES: 2,
-    RETRY_DELAY: 1000
+    RETRY_DELAY: 1000,
+    POLL_SCHEDULE: [2000, 3000, 5000, 8000, 12000, 20000, 30000], // progressive polling
+    RECENT_KEY: 'mx_recent_countries',
+    RECENT_MAX: 6
 };
 
-// ─── STATE (Smart State Management) ───
+// ─── STATE ───
 const State = {
     countries: [],
     services: [],
@@ -533,16 +630,21 @@ const State = {
     selSvc: null,
     rental: null,
     timerId: null,
-    pollId: null,
     timerSecs: 0,
-    isLoading: false
+    isLoading: false,
+    orders: [],
+    activeOrder: null,
+    currency: 'NGN',
+    wallet: { ngn: 0, usd: 0 },
+    svcAbort: null,
+    pollStep: 0,
+    pollTimeout: null
 };
 
-// ─── CACHE (Memoization) ───
+// ─── CACHE ───
 const Cache = {
     _store: new Map(),
     _timestamps: new Map(),
-    
     get(key) {
         const data = this._store.get(key);
         const ts = this._timestamps.get(key);
@@ -554,19 +656,17 @@ const Cache = {
         }
         return data;
     },
-    
     set(key, value) {
         this._store.set(key, value);
         this._timestamps.set(key, Date.now());
     },
-    
     clear() {
         this._store.clear();
         this._timestamps.clear();
     }
 };
 
-// ─── DEBOUNCE (Prevent excessive calls) ───
+// ─── HELPERS ───
 function debounce(fn, delay = 300) {
     let timer = null;
     return function(...args) {
@@ -575,48 +675,70 @@ function debounce(fn, delay = 300) {
     };
 }
 
-// ─── THROTTLE (Rate limit) ───
-function throttle(fn, limit = 300) {
-    let inThrottle = false;
-    return function(...args) {
-        if (!inThrottle) {
-            fn.apply(this, args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
-        }
-    };
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function getToken() {
+    try {
+        const raw = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
+        if (!raw) return '';
+        const data = JSON.parse(raw);
+        return data.token || '';
+    } catch { return ''; }
 }
 
-// ─── API WRAPPER (With retry logic) ───
+// ─── API WRAPPER ───
 async function apiCall(path, opts = {}) {
-    const token = window.getToken?.() || '';
+    const token = getToken();
     const headers = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
-    
+
+    const externalSignal = opts.externalSignal;
     let lastError = null;
     for (let attempt = 0; attempt <= CONFIG.MAX_RETRIES; attempt++) {
         try {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 15000);
-            
-            const response = await fetch(CONFIG.API + path, {
-                ...opts,
-                signal: controller.signal,
-                headers: { ...headers, ...(opts.headers || {}) }
-            });
-            clearTimeout(timeout);
-            
+            const onExternalAbort = () => controller.abort();
+            if (externalSignal) {
+                if (externalSignal.aborted) controller.abort();
+                else externalSignal.addEventListener('abort', onExternalAbort);
+            }
+
+            let response;
+            try {
+                response = await fetch(CONFIG.API + path, {
+                    ...opts,
+                    signal: controller.signal,
+                    headers: { ...headers, ...(opts.headers || {}) }
+                });
+            } finally {
+                clearTimeout(timeout);
+                if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+            }
+
             if (response.status === 401) {
-                window.redirectToLogin?.();
+                window.location.href = '/login.html';
                 return null;
             }
-            
+
             const data = await response.json().catch(() => ({ error: 'Parse error' }));
-            if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+            if (!response.ok) {
+                const err = new Error(data.error || `HTTP ${response.status}`);
+                err.code = data.code || null;
+                err.data = data.data || null;
+                throw err;
+            }
             return data;
         } catch (error) {
+            if (externalSignal?.aborted || error.name === 'AbortError') {
+                if (externalSignal?.aborted) {
+                    const abortErr = new Error('Request superseded');
+                    abortErr.aborted = true;
+                    throw abortErr;
+                }
+            }
             lastError = error;
             if (attempt < CONFIG.MAX_RETRIES) {
                 await delay(CONFIG.RETRY_DELAY * (attempt + 1));
@@ -626,67 +748,58 @@ async function apiCall(path, opts = {}) {
     throw lastError || new Error('Request failed');
 }
 
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+// ─── FRIENDLY ERROR MESSAGES ───
+const ERROR_MESSAGES = {
+    NO_INVENTORY: 'No numbers are currently available for this service. Please choose another service.',
+    SERVICE_NOT_FOUND: 'This service is no longer available. Please pick another.',
+    COUNTRY_BLOCKED: 'This country is not supported for virtual numbers.',
+    PROVIDER_UNAVAILABLE: 'Our SMS provider is temporarily unavailable. Please try again shortly.',
+    INSUFFICIENT_BALANCE: 'Insufficient balance for this purchase. Please fund your wallet.',
+    DUPLICATE_REQUEST: 'This order was already placed. Check your recent rentals.',
+    MANUAL_REVIEW_NEEDED: 'Your payment needs manual review. Support has been notified.',
+    REFUND_FAILED: 'The order was cancelled but the refund is still processing.',
+    PROVIDER_FAILURE_REFUNDED: 'No numbers were available — your payment was automatically refunded.',
+    INVALID_PRICE: 'Pricing for this service is temporarily unavailable.',
+    ORDER_ERROR: 'Could not complete this order. Please try again.'
+};
 
-// ─── TOAST SYSTEM ───
+function friendlyError(error) {
+    if (error?.code && ERROR_MESSAGES[error.code]) return ERROR_MESSAGES[error.code];
+    return error?.message || 'Something went wrong. Please try again.';
+}
+
+// ─── TOAST ───
 function toast(msg, type = 'info') {
     const container = document.getElementById('toastWrap');
     if (!container) return;
-    
+
     const icons = {
         ok: 'fa-check-circle',
         err: 'fa-times-circle',
         warn: 'fa-triangle-exclamation',
         info: 'fa-circle-info'
     };
-    
+
     const el = document.createElement('div');
     el.className = `toast ${type}`;
     el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
     container.appendChild(el);
-    
+
     setTimeout(() => {
         el.style.cssText = 'opacity:0;transition:.3s;transform:translateX(30px)';
         setTimeout(() => el.remove(), 300);
     }, 3800);
 }
 
-// ─── FLAG MAP (Memoized) ───
+// ─── FLAG MAP ───
 const FLAG_MAP = {
-    'afghanistan':'🇦🇫','albania':'🇦🇱','algeria':'🇩🇿','andorra':'🇦🇩',
-    'angola':'🇦🇴','argentina':'🇦🇷','armenia':'🇦🇲','australia':'🇦🇺',
-    'austria':'🇦🇹','azerbaijan':'🇦🇿','bahrain':'🇧🇭','bangladesh':'🇧🇩',
-    'belarus':'🇧🇾','belgium':'🇧🇪','belize':'🇧🇿','bolivia':'🇧🇴',
-    'bosnia':'🇧🇦','botswana':'🇧🇼','brazil':'🇧🇷','brunei':'🇧🇳',
-    'bulgaria':'🇧🇬','cambodia':'🇰🇭','cameroon':'🇨🇲','canada':'🇨🇦',
-    'chile':'🇨🇱','china':'🇨🇳','colombia':'🇨🇴','costa rica':'🇨🇷',
-    'croatia':'🇭🇷','cuba':'🇨🇺','cyprus':'🇨🇾','czech republic':'🇨🇿',
-    'denmark':'🇩🇰','dominican republic':'🇩🇴','ecuador':'🇪🇨',
-    'egypt':'🇪🇬','estonia':'🇪🇪','ethiopia':'🇪🇹','finland':'🇫🇮',
-    'france':'🇫🇷','georgia':'🇬🇪','germany':'🇩🇪','ghana':'🇬🇭',
-    'greece':'🇬🇷','guatemala':'🇬🇹','honduras':'🇭🇳','hong kong':'🇭🇰',
-    'hungary':'🇭🇺','iceland':'🇮🇸','india':'🇮🇳','indonesia':'🇮🇩',
-    'iran':'🇮🇷','iraq':'🇮🇶','ireland':'🇮🇪','israel':'🇮🇱',
-    'italy':'🇮🇹','jamaica':'🇯🇲','japan':'🇯🇵','jordan':'🇯🇴',
-    'kazakhstan':'🇰🇿','kenya':'🇰🇪','kuwait':'🇰🇼','kyrgyzstan':'🇰🇬',
-    'laos':'🇱🇦','latvia':'🇱🇻','lebanon':'🇱🇧','libya':'🇱🇾',
-    'lithuania':'🇱🇹','luxembourg':'🇱🇺','malaysia':'🇲🇾','mali':'🇲🇱',
-    'malta':'🇲🇹','mauritius':'🇲🇺','mexico':'🇲🇽','moldova':'🇲🇩',
-    'mongolia':'🇲🇳','morocco':'🇲🇦','mozambique':'🇲🇿','myanmar':'🇲🇲',
-    'nepal':'🇳🇵','netherlands':'🇳🇱','new zealand':'🇳🇿','nicaragua':'🇳🇮',
-    'nigeria':'🇳🇬','north korea':'🇰🇵','norway':'🇳🇴','oman':'🇴🇲',
-    'pakistan':'🇵🇰','panama':'🇵🇦','paraguay':'🇵🇾','peru':'🇵🇪',
-    'philippines':'🇵🇭','poland':'🇵🇱','portugal':'🇵🇹','qatar':'🇶🇦',
-    'romania':'🇷🇴','russia':'🇷🇺','rwanda':'🇷🇼','saudi arabia':'🇸🇦',
-    'senegal':'🇸🇳','serbia':'🇷🇸','singapore':'🇸🇬','slovakia':'🇸🇰',
-    'slovenia':'🇸🇮','south africa':'🇿🇦','south korea':'🇰🇷',
-    'spain':'🇪🇸','sri lanka':'🇱🇰','sweden':'🇸🇪','switzerland':'🇨🇭',
-    'taiwan':'🇹🇼','tajikistan':'🇹🇯','tanzania':'🇹🇿','thailand':'🇹🇭',
-    'tunisia':'🇹🇳','turkey':'🇹🇷','turkmenistan':'🇹🇲','uganda':'🇺🇬',
-    'ukraine':'🇺🇦','united arab emirates':'🇦🇪','uae':'🇦🇪',
-    'united kingdom':'🇬🇧','uk':'🇬🇧','united states':'🇺🇸','usa':'🇺🇸',
-    'uruguay':'🇺🇾','uzbekistan':'🇺🇿','venezuela':'🇻🇪','vietnam':'🇻🇳',
-    'yemen':'🇾🇪','zambia':'🇿🇲','zimbabwe':'🇿🇼'
+    'nigeria':'🇳🇬','united kingdom':'🇬🇧','germany':'🇩🇪','france':'🇫🇷',
+    'spain':'🇪🇸','italy':'🇮🇹','netherlands':'🇳🇱','poland':'🇵🇱',
+    'sweden':'🇸🇪','ireland':'🇮🇪','austria':'🇦🇹','romania':'🇷🇴',
+    'croatia':'🇭🇷','serbia':'🇷🇸','canada':'🇨🇦','brazil':'🇧🇷',
+    'india':'🇮🇳','indonesia':'🇮🇩','philippines':'🇵🇭','vietnam':'🇻🇳',
+    'egypt':'🇪🇬','south africa':'🇿🇦','kenya':'🇰🇪','china':'🇨🇳',
+    'thailand':'🇹🇭','malaysia':'🇲🇾','colombia':'🇨🇴','argentina':'🇦🇷'
 };
 
 function getFlag(name) {
@@ -710,18 +823,6 @@ const SVC_ICONS = {
     tk: { icon: 'fab fa-tiktok', bg: '#111' },
     dc: { icon: 'fab fa-discord', bg: '#5865f2' },
     yt: { icon: 'fab fa-youtube', bg: '#ff0000' },
-    ub: { icon: 'fab fa-uber', bg: '#000' },
-    bn: { icon: 'fas fa-coins', bg: '#f3a900' },
-    am: { icon: 'fab fa-amazon', bg: '#ff9900' },
-    ap: { icon: 'fab fa-apple', bg: '#555' },
-    li: { icon: 'fab fa-linkedin', bg: '#0a66c2' },
-    sp: { icon: 'fab fa-spotify', bg: '#1db954' },
-    sk: { icon: 'fab fa-skype', bg: '#00aff0' },
-    pp: { icon: 'fab fa-paypal', bg: '#003087' },
-    ms: { icon: 'fab fa-microsoft', bg: '#00a4ef' },
-    sn: { icon: 'fab fa-snapchat', bg: '#fffc00' },
-    pi: { icon: 'fab fa-pinterest', bg: '#e60023' },
-    rd: { icon: 'fab fa-reddit', bg: '#ff4500' },
     default: { icon: 'fas fa-mobile-screen-button', bg: '#6b7280' }
 };
 
@@ -739,6 +840,146 @@ const fTime = s => {
     const sec = String(s % 60).padStart(2, '0');
     return `${m}:${sec}`;
 };
+
+function getStatusBadge(status) {
+    const map = {
+        'completed': 'bdg-ok',
+        'sms_received': 'bdg-ok',
+        'active': 'bdg-active',
+        'processing': 'bdg-pe',
+        'pending': 'bdg-pe',
+        'cancelled': 'bdg-err',
+        'expired': 'bdg-err',
+        'failed': 'bdg-err',
+        'refunded': 'bdg-refunded'
+    };
+    return map[status] || 'bdg-pe';
+}
+
+function getStatusLabel(status) {
+    const map = {
+        'completed': 'Done',
+        'sms_received': 'Done',
+        'active': 'Active',
+        'processing': 'Processing',
+        'pending': 'Pending',
+        'cancelled': 'Cancelled',
+        'expired': 'Expired',
+        'failed': 'Failed',
+        'refunded': 'Refunded'
+    };
+    return map[status] || status;
+}
+
+// ─── ORDER CARD ERROR / SUCCESS HELPERS ───
+function showOrderError(msg) {
+    hideSuccessPanel();
+    const box = document.getElementById('ocError');
+    const txt = document.getElementById('ocErrorMsg');
+    if (txt) txt.textContent = msg;
+    if (box) box.classList.add('on');
+}
+function hideOrderError() {
+    document.getElementById('ocError')?.classList.remove('on');
+}
+function showSuccessPanel(order) {
+    hideOrderError();
+    document.getElementById('spCountry').textContent = State.selCountry?.eng || '—';
+    document.getElementById('spService').textContent = order.service || State.selSvc?.name || '—';
+    document.getElementById('spPhone').textContent = order.phoneNumber || '—';
+    const curr = order.chargeCurrency || State.currency;
+    const amt = order.chargeAmount != null ? order.chargeAmount : (curr === 'USD' ? order.priceUsd : order.priceNgn);
+    document.getElementById('spPrice').textContent = curr === 'USD' ? fUSD(amt) : fNGN(amt);
+    document.getElementById('spRef').textContent = order.transaction?.reference || order.orderId || '—';
+    document.getElementById('successPanel').classList.add('on');
+}
+function hideSuccessPanel() {
+    document.getElementById('successPanel')?.classList.remove('on');
+}
+
+// ─── CURRENCY ───
+function setCurrency(curr) {
+    State.currency = curr;
+    document.querySelectorAll('#currSeg .seg-opt').forEach(el => {
+        el.classList.toggle('on', el.dataset.curr === curr);
+    });
+    document.getElementById('cwNgn')?.classList.toggle('hi', curr === 'NGN');
+    document.getElementById('cwUsd')?.classList.toggle('hi', curr === 'USD');
+
+    // Re-render whatever is currently visible with the new currency
+    if (State.services?.length) {
+        const q = document.getElementById('sSearch')?.value.toLowerCase().trim() || '';
+        const filtered = q ? State.services.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)) : State.services;
+        renderServices(filtered);
+    }
+    if (State.selSvc) {
+        updatePriceBox(State.selSvc.sellingUSD, State.selSvc.sellingNGN);
+    }
+}
+
+function updatePriceBox(usd, ngn) {
+    const primaryLbl = document.getElementById('pbPrimaryLbl');
+    const primary = document.getElementById('pbPrimary');
+    const secondary = document.getElementById('pbSecondary');
+    if (!primary || !secondary) return;
+    if (State.currency === 'USD') {
+        primaryLbl.textContent = 'Price (USD)';
+        primary.textContent = fUSD(usd);
+        secondary.textContent = fNGN(ngn) + ' NGN';
+    } else {
+        primaryLbl.textContent = 'Price (NGN)';
+        primary.textContent = fNGN(ngn);
+        secondary.textContent = fUSD(usd) + ' USD';
+    }
+}
+
+// ─── WALLET ───
+async function loadWallet() {
+    try {
+        const data = await apiCall('/me');
+        if (data?.success && data.user) {
+            State.wallet.ngn = data.user.wallet_ngn || 0;
+            State.wallet.usd = data.user.wallet_usd || 0;
+            const ngnEl = document.getElementById('cwNgnVal');
+            const usdEl = document.getElementById('cwUsdVal');
+            if (ngnEl) ngnEl.textContent = fNGN(State.wallet.ngn);
+            if (usdEl) usdEl.textContent = fUSD(State.wallet.usd);
+        }
+    } catch (error) {
+        console.warn('[wallet]', error.message);
+    }
+}
+
+// ─── RECENTLY USED COUNTRIES (localStorage only, frontend-side) ───
+function getRecentCountries() {
+    try {
+        return JSON.parse(localStorage.getItem(CONFIG.RECENT_KEY) || '[]');
+    } catch { return []; }
+}
+function saveRecentCountry(c) {
+    try {
+        let recent = getRecentCountries().filter(r => r.id !== c.id);
+        recent.unshift({ id: c.id, eng: c.eng, flag: c.flag });
+        recent = recent.slice(0, CONFIG.RECENT_MAX);
+        localStorage.setItem(CONFIG.RECENT_KEY, JSON.stringify(recent));
+        renderRecentCountries();
+    } catch { /* ignore quota errors */ }
+}
+function renderRecentCountries() {
+    const row = document.getElementById('recentRow');
+    if (!row) return;
+    const recent = getRecentCountries();
+    if (!recent.length) {
+        row.style.display = 'none';
+        return;
+    }
+    row.style.display = 'flex';
+    row.innerHTML = '<span class="recent-lbl">Recent</span>' + recent.map(c => `
+        <span class="recent-chip" onclick="selectCountry(${c.id}, '${c.eng.replace(/'/g, "\\'")}', '${c.flag}')">
+            <span>${c.flag}</span><span>${c.eng}</span>
+        </span>
+    `).join('');
+}
 
 // ─── STEP BAR ───
 function setStep(n) {
@@ -758,24 +999,24 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (window.doLogout) window.doLogout();
+            localStorage.removeItem('mx_sess');
+            sessionStorage.removeItem('mx_sess');
+            window.location.href = '/login.html';
         });
     }
 });
 
-// ═══════════════════════════════════════════
-// 1. LOAD COUNTRIES (With caching)
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// 1. LOAD COUNTRIES
+// ═══════════════════════════════════════════════════════════════════════
 
 async function loadCountries() {
     const grid = document.getElementById('cGrid');
     if (!grid) return;
-    
-    // Show skeleton
+
     grid.innerHTML = Array(8).fill('<div class="skel skel-cc skeleton"></div>').join('');
-    
+
     try {
-        // Check cache
         const cached = Cache.get('countries');
         if (cached) {
             State.countries = cached;
@@ -783,7 +1024,7 @@ async function loadCountries() {
             document.getElementById('cntBadge').textContent = cached.length + ' countries';
             return;
         }
-        
+
         const data = await apiCall('/countries');
         const countries = Object.values(data)
             .map(c => ({
@@ -792,7 +1033,7 @@ async function loadCountries() {
                 flag: c.flag || getFlag(c.eng)
             }))
             .sort((a, b) => a.eng.localeCompare(b.eng));
-        
+
         State.countries = countries;
         Cache.set('countries', countries);
         document.getElementById('cntBadge').textContent = countries.length + ' countries';
@@ -805,18 +1046,18 @@ async function loadCountries() {
             <div class="state-err" style="grid-column:1/-1">
                 <i class="fas fa-exclamation-triangle"></i>
                 <p>Could not load countries</p>
-                <span>${error.message}</span>
+                <span>${friendlyError(error)}</span>
                 <button class="btn-retry" onclick="loadCountries()"><i class="fas fa-rotate-right"></i> Retry</button>
             </div>
         `;
-        toast('Failed to load countries: ' + error.message, 'err');
+        toast('Failed to load countries: ' + friendlyError(error), 'err');
     }
 }
 
 function renderCountries(list) {
     const grid = document.getElementById('cGrid');
     if (!grid) return;
-    
+
     if (!list || !list.length) {
         grid.innerHTML = `
             <div class="state-empty" style="grid-column:1/-1">
@@ -827,7 +1068,7 @@ function renderCountries(list) {
         `;
         return;
     }
-    
+
     grid.innerHTML = list.map(c => `
         <div class="c-card${State.selCountry?.id === c.id ? ' sel' : ''}"
              onclick="selectCountry(${c.id}, '${c.eng.replace(/'/g, "\\'")}', '${c.flag}')">
@@ -838,41 +1079,43 @@ function renderCountries(list) {
     `).join('');
 }
 
-// ─── FILTER COUNTRIES (Debounced) ───
 const filterCountries = debounce(() => {
     const q = document.getElementById('cSearch').value.toLowerCase().trim();
     const clr = document.getElementById('cClr');
     if (clr) clr.classList.toggle('show', !!q);
-    
-    const filtered = q 
-        ? State.countries.filter(c => c.eng.toLowerCase().includes(q))
-        : State.countries;
+
+    const filtered = q ? State.countries.filter(c => c.eng.toLowerCase().includes(q)) : State.countries;
     renderCountries(filtered);
 }, 300);
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 // 2. SELECT COUNTRY → LOAD SERVICES
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 
 async function selectCountry(id, name, flag) {
     State.selCountry = { id, eng: name, flag };
     State.selSvc = null;
-    
-    // Update UI
+    saveRecentCountry({ id, eng: name, flag });
+
+    // Cancel any in-flight services request for a previously selected country
+    if (State.svcAbort) {
+        State.svcAbort.abort();
+    }
+    const abortCtrl = new AbortController();
+    State.svcAbort = abortCtrl;
+
     const q = document.getElementById('cSearch').value.toLowerCase().trim();
-    const filtered = q 
-        ? State.countries.filter(c => c.eng.toLowerCase().includes(q))
-        : State.countries;
+    const filtered = q ? State.countries.filter(c => c.eng.toLowerCase().includes(q)) : State.countries;
     renderCountries(filtered);
-    
+
     setStep(2);
-    
+
     const sp = document.getElementById('pServices');
     if (sp) {
         sp.style.display = 'block';
         document.getElementById('svcSub').textContent = `In-stock services for ${name} ${flag}`;
     }
-    
+
     document.getElementById('sSearch').value = '';
     const svcList = document.getElementById('svcList');
     svcList.innerHTML = `
@@ -880,15 +1123,14 @@ async function selectCountry(id, name, flag) {
         <div class="skel skel-svc skeleton"></div>
         <div class="skel skel-svc skeleton"></div>
     `;
-    
+
     const badge = document.getElementById('svcBadge');
     badge.textContent = 'Loading…';
     badge.className = 'panel-badge pb-live';
-    
+
     resetOrderBody();
-    
+
     try {
-        // Check cache first
         const cacheKey = `services_${id}`;
         const cached = Cache.get(cacheKey);
         if (cached) {
@@ -897,18 +1139,21 @@ async function selectCountry(id, name, flag) {
             renderServices(cached);
             return;
         }
-        
-        const data = await apiCall(`/services-with-prices?country=${id}`);
+
+        const data = await apiCall(`/services-with-prices?country=${id}`, { externalSignal: abortCtrl.signal });
+        if (State.svcAbort !== abortCtrl) return; // a newer request has superseded this one
+
         const services = data.services || [];
         State.services = services;
         Cache.set(cacheKey, services);
-        
+
         badge.textContent = services.length + ' available';
         badge.className = services.length > 0 ? 'panel-badge pb-live' : 'panel-badge pb-warn';
         renderServices(services);
-        
+
         if (sp) sp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (error) {
+        if (error.aborted) return; // superseded by a newer country selection — ignore silently
         console.error('[services]', error);
         badge.textContent = 'Error';
         badge.className = 'panel-badge pb-err';
@@ -916,17 +1161,17 @@ async function selectCountry(id, name, flag) {
             <div class="state-err">
                 <i class="fas fa-exclamation-circle"></i>
                 <p>Could not load services</p>
-                <span>${error.message}</span>
+                <span>${friendlyError(error)}</span>
             </div>
         `;
-        toast('Failed to load services: ' + error.message, 'err');
+        toast('Failed to load services: ' + friendlyError(error), 'err');
     }
 }
 
 function renderServices(list) {
     const el = document.getElementById('svcList');
     if (!el) return;
-    
+
     if (!list || !list.length) {
         el.innerHTML = `
             <div class="state-empty">
@@ -937,14 +1182,14 @@ function renderServices(list) {
         `;
         return;
     }
-    
+
     el.innerHTML = list.map(s => {
         const icon = getSvcIcon(s.code);
         const sel = State.selSvc?.code === s.code;
         const count = s.count || 0;
         const cls = count < 10 ? 'av-lo' : 'av-hi';
         const lbl = count > 0 ? `${count} available` : '';
-        
+
         return `
             <div class="svc-item${sel ? ' sel' : ''}"
                  onclick="selectService('${s.code.replace(/'/g, "\\'")}', '${s.name.replace(/'/g, "\\'")}', ${count}, ${s.sellingUSD || 0}, ${s.sellingNGN || 0})">
@@ -956,8 +1201,9 @@ function renderServices(list) {
                     <div class="svc-code">${s.code}</div>
                 </div>
                 <div class="svc-right">
-                    <div class="svc-usd">${fUSD(s.sellingUSD)}</div>
-                    <div class="svc-ngn">${fNGN(s.sellingNGN)}</div>
+                    ${State.currency === 'USD'
+                        ? `<div class="svc-usd">${fUSD(s.sellingUSD)}</div><div class="svc-ngn">${fNGN(s.sellingNGN)}</div>`
+                        : `<div class="svc-usd">${fNGN(s.sellingNGN)}</div><div class="svc-ngn">${fUSD(s.sellingUSD)}</div>`}
                     ${lbl ? `<div class="svc-avail ${cls}">${lbl}</div>` : ''}
                 </div>
             </div>
@@ -965,54 +1211,44 @@ function renderServices(list) {
     }).join('');
 }
 
-// ─── FILTER SERVICES (Debounced) ───
 const filterServices = debounce(() => {
     const q = document.getElementById('sSearch').value.toLowerCase().trim();
     const clr = document.getElementById('sClr');
     if (clr) clr.classList.toggle('show', !!q);
-    
-    const filtered = q 
-        ? State.services.filter(s => 
-            s.name.toLowerCase().includes(q) || 
-            s.code.toLowerCase().includes(q)
-        )
-        : State.services;
+
+    const filtered = q ? State.services.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)) : State.services;
     renderServices(filtered);
 }, 300);
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 // 3. SELECT SERVICE
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 
 function selectService(code, name, count, usd, ngn) {
     State.selSvc = { code, name, count, sellingUSD: usd, sellingNGN: ngn };
-    
-    // Re-render services
+
     const q = document.getElementById('sSearch').value.toLowerCase().trim();
-    const filtered = q 
-        ? State.services.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
-        : State.services;
+    const filtered = q ? State.services.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)) : State.services;
     renderServices(filtered);
-    
+
     setStep(3);
-    
-    // Update order card
+
     const hero = document.getElementById('ocHero');
     if (hero) hero.classList.add('on');
-    
+
     document.getElementById('ocFlag').textContent = State.selCountry?.flag || '🌐';
     document.getElementById('ocCountry').textContent = State.selCountry?.eng || '—';
     document.getElementById('ocSvc').textContent = name;
-    document.getElementById('pbUSD').textContent = fUSD(usd);
-    document.getElementById('pbNGN').textContent = fNGN(ngn);
-    
-    // Availability bar
+    updatePriceBox(usd, ngn);
+    hideOrderError();
+    hideSuccessPanel();
+
     const pct = Math.min(100, Math.round((count / 500) * 100));
     const fill = document.getElementById('availFill');
     fill.style.width = pct + '%';
     fill.className = 'avail-fill' + (count < 10 ? ' cr' : count < 50 ? ' lo' : '');
     document.getElementById('availLbl').textContent = count > 0 ? `${count} available` : 'Limited';
-    
+
     document.getElementById('ocEmpty').style.display = 'none';
     document.getElementById('ocReady').style.display = 'block';
     document.getElementById('rentBtn').disabled = false;
@@ -1024,6 +1260,8 @@ function resetOrderBody() {
     document.getElementById('ocEmpty').style.display = 'block';
     document.getElementById('ocReady').style.display = 'none';
     document.getElementById('actBanner').classList.remove('on');
+    hideOrderError();
+    hideSuccessPanel();
 }
 
 function resetSelection() {
@@ -1032,38 +1270,52 @@ function resetSelection() {
     document.getElementById('pCountries').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 // 4. RENT NUMBER
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
 
 async function rentNumber() {
     if (!State.selCountry || !State.selSvc) {
-        toast('Select a service first', 'err');
+        toast('Select a country and service first', 'err');
         return;
     }
-    
+
     const btn = document.getElementById('rentBtn');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Renting…';
-    
+    hideOrderError();
+
     try {
         const data = await apiCall('/order', {
             method: 'POST',
             body: JSON.stringify({
                 country: State.selCountry.id,
-                service: State.selSvc.code
+                service: State.selSvc.code,
+                currency: State.currency
             })
         });
-        
+
+        if (data.status === 'processing') {
+            toast('Order is being processed...', 'info');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sim-card"></i> Rent Number';
+            loadOrders();
+            return;
+        }
+
         State.rental = {
-            id: String(data.activationId || data.id || ''),
-            phone: data.phoneNumber || data.phone || '—'
+            id: String(data.orderId || data.activationId || ''),
+            phone: data.phoneNumber || '—'
         };
-        
+
+        showSuccessPanel(data);
         startRental();
         toast('Number rented! Waiting for SMS…', 'ok');
+        loadWallet();
     } catch (error) {
-        toast('Could not rent: ' + error.message, 'err');
+        showOrderError(friendlyError(error));
+        toast(friendlyError(error), 'err');
+    } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sim-card"></i> Rent Number';
     }
@@ -1072,36 +1324,48 @@ async function rentNumber() {
 function startRental() {
     const banner = document.getElementById('actBanner');
     if (banner) banner.classList.add('on');
-    
+
     document.getElementById('abPhone').textContent = State.rental.phone;
-    
+
     const sms = document.getElementById('abSms');
     sms.innerHTML = `
         <i class="fas fa-spinner fa-spin" style="opacity:.6;flex-shrink:0"></i>
         <span>Waiting for SMS code…</span>
     `;
-    
+
     document.getElementById('cxlBtn').disabled = true;
-    
+
     State.timerSecs = 0;
+    State.pollStep = 0;
     clearInterval(State.timerId);
-    clearInterval(State.pollId);
+    clearTimeout(State.pollTimeout);
     State.timerId = setInterval(tick, 1000);
-    State.pollId = setInterval(poll, 5000);
-    
+    scheduleNextPoll();
+
     document.getElementById('orderCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Progressive polling: 2s, 3s, 5s, 8s, 12s, 20s, 30s — then holds at 30s
+function scheduleNextPoll() {
+    const schedule = CONFIG.POLL_SCHEDULE;
+    const wait = schedule[Math.min(State.pollStep, schedule.length - 1)];
+    State.pollStep++;
+    State.pollTimeout = setTimeout(async () => {
+        await poll();
+        // poll() clears State.rental once a terminal state is reached — only reschedule while still active
+        if (State.rental) scheduleNextPoll();
+    }, wait);
 }
 
 function tick() {
     State.timerSecs++;
     const elapsed = State.timerSecs;
-    const remaining = 1200 - State.timerSecs;
-    
+
     document.getElementById('abTimer').textContent = `${fTime(elapsed)} / 20:00`;
-    
+
     const cxlBtn = document.getElementById('cxlBtn');
     if (cxlBtn && elapsed >= 300) cxlBtn.disabled = false;
-    
+
     if (elapsed >= 1200) {
         stopAll();
         const sms = document.getElementById('abSms');
@@ -1115,13 +1379,13 @@ function tick() {
 
 async function poll() {
     if (!State.rental?.id) return;
-    
+
     try {
         const data = await apiCall(`/status?id=${State.rental.id}`);
-        if (data.status === 'STATUS_OK' || data.code) {
-            const code = data.code || data.smsCode || '';
+        if (data.status === 'STATUS_OK' && data.code) {
+            const code = data.code;
             stopAll();
-            
+
             const sms = document.getElementById('abSms');
             sms.innerHTML = `
                 <i class="fas fa-check-circle" style="color:#fff;flex-shrink:0"></i>
@@ -1129,14 +1393,21 @@ async function poll() {
                 <span class="ab-code">${code}</span>
                 <button class="ab-code-cp" onclick="copyCode('${code}')"><i class="fas fa-copy"></i></button>
             `;
-            
+
             toast('SMS code: ' + code, 'ok');
-            
+
             // Auto-finish after 6 seconds
             setTimeout(() => {
-                apiCall('/finish', { method: 'POST', body: JSON.stringify({ id: State.rental.id }) })
-                    .catch(() => {});
+                loadOrders();
             }, 6000);
+
+            // Update order status
+            loadOrders();
+        } else if (data.status === 'COMPLETED' || data.status === 'CANCELLED' || data.status === 'EXPIRED') {
+            stopAll();
+            document.getElementById('actBanner').classList.remove('on');
+            State.rental = null;
+            loadOrders();
         }
     } catch (error) {
         // Silent fail - keep polling
@@ -1145,9 +1416,10 @@ async function poll() {
 
 function stopAll() {
     clearInterval(State.timerId);
-    clearInterval(State.pollId);
+    clearTimeout(State.pollTimeout);
     State.timerId = null;
-    State.pollId = null;
+    State.pollTimeout = null;
+    State.pollStep = 0;
 }
 
 function copyPhone() {
@@ -1172,7 +1444,7 @@ async function doRetry() {
         await apiCall('/retry', { method: 'POST', body: JSON.stringify({ id: State.rental.id }) });
         toast('Resend requested', 'info');
     } catch (error) {
-        toast('Resend failed: ' + error.message, 'err');
+        toast('Resend failed: ' + friendlyError(error), 'err');
     }
 }
 
@@ -1192,30 +1464,107 @@ async function doCancel() {
         document.getElementById('actBanner').classList.remove('on');
         State.rental = null;
         toast('Order cancelled — refund issued', 'ok');
+        loadOrders();
+        loadWallet();
     } catch (error) {
-        toast('Cancel failed: ' + error.message, 'err');
+        toast('Cancel failed: ' + friendlyError(error), 'err');
     }
 }
 
-// ═══════════════════════════════════════════
-// SIDEBAR / USER
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// 5. LOAD USER ORDERS (REAL DATA)
+// ═══════════════════════════════════════════════════════════════════════
+
+async function loadOrders() {
+    try {
+        const data = await apiCall('/orders?limit=20');
+        if (data.success && data.orders) {
+            State.orders = data.orders;
+            renderOrders(data.orders);
+            document.getElementById('orderCount').textContent = data.orders.length;
+
+            // Check if there's an active order
+            const activeOrder = data.orders.find(o => 
+                o.status === 'active' || o.status === 'processing' || o.status === 'sms_received'
+            );
+            if (activeOrder && !State.rental) {
+                State.rental = {
+                    id: activeOrder.id,
+                    phone: activeOrder.phone || '—'
+                };
+                startRental();
+            }
+        }
+    } catch (error) {
+        console.warn('[ORDERS] Failed to load:', error.message);
+    }
+}
+
+function renderOrders(orders) {
+    const container = document.getElementById('recentOrdersList');
+    if (!container) return;
+
+    if (!orders || orders.length === 0) {
+        container.innerHTML = `
+            <div class="state-empty" style="padding:16px 8px;">
+                <i class="fas fa-clock-rotate-left" style="font-size:1.2rem;"></i>
+                <p style="font-size:.7rem;">No rentals yet</p>
+                <span style="font-size:.65rem;">Your orders will appear here</span>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = orders.slice(0, 10).map(o => {
+        const flag = getFlag(o.country || '');
+        const service = o.service || o.service_code || 'Unknown';
+        const statusBadge = getStatusBadge(o.status);
+        const statusLabel = getStatusLabel(o.status);
+        const price = o.price_ngn ? `₦${Number(o.price_ngn).toFixed(2)}` : '';
+
+        return `
+            <div class="mh-row">
+                <span class="mh-flag">${flag}</span>
+                <div class="mh-info">
+                    <div class="mh-name">${service} · ${o.country || 'Unknown'}</div>
+                    <div class="mh-meta">${o.phone || '—'} · ${timeAgo(o.created_at)}</div>
+                </div>
+                ${price ? `<span class="mh-price">${price}</span>` : ''}
+                <span class="mh-bdg ${statusBadge}">${statusLabel}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function timeAgo(date) {
+    if (!date) return 'Just now';
+    const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+    return Math.floor(diff / 604800) + 'w ago';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 6. SIDEBAR / USER
+// ═══════════════════════════════════════════════════════════════════════
 
 function initSidebar() {
     const sb = document.getElementById('sb');
     const ov = document.getElementById('ov');
     const hbg = document.getElementById('hbg');
-    
+
     hbg?.addEventListener('click', () => {
         sb?.classList.toggle('open');
         ov?.classList.toggle('on');
     });
-    
+
     ov?.addEventListener('click', () => {
         sb?.classList.remove('open');
         ov?.classList.remove('on');
     });
-    
+
     window.addEventListener('resize', () => {
         if (window.innerWidth >= 1025) {
             sb?.classList.remove('open');
@@ -1226,33 +1575,37 @@ function initSidebar() {
 
 function loadUser() {
     try {
-        const session = window.getSession?.();
-        const user = session?.user;
+        const session = JSON.parse(localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess') || '{}');
+        const user = session.user || null;
+
         if (!user) return;
-        
+
         const name = user.username || user.full_name || user.email?.split('@')[0] || 'User';
-        document.getElementById('sbName').textContent = name;
-        document.getElementById('sbEmail').textContent = user.email || '';
-        
-        const init = name.charAt(0).toUpperCase();
-        ['sbAv', 'tbAv'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = init;
-        });
-    } catch (e) {
-        // Ignore
+        const email = user.email || '';
+        const initial = name.charAt(0).toUpperCase();
+
+        const sbName = document.getElementById('sbName');
+        const sbEmail = document.getElementById('sbEmail');
+        const sbAv = document.getElementById('sbAv');
+        const tbAv = document.getElementById('tbAv');
+
+        if (sbName) sbName.textContent = name;
+        if (sbEmail) sbEmail.textContent = email;
+        if (sbAv) sbAv.textContent = initial;
+        if (tbAv) tbAv.textContent = initial;
+    } catch (error) {
+        console.warn('[USER] Failed to load:', error);
     }
 }
 
-// ═══════════════════════════════════════════
-// DOM EVENT LISTENERS
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// 7. DOM EVENT LISTENERS
+// ═══════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Country search
     const cSearch = document.getElementById('cSearch');
     cSearch?.addEventListener('input', filterCountries);
-    
+
     document.getElementById('cClr')?.addEventListener('click', () => {
         const search = document.getElementById('cSearch');
         if (search) {
@@ -1261,10 +1614,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCountries(State.countries);
         }
     });
-    
-    // Service search
+
     document.getElementById('sSearch')?.addEventListener('input', filterServices);
-    
+
     document.getElementById('sClr')?.addEventListener('click', () => {
         const search = document.getElementById('sSearch');
         if (search) {
@@ -1275,9 +1627,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ═══════════════════════════════════════════
-// EXPOSE TO GLOBAL (For inline onclick)
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// 8. EXPOSE TO GLOBAL
+// ═══════════════════════════════════════════════════════════════════════
 
 window.selectCountry = selectCountry;
 window.selectService = selectService;
@@ -1288,15 +1640,19 @@ window.doRetry = doRetry;
 window.doCancel = doCancel;
 window.copyPhone = copyPhone;
 window.copyCode = copyCode;
+window.loadOrders = loadOrders;
+window.setCurrency = setCurrency;
 
-// ═══════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// 9. INIT
+// ═══════════════════════════════════════════════════════════════════════
 
-(function init() {
+(async function init() {
     initSidebar();
     loadUser();
-    loadCountries();
+    renderRecentCountries();
+    await Promise.all([loadCountries(), loadWallet()]);
+    await loadOrders();
 })();
 </script>
 </body>

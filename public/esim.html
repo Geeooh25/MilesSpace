@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buy eSIM · MilesSpace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="/js/session.js"></script>
+<script src="/js/presence.js" defer></script>
+
+<style>
+:root{
+  --fd:'Space Grotesk',sans-serif;
+  --fb:'Inter',sans-serif;
+  --bg:#F5F6FB; --srf:#FFFFFF; --srf2:#FAFBFD; --bdr:#E4E7F1;
+  --t1:#121629; --t2:#565D78; --t3:#9298AC;
+  --p:#32407A; --pm:#28335f; --pl:#EBEEFC;
+  --acc:#F5A623; --acd:#d98c12; --accl:#FFF6E6;
+  --succ:#1C8F63; --sul:#E5F6EE;
+  --err:#D34848; --erl:#FBEAEA;
+  --r:12px; --rl:16px; --tr:.2s cubic-bezier(.4,0,.2,1); --sw:250px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--t1);font-family:var(--fb);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+input,select{font-family:inherit;}
+::selection{background:var(--pl);}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--p);outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important;}}
+
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--tr);overflow-y:auto;scrollbar-width:none;}
+.sidebar::-webkit-scrollbar{display:none;}
+@media(min-width:1025px){.sidebar{transform:translateX(0) !important;}.tb-hbg{display:none !important;}}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%);}.sidebar.open{transform:translateX(0);}.main{margin-left:0 !important;}}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0;}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd);}
+.sb-lic{width:30px;height:30px;background:var(--acc);border-radius:8px;display:grid;place-items:center;font-size:.8rem;color:#fff;flex-shrink:0;overflow:hidden;box-shadow:0 4px 10px rgba(245,166,35,.35);}
+.sb-lic img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);}
+.sb-nav{padding:0 8px;}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:var(--tr);margin-bottom:2px;}
+.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0;}
+.sb-lnk:hover{background:var(--bg);color:var(--t1);}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600;}
+.sb-lnk.active i{color:var(--p);}
+.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0;}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:var(--tr);}
+.sb-prof:hover{background:var(--bg);}
+.sb-prof-link{display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer;}
+.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden;border:2px solid var(--acc);}
+.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.sb-ui{flex:1;min-width:0;}
+.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:var(--tr);cursor:pointer;flex-shrink:0;}
+.sb-out:hover{background:var(--erl);color:var(--err);}
+.sb-overlay{position:fixed;inset:0;background:rgba(18,22,41,.4);z-index:499;opacity:0;pointer-events:none;transition:var(--tr);}
+.sb-overlay.show{opacity:1;pointer-events:auto;}
+
+.main{margin-left:var(--sw);min-height:100vh;}
+.topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:14px;padding:14px 28px;background:rgba(245,246,251,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--bdr);}
+.tb-hbg{width:36px;height:36px;border-radius:9px;border:1px solid var(--bdr);background:var(--srf);display:grid;place-items:center;color:var(--t2);flex-shrink:0;}
+.tb-brand{font-family:var(--fd);font-weight:700;font-size:.95rem;}
+.tb-spacer{flex:1;}
+.tb-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.tb-icon-btn{width:38px;height:38px;border-radius:50%;background:var(--srf);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.9rem;position:relative;transition:var(--tr);}
+.tb-icon-btn:hover{background:var(--pl);color:var(--p);border-color:var(--p);}
+.tb-av{width:38px;height:38px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.82rem;cursor:pointer;flex-shrink:0;transition:var(--tr);border:2px solid var(--acc);}
+.tb-av:hover{border-color:var(--acd);box-shadow:0 0 0 3px rgba(245,166,35,.18);}
+.wrap{max-width:900px;margin:0 auto;padding:28px 28px 100px;}
+
+.steps{display:flex;align-items:center;gap:8px;margin-bottom:24px;padding:0 4px;}
+.step-dot{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.step-dot .dot{width:28px;height:28px;border-radius:50%;background:var(--srf);border:2px solid var(--bdr);color:var(--t3);display:grid;place-items:center;font-size:.72rem;font-weight:700;transition:var(--tr);}
+.step-dot.active .dot{background:var(--p);border-color:var(--acc);color:#fff;box-shadow:0 0 0 3px rgba(245,166,35,.18);}
+.step-dot.done .dot{background:var(--succ);border-color:var(--succ);color:#fff;}
+.step-dot .lbl{font-size:.72rem;font-weight:600;color:var(--t3);white-space:nowrap;}
+.step-dot.active .lbl{color:var(--p);}
+.step-dot.done .lbl{color:var(--succ);}
+.step-line{flex:1;height:2px;background:var(--bdr);border-radius:99px;transition:var(--tr);}
+.step-line.done{background:var(--succ);}
+@media(max-width:640px){.step-dot .lbl{display:none;}}
+
+.hero{background:var(--srf);border:1px solid var(--bdr);border-radius:20px;padding:44px 36px;margin-bottom:20px;position:relative;overflow:hidden;text-align:center;}
+.hero::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(245,166,35,.14),transparent 70%);border-radius:50%;pointer-events:none;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--accl);color:var(--acd);font-size:.75rem;font-weight:700;padding:6px 14px;border-radius:99px;margin-bottom:18px;letter-spacing:.02em;border:1px solid rgba(245,166,35,.35);}
+.hero h2{font-family:var(--fd);font-size:2rem;line-height:1.15;font-weight:700;letter-spacing:-.5px;max-width:22ch;margin:0 auto 14px;}
+.hero p{font-size:.95rem;color:var(--t2);max-width:44ch;margin:0 auto 28px;}
+.hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--p);color:#fff;padding:14px 32px;border-radius:12px;font-weight:600;font-size:.95rem;transition:var(--tr);}
+.hero-cta:hover{background:var(--pm);transform:translateY(-2px);box-shadow:0 8px 20px rgba(245,166,35,.32);}
+
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+
+.card{background:var(--srf);border:1px solid var(--bdr);border-radius:16px;padding:26px;}
+.card h2{font-family:var(--fd);font-size:1.15rem;font-weight:600;margin-bottom:6px;}
+.card .hint{font-size:.83rem;color:var(--t3);margin-bottom:22px;}
+
+.search-wrap{position:relative;}
+.search-input{width:100%;padding:12px 14px 12px 42px;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg);color:var(--t1);font-size:.88rem;transition:var(--tr);}
+.search-input:focus{border-color:var(--p);background:var(--srf);outline:none;box-shadow:0 0 0 3px rgba(50,64,122,.1);}
+.search-wrap .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.85rem;pointer-events:none;}
+.search-dropdown{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--srf);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 12px 40px rgba(18,22,41,.12);max-height:320px;overflow-y:auto;z-index:100;display:none;}
+.search-dropdown.show{display:block;}
+.search-item{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;transition:var(--tr);font-size:.86rem;}
+.search-item:hover,.search-item.highlighted{background:var(--pl);}
+.search-item .flag{width:28px;height:20px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--bg);display:grid;place-items:center;}
+.search-item .flag img{width:100%;height:100%;object-fit:cover;}
+.search-item .name{flex:1;font-weight:500;}
+.search-item .code{font-size:.72rem;color:var(--t3);font-weight:600;letter-spacing:.04em;}
+.search-empty{padding:18px 14px;text-align:center;font-size:.82rem;color:var(--t3);}
+
+.plan-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:8px;}
+.plan-tile{display:flex;align-items:center;gap:14px;padding:15px 16px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);cursor:pointer;transition:var(--tr);}
+.plan-tile:hover{border-color:var(--p);background:var(--srf2);}
+.plan-tile.selected{border-color:var(--acc);background:var(--accl);box-shadow:0 0 0 3px rgba(245,166,35,.18);}
+.plan-tile .pt-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--bdr);flex-shrink:0;display:grid;place-items:center;transition:var(--tr);}
+.plan-tile.selected .pt-radio{border-color:var(--acc);background:var(--acc);}
+.plan-tile.selected .pt-radio::after{content:'';width:6px;height:6px;border-radius:50%;background:#fff;}
+.plan-tile .pt-body{flex:1;min-width:0;}
+.plan-tile .pt-title{font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.plan-tile .pt-sub{font-size:.75rem;color:var(--t3);margin-top:2px;}
+.plan-tile .pt-price{font-weight:700;font-size:.95rem;color:var(--p);white-space:nowrap;}
+.plan-tile .pt-price small{display:block;font-size:.72rem;color:var(--t3);font-weight:500;margin-top:2px;}
+.plan-badge{font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em;}
+.plan-badge.global{background:var(--accl);color:var(--acd);border:1px solid rgba(245,166,35,.35);}
+.plan-badge.regional{background:#DBEAFE;color:#1E40AF;}
+.plan-error{padding:18px;background:var(--erl);border:1px solid #fecaca;border-radius:12px;text-align:center;font-size:.82rem;color:#991b1b;}
+.plan-error button{margin-top:10px;padding:8px 16px;border-radius:8px;background:var(--err);color:#fff;font-weight:600;font-size:.78rem;}
+
+.currency-toggle{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
+.currency-opt{padding:16px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);cursor:pointer;transition:var(--tr);text-align:left;position:relative;}
+.currency-opt:hover{border-color:var(--p);}
+.currency-opt.active{border-color:var(--acc);background:var(--accl);box-shadow:0 0 0 3px rgba(245,166,35,.18);}
+.currency-opt.disabled{opacity:.5;cursor:not-allowed;}
+.currency-opt.disabled:hover{border-color:var(--bdr);}
+.currency-opt .co-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.currency-opt .co-flag{font-size:1.2rem;}
+.currency-opt .co-radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--bdr);display:grid;place-items:center;transition:var(--tr);}
+.currency-opt.active .co-radio{border-color:var(--acc);background:var(--acc);}
+.currency-opt.active .co-radio::after{content:'';width:6px;height:6px;border-radius:50%;background:#fff;}
+.currency-opt .co-label{font-size:.82rem;font-weight:600;color:var(--t2);}
+.currency-opt .co-price{font-family:var(--fd);font-size:1.1rem;font-weight:700;color:var(--t1);margin-top:4px;}
+.currency-opt .co-sub{font-size:.72rem;color:var(--t3);margin-top:2px;}
+.currency-opt .co-avail{font-size:.72rem;color:var(--t2);margin-top:4px;font-weight:600;}
+.currency-opt.insufficient .co-avail{color:var(--err);}
+
+.price-box{background:var(--bg);border:1px solid var(--bdr);border-radius:12px;padding:18px 20px;margin:20px 0;}
+.price-row{display:flex;justify-content:space-between;font-size:.86rem;color:var(--t2);padding:6px 0;}
+.price-row.total{border-top:1px dashed var(--bdr);margin-top:8px;padding-top:14px;font-weight:700;color:var(--t1);font-size:1rem;}
+.price-row .v{font-weight:600;color:var(--t1);}
+
+.btn-primary{width:100%;background:var(--p);color:#fff;border-radius:12px;padding:14px;font-weight:600;font-size:.92rem;transition:var(--tr);display:flex;align-items:center;justify-content:center;gap:9px;}
+.btn-primary:hover:not(:disabled){background:var(--pm);transform:translateY(-1px);box-shadow:0 8px 20px rgba(245,166,35,.28);}
+.btn-primary:disabled{background:var(--t3);cursor:not-allowed;opacity:.7;}
+.btn-ghost{width:100%;background:none;color:var(--p);border:1.5px solid var(--bdr);border-radius:12px;padding:13px;font-weight:600;font-size:.86rem;margin-top:10px;transition:var(--tr);}
+.btn-ghost:hover{background:var(--accl);border-color:var(--acc);color:var(--acd);}
+
+.status-panel{text-align:center;padding:32px 20px;}
+.status-icon{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;font-size:1.4rem;}
+.status-icon.processing{background:var(--accl);color:var(--acd);}
+.status-icon.completed{background:var(--sul);color:var(--succ);}
+.status-icon.failed{background:var(--erl);color:var(--err);}
+.spin{animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status-panel h3{font-family:var(--fd);font-size:1.15rem;font-weight:600;margin-bottom:8px;}
+.status-panel p{color:var(--t2);font-size:.88rem;max-width:40ch;margin:0 auto 20px;line-height:1.5;}
+.qr-box{width:190px;height:190px;border:1px solid var(--bdr);border-radius:14px;margin:0 auto 20px;overflow:hidden;background:#fff;display:grid;place-items:center;padding:10px;box-shadow:0 6px 20px rgba(50,64,122,.08);}
+.qr-box img{width:100%;height:100%;object-fit:contain;}
+.ref-summary{background:var(--bg);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;margin-bottom:18px;text-align:left;font-size:.82rem;}
+.ref-summary .row{display:flex;justify-content:space-between;padding:4px 0;color:var(--t2);}
+.ref-summary .row strong{color:var(--t1);font-weight:600;}
+
+.detail-card{text-align:left;background:var(--bg);border:1px solid var(--bdr);border-left:3px solid var(--acc);border-radius:12px;padding:16px;font-size:.82rem;margin-bottom:16px;}
+.detail-card .label{font-size:.72rem;font-weight:700;color:var(--t3);letter-spacing:.06em;margin-bottom:12px;text-transform:uppercase;}
+.detail-row{margin-bottom:12px;}
+.detail-row:last-child{margin-bottom:0;}
+.detail-row .k{font-size:.78rem;color:var(--t2);display:block;margin-bottom:4px;font-weight:600;}
+.detail-row .v-wrap{display:flex;gap:8px;align-items:center;}
+.detail-row code{flex:1;display:block;word-break:break-all;background:var(--srf);border:1px solid var(--bdr);padding:8px 10px;border-radius:8px;font-size:.75rem;font-family:ui-monospace,Menlo,monospace;}
+.copy-btn{padding:8px 12px;background:var(--pl);color:var(--p);border-radius:8px;font-size:.72rem;font-weight:700;transition:var(--tr);flex-shrink:0;}
+.copy-btn:hover{background:var(--p);color:#fff;}
+
+.step-view{display:none;animation:fadeUp .3s var(--tr);}
+.step-view.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+
+.skeleton{background:linear-gradient(90deg,var(--bdr) 25%,#EEF1F7 37%,var(--bdr) 63%);background-size:400% 100%;animation:skel 1.4s ease infinite;border-radius:8px;}
+@keyframes skel{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
+.toast{position:fixed;bottom:22px;right:22px;background:var(--t1);color:#fff;padding:13px 20px;border-radius:10px;font-size:.85rem;box-shadow:0 12px 30px rgba(18,22,41,.25);transform:translateY(12px);opacity:0;transition:var(--tr);z-index:900;max-width:340px;font-weight:500;border-left:3px solid var(--acc);}
+.toast.show{transform:translateY(0);opacity:1;}
+
+.pin-modal{position:fixed;inset:0;background:rgba(18,22,41,.55);z-index:950;display:none;align-items:center;justify-content:center;padding:20px;}
+.pin-modal.show{display:flex;}
+.pin-card{background:var(--srf);border-radius:16px;padding:28px 26px;max-width:380px;width:100%;text-align:center;animation:fadeUp .25s var(--tr);}
+.pin-icon{width:54px;height:54px;border-radius:50%;background:var(--accl);color:var(--acd);display:grid;place-items:center;margin:0 auto 14px;font-size:1.35rem;}
+.pin-card h3{font-family:var(--fd);font-size:1.15rem;font-weight:600;margin-bottom:6px;}
+.pin-card p{font-size:.83rem;color:var(--t3);margin-bottom:20px;}
+.pin-input{width:100%;text-align:center;font-size:1.8rem;letter-spacing:.6em;padding:14px 12px 14px 20px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--bg);color:var(--t1);margin-bottom:18px;font-weight:700;transition:var(--tr);}
+.pin-input:focus{border-color:var(--acc);background:var(--srf);outline:none;box-shadow:0 0 0 3px rgba(245,166,35,.18);}
+.pin-input.error{border-color:var(--err);background:var(--erl);animation:shake .35s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.pin-error{font-size:.78rem;color:var(--err);margin-bottom:14px;min-height:18px;font-weight:500;}
+.pin-actions{display:flex;gap:10px;}
+.pin-actions .btn-primary{flex:1;margin:0;}
+.pin-actions .btn-ghost{flex:1;margin:0;}
+
+.selected-dest{display:flex;align-items:center;gap:12px;background:var(--accl);border:1px solid var(--acc);border-radius:12px;padding:12px 14px;margin-bottom:18px;}
+.selected-dest .flag-chip{width:40px;height:40px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:grid;place-items:center;}
+.selected-dest .flag-chip img{width:100%;height:100%;object-fit:cover;}
+
+.email-display{display:flex;align-items:center;gap:12px;background:var(--bg);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;font-size:.85rem;color:var(--t2);}
+.email-display i{color:var(--acd);font-size:.95rem;}
+.email-display strong{color:var(--t1);font-weight:600;}
+.email-display.empty strong{color:var(--err);}
+
+.hist-drawer{position:fixed;top:0;right:0;height:100vh;width:min(440px,92vw);background:var(--srf);box-shadow:-12px 0 40px rgba(18,22,41,.18);z-index:960;transform:translateX(100%);transition:transform .28s var(--tr);overflow-y:auto;padding:22px;}
+.hist-drawer.open{transform:translateX(0);}
+.hist-drawer h3{font-family:var(--fd);font-size:1.1rem;font-weight:700;margin-bottom:4px;}
+.hist-drawer .sub{font-size:.78rem;color:var(--t3);margin-bottom:18px;}
+.hist-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--t2);display:grid;place-items:center;cursor:pointer;transition:var(--tr);}
+.hist-close:hover{background:var(--erl);color:var(--err);}
+.hist-item{background:var(--srf2);border:1px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:10px;}
+.hist-item .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.hist-item .flag{width:32px;height:24px;border-radius:4px;overflow:hidden;background:var(--bg);}
+.hist-item .flag img{width:100%;height:100%;object-fit:cover;}
+.hist-item .title{font-weight:600;font-size:.88rem;flex:1;}
+.hist-item .pill{font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;}
+.hist-item .pill.completed{background:var(--sul);color:var(--succ);}
+.hist-item .pill.delivery_pending,.hist-item .pill.processing,.hist-item .pill.pending{background:var(--accl);color:var(--acd);}
+.hist-item .pill.failed,.hist-item .pill.refunded,.hist-item .pill.cancelled,.hist-item .pill.reversed,.hist-item .pill.manual_review{background:var(--erl);color:var(--err);}
+.hist-item .meta{font-size:.74rem;color:var(--t3);}
+.hist-item .viewqr{margin-top:10px;padding:8px;background:var(--p);color:#fff;border-radius:8px;font-size:.74rem;font-weight:600;width:100%;transition:var(--tr);}
+.hist-item .viewqr:hover{background:var(--pm);}
+.hist-empty{padding:40px 20px;text-align:center;color:var(--t3);font-size:.82rem;}
+
+@media(max-width:640px){
+  .feature-grid{grid-template-columns:1fr;}
+  .currency-toggle{grid-template-columns:1fr;}
+  .hero{padding:30px 20px;}
+  .hero h2{font-size:1.55rem;}
+  .wrap{padding:20px 14px 80px;}
+  .card{padding:20px;}
+  .topbar{padding:12px 16px;}
+}
+</style>
+</head>
+<script src="/js/session.js"></script>
+<script src="/js/presence.js"></script>
+<script src="/js/miles-widget.js" defer></script>
+
+<body>
+
+<div class="sb-overlay" id="sbOverlay"></div>
+
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
+      MilesSpace
+    </div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="airtime.html" class="sb-lnk"><i class="fas fa-globe"></i> Global Airtime</a>
+    <a href="esim.html" class="sb-lnk active"><i class="fas fa-sim-card"></i> Buy eSIM</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="usersettings.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Settings</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+  </nav>
+  <div class="sb-foot">
+    <div class="sb-prof">
+      <a href="usersettings.html" class="sb-prof-link">
+        <div class="sb-av" id="sbAv">U</div>
+        <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
+      </a>
+      <button class="sb-out" id="logoutBtn" title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbgBtn" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+    <span class="tb-brand">Buy eSIM</span>
+    <div class="tb-spacer"></div>
+    <div class="tb-right">
+      <button class="tb-icon-btn" id="histBtn" title="My eSIMs"><i class="fas fa-history"></i></button>
+      <a href="notifications.html" class="tb-icon-btn"><i class="fas fa-bell"></i></a>
+      <a href="usersettings.html" class="tb-av" id="tbAv">U</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <div class="steps" id="stepsBar">
+      <div class="step-dot active" data-step="1"><span class="dot">1</span><span class="lbl">Destination</span></div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="2"><span class="dot">2</span><span class="lbl">Plan</span></div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="3"><span class="dot">3</span><span class="lbl">Confirm</span></div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="4"><span class="dot">4</span><span class="lbl">Done</span></div>
+    </div>
+
+    <!-- STEP 1: HERO -->
+    <section class="step-view" id="viewHero">
+      <div class="hero">
+        <div class="hero-inner">
+          <div class="hero-badge"><i class="fas fa-star"></i> NEW · TRAVEL DATA</div>
+          <h2>Stay connected the moment you land.</h2>
+          <p>Skip the airport SIM kiosk. Pick a country, region, or global plan, and your eSIM is ready to scan before you land.</p>
+          <div style="margin:28px auto;width:100%;max-width:280px;height:180px;position:relative;">
+            <div style="position:absolute;inset:0;display:grid;place-items:center;">
+              <div style="position:absolute;width:60%;height:60%;border-radius:50%;border:1.5px dashed var(--bdr);animation:spin 20s linear infinite;"></div>
+              <div style="position:absolute;width:85%;height:85%;border-radius:50%;border:1.5px dashed #DCE1F5;animation:spin 30s linear infinite reverse;"></div>
+              <div style="position:absolute;width:100%;height:100%;border-radius:50%;border:1.5px dashed #E6E9F7;"></div>
+              <div style="width:56px;height:56px;border-radius:16px;background:var(--p);display:grid;place-items:center;color:#fff;font-size:1.5rem;position:relative;z-index:2;box-shadow:0 10px 24px rgba(50,64,122,.2);border:2px solid var(--acc);">
+                <i class="fas fa-sim-card"></i>
+              </div>
+            </div>
+          </div>
+          <button class="hero-cta" id="heroCta">Get Started <i class="fas fa-arrow-right"></i></button>
+        </div>
+      </div>
+      <div class="feature-grid">
+        <div class="card" style="padding:20px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:var(--accl);color:var(--acd);display:grid;place-items:center;font-size:.95rem;margin-bottom:12px;"><i class="fas fa-globe"></i></div>
+          <h3 style="font-size:.9rem;font-weight:600;margin-bottom:6px;">Global coverage</h3>
+          <p style="font-size:.8rem;color:var(--t3);line-height:1.5;">One eSIM for 126+ countries. Perfect for multi-destination trips.</p>
+        </div>
+        <div class="card" style="padding:20px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:var(--accl);color:var(--acd);display:grid;place-items:center;font-size:.95rem;margin-bottom:12px;"><i class="fas fa-sliders-h"></i></div>
+          <h3 style="font-size:.9rem;font-weight:600;margin-bottom:6px;">Pay how you like</h3>
+          <p style="font-size:.8rem;color:var(--t3);line-height:1.5;">Cover the cost from your MilesSpace wallet in USD or NGN.</p>
+        </div>
+        <div class="card" style="padding:20px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:var(--accl);color:var(--acd);display:grid;place-items:center;font-size:.95rem;margin-bottom:12px;"><i class="fas fa-life-ring"></i></div>
+          <h3 style="font-size:.9rem;font-weight:600;margin-bottom:6px;">We track it for you</h3>
+          <p style="font-size:.8rem;color:var(--t3);line-height:1.5;">If a provider hiccup delays delivery, we retry automatically.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: PLAN -->
+    <section class="step-view" id="viewPlan">
+      <div class="card">
+        <h2>Where are you travelling?</h2>
+        <p class="hint">Search for a country, or pick a regional/global plan for multi-country trips.</p>
+
+        <div class="field" style="margin-bottom:18px;">
+          <label style="display:block;font-size:.78rem;font-weight:600;color:var(--t2);margin-bottom:8px;">Destination</label>
+          <div class="search-wrap">
+            <i class="fas fa-search search-icon"></i>
+            <input
+              type="text"
+              class="search-input"
+              id="countrySearch"
+              name="esim_country_search"
+              placeholder="Type a country name…"
+              autocomplete="new-password"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-autocomplete="list">
+            <div class="search-dropdown" id="countryDropdown"></div>
+          </div>
+        </div>
+
+        <div id="selectedDestination" class="selected-dest" hidden>
+          <div class="flag-chip" id="selFlag"><i class="fas fa-globe" style="color:var(--acd)"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:.9rem;" id="selName">—</div>
+            <div style="font-size:.72rem;color:var(--t2);" id="selType"></div>
+          </div>
+          <button type="button" id="clearDestBtn" style="width:28px;height:28px;border-radius:8px;background:var(--srf);color:var(--t3);display:grid;place-items:center;font-size:.78rem;"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="field" style="margin-bottom:18px;">
+          <label style="display:block;font-size:.78rem;font-weight:600;color:var(--t2);margin-bottom:8px;">Available Plans</label>
+          <div class="plan-grid" id="planGrid">
+            <div style="font-size:.82rem;color:var(--t3);padding:10px 0;">Search for a destination to see available plans</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;background:var(--accl);border-radius:10px;padding:13px 15px;font-size:.79rem;color:#7A3517;margin-bottom:20px;line-height:1.5;border-left:3px solid var(--acc);">
+          <i class="fas fa-circle-info" style="margin-top:2px;flex-shrink:0;color:var(--acd);"></i>
+          <span>Your eSIM only works on devices that support eSIM. Check your phone's settings before buying.</span>
+        </div>
+        <button class="btn-primary" id="toConfirmBtn" disabled>Continue <i class="fas fa-arrow-right"></i></button>
+        <button class="btn-ghost" id="backToHeroBtn">Back</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: CONFIRM -->
+    <section class="step-view" id="viewConfirm">
+      <div class="card">
+        <h2>Review &amp; confirm</h2>
+        <p class="hint">Review your plan and pick your preferred payment currency.</p>
+
+        <div style="background:var(--bg);border:1px solid var(--bdr);border-radius:12px;padding:16px 18px;margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+            <div class="flag-chip" id="sumFlag" style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--bg);display:grid;place-items:center;"><i class="fas fa-globe" style="color:var(--t3)"></i></div>
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:.95rem;" id="sumCountry">—</div>
+              <div style="font-size:.78rem;color:var(--t3);" id="sumPlan">—</div>
+            </div>
+            <span class="plan-badge" id="sumBadge" hidden></span>
+          </div>
+          <div style="font-size:.82rem;color:var(--t2);padding-top:10px;border-top:1px dashed var(--bdr);">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Data</span><span style="font-weight:600;color:var(--t1);" id="sumData">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Validity</span><span style="font-weight:600;color:var(--t1);" id="sumValidity">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Coverage</span><span style="font-weight:600;color:var(--t1);" id="sumCoverage">—</span></div>
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:18px;">
+          <label style="display:block;font-size:.78rem;font-weight:600;color:var(--t2);margin-bottom:8px;">Pay with</label>
+          <div class="currency-toggle" id="currencyToggle">
+            <div class="currency-opt active" data-currency="USD">
+              <div class="co-top"><span class="co-flag">💵</span><div class="co-radio"></div></div>
+              <div class="co-label">Pay in USD</div>
+              <div class="co-price" id="priceUsd">—</div>
+              <div class="co-avail" id="availUsd">Available: —</div>
+            </div>
+            <div class="currency-opt" data-currency="NGN">
+              <div class="co-top"><span class="co-flag">🇳🇬</span><div class="co-radio"></div></div>
+              <div class="co-label">Pay in NGN</div>
+              <div class="co-price" id="priceNgn">—</div>
+              <div class="co-avail" id="availNgn">Available: —</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="price-box">
+          <div class="price-row"><span>Plan price</span><span class="v" id="bUnit">—</span></div>
+          <div class="price-row"><span>Service fee (2%)</span><span class="v" id="bFee">—</span></div>
+          <div class="price-row total"><span>Total to pay</span><span id="bTotal">—</span></div>
+        </div>
+
+        <div class="field" style="margin-bottom:18px;">
+          <label style="display:block;font-size:.78rem;font-weight:600;color:var(--t2);margin-bottom:8px;">Delivered to</label>
+          <div class="email-display" id="emailDisplay">
+            <i class="fas fa-envelope"></i>
+            <span>QR code &amp; instructions will be sent to <strong id="userEmail">Loading email…</strong></span>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="confirmBuyBtn"><i class="fas fa-sim-card"></i> Confirm &amp; Buy</button>
+        <button class="btn-ghost" id="backToPlanBtn">Back</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: STATUS -->
+    <section class="step-view" id="viewStatus">
+      <div class="card">
+        <div class="status-panel">
+          <div class="status-icon processing" id="statusIcon"><i class="fas fa-circle-notch spin"></i></div>
+          <h3 id="statusTitle">Setting up your eSIM…</h3>
+          <p id="statusText">This usually takes a few seconds. Don't close this page.</p>
+          <div id="refSummary"></div>
+          <div id="manualDetails"></div>
+          <div class="qr-box" id="qrBox" hidden><img id="qrImg" alt="eSIM QR code"></div>
+          <button class="btn-primary" id="statusPrimaryBtn" hidden>Done</button>
+          <button class="btn-ghost" id="statusRetryBtn" hidden>Try again</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- PIN MODAL -->
+<div class="pin-modal" id="pinModal">
+  <div class="pin-card">
+    <div class="pin-icon"><i class="fas fa-lock"></i></div>
+    <h3>Confirm with PIN</h3>
+    <p>Enter your 4-digit transaction PIN to complete this purchase</p>
+    <input class="pin-input" id="pinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" autocomplete="off">
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-actions">
+      <button class="btn-ghost" id="pinCancelBtn" type="button">Cancel</button>
+      <button class="btn-primary" id="pinConfirmBtn" type="button">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY DRAWER -->
+<div class="hist-drawer" id="histDrawer">
+  <button class="hist-close" id="histClose"><i class="fas fa-times"></i></button>
+  <h3>My eSIMs</h3>
+  <p class="sub" id="histSub">Your previous eSIM purchases</p>
+  <div id="histList"><div class="hist-empty">Loading…</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+const CONFIG = {
+  api: {
+    me:         '/api/esim/me',
+    history:    '/api/esim/history',
+    countries:  '/api/esim/countries',
+    plans:      (params) => {
+      const q = new URLSearchParams(params).toString();
+      return `/api/esim/plans?${q}`;
+    },
+    rates:      '/api/esim/rates',
+    purchase:   '/api/esim/purchase',
+    status:     (id) => `/api/esim/status/${encodeURIComponent(id)}`
+  },
+  loginPage: 'login.html',
+  serviceFeePct: 0.02,
+  pollIntervalMs: 3000,
+  pollMaxAttempts: 40
+};
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+const SESSION_KEY = 'mx_sess';
+
+function getSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function getToken() { return getSession()?.token || ''; }
+function getUserFromSession() { return getSession()?.user || null; }
+function authHeaders() { const t = getToken(); return t ? { 'Authorization': `Bearer ${t}` } : {}; }
+function clearSession() { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); }
+function redirectToLogin() { window.location.href = CONFIG.loginPage; }
+
+async function apiGet(url, options = {}) {
+  const res = await fetch(url, { headers: { ...authHeaders() }, signal: options.signal });
+  if (res.status === 401) { clearSession(); redirectToLogin(); throw new Error('Unauthorized'); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.success === false) {
+    const err = new Error(body.error || `Request failed (${res.status})`);
+    err.code = body.code; err.attempts_remaining = body.attempts_remaining;
+    err.remaining_minutes = body.remaining_minutes; err.pinNotSet = body.pinNotSet;
+    throw err;
+  }
+  return body;
+}
+async function apiPost(url, payload, extraHeaders = {}) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+      ...extraHeaders
+    },
+    body: JSON.stringify(payload)
+  });
+  if (res.status === 401) { clearSession(); redirectToLogin(); throw new Error('Unauthorized'); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.success === false) {
+    const err = new Error(body.error || `Request failed (${res.status})`);
+    err.code = body.code; err.attempts_remaining = body.attempts_remaining;
+    err.remaining_minutes = body.remaining_minutes; err.pinNotSet = body.pinNotSet;
+    throw err;
+  }
+  return body;
+}
+
+function toast(msg, isError) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.style.background = isError ? 'var(--err)' : 'var(--t1)';
+  el.style.borderLeftColor = isError ? 'var(--err)' : 'var(--acc)';
+  el.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.remove('show'), 3400);
+}
+function moneyUSD(n) {
+  if (n == null || isNaN(n)) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n);
+}
+function moneyNGN(n) {
+  if (n == null || isNaN(n)) return '—';
+  return '₦' + Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function flagUrl(iso2) { return iso2 ? `https://flagcdn.com/48x36/${iso2.toLowerCase()}.png` : ''; }
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const State = {
+  step: 1,
+  user: null,
+  usdToNgn: 1600,
+  activeCurrency: 'USD',
+  allCountries: [],
+  selectedDestination: null,
+  selectedPlan: null,
+  currentTxId: null,
+  currentReference: null,
+  pollAttempts: 0,
+  highlightedIndex: -1,
+  plansAbort: null,
+  purchaseIdemKey: null
+};
+
+function initSidebar() {
+  const sb = $('#sb'); const overlay = $('#sbOverlay');
+  $('#hbgBtn')?.addEventListener('click', () => { sb.classList.add('open'); overlay.classList.add('show'); });
+  overlay?.addEventListener('click', () => { sb.classList.remove('open'); overlay.classList.remove('show'); });
+  $('#logoutBtn')?.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (window.logoutPresence) window.logoutPresence();
+    clearSession(); redirectToLogin();
+  });
+}
+
+function setDeliveryEmail(email) {
+  const el = $('#userEmail');
+  const display = $('#emailDisplay');
+  if (!el) return false;
+  if (email && email.includes('@')) {
+    el.textContent = email;
+    display?.classList.remove('empty');
+    return true;
+  }
+  el.textContent = 'No delivery email on file';
+  display?.classList.add('empty');
+  return false;
+}
+
+function renderUserFromSession() {
+  const u = getUserFromSession();
+  if (!u) return;
+  const name = u.username || u.email?.split('@')[0] || 'Account';
+  const initial = name.trim().charAt(0).toUpperCase() || 'U';
+  $('#sbName').textContent = name;
+  $('#sbEmail').textContent = u.email || '';
+  $('#sbAv').textContent = initial;
+  $('#tbAv').textContent = initial;
+  setDeliveryEmail(u.email || '');
+}
+
+async function loadUser() {
+  renderUserFromSession();
+  try {
+    const { data } = await apiGet(CONFIG.api.me);
+    State.user = data;
+    const name = data?.name || data?.username || data?.email?.split('@')[0] || 'Account';
+    const initial = name.trim().charAt(0).toUpperCase() || 'U';
+    $('#sbName').textContent = name;
+    $('#sbEmail').textContent = data?.email || '';
+    $('#sbAv').textContent = initial;
+    $('#tbAv').textContent = initial;
+    setDeliveryEmail(data?.email || '');
+    refreshCurrencyAvailability();
+  } catch (e) {
+    console.warn('Could not refresh user:', e.message);
+    setDeliveryEmail('');
+  }
+}
+
+async function loadRates() {
+  try {
+    const { data } = await apiGet(CONFIG.api.rates);
+    State.usdToNgn = parseFloat(data?.usdToNgn) || 1600;
+  } catch { State.usdToNgn = 1600; }
+}
+
+function goToStep(step) {
+  State.step = step;
+  $$('.step-view').forEach(v => v.classList.remove('active'));
+  const map = { 1: 'viewHero', 2: 'viewPlan', 3: 'viewConfirm', 4: 'viewStatus' };
+  const view = $(`#${map[step]}`);
+  if (view) view.classList.add('active');
+  updateStepsBar();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function updateStepsBar() {
+  const steps = State.step;
+  $$('#stepsBar .step-dot').forEach(dot => {
+    const n = parseInt(dot.dataset.step);
+    dot.classList.toggle('active', n === steps);
+    dot.classList.toggle('done', n < steps);
+  });
+  $$('#stepsBar .step-line').forEach((line, idx) => {
+    line.classList.toggle('done', idx < steps - 1);
+  });
+}
+
+async function loadCountries() {
+  try {
+    const cached = localStorage.getItem('mx_esim_countries');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length) State.allCountries = parsed;
+    }
+  } catch {}
+
+  try {
+    const { data } = await apiGet(CONFIG.api.countries);
+    const list = Array.isArray(data) ? data : [];
+    if (list.length) {
+      State.allCountries = list;
+      try { localStorage.setItem('mx_esim_countries', JSON.stringify(list)); } catch {}
+    } else if (!State.allCountries.length) {
+      State.allCountries = FALLBACK_COUNTRIES;
+    }
+  } catch (e) {
+    console.error('Country load failed:', e);
+    if (!State.allCountries.length) State.allCountries = FALLBACK_COUNTRIES;
+    toast('Using offline destination list. Refresh to try again.', true);
+  }
+}
+
+const FALLBACK_COUNTRIES = [
+  { iso3: 'USA', iso2: 'US', name: 'United States' },
+  { iso3: 'GBR', iso2: 'GB', name: 'United Kingdom' },
+  { iso3: 'CAN', iso2: 'CA', name: 'Canada' },
+  { iso3: 'DEU', iso2: 'DE', name: 'Germany' },
+  { iso3: 'FRA', iso2: 'FR', name: 'France' },
+  { iso3: 'ESP', iso2: 'ES', name: 'Spain' },
+  { iso3: 'ITA', iso2: 'IT', name: 'Italy' },
+  { iso3: 'NGA', iso2: 'NG', name: 'Nigeria' },
+  { iso3: 'ZAF', iso2: 'ZA', name: 'South Africa' },
+  { iso3: 'KEN', iso2: 'KE', name: 'Kenya' },
+  { iso3: 'EGY', iso2: 'EG', name: 'Egypt' },
+  { iso3: 'JPN', iso2: 'JP', name: 'Japan' },
+  { iso3: 'AUS', iso2: 'AU', name: 'Australia' },
+  { iso3: 'BRA', iso2: 'BR', name: 'Brazil' },
+  { iso3: 'MEX', iso2: 'MX', name: 'Mexico' },
+  { iso3: 'IND', iso2: 'IN', name: 'India' },
+  { iso3: 'SGP', iso2: 'SG', name: 'Singapore' },
+  { iso3: 'ARE', iso2: 'AE', name: 'United Arab Emirates' }
+];
+
+function filterDestinations(query) {
+  const q = (query || '').trim().toLowerCase();
+  const special = [
+    { type: 'global', iso3: 'GLOBAL', iso2: '', name: 'Global Plan', desc: '126+ countries including USA, UK, Europe, Asia & more' }
+  ];
+  if (!q) return [...special, ...State.allCountries].slice(0, 60);
+  const matches = [];
+  for (const s of special) {
+    if (s.name.toLowerCase().includes(q)) matches.push(s);
+  }
+  for (const c of State.allCountries) {
+    if (c.name.toLowerCase().includes(q) || c.iso3.toLowerCase().includes(q)) {
+      matches.push({ type: 'country', iso3: c.iso3, iso2: c.iso2, name: c.name });
+    }
+  }
+  return matches.slice(0, 60);
+}
+
+function renderDropdown(items) {
+  const dd = $('#countryDropdown');
+  State.highlightedIndex = -1;
+  if (!items || !items.length) {
+    dd.innerHTML = '<div class="search-empty">No destinations found</div>';
+    dd.classList.add('show');
+    return;
+  }
+  dd.innerHTML = items.map((item, idx) => {
+    const isSpecial = item.type === 'global';
+    const flagHtml = item.iso2
+      ? `<img src="${flagUrl(item.iso2)}" alt="">`
+      : `<i class="fas fa-earth-americas" style="color:var(--acd);font-size:.85rem"></i>`;
+    return `
+      <div class="search-item ${isSpecial ? 'special' : ''}" data-index="${idx}">
+        <div class="flag">${flagHtml}</div>
+        <div class="name">
+          ${escapeHtml(item.name)}
+          ${isSpecial ? `<span style="font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:4px;background:var(--accl);color:var(--acd);text-transform:uppercase;margin-left:6px;border:1px solid rgba(245,166,35,.35);">Global</span>` : ''}
+          ${item.desc ? `<div style="font-size:.7rem;color:var(--t3);font-weight:400;margin-top:2px;">${escapeHtml(item.desc)}</div>` : ''}
+        </div>
+        ${!isSpecial ? `<div class="code">${escapeHtml(item.iso3)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+  dd.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.index);
+      selectDestination(items[idx]);
+    });
+  });
+  dd.classList.add('show');
+}
+
+function selectDestination(item) {
+  State.selectedDestination = item;
+  State.selectedPlan = null;
+  State.highlightedIndex = -1;
+  $('#countrySearch').value = item.name;
+  $('#countryDropdown').classList.remove('show');
+  $('#selFlag').innerHTML = item.iso2
+    ? `<img src="${flagUrl(item.iso2)}" alt="">`
+    : `<i class="fas fa-earth-americas" style="color:var(--acd);font-size:.95rem"></i>`;
+  $('#selName').textContent = item.name;
+  $('#selType').textContent = item.type === 'country' ? 'Country-specific plans' : 'Global coverage — 126+ countries';
+  $('#selectedDestination').hidden = false;
+  loadPlansForDestination(item);
+}
+
+async function loadPlansForDestination(item) {
+  if (State.plansAbort) State.plansAbort.abort();
+  State.plansAbort = new AbortController();
+  const signal = State.plansAbort.signal;
+
+  const planGrid = $('#planGrid');
+  planGrid.innerHTML = '<div class="skeleton" style="height:64px;"></div><div class="skeleton" style="height:64px;"></div><div class="skeleton" style="height:64px;"></div>';
+  updateContinueBtn();
+
+  let queryParams;
+  if (item.type === 'global') queryParams = { type: 'global' };
+  else if (item.type === 'regional') queryParams = { region: item.iso3 };
+  else queryParams = { country: item.iso3 };
+
+  try {
+    const { data } = await apiGet(CONFIG.api.plans(queryParams), { signal });
+    if (!State.selectedDestination || State.selectedDestination.iso3 !== item.iso3) return;
+
+    const plans = Array.isArray(data) ? data : [];
+    if (!plans.length) {
+      planGrid.innerHTML = '<div style="font-size:.82rem;color:var(--t3);padding:10px 0;">No plans available for this destination</div>';
+      return;
+    }
+
+    planGrid.innerHTML = plans.map(p => {
+      const badge = p.isGlobal
+        ? '<span class="plan-badge global">Global</span>'
+        : (p.isRegional ? `<span class="plan-badge regional">${escapeHtml(p.coverageLabel)}</span>` : '');
+      return `
+        <div class="plan-tile" data-product-id="${escapeHtml(p.productId)}"
+             data-price="${p.priceUsd}" data-price-ngn="${p.priceNgn || 0}"
+             data-data="${escapeHtml(p.dataAmount || '')}"
+             data-validity="${p.validityDays || 30}" data-name="${escapeHtml(p.planName || '')}"
+             data-coverage="${escapeHtml(p.coverageLabel || 'Country-specific')}">
+          <div class="pt-radio"></div>
+          <div class="pt-body">
+            <div class="pt-title">${escapeHtml(p.dataAmount || 'Data')} · ${p.validityDays || 30} days ${badge}</div>
+            <div class="pt-sub">${escapeHtml(p.planName || '')}</div>
+          </div>
+          <div class="pt-price">${moneyUSD(p.priceUsd)}<small>${moneyNGN(p.priceNgn || p.priceUsd * State.usdToNgn)}</small></div>
+        </div>
+      `;
+    }).join('');
+
+    planGrid.querySelectorAll('.plan-tile').forEach(tile => {
+      tile.addEventListener('click', () => onPlanSelect(tile));
+    });
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    if (signal.aborted) return;
+    console.error('Plan load failed:', e);
+    planGrid.innerHTML = `
+      <div class="plan-error">
+        <strong>eSIM provider temporarily unavailable</strong><br>
+        <span style="display:block;margin-top:6px;font-size:.75rem;">We couldn't load live plans.</span>
+        <button type="button" id="retryPlansBtn">Retry</button>
+      </div>
+    `;
+    $('#retryPlansBtn')?.addEventListener('click', () => loadPlansForDestination(item));
+  }
+}
+
+function onPlanSelect(tile) {
+  $('#planGrid').querySelectorAll('.plan-tile').forEach(t => t.classList.remove('selected'));
+  tile.classList.add('selected');
+  State.selectedPlan = {
+    productId: tile.dataset.productId,
+    planName: tile.dataset.name,
+    dataAmount: tile.dataset.data,
+    validityDays: parseInt(tile.dataset.validity) || 30,
+    priceUsd: parseFloat(tile.dataset.price) || 0,
+    priceNgn: parseFloat(tile.dataset.priceNgn) || 0,
+    coverage: tile.dataset.coverage
+  };
+  updateContinueBtn();
+}
+function updateContinueBtn() {
+  $('#toConfirmBtn').disabled = !(State.selectedDestination && State.selectedPlan);
+}
+
+function initCountrySearch() {
+  const input = $('#countrySearch');
+  const dd = $('#countryDropdown');
+  if (!input || !dd) return;
+
+  setTimeout(() => {
+    if (input.value && State.allCountries.length && !State.allCountries.some(c => c.name === input.value)) {
+      input.value = '';
+    }
+  }, 200);
+
+  const openDropdown = () => {
+    const items = filterDestinations(input.value || '');
+    renderDropdown(items);
+  };
+  input.addEventListener('input', () => {
+    const items = filterDestinations(input.value);
+    renderDropdown(items);
+  });
+  input.addEventListener('focus', openDropdown);
+  input.addEventListener('click', openDropdown);
+  input.addEventListener('keydown', (e) => {
+    const items = dd.querySelectorAll('.search-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      State.highlightedIndex = Math.min(State.highlightedIndex + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('highlighted', i === State.highlightedIndex));
+      items[State.highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      State.highlightedIndex = Math.max(State.highlightedIndex - 1, 0);
+      items.forEach((el, i) => el.classList.toggle('highlighted', i === State.highlightedIndex));
+      items[State.highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && State.highlightedIndex >= 0) {
+      e.preventDefault();
+      items[State.highlightedIndex].click();
+    } else if (e.key === 'Escape') {
+      dd.classList.remove('show');
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap')) dd.classList.remove('show');
+  });
+  $('#clearDestBtn')?.addEventListener('click', () => {
+    State.selectedDestination = null;
+    State.selectedPlan = null;
+    $('#countrySearch').value = '';
+    $('#selectedDestination').hidden = true;
+    $('#planGrid').innerHTML = '<div style="font-size:.82rem;color:var(--t3);padding:10px 0;">Search for a destination to see available plans</div>';
+    updateContinueBtn();
+  });
+}
+
+function initCurrencyToggle() {
+  $$('#currencyToggle .currency-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      if (opt.classList.contains('disabled')) return;
+      $$('#currencyToggle .currency-opt').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      State.activeCurrency = opt.dataset.currency;
+      refreshBreakdown();
+    });
+  });
+}
+
+function refreshCurrencyAvailability() {
+  const usd = Number(State.user?.walletBalanceUsd || 0);
+  const ngn = Number(State.user?.walletBalanceNgn || 0);
+  const plan = State.selectedPlan;
+  const usdEl = $('#availUsd');
+  const ngnEl = $('#availNgn');
+  const usdCard = document.querySelector('#currencyToggle .currency-opt[data-currency="USD"]');
+  const ngnCard = document.querySelector('#currencyToggle .currency-opt[data-currency="NGN"]');
+
+  if (!usdEl || !ngnEl || !usdCard || !ngnCard) return;
+
+  const requiredUsd = plan ? (plan.priceUsd * (1 + CONFIG.serviceFeePct)) : 0;
+  const requiredNgn = plan ? (requiredUsd * State.usdToNgn) : 0;
+
+  const usdOk = requiredUsd === 0 || usd >= requiredUsd;
+  const ngnOk = requiredNgn === 0 || ngn >= requiredNgn;
+
+  usdEl.textContent = `Available: ${moneyUSD(usd)}`;
+  ngnEl.textContent = `Available: ${moneyNGN(ngn)}`;
+
+  usdCard.classList.toggle('insufficient', !usdOk);
+  ngnCard.classList.toggle('insufficient', !ngnOk);
+
+  if (!usdOk && usdCard.classList.contains('active')) {
+    if (ngnOk) {
+      usdCard.classList.remove('active');
+      ngnCard.classList.add('active');
+      State.activeCurrency = 'NGN';
+    }
+  }
+}
+
+function refreshSummary() {
+  if (!State.selectedDestination || !State.selectedPlan) return;
+  const d = State.selectedDestination;
+  const p = State.selectedPlan;
+  $('#sumFlag').innerHTML = d.iso2
+    ? `<img src="${flagUrl(d.iso2)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+    : `<i class="fas fa-earth-americas" style="color:var(--t3)"></i>`;
+  $('#sumCountry').textContent = d.name;
+  $('#sumPlan').textContent = p.planName || `${p.dataAmount} plan`;
+  $('#sumData').textContent = p.dataAmount || '—';
+  $('#sumValidity').textContent = `${p.validityDays} days`;
+  $('#sumCoverage').textContent = p.coverage || 'Country-specific';
+  const badge = $('#sumBadge');
+  if (d.type === 'global') { badge.textContent = 'Global'; badge.className = 'plan-badge global'; badge.hidden = false; }
+  else { badge.hidden = true; }
+  const usd = p.priceUsd;
+  const fee = usd * CONFIG.serviceFeePct;
+  const totalUsd = usd + fee;
+  const totalNgn = totalUsd * State.usdToNgn;
+  $('#priceUsd').textContent = moneyUSD(totalUsd);
+  $('#priceNgn').textContent = moneyNGN(totalNgn);
+  refreshCurrencyAvailability();
+  refreshBreakdown();
+}
+function refreshBreakdown() {
+  if (!State.selectedPlan) return;
+  const p = State.selectedPlan;
+  const usd = p.priceUsd;
+  const fee = usd * CONFIG.serviceFeePct;
+  const totalUsd = usd + fee;
+  if (State.activeCurrency === 'USD') {
+    $('#bUnit').textContent = moneyUSD(usd);
+    $('#bFee').textContent = moneyUSD(fee);
+    $('#bTotal').textContent = moneyUSD(totalUsd);
+  } else {
+    $('#bUnit').textContent = moneyNGN(usd * State.usdToNgn);
+    $('#bFee').textContent = moneyNGN(fee * State.usdToNgn);
+    $('#bTotal').textContent = moneyNGN(totalUsd * State.usdToNgn);
+  }
+}
+
+function requestPin() {
+  return new Promise((resolve) => {
+    const modal = $('#pinModal');
+    const input = $('#pinInput');
+    const errEl = $('#pinError');
+    const okBtn = $('#pinConfirmBtn');
+    const cancelBtn = $('#pinCancelBtn');
+    input.value = '';
+    errEl.textContent = '';
+    input.classList.remove('error');
+    modal.classList.add('show');
+    setTimeout(() => input.focus(), 60);
+    const cleanup = () => {
+      modal.classList.remove('show');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      input.removeEventListener('keydown', onKey);
+      input.removeEventListener('input', onInput);
+    };
+    const onInput = () => {
+      input.value = input.value.replace(/\D/g, '').slice(0, 4);
+      input.classList.remove('error');
+      errEl.textContent = '';
+    };
+    const onOk = () => {
+      const v = input.value.trim();
+      if (!/^\d{4}$/.test(v)) {
+        input.classList.add('error');
+        errEl.textContent = 'PIN must be 4 digits';
+        return;
+      }
+      cleanup(); resolve(v);
+    };
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onKey = (e) => {
+      if (e.key === 'Enter') onOk();
+      if (e.key === 'Escape') onCancel();
+    };
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKey);
+    input.addEventListener('input', onInput);
+  });
+}
+
+function getPurchaseIdemKey() {
+  if (!State.purchaseIdemKey) {
+    State.purchaseIdemKey = (crypto.randomUUID && crypto.randomUUID()) ||
+      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  return State.purchaseIdemKey;
+}
+
+async function submitPurchase() {
+  const btn = $('#confirmBuyBtn');
+  const originalHtml = btn.innerHTML;
+
+  const deliveryEmail = State.user?.email || getUserFromSession()?.email;
+  if (!deliveryEmail) {
+    toast('No delivery email on your account. Update your profile first.', true);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Placing order…';
+
+  try {
+    const pin = await requestPin();
+    if (!pin) { btn.disabled = false; btn.innerHTML = originalHtml; return; }
+
+    const idemKey = getPurchaseIdemKey();
+
+    const payload = {
+      productId: State.selectedPlan.productId,
+      currency: State.activeCurrency,
+      deliveryEmail,
+      pin
+    };
+
+    if (State.selectedDestination.type === 'global') {
+      payload.destinationType = 'global';
+      payload.destinationCode = 'GLOBAL';
+    } else {
+      payload.destinationType = 'country';
+      payload.destinationCode = State.selectedDestination.iso3;
+      payload.countryIso3 = State.selectedDestination.iso3;
+    }
+
+    const { data } = await apiPost(CONFIG.api.purchase, payload, {
+      'Idempotency-Key': idemKey
+    });
+
+    State.purchaseIdemKey = null;
+    State.currentTxId = data.transactionId;
+    State.currentReference = data.reference || null;
+    State.pollAttempts = 0;
+    goToStep(4);
+    showProcessingState();
+
+    if (data.status === 'completed') pollStatus();
+    else if (['failed', 'cancelled', 'reversed'].includes(data.status)) {
+      showFailedState('This order was rejected by the provider.');
+    } else pollStatus();
+  } catch (e) {
+    console.error('Purchase failed:', e);
+    if (['PIN_LOCKED','INVALID_PIN','PIN_REQUIRED','PIN_NOT_SET'].includes(e.code)) {
+      let msg = e.message || 'PIN verification failed';
+      if (e.code === 'PIN_NOT_SET') msg = 'You have not set a transaction PIN yet. Set one in Settings.';
+      if (e.attempts_remaining != null) msg += ` (${e.attempts_remaining} attempts left)`;
+      toast(msg, true);
+    } else if (e.code === 'INSUFFICIENT_BALANCE') {
+      toast(e.message || 'Insufficient balance', true);
+      refreshCurrencyAvailability();
+    } else {
+      toast(e.message || 'Could not start your order.', true);
+    }
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
+function showProcessingState() {
+  $('#statusIcon').className = 'status-icon processing';
+  $('#statusIcon').innerHTML = '<i class="fas fa-circle-notch spin"></i>';
+  $('#statusTitle').textContent = 'Setting up your eSIM…';
+  $('#statusText').textContent = "This usually takes a few seconds. Don't close this page.";
+  $('#qrBox').hidden = true;
+  $('#refSummary').innerHTML = '';
+  $('#manualDetails').innerHTML = '';
+  $('#statusPrimaryBtn').hidden = true;
+  $('#statusRetryBtn').hidden = true;
+}
+
+function showFailedState(msg) {
+  $('#statusIcon').className = 'status-icon failed';
+  $('#statusIcon').innerHTML = '<i class="fas fa-xmark"></i>';
+  $('#statusTitle').textContent = "That order didn't go through";
+  $('#statusText').textContent = msg || "We couldn't complete this order. You haven't been charged — try again or pick a different plan.";
+  $('#qrBox').hidden = true;
+  $('#refSummary').innerHTML = '';
+  $('#manualDetails').innerHTML = '';
+  $('#statusPrimaryBtn').hidden = true;
+  $('#statusRetryBtn').hidden = false;
+  $('#statusRetryBtn').onclick = () => window.location.reload();
+}
+
+function renderRefSummary(data) {
+  if (!data.reference && !data.countryName) return '';
+  return `
+    <div class="ref-summary">
+      <div class="row"><span>Destination</span><strong>${escapeHtml(data.countryName || '—')}</strong></div>
+      <div class="row"><span>Plan</span><strong>${escapeHtml(data.planName || '—')}</strong></div>
+      <div class="row"><span>Data</span><strong>${escapeHtml(data.dataAmount || '—')} · ${data.validityDays || '—'} days</strong></div>
+      <div class="row"><span>Reference</span><strong>${escapeHtml(data.reference || '—')}</strong></div>
+    </div>
+  `;
+}
+
+function renderManualDelivery(data) {
+  const parts = [];
+  if (data.lpaString) parts.push(`
+    <div class="detail-row">
+      <span class="k">LPA String</span>
+      <div class="v-wrap">
+        <code>${escapeHtml(data.lpaString)}</code>
+        <button class="copy-btn" data-copy="${escapeHtml(data.lpaString)}"><i class="fas fa-copy"></i></button>
+      </div>
+    </div>
+  `);
+  if (data.activationCode && data.activationCode !== data.lpaString) parts.push(`
+    <div class="detail-row">
+      <span class="k">Activation Code</span>
+      <div class="v-wrap">
+        <code>${escapeHtml(data.activationCode)}</code>
+        <button class="copy-btn" data-copy="${escapeHtml(data.activationCode)}"><i class="fas fa-copy"></i></button>
+      </div>
+    </div>
+  `);
+  if (data.serial || data.iccid) parts.push(`
+    <div class="detail-row">
+      <span class="k">Serial / ICCID</span>
+      <div class="v-wrap">
+        <code>${escapeHtml(data.serial || data.iccid)}</code>
+        <button class="copy-btn" data-copy="${escapeHtml(data.serial || data.iccid)}"><i class="fas fa-copy"></i></button>
+      </div>
+    </div>
+  `);
+
+  if (!parts.length) return '';
+  return `<div class="detail-card">
+    <p class="label">Manual activation</p>
+    ${parts.join('')}
+  </div>`;
+}
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.copy-btn');
+  if (!btn) return;
+  const val = btn.dataset.copy;
+  if (!val) return;
+  navigator.clipboard?.writeText(val)
+    .then(() => toast('Copied to clipboard'))
+    .catch(() => toast('Could not copy', true));
+});
+
+function updateProcessingMessage() {
+  const a = State.pollAttempts;
+  if (a <= 5) {
+    $('#statusText').textContent = "Setting up your eSIM — this usually takes a few seconds.";
+  } else if (a <= 15) {
+    $('#statusText').textContent = "Still confirming with our provider. Most orders complete within a minute.";
+  } else if (a <= 25) {
+    $('#statusText').textContent = "We're still waiting for the provider. You don't need to stay on this page — we'll email your QR code when it's ready.";
+  } else {
+    $('#statusText').textContent = "This is taking longer than usual. Your order is safe — we'll email you the QR code the moment the provider confirms.";
+  }
+}
+
+async function pollStatus() {
+  updateProcessingMessage();
+
+  if (State.pollAttempts >= CONFIG.pollMaxAttempts) {
+    $('#statusIcon').className = 'status-icon processing';
+    $('#statusIcon').innerHTML = '<i class="fas fa-clock"></i>';
+    $('#statusTitle').textContent = 'Still confirming';
+    $('#statusText').textContent = "Your order is safe. We'll email your eSIM QR code the moment the provider confirms. You can close this page.";
+    $('#statusPrimaryBtn').hidden = false;
+    $('#statusPrimaryBtn').textContent = 'Back to eSIMs';
+    $('#statusPrimaryBtn').onclick = () => window.location.reload();
+    return;
+  }
+
+  State.pollAttempts++;
+
+  try {
+    const { data } = await apiGet(CONFIG.api.status(State.currentTxId));
+    $('#refSummary').innerHTML = renderRefSummary(data);
+
+    if (data.status === 'completed') {
+      $('#statusIcon').className = 'status-icon completed';
+      $('#statusIcon').innerHTML = '<i class="fas fa-check"></i>';
+      $('#statusTitle').textContent = 'Your eSIM is ready';
+      $('#statusText').textContent = "Scan the QR code below in your phone's eSIM settings, or check your email — we sent it there too.";
+      if (data.qrCodeUrl) {
+        $('#qrImg').src = data.qrCodeUrl;
+        $('#qrBox').hidden = false;
+        $('#manualDetails').innerHTML = renderManualDelivery(data);
+      } else {
+        $('#qrBox').hidden = true;
+        $('#manualDetails').innerHTML = renderManualDelivery(data);
+      }
+      $('#statusPrimaryBtn').hidden = false;
+      $('#statusPrimaryBtn').textContent = 'Done';
+      $('#statusPrimaryBtn').onclick = () => window.location.reload();
+      return;
+    }
+
+    if (data.status === 'delivery_pending') {
+      $('#statusIcon').className = 'status-icon processing';
+      $('#statusIcon').innerHTML = '<i class="fas fa-circle-notch spin"></i>';
+      $('#statusTitle').textContent = 'Retrieving your eSIM';
+      $('#statusText').textContent = data.errorMessage || 'Your payment was successful. We are retrieving your eSIM details now.';
+      setTimeout(pollStatus, CONFIG.pollIntervalMs);
+      return;
+    }
+
+    if (['failed', 'refunded', 'cancelled', 'reversed'].includes(data.status)) {
+      showFailedState(data.errorMessage);
+      return;
+    }
+
+    if (data.status === 'manual_review') {
+      $('#statusIcon').className = 'status-icon processing';
+      $('#statusIcon').innerHTML = '<i class="fas fa-hourglass-half"></i>';
+      $('#statusTitle').textContent = 'Under review';
+      $('#statusText').textContent = data.errorMessage || "We're confirming this order with our provider. Our team will be in touch shortly.";
+      $('#statusPrimaryBtn').hidden = false;
+      $('#statusPrimaryBtn').textContent = 'Back to eSIMs';
+      $('#statusPrimaryBtn').onclick = () => window.location.reload();
+      return;
+    }
+
+    setTimeout(pollStatus, CONFIG.pollIntervalMs);
+  } catch (e) {
+    console.warn('Poll error:', e.message);
+    setTimeout(pollStatus, CONFIG.pollIntervalMs);
+  }
+}
+
+async function openHistory() {
+  const drawer = $('#histDrawer');
+  const list = $('#histList');
+  drawer.classList.add('open');
+  list.innerHTML = '<div class="hist-empty">Loading…</div>';
+
+  try {
+    const { data } = await apiGet(CONFIG.api.history);
+    const items = Array.isArray(data) ? data : [];
+    if (!items.length) {
+      list.innerHTML = '<div class="hist-empty">You haven\'t purchased any eSIMs yet.</div>';
+      $('#histSub').textContent = 'No purchases yet';
+      return;
+    }
+    $('#histSub').textContent = `${items.length} purchase${items.length === 1 ? '' : 's'}`;
+    list.innerHTML = items.map(t => {
+      const flag = t.countryFlag ? `<img src="${t.countryFlag}" alt="">` : '';
+      let pillStatus = t.status || 'processing';
+      if (t.status === 'completed' && t.deliveryStatus !== 'ready') pillStatus = 'delivery_pending';
+      const st = pillStatus.replace('_', ' ');
+      return `
+        <div class="hist-item">
+          <div class="row1">
+            <div class="flag">${flag}</div>
+            <div class="title">${escapeHtml(t.countryName || 'eSIM')}</div>
+            <span class="pill ${pillStatus}">${escapeHtml(st)}</span>
+          </div>
+          <div class="meta">${escapeHtml(t.planName || '')} ${t.dataAmount ? '· ' + escapeHtml(t.dataAmount) : ''} ${t.validityDays ? '· ' + t.validityDays + ' days' : ''}</div>
+          <div class="meta" style="margin-top:2px;">${moneyUSD(t.totalUsd)} · ${new Date(t.createdAt).toLocaleDateString()}</div>
+          ${t.qrCodeUrl ? `<button class="viewqr" data-qr-url="${escapeHtml(t.qrCodeUrl)}"><i class="fas fa-qrcode"></i> View QR</button>` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="hist-empty">Could not load history.</div>';
+  }
+}
+function closeHistory() { $('#histDrawer').classList.remove('open'); }
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.viewqr');
+  if (!btn) return;
+  const url = btn.dataset.qrUrl;
+  if (!url) return;
+  closeHistory();
+  goToStep(4);
+  $('#statusIcon').className = 'status-icon completed';
+  $('#statusIcon').innerHTML = '<i class="fas fa-check"></i>';
+  $('#statusTitle').textContent = 'Your eSIM QR code';
+  $('#statusText').textContent = "Scan this in your phone's eSIM settings.";
+  $('#qrImg').src = url;
+  $('#qrBox').hidden = false;
+  $('#refSummary').innerHTML = '';
+  $('#manualDetails').innerHTML = '';
+  $('#statusPrimaryBtn').hidden = false;
+  $('#statusPrimaryBtn').textContent = 'Done';
+  $('#statusPrimaryBtn').onclick = () => window.location.reload();
+});
+
+function init() {
+  if (!getToken()) { redirectToLogin(); return; }
+
+  initSidebar();
+  initCurrencyToggle();
+  initCountrySearch();
+  renderUserFromSession();
+
+  loadUser();
+  loadRates();
+  loadCountries();
+
+  $('#histBtn')?.addEventListener('click', openHistory);
+  $('#histClose')?.addEventListener('click', closeHistory);
+
+  $('#heroCta')?.addEventListener('click', () => {
+    goToStep(2);
+    if (!State.allCountries.length) loadCountries();
+  });
+  $('#toConfirmBtn')?.addEventListener('click', () => {
+    if (!State.selectedDestination || !State.selectedPlan) return;
+    refreshSummary();
+    goToStep(3);
+  });
+  $('#backToHeroBtn')?.addEventListener('click', () => goToStep(1));
+  $('#backToPlanBtn')?.addEventListener('click', () => goToStep(2));
+  $('#confirmBuyBtn')?.addEventListener('click', submitPurchase);
+
+  goToStep(1);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

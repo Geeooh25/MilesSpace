@@ -1,0 +1,2111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MilesSpace — Account Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="/js/session.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f0f4f8;
+            color: #0c1f26;
+            padding-bottom: 70px;
+        }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(12,61,74,0.08);
+            gap: 12px;
+        }
+        .topbar .back-btn {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(12,61,74,0.08);
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .topbar .title { font-size: 17px; font-weight: 700; flex: 1; }
+        .topbar .subtitle { font-size: 12px; color: #5b7480; }
+        .content { max-width: 800px; margin: 0 auto; padding: 16px; }
+        .settings-card {
+            background: rgba(255,255,255,0.85);
+            border: 1px solid rgba(12,61,74,0.08);
+            border-radius: 16px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .settings-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(12,61,74,0.08);
+            cursor: pointer;
+        }
+        .settings-card-header .icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .icon.gold { background: #fef3c7; color: #d97706; }
+        .icon.navy { background: #dbeafe; color: #3b82f6; }
+        .icon.purple { background: #ede9fe; color: #8b5cf6; }
+        .icon.blue { background: #dbeafe; color: #3b82f6; }
+        .icon.red { background: #fee2e2; color: #ef4444; }
+        .icon.green { background: #d1fae5; color: #10b981; }
+        .settings-card-header .header-info { flex: 1; }
+        .settings-card-header .header-info h3 { font-size: 14px; font-weight: 600; }
+        .settings-card-header .header-info p { font-size: 12px; color: #5b7480; }
+        .settings-card-header .chevron { font-size: 12px; color: #8fa3ab; transition: transform 0.2s; }
+        .settings-card-header .chevron.open { transform: rotate(180deg); }
+        .settings-card-body {
+            padding: 0 18px 18px;
+            display: none;
+        }
+        .settings-card-body.open { display: block; }
+        .info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(12,61,74,0.08);
+            gap: 10px;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-row .label { font-size: 13px; font-weight: 500; color: #5b7480; }
+        .info-row .value { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+        .btn-outline { background: transparent; color: #5b7480; border: 1.5px solid rgba(12,61,74,0.08); }
+        .btn-outline:hover { background: #f0f4f8; }
+        .btn-gold { background: #f59e0b; color: #082a33; }
+        .btn-gold:hover { background: #d97706; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-primary { background: #0c3d4a; color: #fff; }
+        .btn-primary:hover { background: #155e72; }
+        .btn-xs { padding: 3px 10px; font-size: 10px; border-radius: 6px; }
+        .btn-sm { padding: 5px 12px; font-size: 11px; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 10px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-badge.success { background: #d1fae5; color: #10b981; }
+        .status-badge.danger { background: #fee2e2; color: #ef4444; }
+        .status-badge.neutral { background: #f0f4f8; color: #5b7480; border: 1px solid rgba(12,61,74,0.08); }
+        .status-badge.enabled { background: #d1fae5; color: #10b981; }
+        .status-badge.disabled { background: #fee2e2; color: #ef4444; }
+        .status-badge.set { background: #d1fae5; color: #10b981; }
+        .status-badge.not-set { background: #fee2e2; color: #ef4444; }
+        .saved-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: #f0f4f8;
+            border: 1px solid rgba(12,61,74,0.08);
+            border-radius: 8px;
+            margin-bottom: 6px;
+        }
+        .saved-item .item-info { flex: 1; }
+        .saved-item .item-name { font-weight: 600; font-size: 13px; }
+        .saved-item .item-detail { font-size: 12px; color: #5b7480; }
+        .saved-item .remove-btn {
+            background: none; border: none;
+            color: #8fa3ab; cursor: pointer;
+            font-size: 15px; padding: 4px 8px;
+        }
+        .saved-item .remove-btn:hover { color: #ef4444; }
+        .empty-state { text-align: center; color: #8fa3ab; padding: 16px 10px; font-size: 13px; }
+        .empty-state .empty-icon { font-size: 28px; display: block; margin-bottom: 6px; opacity: 0.5; }
+        .session-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f0f4f8;
+            border: 1px solid rgba(12,61,74,0.08);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            gap: 10px;
+        }
+        .session-item.current { border-color: #f59e0b; background: #fef3c7; }
+        .session-item .session-info { flex: 1; }
+        .session-item .session-device { font-weight: 600; font-size: 13px; }
+        .session-item .session-detail { font-size: 11.5px; color: #5b7480; }
+        .session-item .current-badge {
+            background: #f59e0b; color: #082a33;
+            padding: 1px 8px; border-radius: 99px;
+            font-size: 9px; font-weight: 700;
+        }
+        .session-item .revoke-btn {
+            padding: 3px 10px; border-radius: 8px;
+            font-size: 10px; font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #ef4444;
+            background: #fee2e2; color: #ef4444;
+        }
+        .session-item .revoke-btn:hover { background: #ef4444; color: #fff; }
+        .activity-item, .alert-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(12,61,74,0.08);
+        }
+        .activity-item:last-child, .alert-item:last-child { border-bottom: none; }
+        .activity-icon, .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+        .activity-info, .alert-info { flex: 1; }
+        .activity-desc, .alert-desc { font-size: 13px; }
+        .activity-meta, .alert-meta {
+            font-size: 11px; color: #8fa3ab;
+            display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap;
+        }
+        .alert-item.severity-high { border-left: 3px solid #ef4444; padding-left: 8px; }
+        .alert-item.severity-medium { border-left: 3px solid #f59e0b; padding-left: 8px; }
+        .alert-item.severity-low { border-left: 3px solid #3b82f6; padding-left: 8px; }
+        .alert-item.unread { background: rgba(255,255,255,0.85); border-radius: 8px; padding: 6px 10px; }
+        .alert-severity {
+            font-size: 8px; font-weight: 700; text-transform: uppercase;
+            padding: 0 6px; border-radius: 99px;
+        }
+        .alert-severity.high { background: #fee2e2; color: #ef4444; }
+        .alert-severity.medium { background: #fef3c7; color: #d97706; }
+        .alert-severity.low { background: #dbeafe; color: #3b82f6; }
+        .mark-read-btn { background: none; border: none; color: #10b981; cursor: pointer; font-size: 13px; }
+        .toggle-switch {
+            position: relative;
+            width: 42px; height: 24px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; inset: 0;
+            background: rgba(12,61,74,0.08); border-radius: 24px;
+            transition: 0.3s;
+        }
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .toggle-switch input:checked + .toggle-slider { background: #f59e0b; }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+        .notif-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(12,61,74,0.08);
+        }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-item .notif-label { font-size: 13px; font-weight: 500; }
+        .notif-item .required-badge {
+            font-size: 9px; font-weight: 700;
+            color: #d97706; background: #fef3c7;
+            padding: 1px 8px; border-radius: 99px;
+            margin-left: 6px;
+        }
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: #f0f4f8;
+            border-radius: 20px;
+            max-width: 480px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 24px 28px;
+            box-shadow: 0 8px 32px -12px rgba(8,42,51,0.2);
+            animation: modalIn 0.25s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .modal-header h2 { font-size: 17px; font-weight: 700; }
+        .modal-close {
+            background: none; border: none;
+            font-size: 20px; color: #8fa3ab;
+            cursor: pointer; padding: 4px 8px;
+        }
+        .modal-body { display: flex; flex-direction: column; gap: 12px; }
+        .modal-footer {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(12,61,74,0.08);
+        }
+        .modal-footer .btn { flex: 1; max-width: 140px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #5b7480;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .form-control {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1.5px solid rgba(12,61,74,0.08);
+            border-radius: 8px;
+            font-size: 13.5px;
+            background: #f0f4f8;
+            color: #0c1f26;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .form-control:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
+        .form-control:disabled { opacity: 0.6; cursor: not-allowed; }
+        .form-control.readonly { background: rgba(12,61,74,0.08); cursor: default; }
+        .form-control.verified { border-color: #10b981; }
+        .form-control.error { border-color: #ef4444; }
+        .helper-text { font-size: 11px; color: #8fa3ab; margin-top: 4px; }
+        .helper-text.verified { color: #10b981; }
+        .helper-text.error { color: #ef4444; }
+        .input-group { display: flex; gap: 8px; align-items: center; }
+        .input-group .form-control { flex: 1; }
+        .btn-verify {
+            background: #3b82f6; color: #fff;
+            padding: 6px 12px; font-size: 11px;
+            border-radius: 8px; cursor: pointer; border: none;
+        }
+        .btn-verify:hover { background: #2563eb; }
+        .btn-verify:disabled { opacity: 0.5; cursor: not-allowed; }
+        .twofa-setup { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+        .twofa-setup .step-icon { font-size: 48px; margin-bottom: 4px; }
+        .twofa-setup .step-title { font-size: 16px; font-weight: 700; }
+        .twofa-setup .step-desc { font-size: 13px; color: #5b7480; }
+        .twofa-setup .email-display {
+            font-weight: 600; color: #0c3d4a;
+            background: #f0f4f8; padding: 4px 16px;
+            border-radius: 99px; font-size: 14px;
+        }
+        .twofa-status-text {
+            font-size: 13px; font-weight: 500;
+            padding: 6px 12px; border-radius: 8px;
+        }
+        .twofa-status-text.success { color: #10b981; background: #d1fae5; }
+        .twofa-status-text.error { color: #ef4444; background: #fee2e2; }
+        .twofa-status-text.info { color: #3b82f6; background: #dbeafe; }
+        .toast-stack {
+            position: fixed; bottom: 80px; right: 16px;
+            display: flex; flex-direction: column; gap: 8px;
+            z-index: 600; max-width: 340px; width: 100%;
+        }
+        .toast {
+            background: #082a33; color: #fff;
+            padding: 10px 16px; border-radius: 12px;
+            font-size: 12.5px; font-weight: 600;
+            box-shadow: 0 8px 32px -12px rgba(8,42,51,0.2);
+            display: flex; align-items: center; gap: 8px;
+            animation: toastIn .3s ease;
+            border-left: 3px solid #f59e0b;
+        }
+        .toast.success { border-color: #10b981; }
+        .toast.error { border-color: #ef4444; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .mnav {
+            display: flex;
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: 60px;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(12,61,74,0.08);
+            z-index: 40;
+            align-items: center;
+            justify-content: space-around;
+            padding: 0 8px;
+        }
+        .mni {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 1px; font-size: 9px; font-weight: 600;
+            color: #8fa3ab; text-decoration: none;
+            flex: 1; padding: 4px 0;
+        }
+        .mni i { font-size: 18px; padding: 2px 6px; border-radius: 8px; }
+        .mni.active { color: #0c3d4a; }
+        .mni.active i { background: #f59e0b; color: #0c3d4a; }
+        @media(min-width: 768px) {
+            .mnav { display: none; }
+            body { padding-bottom: 0; }
+            .content { padding: 24px 20px 40px; }
+        }
+        @media(max-width: 480px) {
+            .content { padding: 12px 12px 70px; }
+            .info-row { flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 0; }
+            .info-row .value { text-align: left; width: 100%; justify-content: flex-start; }
+            .info-row .value .btn { margin-left: auto; }
+            .modal { padding: 18px 16px; margin: 8px; }
+            .modal-footer { flex-direction: column; }
+            .modal-footer .btn { max-width: 100%; }
+            .toast-stack { left: 16px; right: 16px; bottom: 70px; max-width: none; }
+            .topbar { padding: 0 12px; height: 54px; }
+            .topbar .title { font-size: 15px; }
+            .topbar .subtitle { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ─── TOPBAR ─── -->
+    <header class="topbar">
+        <button class="back-btn" onclick="window.location.href='/dashboard'">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <div>
+            <div class="title">Account Settings</div>
+            <div class="subtitle">Manage your MilesSpace account</div>
+        </div>
+        <div>
+            <button id="darkToggle" style="background:none;border:none;font-size:18px;cursor:pointer;">🌙</button>
+            <button id="refreshBtn" style="background:none;border:none;font-size:16px;cursor:pointer;margin-left:8px;"><i class="fas fa-sync-alt"></i></button>
+        </div>
+    </header>
+
+    <!-- ─── MAIN CONTENT ─── -->
+    <div class="content">
+
+        <!-- ACCOUNT -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon gold">👤</div>
+                <div class="header-info">
+                    <h3>Personal Information</h3>
+                    <p>Your account details</p>
+                </div>
+                <span class="chevron open">▾</span>
+            </div>
+            <div class="settings-card-body open">
+                <div class="info-row">
+                    <span class="label">Username</span>
+                    <div class="value mono" id="usernameDisplay">—</div>
+                </div>
+                <div class="info-row">
+                    <span class="label">Email</span>
+                    <div class="value">
+                        <span id="emailDisplay">—</span>
+                        <button class="btn btn-outline btn-xs" id="changeEmailBtn">Change</button>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="label">Phone</span>
+                    <div class="value">
+                        <span id="phoneDisplay">Not set</span>
+                        <button class="btn btn-outline btn-xs" id="changePhoneBtn">Add</button>
+                    </div>
+                </div>
+                <div class="info-row" style="border-bottom:none;">
+                    <span class="label">Referral Code</span>
+                    <div class="value">
+                        <span class="mono" id="referralCode">N/A</span>
+                        <button class="copy-btn" id="copyReferralBtn" style="background:none;border:none;cursor:pointer;color:#8fa3ab;font-size:13px;"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECURITY -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon navy">🔐</div>
+                <div class="header-info">
+                    <h3>Security</h3>
+                    <p>Password, PIN &amp; 2FA</p>
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+            <div class="settings-card-body">
+                <div class="info-row">
+                    <span class="label">Password</span>
+                    <div class="value">
+                        <span style="color:#8fa3ab;font-weight:400;">••••••••••</span>
+                        <button class="btn btn-outline btn-xs" id="changePasswordBtn">Change</button>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="label">Transaction PIN</span>
+                    <div class="value">
+                        <span id="pinStatus" class="status-badge neutral">Loading...</span>
+                        <button class="btn btn-outline btn-xs" id="changePinBtn">Change</button>
+                        <button class="btn btn-outline btn-xs" id="resetPinBtn">Reset</button>
+                    </div>
+                </div>
+                <div class="info-row" style="border-bottom:none;">
+                    <span class="label">Email 2FA</span>
+                    <div class="value">
+                        <span id="twofaStatus" class="status-badge neutral">Loading...</span>
+                        <button class="btn btn-gold btn-xs" id="enable2faBtn">Enable</button>
+                        <button class="btn btn-danger btn-xs" id="disable2faBtn" style="display:none;">Disable</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WITHDRAWAL -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon gold">💳</div>
+                <div class="header-info">
+                    <h3>Withdrawal Settings</h3>
+                    <p>Bank accounts &amp; crypto wallets</p>
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+            <div class="settings-card-body">
+                <div style="margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <h4 style="font-size:13px;font-weight:600;">🏦 Bank Accounts</h4>
+                        <button class="btn btn-gold btn-xs" id="addBankBtn">+ Add</button>
+                    </div>
+                    <div id="bankList"><div class="empty-state"><span class="empty-icon">🏦</span>No bank accounts saved</div></div>
+                </div>
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <h4 style="font-size:13px;font-weight:600;">₿ Crypto Wallets</h4>
+                        <button class="btn btn-gold btn-xs" id="addWalletBtn">+ Add</button>
+                    </div>
+                    <div id="walletList"><div class="empty-state"><span class="empty-icon">₿</span>No crypto wallets saved</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTIFICATIONS -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon purple">🔔</div>
+                <div class="header-info">
+                    <h3>Notifications</h3>
+                    <p>Email preferences</p>
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+            <div class="settings-card-body">
+                <div id="notifToggles"></div>
+                <button class="btn btn-primary" id="saveNotifBtn" style="margin-top:12px;">Save Preferences</button>
+            </div>
+        </div>
+
+        <!-- DEVICES -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon blue">💻</div>
+                <div class="header-info">
+                    <h3>Login &amp; Devices</h3>
+                    <p>Active sessions</p>
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+            <div class="settings-card-body">
+                <div style="margin-bottom:12px;background:#f0f4f8;padding:10px 14px;border-radius:8px;">
+                    <div style="font-size:12px;color:#5b7480;font-weight:600;margin-bottom:4px;">Last Login</div>
+                    <div id="lastLoginInfo" style="font-size:13px;"></div>
+                </div>
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+                        <h4 style="font-size:13px;font-weight:600;">Active Sessions</h4>
+                        <button class="btn btn-danger btn-xs" id="logoutAllBtn">Log Out All Others</button>
+                    </div>
+                    <div id="sessionsList"><div class="empty-state"><span class="empty-icon">🖥️</span>No active sessions</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACTIVITY -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon purple">📋</div>
+                <div class="header-info">
+                    <h3>Account Activity</h3>
+                    <p>Recent actions</p>
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+            <div class="settings-card-body">
+                <div id="activityList"><div class="empty-state"><span class="empty-icon">📋</span>No account activity</div></div>
+                <button class="btn btn-outline btn-xs" id="loadMoreActivityBtn" style="display:none;margin-top:8px;">Load More</button>
+            </div>
+        </div>
+
+        <!-- ALERTS -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon red">🛡️</div>
+                <div class="header-info">
+                    <h3>Security Alerts</h3>
+                    <p>Important security events</p>
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+            <div class="settings-card-body">
+                <div id="alertList"><div class="empty-state"><span class="empty-icon">🛡️</span>No security alerts</div></div>
+            </div>
+        </div>
+
+        <!-- STATUS -->
+        <div class="settings-card">
+            <div class="settings-card-header" onclick="toggleSection(this)">
+                <div class="icon green">📊</div>
+                <div class="header-info">
+                    <h3>Account Status</h3>
+                    <p>Your account information</p>
+                </div>
+                <span class="chevron">▾</span>
+            </div>
+            <div class="settings-card-body">
+                <div class="info-row">
+                    <span class="label">Status</span>
+                    <div class="value"><span class="status-badge success" id="statusBadge">Active</span></div>
+                </div>
+                <div class="info-row">
+                    <span class="label">Verification</span>
+                    <div class="value"><span class="status-badge success" id="verificationBadge">Verified</span></div>
+                </div>
+                <div class="info-row" style="border-bottom:none;">
+                    <span class="label">Joined</span>
+                    <div class="value" id="joinedDate">—</div>
+                </div>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(12,61,74,0.08);">
+                    <button class="btn btn-danger btn-sm" id="deactivateBtn">Deactivate Account</button>
+                    <p style="font-size:11px;color:#8fa3ab;margin-top:4px;">This will deactivate your account. You can reactivate by contacting support.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MOBILE NAV -->
+    <nav class="mnav">
+        <a href="/dashboard" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+        <a href="/wallet" class="mni"><i class="fas fa-wallet"></i><span>Wallet</span></a>
+        <a href="#" class="mni active"><i class="fas fa-cog"></i><span>Settings</span></a>
+        <a href="/profile" class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
+        <a href="/history" class="mni"><i class="fas fa-history"></i><span>History</span></a>
+    </nav>
+
+    <!-- TOASTS -->
+    <div class="toast-stack" id="toastStack"></div>
+
+    <!-- ─── MODALS ─── -->
+
+    <!-- Email Modal -->
+    <div class="modal-overlay" id="emailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Change Email</h2>
+                <button class="modal-close" data-modal="emailModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>New Email Address</label>
+                    <input type="email" class="form-control" id="newEmailInput" placeholder="Enter new email address">
+                    <div class="helper-text">A verification code will be sent to your current email</div>
+                </div>
+                <button class="btn btn-primary" id="sendOtpBtn" style="align-self:flex-start;">Send Code</button>
+                <div style="margin-top:8px;padding-top:10px;border-top:1px solid rgba(12,61,74,0.08);">
+                    <div class="form-group">
+                        <label>Verification Code</label>
+                        <input type="text" class="form-control" id="otpInput" placeholder="Enter 6-digit code" maxlength="6" disabled>
+                        <input type="hidden" id="emailChangeRequestId">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="emailModal">Cancel</button>
+                <button class="btn btn-primary" id="verifyOtpBtn" disabled>Verify &amp; Change</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phone Modal -->
+    <div class="modal-overlay" id="phoneModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Add Phone Number</h2>
+                <button class="modal-close" data-modal="phoneModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" class="form-control" id="newPhoneInput" placeholder="+234XXXXXXXXXX">
+                    <div class="helper-text">Include country code (e.g., +234 for Nigeria)</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="phoneModal">Cancel</button>
+                <button class="btn btn-primary" id="savePhoneBtn">Save Phone</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div class="modal-overlay" id="passwordModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Change Password</h2>
+                <button class="modal-close" data-modal="passwordModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" class="form-control" id="currentPassword" placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" class="form-control" id="newPassword" placeholder="Min 8 characters">
+                    <div class="helper-text">Must be at least 8 characters</div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm new password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="passwordModal">Cancel</button>
+                <button class="btn btn-primary" id="savePasswordBtn">Change Password</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIN Modal -->
+    <div class="modal-overlay" id="pinModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Change Transaction PIN</h2>
+                <button class="modal-close" data-modal="pinModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Current PIN</label>
+                    <input type="password" class="form-control" id="currentPinInput" placeholder="Enter current 4-digit PIN" maxlength="4">
+                </div>
+                <div class="form-group">
+                    <label>New PIN</label>
+                    <input type="password" class="form-control" id="newPinInput" placeholder="Enter new 4-digit PIN" maxlength="4">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New PIN</label>
+                    <input type="password" class="form-control" id="confirmPinInput" placeholder="Confirm new 4-digit PIN" maxlength="4">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="pinModal">Cancel</button>
+                <button class="btn btn-primary" id="savePinBtn">Change PIN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Modal -->
+    <div class="modal-overlay" id="twofaModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Enable Email 2FA</h2>
+                <button class="modal-close" data-modal="twofaModal">✕</button>
+            </div>
+            <div class="modal-body twofa-setup">
+                <div id="twofaSetupStep">
+                    <div class="step-icon">🔐</div>
+                    <div class="step-title">Add Extra Protection</div>
+                    <div class="step-desc">We'll send a verification code to your registered email:</div>
+                    <div class="email-display" id="twofaEmailDisplay">loading@email.com</div>
+                    <button class="btn btn-primary" id="twofaSendBtn" style="margin-top:8px;">Send Verification Code</button>
+                </div>
+                <div id="twofaVerifyStep" style="display:none;width:100%;">
+                    <div class="step-icon">✉️</div>
+                    <div class="step-title">Enter Verification Code</div>
+                    <div class="step-desc">Enter the 6-digit code sent to your email</div>
+                    <div class="form-group" style="width:100%;margin-top:8px;">
+                        <input type="text" class="form-control" id="twofaCodeInput" placeholder="Enter 6-digit code" maxlength="6" style="text-align:center;font-size:24px;letter-spacing:8px;font-weight:700;">
+                    </div>
+                    <div id="twofaStatusText" class="twofa-status-text" style="display:none;"></div>
+                    <button class="btn btn-gold" id="twofaVerifyBtn" style="width:100%;">Verify &amp; Enable</button>
+                    <button class="btn btn-outline btn-sm" id="twofaResendBtn">Resend Code</button>
+                </div>
+                <div id="twofaSuccessStep" style="display:none;">
+                    <div class="step-icon">✅</div>
+                    <div class="step-title">Email 2FA Enabled!</div>
+                    <div class="step-desc">Your account is now protected.</div>
+                    <button class="btn btn-primary" id="twofaDoneBtn" style="margin-top:8px;">Done</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="twofaModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disable 2FA Modal -->
+    <div class="modal-overlay" id="disable2faModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Disable Email 2FA</h2>
+                <button class="modal-close" data-modal="disable2faModal">✕</button>
+            </div>
+            <div class="modal-body twofa-setup">
+                <div class="step-icon">⚠️</div>
+                <div class="step-title">Confirm Disable</div>
+                <div class="step-desc">Enter the verification code sent to your email to disable 2FA.</div>
+                <div class="form-group" style="width:100%;margin-top:8px;">
+                    <input type="text" class="form-control" id="disable2faOtpInput" placeholder="Enter 6-digit code" maxlength="6" style="text-align:center;font-size:24px;letter-spacing:8px;font-weight:700;">
+                </div>
+                <div id="disable2faStatus" class="twofa-status-text" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="disable2faModal">Cancel</button>
+                <button class="btn btn-danger" id="disable2faConfirmBtn">Disable 2FA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bank Modal -->
+    <div class="modal-overlay" id="bankModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Add Bank Account</h2>
+                <button class="modal-close" data-modal="bankModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Select Bank</label>
+                    <select class="form-control" id="bankSelect">
+                        <option value="">Loading banks...</option>
+                    </select>
+                    <div class="helper-text">Select your bank from the list</div>
+                </div>
+                <div class="form-group">
+                    <label>Account Number</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="accountNumberInput" placeholder="Enter 10-digit account number" maxlength="10">
+                        <button class="btn-verify" id="verifyBankBtn" disabled>Verify</button>
+                    </div>
+                    <div class="helper-text" id="verifyStatus">Enter account number to verify</div>
+                </div>
+                <div class="form-group">
+                    <label>Account Name</label>
+                    <input type="text" class="form-control readonly" id="accountNameInput" placeholder="Account name will appear here" readonly>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="bankModal">Cancel</button>
+                <button class="btn btn-primary" id="saveBankBtn" disabled>Add Bank</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wallet Modal -->
+    <div class="modal-overlay" id="walletModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Add Crypto Wallet</h2>
+                <button class="modal-close" data-modal="walletModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Coin</label>
+                    <select class="form-control" id="walletCoinInput">
+                        <option value="BTC">Bitcoin (BTC)</option>
+                        <option value="USDT">Tether (USDT)</option>
+                        <option value="USDC">USD Coin (USDC)</option>
+                        <option value="ETH">Ethereum (ETH)</option>
+                        <option value="SOL">Solana (SOL)</option>
+                        <option value="BNB">BNB</option>
+                        <option value="XRP">Ripple (XRP)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Network</label>
+                    <select class="form-control" id="walletNetworkInput">
+                        <option value="TRC20">TRC20</option>
+                        <option value="ERC20">ERC20</option>
+                        <option value="BEP20">BEP20</option>
+                        <option value="Bitcoin">Bitcoin</option>
+                        <option value="Solana">Solana</option>
+                        <option value="XRP">XRP Ledger</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Wallet Address</label>
+                    <input type="text" class="form-control" id="walletAddressInput" placeholder="Enter wallet address">
+                </div>
+                <div class="form-group">
+                    <label>Label</label>
+                    <input type="text" class="form-control" id="walletLabelInput" placeholder="e.g., My Wallet">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close" data-modal="walletModal">Cancel</button>
+                <button class="btn btn-primary" id="saveWalletBtn">Add Wallet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── SCRIPTS ─── -->
+    <script>
+        'use strict';
+
+        // ─── STATE ───
+        const State = {
+            profile: null,
+            settings: null,
+            bankAccounts: [],
+            cryptoWallets: [],
+            sessions: [],
+            activity: [],
+            securityAlerts: [],
+            currentSessionId: null,
+            bankVerified: false,
+            bankAccountName: null
+        };
+
+        // ─── GET USER TOKEN ───
+        function getUserToken() {
+            try {
+                const session = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
+                if (!session) return null;
+                const data = JSON.parse(session);
+                return data?.token || data?.access_token || null;
+            } catch { return null; }
+        }
+
+        function getRefreshToken() {
+            try {
+                const session = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
+                if (!session) return null;
+                const data = JSON.parse(session);
+                return data?.refreshToken || null;
+            } catch { return null; }
+        }
+
+        function getSessionData() {
+            try {
+                const session = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
+                if (!session) return null;
+                return JSON.parse(session);
+            } catch { return null; }
+        }
+
+        function saveUserSession(token, user, refreshToken, sessionId) {
+            const data = {
+                token: token,
+                access_token: token,
+                refreshToken: refreshToken || null,
+                user: user,
+                sessionId: sessionId || null,
+                loggedAt: Date.now()
+            };
+            localStorage.setItem('mx_sess', JSON.stringify(data));
+            sessionStorage.setItem('mx_sess', JSON.stringify(data));
+        }
+
+        function clearUserSession() {
+            localStorage.removeItem('mx_sess');
+            sessionStorage.removeItem('mx_sess');
+        }
+
+        function redirectToLogin() {
+            clearUserSession();
+            window.location.href = '/signup';
+        }
+
+        // ─── API HELPER ───
+        async function apiFetch(endpoint, options = {}) {
+            const token = getUserToken();
+            if (!token) { redirectToLogin(); throw new Error('Not authenticated'); }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                ...options.headers
+            };
+
+            try {
+                const response = await fetch(`/api/user${endpoint}`, { ...options, headers });
+
+                if (response.status === 401 || response.status === 403) {
+                    const refreshToken = getRefreshToken();
+                    if (refreshToken) {
+                        try {
+                            const refreshResponse = await fetch('/api/auth/refresh', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ refresh_token: refreshToken })
+                            });
+                            if (refreshResponse.ok) {
+                                const refreshData = await refreshResponse.json();
+                                if (refreshData.success && refreshData.data?.access_token) {
+                                    const session = getSessionData();
+                                    saveUserSession(
+                                        refreshData.data.access_token,
+                                        session?.user,
+                                        refreshData.data.refresh_token,
+                                        session?.sessionId
+                                    );
+                                    headers['Authorization'] = `Bearer ${refreshData.data.access_token}`;
+                                    const retry = await fetch(`/api/user${endpoint}`, { ...options, headers });
+                                    if (retry.ok) return await retry.json();
+                                }
+                            }
+                        } catch (e) { console.warn('Refresh failed:', e); }
+                    }
+                    redirectToLogin();
+                    throw new Error('Session expired');
+                }
+
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Request failed');
+                return data;
+            } catch (error) {
+                if (error.message === 'Failed to fetch') redirectToLogin();
+                throw error;
+            }
+        }
+
+        // ─── HELPERS ───
+        function timeAgo(date) {
+            if (!date) return 'just now';
+            const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+            return Math.floor(diff / 604800) + 'w ago';
+        }
+
+        function showToast(message, type = 'info') {
+            const stack = document.getElementById('toastStack');
+            if (!stack) return;
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+            el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+            stack.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(30px)';
+                el.style.transition = 'all .25s ease';
+                setTimeout(() => el.remove(), 260);
+            }, 3200);
+        }
+
+        function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.remove('open');
+                modal.querySelectorAll('input').forEach(inp => {
+                    if (inp.type !== 'hidden') inp.value = '';
+                });
+                if (id === 'twofaModal') {
+                    document.getElementById('twofaSetupStep').style.display = 'block';
+                    document.getElementById('twofaVerifyStep').style.display = 'none';
+                    document.getElementById('twofaSuccessStep').style.display = 'none';
+                    document.getElementById('twofaStatusText').style.display = 'none';
+                    document.getElementById('twofaCodeInput').value = '';
+                }
+                if (id === 'disable2faModal') {
+                    document.getElementById('disable2faStatus').style.display = 'none';
+                    document.getElementById('disable2faOtpInput').value = '';
+                }
+                if (id === 'bankModal') {
+                    State.bankVerified = false;
+                    State.bankAccountName = null;
+                    document.getElementById('saveBankBtn').disabled = true;
+                    document.getElementById('accountNameInput').value = '';
+                    document.getElementById('accountNameInput').className = 'form-control readonly';
+                    document.getElementById('verifyStatus').textContent = 'Enter account number to verify';
+                    document.getElementById('verifyStatus').className = 'helper-text';
+                }
+            }
+        }
+
+        // ─── TOGGLE SECTION ───
+        function toggleSection(header) {
+            const body = header.nextElementSibling;
+            const chevron = header.querySelector('.chevron');
+            if (body) body.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+
+        // ─── LOAD SETTINGS ───
+        async function loadSettings() {
+            try {
+                const result = await apiFetch('/settings');
+                const data = result.data;
+
+                State.profile = data.profile;
+                State.settings = data.settings;
+                State.bankAccounts = data.bank_accounts || [];
+                State.cryptoWallets = data.crypto_wallets || [];
+                State.sessions = data.sessions || [];
+                State.activity = data.activity || [];
+                State.securityAlerts = data.security_alerts || [];
+                State.currentSessionId = data.current_session_id;
+
+                renderAll();
+            } catch (error) {
+                console.error('Load settings error:', error);
+                showToast('Failed to load settings: ' + error.message, 'error');
+            }
+        }
+
+        // ─── RENDER ───
+        function renderAll() {
+            renderPersonalInfo();
+            renderNotifications();
+            renderBankAccounts();
+            renderCryptoWallets();
+            renderPinStatus();
+            renderTwoFAStatus();
+            renderLoginDetails();
+            renderActivity();
+            renderSecurityAlerts();
+            renderAccountStatus();
+        }
+
+        function renderPersonalInfo() {
+            const p = State.profile;
+            if (!p) return;
+            document.getElementById('usernameDisplay').textContent = p.username || 'Not set';
+            document.getElementById('emailDisplay').textContent = p.email;
+            document.getElementById('phoneDisplay').textContent = p.phone || 'Not set';
+            document.getElementById('referralCode').textContent = p.referral_code || 'N/A';
+            document.getElementById('joinedDate').textContent = p.created_at ?
+                new Date(p.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—';
+        }
+
+        function renderNotifications() {
+            const prefs = State.settings?.notification_preferences || {};
+            const items = [
+                { key: 'transaction_completed', label: 'Transaction completed' },
+                { key: 'deposit_received', label: 'Deposit received' },
+                { key: 'withdrawal_completed', label: 'Withdrawal completed' },
+                { key: 'crypto_purchase_completed', label: 'Crypto purchase completed' },
+                { key: 'gift_order_update', label: 'Gift card order update' },
+                { key: 'marketplace_order_update', label: 'Marketplace order update' },
+                { key: 'security_alerts', label: 'Security alerts', required: true },
+                { key: 'milesspace_updates', label: 'MilesSpace updates', required: true }
+            ];
+            const container = document.getElementById('notifToggles');
+            container.innerHTML = items.map(item => {
+                const isOn = prefs[item.key] !== undefined ? prefs[item.key] : true;
+                const disabled = item.required ? 'disabled' : '';
+                return `
+                    <div class="notif-item">
+                        <span class="notif-label">${item.label} ${item.required ? '<span class="required-badge">Required</span>' : ''}</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" class="notif-checkbox" data-key="${item.key}" ${isOn ? 'checked' : ''} ${disabled}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderBankAccounts() {
+            const list = document.getElementById('bankList');
+            const accounts = State.bankAccounts;
+            if (!accounts || accounts.length === 0) {
+                list.innerHTML = `<div class="empty-state"><span class="empty-icon">🏦</span>No bank accounts saved</div>`;
+                return;
+            }
+            list.innerHTML = accounts.map(acc => `
+                <div class="saved-item">
+                    <div class="item-icon">🏦</div>
+                    <div class="item-info">
+                        <div class="item-name">${acc.bank_name}</div>
+                        <div class="item-detail">${acc.account_number}</div>
+                        <div class="item-detail">${acc.account_name}</div>
+                        <div class="item-status ${acc.verified ? 'verified' : 'unverified'}">${acc.verified ? '✅ Verified' : '⏳ Pending'}</div>
+                    </div>
+                    <button class="remove-btn" data-id="${acc.id}" data-type="bank">✕</button>
+                </div>
+            `).join('');
+            list.querySelectorAll('.remove-btn[data-type="bank"]').forEach(btn => {
+                btn.addEventListener('click', () => removeBankAccount(btn.dataset.id));
+            });
+        }
+
+        function renderCryptoWallets() {
+            const list = document.getElementById('walletList');
+            const wallets = State.cryptoWallets;
+            if (!wallets || wallets.length === 0) {
+                list.innerHTML = `<div class="empty-state"><span class="empty-icon">₿</span>No crypto wallets saved</div>`;
+                return;
+            }
+            list.innerHTML = wallets.map(w => `
+                <div class="saved-item">
+                    <div class="item-icon">₿</div>
+                    <div class="item-info">
+                        <div class="item-name">${w.coin} · ${w.network || 'N/A'}</div>
+                        <div class="item-detail">${w.address}</div>
+                        ${w.label ? `<div class="item-detail">${w.label}</div>` : ''}
+                    </div>
+                    <button class="remove-btn" data-id="${w.id}" data-type="wallet">✕</button>
+                </div>
+            `).join('');
+            list.querySelectorAll('.remove-btn[data-type="wallet"]').forEach(btn => {
+                btn.addEventListener('click', () => removeCryptoWallet(btn.dataset.id));
+            });
+        }
+
+        function renderPinStatus() {
+            const hasPin = State.profile?.has_transaction_pin === true;
+            const el = document.getElementById('pinStatus');
+            el.textContent = hasPin ? '✅ Set' : '❌ Not Set';
+            el.className = `status-badge ${hasPin ? 'set' : 'not-set'}`;
+        }
+
+        function renderTwoFAStatus() {
+            const enabled = State.settings?.email_2fa_enabled || false;
+            const el = document.getElementById('twofaStatus');
+            el.textContent = enabled ? '✅ Enabled' : '❌ Disabled';
+            el.className = `status-badge ${enabled ? 'enabled' : 'disabled'}`;
+            document.getElementById('enable2faBtn').style.display = enabled ? 'none' : 'inline-block';
+            document.getElementById('disable2faBtn').style.display = enabled ? 'inline-block' : 'none';
+        }
+
+        function renderLoginDetails() {
+            const p = State.profile;
+            if (p) {
+                const lastLogin = p.last_login ? new Date(p.last_login).toLocaleString() : 'Never';
+                document.getElementById('lastLoginInfo').innerHTML = `
+                    <div><strong>${lastLogin}</strong></div>
+                    <div style="color:#5b7480;">${p.last_login_location || 'Unknown'} · ${p.last_login_device || 'Unknown'} · ${p.last_login_browser || 'Unknown'}</div>
+                `;
+            }
+
+            const sessions = State.sessions;
+            const list = document.getElementById('sessionsList');
+            if (!sessions || sessions.length === 0) {
+                list.innerHTML = `<div class="empty-state"><span class="empty-icon">🖥️</span>No active sessions</div>`;
+                return;
+            }
+
+            list.innerHTML = sessions.map(s => {
+                const isCurrent = s.session_id === State.currentSessionId;
+                return `
+                    <div class="session-item ${isCurrent ? 'current' : ''}">
+                        <div class="session-info">
+                            <div class="session-device">${s.browser || 'Unknown'} · ${s.os || 'Unknown'}</div>
+                            <div class="session-detail">${s.ip_address || 'Unknown Location'}</div>
+                            <div class="session-detail">Last active: ${s.last_activity_at ? timeAgo(s.last_activity_at) : 'Just now'}</div>
+                        </div>
+                        <div class="session-status">
+                            ${isCurrent ? '<span class="current-badge">Current</span>' : ''}
+                            ${!isCurrent ? `<button class="revoke-btn" data-id="${s.session_id}">Log Out</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            list.querySelectorAll('.revoke-btn').forEach(btn => {
+                btn.addEventListener('click', () => revokeSession(btn.dataset.id));
+            });
+        }
+
+        function renderActivity() {
+            const list = document.getElementById('activityList');
+            const activities = State.activity;
+            if (!activities || activities.length === 0) {
+                list.innerHTML = `<div class="empty-state"><span class="empty-icon">📋</span>No account activity</div>`;
+                return;
+            }
+            list.innerHTML = activities.slice(0, 10).map(a => `
+                <div class="activity-item">
+                    <div class="activity-icon">${getIcon(a.activity_type)}</div>
+                    <div class="activity-info">
+                        <div class="activity-desc">${a.description || a.activity_type}</div>
+                        <div class="activity-meta">
+                            <span>${timeAgo(a.created_at)}</span>
+                            ${a.location ? `<span>· ${a.location}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('loadMoreActivityBtn').style.display = activities.length > 10 ? 'inline-block' : 'none';
+        }
+
+        function renderSecurityAlerts() {
+            const list = document.getElementById('alertList');
+            const alerts = State.securityAlerts;
+            if (!alerts || alerts.length === 0) {
+                list.innerHTML = `<div class="empty-state"><span class="empty-icon">🛡️</span>No security alerts</div>`;
+                return;
+            }
+            list.innerHTML = alerts.slice(0, 10).map(a => `
+                <div class="alert-item severity-${a.severity || 'medium'} ${!a.is_read ? 'unread' : ''}">
+                    <div class="alert-icon">${getAlertIcon(a.alert_type)}</div>
+                    <div class="alert-info">
+                        <div class="alert-desc">${a.description || a.alert_type}</div>
+                        <div class="alert-meta">
+                            <span>${timeAgo(a.created_at)}</span>
+                            <span class="alert-severity ${a.severity || 'medium'}">${a.severity || 'medium'}</span>
+                        </div>
+                    </div>
+                    ${!a.is_read ? `<button class="mark-read-btn" data-id="${a.id}">✓</button>` : ''}
+                </div>
+            `).join('');
+
+            list.querySelectorAll('.mark-read-btn').forEach(btn => {
+                btn.addEventListener('click', () => markAlertRead(btn.dataset.id));
+            });
+        }
+
+        function renderAccountStatus() {
+            const status = State.profile?.status || 'active';
+            const map = {
+                'active': { label: 'Active', class: 'success' },
+                'suspended': { label: 'Suspended', class: 'danger' },
+                'restricted': { label: 'Restricted', class: 'warn' },
+                'pending': { label: 'Pending', class: 'warn' }
+            };
+            const info = map[status] || map.active;
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = info.label;
+            badge.className = `status-badge ${info.class}`;
+
+            const verified = State.profile?.is_verified || false;
+            const vBadge = document.getElementById('verificationBadge');
+            vBadge.textContent = verified ? '✅ Verified' : '⏳ Pending';
+            vBadge.className = `status-badge ${verified ? 'success' : 'warn'}`;
+        }
+
+        function getIcon(type) {
+            const icons = {
+                'password_changed': '🔐', 'email_changed': '📧', 'phone_changed': '📱',
+                'transaction_pin_changed': '🔢', 'twofa_enabled': '🔑', 'twofa_disabled': '🔑',
+                'bank_account_added': '🏦', 'bank_account_removed': '🏦',
+                'crypto_wallet_added': '₿', 'crypto_wallet_removed': '₿',
+                'session_revoked': '🚪', 'login': '🔐', 'withdrawal': '📤', 'deposit': '📥'
+            };
+            return icons[type] || '📌';
+        }
+
+        function getAlertIcon(type) {
+            const icons = {
+                'password_changed': '🔐', 'email_changed': '📧',
+                'twofa_enabled': '🔑', 'twofa_disabled': '🔑',
+                'bank_account_added': '🏦', 'bank_account_removed': '🏦',
+                'crypto_wallet_added': '₿', 'crypto_wallet_removed': '₿',
+                'all_sessions_revoked': '🚪', 'transaction_pin_changed': '🔢',
+                'new_login': '🖥️', 'suspicious_activity': '⚠️'
+            };
+            return icons[type] || '⚠️';
+        }
+
+        // ─── BANK FUNCTIONS ───
+        async function loadBanks() {
+            const select = document.getElementById('bankSelect');
+            select.innerHTML = '<option value="">Loading banks...</option>';
+            select.disabled = true;
+            try {
+                const result = await apiFetch('/banks');
+                const banks = result.data || [];
+                if (banks.length === 0) {
+                    select.innerHTML = '<option value="">No banks available</option>';
+                    return;
+                }
+                select.innerHTML = '<option value="">Select a bank...</option>' +
+                    banks.map(b => `<option value="${b.code}">${b.name}</option>`).join('');
+                select.disabled = false;
+                document.getElementById('accountNumberInput').disabled = false;
+            } catch (error) {
+                select.innerHTML = '<option value="">Error loading banks</option>';
+                showToast('Failed to load banks: ' + error.message, 'error');
+            }
+        }
+
+        async function verifyBankAccount() {
+            const bankCode = document.getElementById('bankSelect').value;
+            const accountNumber = document.getElementById('accountNumberInput').value.trim();
+            const verifyBtn = document.getElementById('verifyBankBtn');
+            const statusEl = document.getElementById('verifyStatus');
+            const nameInput = document.getElementById('accountNameInput');
+
+            if (!bankCode) { showToast('Please select a bank first', 'warning'); return; }
+            if (accountNumber.length !== 10 || !/^\d{10}$/.test(accountNumber)) {
+                showToast('Please enter a valid 10-digit account number', 'warning');
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+            statusEl.textContent = '⏳ Verifying account...';
+            statusEl.className = 'helper-text verifying';
+            nameInput.value = '';
+            State.bankVerified = false;
+            document.getElementById('saveBankBtn').disabled = true;
+
+            try {
+                const result = await apiFetch('/bank/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({ bank_code: bankCode, account_number: accountNumber })
+                });
+
+                if (result.success) {
+                    const accountName = result.data.account_name;
+                    nameInput.value = accountName;
+                    nameInput.className = 'form-control verified';
+                    statusEl.textContent = '✅ Account verified: ' + accountName;
+                    statusEl.className = 'helper-text verified';
+                    State.bankVerified = true;
+                    State.bankAccountName = accountName;
+                    document.getElementById('saveBankBtn').disabled = false;
+                    showToast('Account verified successfully!', 'success');
+                }
+            } catch (error) {
+                nameInput.value = '';
+                nameInput.className = 'form-control error';
+                statusEl.textContent = '❌ ' + (error.message || 'Verification failed');
+                statusEl.className = 'helper-text error';
+                State.bankVerified = false;
+                document.getElementById('saveBankBtn').disabled = true;
+                showToast('Verification failed: ' + error.message, 'error');
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify';
+            }
+        }
+
+        function setupAutoVerify() {
+            const accountInput = document.getElementById('accountNumberInput');
+            accountInput.addEventListener('input', function() {
+                const val = this.value.trim();
+                const verifyBtn = document.getElementById('verifyBankBtn');
+                if (val.length === 10 && /^\d{10}$/.test(val)) {
+                    verifyBtn.disabled = false;
+                    clearTimeout(this._verifyTimeout);
+                    this._verifyTimeout = setTimeout(() => {
+                        if (document.getElementById('bankSelect').value) {
+                            verifyBankAccount();
+                        }
+                    }, 800);
+                } else {
+                    verifyBtn.disabled = true;
+                    State.bankVerified = false;
+                    document.getElementById('saveBankBtn').disabled = true;
+                    document.getElementById('accountNameInput').value = '';
+                    document.getElementById('accountNameInput').className = 'form-control readonly';
+                    document.getElementById('verifyStatus').textContent = 'Enter account number to verify';
+                    document.getElementById('verifyStatus').className = 'helper-text';
+                }
+            });
+            document.getElementById('bankSelect').addEventListener('change', function() {
+                const accNum = document.getElementById('accountNumberInput').value.trim();
+                if (accNum.length === 10 && /^\d{10}$/.test(accNum)) {
+                    verifyBankAccount();
+                }
+            });
+        }
+
+        // ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
+        // ─── 2FA FUNCTIONS - FIXED ENDPOINTS ───────────────────
+        // ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
+
+        let enable2faInProgress = false;
+        let disable2faInProgress = false;
+
+        // ─── ENABLE 2FA - Step 1: Request OTP ────────────────────
+        async function enableTwoFA() {
+            if (enable2faInProgress) return;
+            enable2faInProgress = true;
+
+            try {
+                const btn = document.getElementById('enable2faBtn');
+                btn.disabled = true;
+                btn.textContent = 'Setting up...';
+
+                const email = State.profile?.email || 'your email';
+                document.getElementById('twofaEmailDisplay').textContent = email;
+
+                document.getElementById('twofaSetupStep').style.display = 'block';
+                document.getElementById('twofaVerifyStep').style.display = 'none';
+                document.getElementById('twofaSuccessStep').style.display = 'none';
+                document.getElementById('twofaStatusText').style.display = 'none';
+                document.getElementById('twofaCodeInput').value = '';
+
+                openModal('twofaModal');
+
+                // ✅ CORRECT: Call /setup to request OTP
+                await apiFetch('/2fa/email/setup', { method: 'POST' });
+
+                document.getElementById('twofaSetupStep').style.display = 'none';
+                document.getElementById('twofaVerifyStep').style.display = 'block';
+
+                const statusEl = document.getElementById('twofaStatusText');
+                statusEl.style.display = 'block';
+                statusEl.textContent = '✅ Code sent! Check your email.';
+                statusEl.className = 'twofa-status-text success';
+                showToast('Verification code sent to your email', 'success');
+
+            } catch (error) {
+                showToast('Failed to setup 2FA: ' + error.message, 'error');
+            } finally {
+                document.getElementById('enable2faBtn').disabled = false;
+                document.getElementById('enable2faBtn').textContent = 'Enable 2FA';
+                enable2faInProgress = false;
+            }
+        }
+
+        // ─── ENABLE 2FA - Step 2: Verify OTP ──────────────────────
+        async function verifyTwoFAEnable() {
+            const code = document.getElementById('twofaCodeInput').value.trim();
+            const statusEl = document.getElementById('twofaStatusText');
+
+            if (!code) { showToast('Please enter the verification code', 'warning'); return; }
+            if (!/^\d{6}$/.test(code)) { showToast('Please enter the 6-digit verification code', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('twofaVerifyBtn');
+                btn.disabled = true;
+                btn.textContent = 'Verifying...';
+                statusEl.style.display = 'block';
+                statusEl.textContent = '⏳ Verifying...';
+                statusEl.className = 'twofa-status-text info';
+
+                // ✅ CORRECT: Call /verify to enable 2FA
+                await apiFetch('/2fa/email/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({ otp: code })
+                });
+
+                document.getElementById('twofaSetupStep').style.display = 'none';
+                document.getElementById('twofaVerifyStep').style.display = 'none';
+                document.getElementById('twofaSuccessStep').style.display = 'block';
+
+                statusEl.textContent = '✅ 2FA enabled successfully!';
+                statusEl.className = 'twofa-status-text success';
+                showToast('Email 2FA enabled successfully!', 'success');
+
+                setTimeout(() => {
+                    closeModal('twofaModal');
+                    loadSettings();
+                }, 2000);
+
+            } catch (error) {
+                statusEl.style.display = 'block';
+                statusEl.textContent = '❌ ' + (error.message || 'Verification failed');
+                statusEl.className = 'twofa-status-text error';
+                showToast('Verification failed: ' + error.message, 'error');
+            } finally {
+                document.getElementById('twofaVerifyBtn').disabled = false;
+                document.getElementById('twofaVerifyBtn').textContent = 'Verify & Enable';
+            }
+        }
+
+        // ─── RESEND 2FA OTP ─────────────────────────────────────────
+        async function resendTwoFACode() {
+            try {
+                const btn = document.getElementById('twofaResendBtn');
+                const statusEl = document.getElementById('twofaStatusText');
+
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+                statusEl.style.display = 'block';
+                statusEl.textContent = '⏳ Sending...';
+                statusEl.className = 'twofa-status-text info';
+
+                // ✅ CORRECT: Call /resend
+                await apiFetch('/2fa/email/resend', { method: 'POST' });
+
+                statusEl.textContent = '✅ New code sent! Check your email.';
+                statusEl.className = 'twofa-status-text success';
+                showToast('New verification code sent', 'success');
+
+            } catch (error) {
+                const statusEl = document.getElementById('twofaStatusText');
+                statusEl.style.display = 'block';
+                statusEl.textContent = '❌ ' + (error.message || 'Failed to resend code');
+                statusEl.className = 'twofa-status-text error';
+                showToast('Failed to resend code: ' + error.message, 'error');
+            } finally {
+                document.getElementById('twofaResendBtn').disabled = false;
+                document.getElementById('twofaResendBtn').textContent = 'Resend Code';
+            }
+        }
+
+        // ─── DISABLE 2FA - Step 1: Request OTP ─────────────────────
+        async function disableTwoFA() {
+            if (disable2faInProgress) return;
+            disable2faInProgress = true;
+
+            try {
+                const btn = document.getElementById('disable2faBtn');
+                btn.disabled = true;
+                btn.textContent = 'Requesting code...';
+
+                // ✅ CORRECT: Call /disable/request to get OTP
+                await apiFetch('/2fa/email/disable/request', { method: 'POST' });
+
+                document.getElementById('disable2faOtpInput').value = '';
+                document.getElementById('disable2faStatus').style.display = 'block';
+                document.getElementById('disable2faStatus').textContent = 'A verification code has been sent to your email.';
+                document.getElementById('disable2faStatus').className = 'twofa-status-text info';
+                openModal('disable2faModal');
+                showToast('Verification code sent to your email', 'success');
+
+            } catch (error) {
+                showToast('Failed to request 2FA disable: ' + error.message, 'error');
+            } finally {
+                document.getElementById('disable2faBtn').disabled = false;
+                document.getElementById('disable2faBtn').textContent = 'Disable 2FA';
+                disable2faInProgress = false;
+            }
+        }
+
+        // ─── DISABLE 2FA - Step 2: Verify OTP and Disable ─────────
+        async function verifyTwoFADisable() {
+            const otp = document.getElementById('disable2faOtpInput').value.trim();
+            const statusEl = document.getElementById('disable2faStatus');
+
+            if (!otp) { showToast('Please enter the verification code', 'warning'); return; }
+            if (!/^\d{6}$/.test(otp)) { showToast('Please enter the 6-digit verification code', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('disable2faConfirmBtn');
+                btn.disabled = true;
+                btn.textContent = 'Disabling...';
+                statusEl.style.display = 'block';
+                statusEl.textContent = '⏳ Verifying...';
+                statusEl.className = 'twofa-status-text info';
+
+                // ✅ CORRECT: Call /disable/verify to disable 2FA
+                await apiFetch('/2fa/email/disable/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({ otp })
+                });
+
+                statusEl.textContent = '✅ 2FA disabled successfully!';
+                statusEl.className = 'twofa-status-text success';
+                showToast('2FA disabled successfully', 'success');
+
+                setTimeout(() => {
+                    closeModal('disable2faModal');
+                    loadSettings();
+                }, 1000);
+
+            } catch (error) {
+                statusEl.style.display = 'block';
+                statusEl.textContent = '❌ ' + (error.message || 'Failed to disable 2FA');
+                statusEl.className = 'twofa-status-text error';
+                showToast('Failed to disable 2FA: ' + error.message, 'error');
+            } finally {
+                document.getElementById('disable2faConfirmBtn').disabled = false;
+                document.getElementById('disable2faConfirmBtn').textContent = 'Disable 2FA';
+            }
+        }
+
+        // ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
+        // ─── ACTION FUNCTIONS ──────────────────────────────────
+        // ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
+
+        async function changeEmail() {
+            const newEmail = document.getElementById('newEmailInput').value.trim();
+            if (!newEmail) { showToast('Please enter a new email address', 'warning'); return; }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(newEmail)) { showToast('Please enter a valid email address', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('sendOtpBtn');
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+                const result = await apiFetch('/email/change/request', {
+                    method: 'POST',
+                    body: JSON.stringify({ new_email: newEmail })
+                });
+                document.getElementById('emailChangeRequestId').value = result.data.request_id;
+                document.getElementById('otpInput').disabled = false;
+                document.getElementById('verifyOtpBtn').disabled = false;
+                btn.textContent = '✅ Code Sent';
+                showToast('Verification code sent to your current email', 'success');
+            } catch (error) {
+                showToast('Failed to send code: ' + error.message, 'error');
+                document.getElementById('sendOtpBtn').textContent = 'Resend Code';
+                document.getElementById('sendOtpBtn').disabled = false;
+            }
+        }
+
+        async function verifyEmailChange() {
+            const requestId = document.getElementById('emailChangeRequestId').value;
+            const otp = document.getElementById('otpInput').value.trim();
+            if (!requestId || !otp) { showToast('Please enter the verification code', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('verifyOtpBtn');
+                btn.disabled = true;
+                btn.textContent = 'Verifying...';
+                await apiFetch('/email/change/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({ request_id: requestId, otp })
+                });
+                showToast('Email changed successfully!', 'success');
+                closeModal('emailModal');
+                loadSettings();
+            } catch (error) {
+                showToast('Verification failed: ' + error.message, 'error');
+                document.getElementById('verifyOtpBtn').disabled = false;
+                document.getElementById('verifyOtpBtn').textContent = 'Verify Code';
+            }
+        }
+
+        const changePhone = async () => {
+            const phone = document.getElementById('newPhoneInput').value.trim();
+            if (!phone) { showToast('Please enter a phone number', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('savePhoneBtn');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+                await apiFetch('/profile/phone', {
+                    method: 'PATCH',
+                    body: JSON.stringify({ phone })
+                });
+                showToast('Phone number updated successfully!', 'success');
+                closeModal('phoneModal');
+                loadSettings();
+            } catch (error) {
+                showToast('Failed to update phone: ' + error.message, 'error');
+                document.getElementById('savePhoneBtn').disabled = false;
+                document.getElementById('savePhoneBtn').textContent = 'Save Phone';
+            }
+        };
+
+        async function changePassword() {
+            const current = document.getElementById('currentPassword').value;
+            const newPass = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+
+            if (!current || !newPass || !confirm) { showToast('All password fields are required', 'warning'); return; }
+            if (newPass !== confirm) { showToast('New passwords do not match', 'warning'); return; }
+            if (newPass.length < 8) { showToast('Password must be at least 8 characters', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('savePasswordBtn');
+                btn.disabled = true;
+                btn.textContent = 'Changing...';
+                await apiFetch('/password/change', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        current_password: current,
+                        new_password: newPass,
+                        confirm_password: confirm
+                    })
+                });
+                showToast('Password changed successfully!', 'success');
+                closeModal('passwordModal');
+                loadSettings();
+            } catch (error) {
+                showToast('Failed to change password: ' + error.message, 'error');
+                document.getElementById('savePasswordBtn').disabled = false;
+                document.getElementById('savePasswordBtn').textContent = 'Change Password';
+            }
+        }
+
+        async function changeTransactionPin() {
+            const current = document.getElementById('currentPinInput').value;
+            const newPin = document.getElementById('newPinInput').value;
+            const confirm = document.getElementById('confirmPinInput').value;
+
+            if (!current || !newPin || !confirm) { showToast('All PIN fields are required', 'warning'); return; }
+            if (!/^\d{4}$/.test(newPin)) { showToast('PIN must be 4 digits', 'warning'); return; }
+            if (newPin !== confirm) { showToast('PINs do not match', 'warning'); return; }
+
+            const common = ['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321'];
+            if (common.includes(newPin)) { showToast('PIN is too common. Choose a different one.', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('savePinBtn');
+                btn.disabled = true;
+                btn.textContent = 'Changing...';
+                await apiFetch('/transaction-pin/change', {
+                    method: 'POST',
+                    body: JSON.stringify({ current_pin: current, new_pin: newPin, confirm_pin: confirm })
+                });
+                showToast('Transaction PIN changed successfully!', 'success');
+                closeModal('pinModal');
+                loadSettings();
+            } catch (error) {
+                showToast('Failed to change PIN: ' + error.message, 'error');
+                document.getElementById('savePinBtn').disabled = false;
+                document.getElementById('savePinBtn').textContent = 'Change PIN';
+            }
+        }
+
+        async function resetTransactionPin() {
+            if (!confirm('Resetting your PIN will require email verification. Continue?')) return;
+
+            try {
+                const btn = document.getElementById('resetPinBtn');
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+
+                await apiFetch('/transaction-pin/reset/request', { method: 'POST' });
+
+                const otp = prompt('Enter the 6-digit reset code sent to your email:');
+                if (!otp) { btn.disabled = false; btn.textContent = 'Reset'; return; }
+
+                const newPin = prompt('Enter your new 4-digit PIN:');
+                if (!newPin || !/^\d{4}$/.test(newPin)) {
+                    showToast('PIN must be 4 digits', 'warning');
+                    btn.disabled = false; btn.textContent = 'Reset';
+                    return;
+                }
+
+                const confirmPin = prompt('Confirm your new 4-digit PIN:');
+                if (newPin !== confirmPin) {
+                    showToast('PINs do not match', 'warning');
+                    btn.disabled = false; btn.textContent = 'Reset';
+                    return;
+                }
+
+                await apiFetch('/transaction-pin/reset', {
+                    method: 'POST',
+                    body: JSON.stringify({ otp, new_pin: newPin, confirm_pin: confirmPin })
+                });
+
+                showToast('PIN reset successfully!', 'success');
+                loadSettings();
+            } catch (error) {
+                showToast('Failed to reset PIN: ' + error.message, 'error');
+            } finally {
+                document.getElementById('resetPinBtn').disabled = false;
+                document.getElementById('resetPinBtn').textContent = 'Reset';
+            }
+        }
+
+        async function saveNotificationPreferences() {
+            const checkboxes = document.querySelectorAll('.notif-checkbox');
+            const preferences = {};
+            checkboxes.forEach(cb => { preferences[cb.dataset.key] = cb.checked; });
+
+            try {
+                const btn = document.getElementById('saveNotifBtn');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+                await apiFetch('/notifications', { method: 'PATCH', body: JSON.stringify(preferences) });
+                showToast('Notification preferences saved!', 'success');
+                btn.disabled = false;
+                btn.textContent = 'Save Preferences';
+            } catch (error) {
+                showToast('Failed to save preferences: ' + error.message, 'error');
+                document.getElementById('saveNotifBtn').disabled = false;
+                document.getElementById('saveNotifBtn').textContent = 'Save Preferences';
+            }
+        }
+
+        async function removeBankAccount(id) {
+            if (!confirm('Are you sure you want to remove this bank account?')) return;
+            try {
+                await apiFetch(`/withdrawal/bank-accounts/${id}`, { method: 'DELETE' });
+                showToast('Bank account removed successfully', 'success');
+                loadSettings();
+            } catch (error) { showToast('Failed to remove bank account: ' + error.message, 'error'); }
+        }
+
+        async function addBankAccount() {
+            const bankCode = document.getElementById('bankSelect').value;
+            const accountNumber = document.getElementById('accountNumberInput').value.trim();
+
+            if (!State.bankVerified) { showToast('Please verify the bank account first', 'warning'); return; }
+            if (!bankCode || !accountNumber) { showToast('Please select a bank and enter account number', 'warning'); return; }
+
+            const bankSelect = document.getElementById('bankSelect');
+            const bankName = bankSelect.options[bankSelect.selectedIndex]?.text || 'Unknown Bank';
+
+            try {
+                const btn = document.getElementById('saveBankBtn');
+                btn.disabled = true;
+                btn.textContent = 'Adding...';
+
+                await apiFetch('/withdrawal/bank-accounts', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        bank_name: bankName,
+                        bank_code: bankCode,
+                        account_number: accountNumber,
+                        account_name: State.bankAccountName
+                    })
+                });
+
+                showToast('Bank account added successfully!', 'success');
+                closeModal('bankModal');
+                loadSettings();
+            } catch (error) {
+                showToast('Failed to add bank account: ' + error.message, 'error');
+                document.getElementById('saveBankBtn').disabled = false;
+                document.getElementById('saveBankBtn').textContent = 'Add Bank';
+            }
+        }
+
+        async function removeCryptoWallet(id) {
+            if (!confirm('Are you sure you want to remove this crypto wallet?')) return;
+            try {
+                await apiFetch(`/withdrawal/crypto-wallets/${id}`, { method: 'DELETE' });
+                showToast('Crypto wallet removed successfully', 'success');
+                loadSettings();
+            } catch (error) { showToast('Failed to remove crypto wallet: ' + error.message, 'error'); }
+        }
+
+        async function addCryptoWallet() {
+            const coin = document.getElementById('walletCoinInput').value.trim().toUpperCase();
+            const network = document.getElementById('walletNetworkInput').value.trim();
+            const address = document.getElementById('walletAddressInput').value.trim();
+            const label = document.getElementById('walletLabelInput').value.trim();
+
+            if (!coin || !network || !address) { showToast('Coin, network, and address are required', 'warning'); return; }
+            if (address.length < 10) { showToast('Invalid wallet address', 'warning'); return; }
+
+            try {
+                const btn = document.getElementById('saveWalletBtn');
+                btn.disabled = true;
+                btn.textContent = 'Adding...';
+                await apiFetch('/withdrawal/crypto-wallets', {
+                    method: 'POST',
+                    body: JSON.stringify({ coin, network, address, label })
+                });
+                showToast('Crypto wallet added successfully!', 'success');
+                closeModal('walletModal');
+                loadSettings();
+            } catch (error) {
+                showToast('Failed to add crypto wallet: ' + error.message, 'error');
+                document.getElementById('saveWalletBtn').disabled = false;
+                document.getElementById('saveWalletBtn').textContent = 'Add Wallet';
+            }
+        }
+
+        async function revokeSession(sessionId) {
+            if (!confirm('Are you sure you want to log out this session?')) return;
+            try {
+                await apiFetch(`/sessions/${sessionId}`, { method: 'DELETE' });
+                showToast('Session revoked successfully', 'success');
+                loadSettings();
+            } catch (error) { showToast('Failed to revoke session: ' + error.message, 'error'); }
+        }
+
+        async function logoutAllSessions() {
+            if (!confirm('Are you sure you want to log out of all other devices? This will keep your current session active.')) return;
+            try {
+                const btn = document.getElementById('logoutAllBtn');
+                btn.disabled = true;
+                btn.textContent = 'Logging out...';
+                await apiFetch('/sessions/logout-all', { method: 'POST' });
+                showToast('All other sessions logged out successfully', 'success');
+                loadSettings();
+            } catch (error) {
+                showToast('Failed to logout sessions: ' + error.message, 'error');
+                document.getElementById('logoutAllBtn').disabled = false;
+                document.getElementById('logoutAllBtn').textContent = 'Log Out All Other Sessions';
+            }
+        }
+
+        async function markAlertRead(alertId) {
+            try {
+                await apiFetch(`/security-alerts/${alertId}/read`, { method: 'PATCH' });
+                loadSettings();
+            } catch (error) { showToast('Failed to mark alert as read: ' + error.message, 'error'); }
+        }
+
+        async function deactivateAccount() {
+            const password = prompt('Enter your password to deactivate your account:');
+            if (!password) return;
+
+            const confirm = prompt('Type "DEACTIVATE" to confirm account deactivation:');
+            if (confirm !== 'DEACTIVATE') {
+                showToast('Confirmation failed. Type "DEACTIVATE" to confirm.', 'warning');
+                return;
+            }
+
+            try {
+                const btn = document.getElementById('deactivateBtn');
+                btn.disabled = true;
+                btn.textContent = 'Processing...';
+
+                await apiFetch('/deactivate', {
+                    method: 'POST',
+                    body: JSON.stringify({ password, confirm })
+                });
+
+                showToast('Account deactivated successfully', 'success');
+                clearUserSession();
+                window.location.href = '/';
+            } catch (error) {
+                showToast('Failed to deactivate account: ' + error.message, 'error');
+                document.getElementById('deactivateBtn').disabled = false;
+                document.getElementById('deactivateBtn').textContent = 'Deactivate Account';
+            }
+        }
+
+        // ─── INIT ────────────────────────────────────────────────────
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = getUserToken();
+            if (!token) { redirectToLogin(); return; }
+
+            // ─── Event Listeners ────────────────────────────────────
+
+            // Email
+            document.getElementById('changeEmailBtn').addEventListener('click', () => openModal('emailModal'));
+            document.getElementById('sendOtpBtn').addEventListener('click', changeEmail);
+            document.getElementById('verifyOtpBtn').addEventListener('click', verifyEmailChange);
+
+            // Phone
+            document.getElementById('changePhoneBtn').addEventListener('click', () => openModal('phoneModal'));
+            document.getElementById('savePhoneBtn').addEventListener('click', changePhone);
+
+            // Password
+            document.getElementById('changePasswordBtn').addEventListener('click', () => openModal('passwordModal'));
+            document.getElementById('savePasswordBtn').addEventListener('click', changePassword);
+
+            // PIN
+            document.getElementById('changePinBtn').addEventListener('click', () => openModal('pinModal'));
+            document.getElementById('savePinBtn').addEventListener('click', changeTransactionPin);
+            document.getElementById('resetPinBtn').addEventListener('click', resetTransactionPin);
+
+            // ─── 2FA - FIXED EVENT LISTENERS ────────────────────────
+            document.getElementById('enable2faBtn').addEventListener('click', enableTwoFA);
+            document.getElementById('disable2faBtn').addEventListener('click', disableTwoFA);
+            document.getElementById('twofaSendBtn').addEventListener('click', enableTwoFA); // Reuse enable flow
+            document.getElementById('twofaVerifyBtn').addEventListener('click', verifyTwoFAEnable);
+            document.getElementById('twofaResendBtn').addEventListener('click', resendTwoFACode);
+            document.getElementById('twofaDoneBtn').addEventListener('click', () => {
+                closeModal('twofaModal');
+                loadSettings();
+            });
+            document.getElementById('disable2faConfirmBtn').addEventListener('click', verifyTwoFADisable);
+
+            // Notifications
+            document.getElementById('saveNotifBtn').addEventListener('click', saveNotificationPreferences);
+
+            // Banks
+            document.getElementById('addBankBtn').addEventListener('click', async () => {
+                openModal('bankModal');
+                await loadBanks();
+                State.bankVerified = false;
+                document.getElementById('saveBankBtn').disabled = true;
+                document.getElementById('accountNameInput').value = '';
+                document.getElementById('accountNameInput').className = 'form-control readonly';
+                document.getElementById('verifyStatus').textContent = 'Enter account number to verify';
+                document.getElementById('verifyStatus').className = 'helper-text';
+                document.getElementById('verifyBankBtn').disabled = true;
+            });
+            document.getElementById('verifyBankBtn').addEventListener('click', verifyBankAccount);
+            document.getElementById('saveBankBtn').addEventListener('click', addBankAccount);
+            setupAutoVerify();
+
+            // Crypto
+            document.getElementById('addWalletBtn').addEventListener('click', () => openModal('walletModal'));
+            document.getElementById('saveWalletBtn').addEventListener('click', addCryptoWallet);
+
+            // Sessions
+            document.getElementById('logoutAllBtn').addEventListener('click', logoutAllSessions);
+
+            // Copy referral
+            document.getElementById('copyReferralBtn').addEventListener('click', () => {
+                const code = document.getElementById('referralCode').textContent;
+                if (code && code !== 'N/A') {
+                    navigator.clipboard.writeText(code).then(() => showToast('Referral code copied!', 'success'));
+                }
+            });
+
+            // Deactivate
+            document.getElementById('deactivateBtn').addEventListener('click', deactivateAccount);
+
+            // Load more activity
+            document.getElementById('loadMoreActivityBtn').addEventListener('click', () => showToast('Loading more activity...', 'info'));
+
+            // Modal close
+            document.querySelectorAll('.modal-close, .modal-overlay').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    if (e.target === el || e.target.classList.contains('modal-close')) {
+                        const modal = el.closest('.modal-overlay');
+                        if (modal) closeModal(modal.id);
+                    }
+                });
+            });
+
+            // Dark mode
+            document.getElementById('darkToggle').addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+            });
+
+            // Refresh
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                showToast('Refreshing...', 'info');
+                loadSettings();
+            });
+
+            // Load settings
+            loadSettings();
+
+            console.log('🔧 Settings page loaded');
+        });
+    </script>
+</body>
+</html>

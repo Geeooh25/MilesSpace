@@ -1,546 +1,1428 @@
-// ─── routes/authRoutes.js ───
-// Complete Authentication Routes with Enhanced Security
-// NO router splitting - keeps your existing structure
+// routes/authRoutes.js - COMPLETE FIXED VERSION
+// With proper rate limiters only on sensitive endpoints
 
 const express = require('express');
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
-const { supabase, supabaseAdmin } = require('../db/supabase');
-const { authMiddleware, optionalAuth } = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
+const { supabase, supabaseAdmin, withRetry } = require('../db/supabase');
+const { authMiddleware, AUTH_CODES } = require('../middleware/auth');
 const emailService = require('../services/emailService');
-const rateLimit = require('express-rate-limit');
+const { getClientIP, getLocationFromIP } = require('../utils/ipUtils');
+
+// ─── IMPORT RATE LIMITERS ──────────────────────────────────────────
+const {
+    loginLimiter,
+    registerLimiter,
+    otpLimiter,
+    resendOtpLimiter,
+    refreshLimiter,
+    passwordResetLimiter
+} = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-// ─── RATE LIMITING ───
-const limiter = (windowMs = 15 * 60 * 1000, max = 5) => rateLimit({
-    windowMs,
-    max,
-    message: {
-        success: false,
-        error: 'Too many attempts. Please try again later.'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => process.env.NODE_ENV === 'development' && req.ip === '::1'
-});
-
-// ─── HELPERS ───
-
-function generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+// ─── CONFIG ──────────────────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('❌ CRITICAL: JWT_SECRET environment variable is required');
+    if (process.env.NODE_ENV === 'production') process.exit(1);
 }
 
-function generateReferralCode() {
-    return 'MX' + Math.random().toString(36).substring(2, 8).toUpperCase();
+const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || '1h';
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
+const SESSION_DURATION = 8 * 60 * 60 * 1000;
+const OTP_EXPIRY_MINUTES = 10;
+const MAX_OTP_ATTEMPTS = 5;
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MINUTES = 15;
+const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+
+// ─── PARSE DURATION HELPER ─────────────────────────────────────────
+function parseDurationToMs(value) {
+    const match = String(value).trim().match(/^(\d+)\s*(s|m|h|d|w)$/i);
+    if (!match) {
+        console.warn(`⚠️ Invalid duration format: ${value}, using default 7d`);
+        return 7 * 24 * 60 * 60 * 1000;
+    }
+    const amount = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    const multipliers = {
+        s: 1000,
+        m: 60 * 1000,
+        h: 60 * 60 * 1000,
+        d: 24 * 60 * 60 * 1000,
+        w: 7 * 24 * 60 * 60 * 1000
+    };
+    return amount * multipliers[unit];
+}
+
+const REFRESH_TOKEN_DURATION_MS = parseDurationToMs(REFRESH_TOKEN_EXPIRES_IN);
+
+// ─── OTP SECRET ─────────────────────────────────────────────────────
+const OTP_SECRET = process.env.OTP_SECRET || 'milesspace-otp-secret-change-in-production';
+
+function hashValue(value) {
+    return crypto.createHmac('sha256', OTP_SECRET).update(String(value)).digest('hex');
+}
+
+function safeCompare(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string') return false;
+    if (a.length !== b.length) return false;
+    try {
+        return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+    } catch {
+        return false;
+    }
+}
+
+// ─── IN-MEMORY STORE ──────────────────────────────────────────────
+const stores = {
+    failedAttempts: new Map(),
+    pending2FA: new Map(),
+    refreshTokens: new Map(),
+    usedRefreshTokens: new Map()
+};
+
+// ─── CLEANUP INTERVAL ──────────────────────────────────────────────
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, data] of stores.pending2FA.entries()) {
+        if (data.expires_at && now > data.expires_at) {
+            stores.pending2FA.delete(key);
+        }
+    }
+    for (const [key, data] of stores.refreshTokens.entries()) {
+        if (data.expires_at && now > data.expires_at) {
+            stores.refreshTokens.delete(key);
+        }
+    }
+    for (const [key, data] of stores.usedRefreshTokens.entries()) {
+        if (data.expires_at && now > data.expires_at) {
+            stores.usedRefreshTokens.delete(key);
+        }
+    }
+}, 60 * 1000);
+
+// ─── HELPERS ──────────────────────────────────────────────────────
+
+function normalizeEmail(email) {
+    return email ? String(email).trim().toLowerCase() : '';
 }
 
 function validatePassword(password) {
     const errors = [];
-    if (password.length < 8) errors.push('at least 8 characters');
+    if (!password || password.length < 8) errors.push('at least 8 characters');
     if (!/[A-Z]/.test(password)) errors.push('one uppercase letter');
     if (!/[a-z]/.test(password)) errors.push('one lowercase letter');
     if (!/[0-9]/.test(password)) errors.push('one number');
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) errors.push('one special character');
     return errors;
 }
 
 function validateUsername(username) {
-    if (!username || username.length < 3) return 'Username must be at least 3 characters';
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) return 'Username can only contain letters, numbers, and underscores';
+    if (!username || username.length < 3) {
+        return 'Username must be at least 3 characters';
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        return 'Username can only contain letters, numbers, and underscores';
+    }
     return null;
 }
 
-async function isUsernameTaken(username) {
-    if (!username) return false;
-    const { data } = await supabaseAdmin
-        .from('profiles')
-        .select('username')
-        .eq('username', username)
-        .maybeSingle();
-    return !!data;
+function generateSecureOTP() {
+    return crypto.randomInt(100000, 1000000).toString().padStart(6, '0');
 }
 
-async function isEmailTaken(email) {
-    if (!email) return false;
-    const { data } = await supabaseAdmin
-        .from('profiles')
-        .select('email')
-        .eq('email', email)
-        .maybeSingle();
-    return !!data;
+function generateReferralCode() {
+    return 'MX' + crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+function generateRefreshToken() {
+    return crypto.randomBytes(40).toString('hex');
+}
+
+function generateSessionId() {
+    return crypto.randomUUID();
+}
+
+function generateAccessToken(userId, sessionId, role = 'user') {
+    return jwt.sign(
+        { id: userId, sid: sessionId, role: role },
+        JWT_SECRET,
+        { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
+    );
 }
 
 function getUserAgentInfo(req) {
     const ua = req.headers['user-agent'] || 'Unknown';
     let browser = 'Unknown', os = 'Unknown', device = 'Desktop';
+    const rawUserAgent = ua;
     
     if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
     else if (ua.includes('Firefox')) browser = 'Firefox';
     else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
     else if (ua.includes('Edg')) browser = 'Edge';
-    else if (ua.includes('Opera')) browser = 'Opera';
+    else if (ua.includes('OPR') || ua.includes('Opera')) browser = 'Opera';
+    else if (ua.includes('Brave')) browser = 'Brave';
+    else if (ua.includes('UCBrowser')) browser = 'UC Browser';
+    else if (ua.includes('SamsungBrowser')) browser = 'Samsung Internet';
     
-    if (ua.includes('Windows')) os = 'Windows';
-    else if (ua.includes('Mac OS')) os = 'macOS';
-    else if (ua.includes('Linux')) os = 'Linux';
-    else if (ua.includes('Android')) os = 'Android';
-    else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+    if (ua.includes('Android')) {
+        os = 'Android';
+    } else if (ua.includes('iPhone') || ua.includes('iPad')) {
+        os = 'iOS';
+    } else if (ua.includes('Windows')) {
+        os = 'Windows';
+    } else if (ua.includes('Mac OS X') || ua.includes('Macintosh')) {
+        os = 'macOS';
+    } else if (ua.includes('Linux')) {
+        os = 'Linux';
+    } else if (ua.includes('Chrome OS')) {
+        os = 'Chrome OS';
+    }
     
-    if (ua.includes('Mobile')) device = 'Mobile';
-    else if (ua.includes('Tablet')) device = 'Tablet';
+    if (ua.includes('Mobile')) {
+        device = 'Mobile';
+    } else if (ua.includes('Tablet')) {
+        device = 'Tablet';
+    } else if (ua.includes('Windows') || ua.includes('Mac') || ua.includes('Linux')) {
+        device = 'Desktop';
+    }
     
-    return { browser, os, device };
+    return { 
+        browser, 
+        os, 
+        device, 
+        userAgent: ua,
+        rawUserAgent: rawUserAgent
+    };
 }
 
-function getClientIP(req) {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-           req.headers['x-real-ip'] ||
-           req.connection?.remoteAddress ||
-           req.socket?.remoteAddress ||
-           'Unknown';
-}
+// ─── SESSION MANAGEMENT ──────────────────────────────────────────
 
-async function getLocationFromIP(ip) {
+async function revokeUserSessions(userId, excludeSessionId = null) {
+    console.log(`🔐 [SESSION] Revoking sessions for user ${userId}`);
+    
     try {
-        if (ip === '::1' || ip === '127.0.0.1') return 'Localhost';
-        const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,city,regionName`);
-        const data = await response.json();
-        if (data.status === 'success') {
-            return `${data.city || ''}, ${data.regionName || ''}, ${data.country || ''}`.replace(/^,\s*|,\s*$/, '') || 'Unknown';
+        let query = supabaseAdmin
+            .from('user_sessions')
+            .update({
+                is_current: false,
+                is_active: false,
+                revoked_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('is_active', true);
+
+        if (excludeSessionId) {
+            query = query.neq('session_id', excludeSessionId);
         }
-        return 'Unknown';
-    } catch {
-        return 'Unknown';
+
+        await query;
+        
+        if (!excludeSessionId) {
+            await supabaseAdmin
+                .from('profiles')
+                .update({
+                    current_session_id: null,
+                    session_created_at: null,
+                    session_expires_at: null
+                })
+                .eq('id', userId);
+        }
+        
+        const tokensToDelete = [];
+        for (const [token, data] of stores.refreshTokens.entries()) {
+            if (data.user_id === userId) {
+                if (!excludeSessionId || data.session_id !== excludeSessionId) {
+                    tokensToDelete.push(token);
+                }
+            }
+        }
+        for (const token of tokensToDelete) {
+            stores.refreshTokens.delete(token);
+            stores.usedRefreshTokens.set(token, {
+                user_id: userId,
+                session_id: excludeSessionId || 'unknown',
+                expires_at: Date.now() + 24 * 60 * 60 * 1000
+            });
+        }
+        
+    } catch (error) {
+        console.error('❌ Error revoking sessions:', error);
     }
 }
 
-function logSecurityEvent(event, userId, details = {}) {
-    console.log(`🔐 [SECURITY] ${event} | User: ${userId || 'anonymous'} |`, JSON.stringify(details));
-    // Optionally store in database for admin audit
+async function createSession(userId, req, deviceInfo) {
+    const sessionId = generateSessionId();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_DURATION);
+    
+    const ip = getClientIP(req);
+    const device = deviceInfo || getUserAgentInfo(req);
+    
+    const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+            current_session_id: sessionId,
+            session_created_at: now.toISOString(),
+            session_expires_at: expiresAt.toISOString()
+        })
+        .eq('id', userId);
+    
+    if (updateError) {
+        console.error('❌ Failed to update profile session:', updateError);
+        throw new Error('Failed to create session');
+    }
+    
+    const { error: insertError } = await supabaseAdmin
+        .from('user_sessions')
+        .insert({
+            user_id: userId,
+            session_id: sessionId,
+            device_name: device.device || 'Unknown Device',
+            browser: device.browser || 'Unknown',
+            os: device.os || 'Unknown',
+            device_type: device.device || 'Desktop',
+            ip_address: ip,
+            created_at: now.toISOString(),
+            last_activity_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            is_current: true,
+            is_active: true
+        });
+    
+    if (insertError) {
+        console.error('❌ Failed to insert user_session:', insertError);
+        await supabaseAdmin
+            .from('profiles')
+            .update({
+                current_session_id: null,
+                session_created_at: null,
+                session_expires_at: null
+            })
+            .eq('id', userId);
+        throw new Error('Failed to create session');
+    }
+    
+    return {
+        sessionId,
+        expiresAt,
+        device
+    };
 }
 
-// ─── STORAGE ───
-const pendingRegistrations = {};
-const pendingResets = {};
-const loginAttempts = new Map();
+function generateRefreshTokenPair(userId, sessionId) {
+    const refreshToken = generateRefreshToken();
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DURATION_MS);
+    
+    stores.refreshTokens.set(refreshToken, {
+        user_id: userId,
+        session_id: sessionId,
+        expires_at: expiresAt.getTime(),
+        created_at: Date.now()
+    });
+    
+    return { refreshToken, expiresAt };
+}
 
-// ─── REGISTER — Step 1: Send OTP ───
-router.post('/register', limiter(15 * 60 * 1000, 5), async (req, res) => {
+// ─── ACTIVITY LOGGING ────────────────────────────────────────────
+
+async function logSecurityActivity({ userId, eventType, description, ip, userAgent, deviceInfo, location, metadata }) {
     try {
-        const { email, password, username, phone } = req.body;
+        await supabaseAdmin
+            .from('account_activity')
+            .insert({
+                user_id: userId,
+                activity_type: eventType,
+                description: description || eventType,
+                ip_address: ip || 'unknown',
+                location: location || null,
+                user_agent: userAgent || 'unknown',
+                device_info: deviceInfo || {},
+                metadata: metadata || {},
+                created_at: new Date().toISOString()
+            });
+    } catch (error) {
+        console.error('Failed to log security activity:', error);
+    }
+}
 
-        // ─── Validate ───
-        if (!email || !password || !username) {
+// ─── GET USER SETTINGS ───────────────────────────────────────────
+
+async function getUserSettings(userId) {
+    try {
+        const { data, error } = await supabaseAdmin
+            .from('user_settings')
+            .select('email_2fa_enabled')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        if (!data) {
+            const defaultSettings = {
+                user_id: userId,
+                email_2fa_enabled: false,
+                notification_preferences: {
+                    transaction_completed: true,
+                    deposit_received: true,
+                    withdrawal_completed: true,
+                    crypto_purchase_completed: true,
+                    gift_order_update: true,
+                    marketplace_order_update: true,
+                    security_alerts: true,
+                    milesspace_updates: true
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            const { data: inserted, error: insertError } = await supabaseAdmin
+                .from('user_settings')
+                .insert(defaultSettings)
+                .select()
+                .single();
+
+            if (insertError) {
+                console.error('❌ Failed to create user settings:', insertError);
+                return { email_2fa_enabled: false };
+            }
+            return inserted;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('❌ Error getting user settings:', error);
+        return { email_2fa_enabled: false };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  REGISTER - With Rate Limiter
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/register', registerLimiter, async (req, res) => {
+    try {
+        const { email, password, username } = req.body;
+        const normalizedEmail = normalizeEmail(email);
+
+        if (!normalizedEmail || !password || !username) {
             return res.status(400).json({
                 success: false,
-                error: 'Email, username, and password are required'
+                code: 'MISSING_FIELDS',
+                message: 'Email, password, and username are required.'
             });
         }
 
-        // ─── Password validation ───
+        const usernameError = validateUsername(username);
+        if (usernameError) {
+            return res.status(400).json({
+                success: false,
+                code: 'INVALID_USERNAME',
+                message: usernameError
+            });
+        }
+
         const pwErrors = validatePassword(password);
         if (pwErrors.length > 0) {
             return res.status(400).json({
                 success: false,
-                error: `Password must have: ${pwErrors.join(', ')}`
+                code: 'PASSWORD_WEAK',
+                message: `Password must have: ${pwErrors.join(', ')}`
             });
         }
 
-        // ─── Username validation ───
-        const unError = validateUsername(username);
-        if (unError) {
+        const { data: existingUser } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle();
+
+        if (existingUser) {
             return res.status(400).json({
                 success: false,
-                error: unError
+                code: 'USERNAME_TAKEN',
+                message: 'Username is already taken. Please choose another.'
             });
         }
 
-        // ─── Email format validation ───
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        const { data: existingEmail } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('email', normalizedEmail)
+            .maybeSingle();
+
+        if (existingEmail) {
             return res.status(400).json({
                 success: false,
-                error: 'Please enter a valid email address'
+                code: 'EMAIL_TAKEN',
+                message: 'Email is already registered. Please sign in instead.'
             });
         }
 
-        // ─── Check taken ───
-        const usernameTaken = await isUsernameTaken(username);
-        if (usernameTaken) {
-            return res.status(400).json({
-                success: false,
-                error: 'Username is already taken'
-            });
-        }
-
-        const emailTaken = await isEmailTaken(email);
-        if (emailTaken) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email already registered. Please login.'
-            });
-        }
-
-        // ─── Generate OTP ───
-        const code = generateOTP();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        const tempId = 'reg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-
-        pendingRegistrations[tempId] = {
-            email,
-            password,
-            username,
-            phone: phone || null,
-            code,
-            expiresAt,
-            attempts: 0
-        };
-
-        // ─── Send email ───
-        const emailResult = await emailService.sendVerificationEmail(email, username, code);
-        if (!emailResult.success) {
-            console.warn('⚠️ Email send failed for registration:', emailResult.error);
-            delete pendingRegistrations[tempId];
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to send verification email. Please try again.'
-            });
-        }
-
-        logSecurityEvent('REGISTRATION_INITIATED', null, { email, username, ip: getClientIP(req) });
-
-        res.json({
-            success: true,
-            message: 'Verification code sent to your email',
-            requires_2fa: true,
-            user_id: tempId,
-            debug_code: process.env.NODE_ENV === 'development' ? code : undefined
-        });
-
-    } catch (error) {
-        console.error('❌ Register error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ─── REGISTER — Step 2: Verify OTP ───
-router.post('/verify-registration', limiter(10 * 60 * 1000, 10), async (req, res) => {
-    try {
-        const { user_id, code } = req.body;
-
-        if (!user_id || !code) {
-            return res.status(400).json({
-                success: false,
-                error: 'User ID and code required'
-            });
-        }
-
-        const data = pendingRegistrations[user_id];
-        if (!data) {
-            return res.status(400).json({
-                success: false,
-                error: 'Session expired. Please register again.'
-            });
-        }
-
-        // ─── Check attempts ───
-        data.attempts = (data.attempts || 0) + 1;
-        if (data.attempts > 5) {
-            delete pendingRegistrations[user_id];
-            return res.status(400).json({
-                success: false,
-                error: 'Too many failed attempts. Please register again.'
-            });
-        }
-
-        // ─── Check expiry ───
-        if (new Date(data.expiresAt) < new Date()) {
-            delete pendingRegistrations[user_id];
-            return res.status(400).json({
-                success: false,
-                error: 'Code expired. Please register again.'
-            });
-        }
-
-        // ─── Verify code ───
-        if (data.code !== code) {
-            return res.status(400).json({
-                success: false,
-                error: `Invalid code. ${5 - data.attempts} attempts remaining.`
-            });
-        }
-
-        // ─── Final checks ───
-        const { email, password, username, phone } = data;
-
-        const usernameTaken = await isUsernameTaken(username);
-        if (usernameTaken) {
-            delete pendingRegistrations[user_id];
-            return res.status(400).json({
-                success: false,
-                error: 'Username was taken. Please register again.'
-            });
-        }
-
-        const emailTaken = await isEmailTaken(email);
-        if (emailTaken) {
-            delete pendingRegistrations[user_id];
-            return res.status(400).json({
-                success: false,
-                error: 'Email was registered. Please login.'
-            });
-        }
-
-        // ─── Create user ───
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: normalizedEmail,
+            password: password,
             email_confirm: true,
-            user_metadata: { username },
+            user_metadata: { username }
         });
 
         if (authError) {
-            console.error('❌ Auth create error:', authError.message);
+            console.error('Auth creation error:', authError);
             return res.status(400).json({
                 success: false,
-                error: 'Could not create account. Try again.'
+                code: 'REGISTRATION_FAILED',
+                message: authError.message || 'Failed to create account. Please try again.'
             });
         }
 
-        const userId = authUser.user.id;
-        const refCode = generateReferralCode();
+        const userId = authData.user.id;
+        const referralCode = generateReferralCode();
 
-        const { error: profileError } = await supabaseAdmin.from('profiles').insert({
-            id: userId,
-            email,
-            username,
-            phone: phone || null,
-            wallet_ngn: 0,
-            wallet_usd: 0,
-            role: 'user',
-            status: 'active',
-            referral_code: refCode,
-            created_at: new Date().toISOString(),
-            transaction_pin_hash: null,
-            transaction_pin_set_at: null
-        });
+        const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .insert({
+                id: userId,
+                email: normalizedEmail,
+                username: username,
+                referral_code: referralCode,
+                status: 'active',
+                is_verified: true,
+                role: 'user',
+                wallet_ngn: 0,
+                wallet_usd: 0,
+                created_at: new Date().toISOString()
+            });
 
         if (profileError) {
-            console.error('❌ Profile create error:', profileError);
-            try { await supabaseAdmin.auth.admin.deleteUser(userId); } catch (e) {}
+            console.error('Profile creation error:', profileError);
+            await supabaseAdmin.auth.admin.deleteUser(userId);
             return res.status(500).json({
                 success: false,
-                error: 'Failed to create profile. Please try again.'
+                code: 'PROFILE_CREATION_FAILED',
+                message: 'Failed to create profile. Please try again.'
             });
         }
 
-        delete pendingRegistrations[user_id];
-        logSecurityEvent('REGISTRATION_COMPLETED', userId, { email, username, ip: getClientIP(req) });
-
-        // ─── Send welcome email ───
-        await emailService.sendWelcomeEmail(email, username).catch(() => {});
-
-        // ─── Auto-login ───
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        });
-
-        if (signInError) {
-            return res.status(201).json({
-                success: true,
-                message: 'Account created! Please login.',
-                data: { user: { id: userId, email, username, role: 'user' } }
+        // ─── 2FA DISABLED BY DEFAULT ──────────────────────────────
+        const { error: settingsError } = await supabaseAdmin
+            .from('user_settings')
+            .insert({
+                user_id: userId,
+                email_2fa_enabled: false,
+                notification_preferences: {
+                    transaction_completed: true,
+                    deposit_received: true,
+                    withdrawal_completed: true,
+                    crypto_purchase_completed: true,
+                    gift_order_update: true,
+                    marketplace_order_update: true,
+                    security_alerts: true,
+                    milesspace_updates: true
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             });
+
+        if (settingsError) {
+            console.error('Settings creation error:', settingsError);
         }
+
+        await emailService.sendWelcomeEmail(normalizedEmail, username);
+
+        console.log(`✅ User registered: ${normalizedEmail} (2FA disabled by default)`);
 
         res.status(201).json({
             success: true,
-            message: 'Account created and logged in!',
+            message: 'Account created successfully! You can now sign in.',
             data: {
                 user: {
                     id: userId,
-                    email,
-                    username,
-                    role: 'user',
-                    wallet_ngn: 0,
-                    wallet_usd: 0,
-                    referral_code: refCode,
-                    has_transaction_pin: false
-                },
-                token: signInData.session.access_token,
-                refresh_token: signInData.session.refresh_token
-            },
+                    email: normalizedEmail,
+                    username: username,
+                    referral_code: referralCode
+                }
+            }
         });
 
     } catch (error) {
-        console.error('❌ Verify register error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Registration error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
     }
 });
 
-// ─── FORGOT PASSWORD — Send OTP ───
-router.post('/forgot-password', limiter(15 * 60 * 1000, 3), async (req, res) => {
-    try {
-        const { email } = req.body;
+// ═══════════════════════════════════════════════════════════════════
+//  LOGIN - With Rate Limiter
+// ═══════════════════════════════════════════════════════════════════
 
-        if (!email) {
+router.post('/login', loginLimiter, async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const normalizedEmail = normalizeEmail(email);
+        const ip = getClientIP(req);
+        const deviceInfo = getUserAgentInfo(req);
+
+        console.log(`🔐 [LOGIN ATTEMPT] ${normalizedEmail} from IP: ${ip}`);
+
+        if (!normalizedEmail || !password) {
             return res.status(400).json({
                 success: false,
-                error: 'Email required'
+                code: 'EMAIL_PASSWORD_REQUIRED',
+                message: 'Please enter your email and password.'
             });
         }
 
-        const { data: profile, error } = await supabaseAdmin
+        // ─── Account lockout check ──────────────────────────────────
+        const lockKey = `login_${normalizedEmail}`;
+        if (stores.failedAttempts.has(lockKey)) {
+            const lockData = stores.failedAttempts.get(lockKey);
+            if (lockData.locked && Date.now() < lockData.lockedUntil) {
+                const remaining = Math.ceil((lockData.lockedUntil - Date.now()) / 60000);
+                return res.status(403).json({
+                    success: false,
+                    code: 'ACCOUNT_LOCKED',
+                    message: `Too many sign-in attempts. Please wait ${remaining} minute${remaining > 1 ? 's' : ''}.`
+                });
+            }
+            if (lockData.locked && Date.now() >= lockData.lockedUntil) {
+                stores.failedAttempts.delete(lockKey);
+            }
+        }
+
+        // ─── Authenticate with Supabase ──────────────────────────
+        let signInData, signInError;
+        try {
+            const result = await withRetry(
+                () => supabase.auth.signInWithPassword({
+                    email: normalizedEmail,
+                    password
+                }),
+                2,
+                1000
+            );
+            signInData = result.data;
+            signInError = result.error;
+        } catch (error) {
+            console.error('Supabase auth error:', error);
+            return res.status(503).json({
+                success: false,
+                code: 'SERVICE_UNAVAILABLE',
+                message: 'Authentication service is temporarily unavailable.'
+            });
+        }
+
+        if (signInError) {
+            const attempts = stores.failedAttempts.get(lockKey) || { count: 0, locked: false };
+            attempts.count += 1;
+
+            if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
+                attempts.locked = true;
+                attempts.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+                attempts.count = 0;
+                stores.failedAttempts.set(lockKey, attempts);
+                console.log(`🔒 Account locked: ${normalizedEmail}`);
+                
+                return res.status(403).json({
+                    success: false,
+                    code: 'ACCOUNT_LOCKED',
+                    message: `Too many incorrect attempts. Please try again in ${LOGIN_LOCKOUT_MINUTES} minutes.`
+                });
+            }
+
+            stores.failedAttempts.set(lockKey, attempts);
+
+            return res.status(401).json({
+                success: false,
+                code: 'INVALID_CREDENTIALS',
+                message: 'Incorrect email or password. Please try again.'
+            });
+        }
+
+        stores.failedAttempts.delete(lockKey);
+
+        const user = signInData.user;
+
+        // ─── Get user profile ────────────────────────────────────
+        const { data: profile, error: profileError } = await supabaseAdmin
             .from('profiles')
-            .select('id, email, username')
-            .eq('email', email)
+            .select('id, email, username, role, status, deleted_at, wallet_ngn, wallet_usd, referral_code, is_verified, transaction_pin_hash, current_session_id, login_count')
+            .eq('id', user.id)
             .single();
 
-        if (error || !profile) {
-            // Don't reveal if email exists
-            return res.json({
-                success: true,
-                message: 'If an account exists, a reset code will be sent.'
+        if (profileError) {
+            console.error('❌ Profile query error:', profileError);
+            return res.status(503).json({
+                success: false,
+                code: 'SERVICE_UNAVAILABLE',
+                message: 'Unable to retrieve profile. Please try again.'
             });
         }
 
-        const code = generateOTP();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        const resetId = 'reset_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-
-        pendingResets[resetId] = {
-            user_id: profile.id,
-            email,
-            code,
-            expiresAt,
-            attempts: 0
-        };
-
-        // ─── Send email ───
-        const emailResult = await emailService.sendPasswordResetOTP(email, profile.username || 'User', code);
-        if (!emailResult.success) {
-            console.warn('⚠️ Password reset email failed:', emailResult.error);
-            delete pendingResets[resetId];
-            return res.json({
-                success: true,
-                message: 'If an account exists, a reset code will be sent.'
+        if (!profile) {
+            console.error('❌ Profile not found for user:', user.id);
+            return res.status(404).json({
+                success: false,
+                code: 'ACCOUNT_NOT_FOUND',
+                message: 'Account not found.'
             });
         }
 
-        logSecurityEvent('PASSWORD_RESET_REQUESTED', profile.id, { email, ip: getClientIP(req) });
+        if (profile.deleted_at) {
+            return res.status(403).json({
+                success: false,
+                code: 'ACCOUNT_DELETED',
+                message: 'This account has been deleted.'
+            });
+        }
+
+        if (profile.role === 'admin' || profile.role === 'super_admin') {
+            return res.status(403).json({
+                success: false,
+                code: 'ADMIN_LOGIN_REQUIRED',
+                message: 'Please use the admin sign-in page.'
+            });
+        }
+
+        if (profile.status === 'suspended') {
+            return res.status(403).json({
+                success: false,
+                code: 'ACCOUNT_SUSPENDED',
+                message: 'Your account has been suspended.'
+            });
+        }
+
+        let location = 'Unknown';
+        if (!IS_DEVELOPMENT) {
+            try {
+                location = await getLocationFromIP(ip);
+            } catch (locError) {
+                console.warn('⚠️ Location lookup failed:', locError.message);
+                location = 'Unknown';
+            }
+        } else {
+            location = 'Development Environment';
+        }
+
+        // ─── CHECK email_2fa_enabled ──────────────────────────────
+        let email2faEnabled = false;
+        try {
+            const userSettings = await getUserSettings(profile.id);
+            email2faEnabled = userSettings?.email_2fa_enabled || false;
+        } catch (settingsError) {
+            console.warn('⚠️ Could not get user settings, defaulting 2FA to disabled:', settingsError.message);
+            email2faEnabled = false;
+        }
+
+        console.log(`🔐 [LOGIN] ${normalizedEmail} - email_2fa_enabled: ${email2faEnabled ? 'YES' : 'NO'}`);
+
+        // ─── IF email_2fa_enabled - Require email OTP ──────────────
+        if (email2faEnabled) {
+            console.log(`📧 [2FA] email_2fa_enabled is true for ${normalizedEmail}, requiring email OTP`);
+
+            const otp = generateSecureOTP();
+            const otpHash = hashValue(otp);
+            const challengeId = '2fa_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex');
+
+            stores.pending2FA.set(challengeId, {
+                user_id: profile.id,
+                email: profile.email,
+                username: profile.username,
+                otp_hash: otpHash,
+                device_info: deviceInfo,
+                ip: ip,
+                location: location,
+                expires_at: Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000,
+                attempts: 0,
+                max_attempts: MAX_OTP_ATTEMPTS,
+                email_2fa_enabled: true,
+                created_at: Date.now()
+            });
+
+            const emailResult = await emailService.send2FAEmail(
+                profile.email,
+                profile.username || 'User',
+                otp,
+                deviceInfo,
+                location,
+                ip
+            );
+
+            if (!emailResult.success) {
+                stores.pending2FA.delete(challengeId);
+                console.error(`❌ [2FA] Email failed for ${profile.email}`);
+                return res.status(503).json({
+                    success: false,
+                    code: 'EMAIL_FAILED',
+                    message: 'We could not send the verification code. Please try again.'
+                });
+            }
+
+            console.log(`✅ [2FA] Code sent to ${profile.email}`);
+
+            return res.json({
+                success: true,
+                requires_2fa: true,
+                challenge_id: challengeId,
+                message: 'A verification code has been sent to your email.',
+                expires_in: OTP_EXPIRY_MINUTES
+            });
+        }
+
+        // ─── 2FA DISABLED - Complete login ──────────────────────────
+
+        const session = await createSession(profile.id, req, deviceInfo);
+        await revokeUserSessions(profile.id, session.sessionId);
+
+        const accessToken = generateAccessToken(profile.id, session.sessionId, profile.role);
+        const { refreshToken, expiresAt } = generateRefreshTokenPair(profile.id, session.sessionId);
+
+        await supabaseAdmin
+            .from('profiles')
+            .update({
+                last_login: new Date().toISOString(),
+                last_ip: ip,
+                last_seen: new Date().toISOString(),
+                last_login_browser: deviceInfo.browser || 'Unknown',
+                last_login_os: deviceInfo.os || 'Unknown',
+                last_login_device: deviceInfo.device || 'Unknown',
+                last_login_location: location || 'Unknown',
+                last_location: location || 'Unknown',
+                login_count: (profile.login_count || 0) + 1,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', profile.id);
+
+        await logSecurityActivity({
+            userId: profile.id,
+            eventType: 'login',
+            description: 'Successful login',
+            ip,
+            userAgent: req.headers['user-agent'],
+            deviceInfo,
+            location,
+            metadata: { 
+                email_2fa_enabled: false,
+                session_id: session.sessionId 
+            }
+        });
+
+        const hasPin = !!profile.transaction_pin_hash;
+
+        console.log(`✅ [LOGIN SUCCESS] ${normalizedEmail} (2FA disabled)`);
 
         res.json({
             success: true,
-            message: 'Password reset code sent to your email',
+            message: 'Sign in successful! 🎉',
+            data: {
+                user: {
+                    id: profile.id,
+                    email: profile.email,
+                    username: profile.username,
+                    role: profile.role,
+                    wallet_ngn: parseFloat(profile.wallet_ngn) || 0,
+                    wallet_usd: parseFloat(profile.wallet_usd) || 0,
+                    referral_code: profile.referral_code || '',
+                    has_transaction_pin: hasPin,
+                    is_verified: profile.is_verified || false,
+                    email_2fa_enabled: false,
+                    last_login: new Date().toISOString()
+                },
+                access_token: accessToken,
+                refresh_token: refreshToken,
+                refresh_expires_in: Math.floor(REFRESH_TOKEN_DURATION_MS / 1000),
+                expires_in: 3600,
+                session_id: session.sessionId
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'We could not sign you in. Please try again.'
+        });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  VERIFY 2FA - With OTP Rate Limiter
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/login/verify-2fa', otpLimiter, async (req, res) => {
+    try {
+        const { challenge_id, code } = req.body;
+
+        if (!challenge_id || !code) {
+            return res.status(400).json({
+                success: false,
+                code: 'VERIFICATION_REQUIRED',
+                message: 'Please enter the verification code.'
+            });
+        }
+
+        const submittedCode = String(code).trim();
+        if (!/^\d{6}$/.test(submittedCode)) {
+            return res.status(400).json({
+                success: false,
+                code: 'INVALID_CODE_FORMAT',
+                message: 'Please enter the 6-digit verification code.'
+            });
+        }
+
+        const data = stores.pending2FA.get(challenge_id);
+        if (!data) {
+            return res.status(400).json({
+                success: false,
+                code: 'SESSION_EXPIRED',
+                message: 'Verification session expired. Please try logging in again.'
+            });
+        }
+
+        if (Date.now() > data.expires_at) {
+            stores.pending2FA.delete(challenge_id);
+            return res.status(400).json({
+                success: false,
+                code: 'CODE_EXPIRED',
+                message: 'Verification code expired. Please try logging in again.'
+            });
+        }
+
+        data.attempts = (data.attempts || 0) + 1;
+        if (data.attempts > data.max_attempts) {
+            stores.pending2FA.delete(challenge_id);
+            return res.status(400).json({
+                success: false,
+                code: 'TOO_MANY_ATTEMPTS',
+                message: 'Too many incorrect attempts. Please try logging in again.'
+            });
+        }
+
+        const submittedHash = hashValue(submittedCode);
+        if (!safeCompare(submittedHash, data.otp_hash)) {
+            const remaining = data.max_attempts - data.attempts;
+            return res.status(400).json({
+                success: false,
+                code: 'INVALID_CODE',
+                message: `Incorrect code. ${remaining} attempt${remaining > 1 ? 's' : ''} remaining.`
+            });
+        }
+
+        stores.pending2FA.delete(challenge_id);
+        console.log(`✅ [2FA VERIFIED] ${data.email}`);
+
+        const session = await createSession(data.user_id, req, data.device_info);
+        await revokeUserSessions(data.user_id, session.sessionId);
+
+        const accessToken = generateAccessToken(data.user_id, session.sessionId);
+        const { refreshToken, expiresAt } = generateRefreshTokenPair(data.user_id, session.sessionId);
+
+        const { data: profile, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email, username, role, status, wallet_ngn, wallet_usd, referral_code, is_verified, transaction_pin_hash, login_count')
+            .eq('id', data.user_id)
+            .single();
+
+        if (profileError || !profile) {
+            return res.status(404).json({
+                success: false,
+                code: 'USER_NOT_FOUND',
+                message: 'User not found.'
+            });
+        }
+
+        await supabaseAdmin
+            .from('profiles')
+            .update({
+                last_login: new Date().toISOString(),
+                last_ip: data.ip,
+                last_seen: new Date().toISOString(),
+                last_login_browser: data.device_info?.browser || 'Unknown',
+                last_login_os: data.device_info?.os || 'Unknown',
+                last_login_device: data.device_info?.device || 'Unknown',
+                last_login_location: data.location || 'Unknown',
+                last_location: data.location || 'Unknown',
+                login_count: (profile.login_count || 0) + 1,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', data.user_id);
+
+        await logSecurityActivity({
+            userId: data.user_id,
+            eventType: 'login',
+            description: 'Successful login (2FA verified)',
+            ip: data.ip,
+            userAgent: req.headers['user-agent'],
+            deviceInfo: data.device_info,
+            location: data.location,
+            metadata: { email_2fa_enabled: true }
+        });
+
+        const hasPin = !!profile.transaction_pin_hash;
+
+        console.log(`✅ [LOGIN SUCCESS] ${profile.email} (via 2FA)`);
+
+        res.json({
+            success: true,
+            message: 'Device verified successfully! 🎉',
+            data: {
+                user: {
+                    id: profile.id,
+                    email: profile.email,
+                    username: profile.username,
+                    role: profile.role,
+                    wallet_ngn: parseFloat(profile.wallet_ngn) || 0,
+                    wallet_usd: parseFloat(profile.wallet_usd) || 0,
+                    referral_code: profile.referral_code || '',
+                    has_transaction_pin: hasPin,
+                    is_verified: profile.is_verified || false,
+                    email_2fa_enabled: true,
+                    last_login: new Date().toISOString()
+                },
+                access_token: accessToken,
+                refresh_token: refreshToken,
+                refresh_expires_in: Math.floor(REFRESH_TOKEN_DURATION_MS / 1000),
+                expires_in: 3600,
+                session_id: session.sessionId,
+                verified: true
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ [2FA VERIFY] Error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  RESEND OTP - SILENT RATE LIMITER
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/login/resend-otp', resendOtpLimiter, async (req, res) => {
+    try {
+        const { challenge_id } = req.body;
+
+        if (!challenge_id) {
+            return res.status(400).json({
+                success: false,
+                code: 'CHALLENGE_ID_REQUIRED',
+                message: 'Challenge ID required.'
+            });
+        }
+
+        const data = stores.pending2FA.get(challenge_id);
+        if (!data) {
+            return res.status(400).json({
+                success: false,
+                code: 'SESSION_EXPIRED',
+                message: 'Verification session expired. Please try logging in again.'
+            });
+        }
+
+        const newOtp = generateSecureOTP();
+        data.otp_hash = hashValue(newOtp);
+        data.expires_at = Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000;
+        data.attempts = 0;
+
+        stores.pending2FA.set(challenge_id, data);
+
+        // ─── If rate limited, resendOtpLimiter will intercept and return success ───
+        // So this code only runs when NOT rate limited
+        const emailResult = await emailService.send2FAEmail(
+            data.email,
+            data.username || 'User',
+            newOtp,
+            data.device_info,
+            data.location,
+            data.ip
+        );
+
+        if (!emailResult.success) {
+            return res.status(503).json({
+                success: false,
+                code: 'EMAIL_FAILED',
+                message: 'We could not send the verification code. Please try again.'
+            });
+        }
+
+        console.log(`✅ [2FA EMAIL] Resent to ${data.email}`);
+
+        res.json({
+            success: true,
+            message: 'A new verification code has been sent to your email.',
+            expires_in: OTP_EXPIRY_MINUTES
+        });
+
+    } catch (error) {
+        console.error('❌ Resend OTP error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  REFRESH TOKEN - With Rate Limiter
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/refresh', refreshLimiter, async (req, res) => {
+    try {
+        const { refresh_token } = req.body;
+
+        if (!refresh_token) {
+            return res.status(400).json({
+                success: false,
+                code: 'REFRESH_TOKEN_REQUIRED',
+                message: 'Refresh token required.'
+            });
+        }
+
+        if (stores.usedRefreshTokens.has(refresh_token)) {
+            console.warn(`⚠️ [REFRESH] Reuse detected for token: ${refresh_token.slice(0, 8)}...`);
+            
+            const tokenData = stores.usedRefreshTokens.get(refresh_token);
+            if (tokenData) {
+                await revokeUserSessions(tokenData.user_id);
+                for (const [token, data] of stores.refreshTokens.entries()) {
+                    if (data.user_id === tokenData.user_id) {
+                        stores.refreshTokens.delete(token);
+                        stores.usedRefreshTokens.set(token, {
+                            user_id: data.user_id,
+                            session_id: data.session_id,
+                            expires_at: Date.now() + 24 * 60 * 60 * 1000
+                        });
+                    }
+                }
+            }
+            
+            return res.status(401).json({
+                success: false,
+                code: 'REFRESH_TOKEN_REUSE',
+                message: 'Security violation detected. Please sign in again.'
+            });
+        }
+
+        const storedToken = stores.refreshTokens.get(refresh_token);
+        if (!storedToken) {
+            return res.status(401).json({
+                success: false,
+                code: 'INVALID_REFRESH_TOKEN',
+                message: 'Invalid refresh token. Please sign in again.'
+            });
+        }
+
+        if (Date.now() > storedToken.expires_at) {
+            stores.refreshTokens.delete(refresh_token);
+            return res.status(401).json({
+                success: false,
+                code: 'REFRESH_TOKEN_EXPIRED',
+                message: 'Refresh token expired. Please sign in again.'
+            });
+        }
+
+        stores.usedRefreshTokens.set(refresh_token, {
+            user_id: storedToken.user_id,
+            session_id: storedToken.session_id,
+            expires_at: Date.now() + 24 * 60 * 60 * 1000
+        });
+
+        const { data: profile, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email, username, role, status, deleted_at, current_session_id')
+            .eq('id', storedToken.user_id)
+            .single();
+
+        if (profileError || !profile || profile.deleted_at || profile.status === 'suspended') {
+            stores.refreshTokens.delete(refresh_token);
+            return res.status(401).json({
+                success: false,
+                code: 'INVALID_USER',
+                message: 'User account invalid. Please sign in again.'
+            });
+        }
+
+        if (!profile.current_session_id) {
+            stores.refreshTokens.delete(refresh_token);
+            return res.status(401).json({
+                success: false,
+                code: 'SESSION_INVALID',
+                message: 'Session is no longer active. Please sign in again.'
+            });
+        }
+
+        if (profile.current_session_id !== storedToken.session_id) {
+            stores.refreshTokens.delete(refresh_token);
+            return res.status(401).json({
+                success: false,
+                code: 'SESSION_REVOKED',
+                message: 'Your session is no longer active. Please sign in again.'
+            });
+        }
+
+        const newAccessToken = generateAccessToken(profile.id, profile.current_session_id, profile.role);
+        stores.refreshTokens.delete(refresh_token);
+        const { refreshToken: newRefreshToken, expiresAt } = generateRefreshTokenPair(profile.id, profile.current_session_id);
+
+        await supabaseAdmin
+            .from('user_sessions')
+            .update({
+                last_activity_at: new Date().toISOString()
+            })
+            .eq('user_id', profile.id)
+            .eq('session_id', profile.current_session_id)
+            .eq('is_current', true);
+
+        console.log(`🔄 [REFRESH] Token refreshed for ${profile.email}`);
+
+        res.json({
+            success: true,
+            data: {
+                access_token: newAccessToken,
+                refresh_token: newRefreshToken,
+                refresh_expires_in: Math.floor(REFRESH_TOKEN_DURATION_MS / 1000),
+                expires_in: 3600
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Refresh error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  FORGOT PASSWORD - SILENT RATE LIMITER
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
+    try {
+        const { email } = req.body;
+        const normalizedEmail = normalizeEmail(email);
+
+        if (!normalizedEmail) {
+            return res.status(400).json({
+                success: false,
+                code: 'EMAIL_REQUIRED',
+                message: 'Please enter your email address.'
+            });
+        }
+
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email, username')
+            .eq('email', normalizedEmail)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (!profile) {
+            console.log(`🔐 [FORGOT] Email not found: ${normalizedEmail}`);
+            // Always return success to prevent account enumeration
+            return res.json({
+                success: true,
+                message: 'If an account exists for this email, a reset code has been sent.'
+            });
+        }
+
+        const resetCode = generateSecureOTP();
+        const resetId = 'reset_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex');
+
+        stores.pending2FA.set(resetId, {
+            user_id: profile.id,
+            email: profile.email,
+            username: profile.username,
+            otp_hash: hashValue(resetCode),
+            expires_at: Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000,
+            attempts: 0,
+            max_attempts: MAX_OTP_ATTEMPTS,
+            purpose: 'password_reset'
+        });
+
+        const emailResult = await emailService.sendPasswordResetOTP(
+            profile.email,
+            profile.username || 'User',
+            resetCode
+        );
+
+        if (!emailResult.success) {
+            stores.pending2FA.delete(resetId);
+            console.error('❌ Password reset email failed:', emailResult.error);
+            // Still return success
+            return res.json({
+                success: true,
+                message: 'If an account exists for this email, a reset code has been sent.'
+            });
+        }
+
+        console.log(`✅ [FORGOT] Reset code sent to ${normalizedEmail}`);
+
+        res.json({
+            success: true,
+            message: 'If an account exists for this email, a reset code has been sent.',
             reset_id: resetId,
-            debug_code: process.env.NODE_ENV === 'development' ? code : undefined
+            expires_in: OTP_EXPIRY_MINUTES
         });
 
     } catch (error) {
         console.error('❌ Forgot password error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
     }
 });
 
-// ─── VERIFY RESET CODE ───
-router.post('/verify-reset-code', limiter(10 * 60 * 1000, 5), async (req, res) => {
+// ═══════════════════════════════════════════════════════════════════
+//  VERIFY RESET CODE - With OTP Rate Limiter
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/verify-reset-code', otpLimiter, async (req, res) => {
     try {
         const { reset_id, code } = req.body;
 
         if (!reset_id || !code) {
             return res.status(400).json({
                 success: false,
-                error: 'Reset ID and code required'
+                code: 'VERIFICATION_REQUIRED',
+                message: 'Please enter the reset code.'
             });
         }
 
-        const data = pendingResets[reset_id];
+        const submittedCode = String(code).trim();
+        if (!/^\d{6}$/.test(submittedCode)) {
+            return res.status(400).json({
+                success: false,
+                code: 'INVALID_CODE_FORMAT',
+                message: 'Please enter the 6-digit reset code.'
+            });
+        }
+
+        const data = stores.pending2FA.get(reset_id);
         if (!data) {
             return res.status(400).json({
                 success: false,
-                error: 'Reset session expired. Please request a new code.'
+                code: 'SESSION_EXPIRED',
+                message: 'Your reset session has expired. Please request a new code.'
+            });
+        }
+
+        if (Date.now() > data.expires_at) {
+            stores.pending2FA.delete(reset_id);
+            return res.status(400).json({
+                success: false,
+                code: 'CODE_EXPIRED',
+                message: 'This reset code has expired. Please request a new one.'
             });
         }
 
         data.attempts = (data.attempts || 0) + 1;
-        if (data.attempts > 5) {
-            delete pendingResets[reset_id];
+        if (data.attempts > data.max_attempts) {
+            stores.pending2FA.delete(reset_id);
             return res.status(400).json({
                 success: false,
-                error: 'Too many failed attempts. Please request a new code.'
+                code: 'TOO_MANY_ATTEMPTS',
+                message: 'Too many incorrect attempts. Please request a new code.'
             });
         }
 
-        if (new Date(data.expiresAt) < new Date()) {
-            delete pendingResets[reset_id];
+        const submittedHash = hashValue(submittedCode);
+        if (!safeCompare(submittedHash, data.otp_hash)) {
+            const remaining = data.max_attempts - data.attempts;
             return res.status(400).json({
                 success: false,
-                error: 'Code expired. Please request a new code.'
+                code: 'INVALID_CODE',
+                message: `Incorrect code. ${remaining} attempt${remaining > 1 ? 's' : ''} remaining.`
             });
         }
 
-        if (data.code !== code) {
-            return res.status(400).json({
-                success: false,
-                error: `Invalid code. ${5 - data.attempts} attempts remaining.`
-            });
-        }
+        data.verified = true;
+        stores.pending2FA.set(reset_id, data);
+
+        console.log(`✅ [RESET] Code verified for ${data.email}`);
 
         res.json({
             success: true,
-            message: 'Code verified successfully'
+            message: 'Code verified. You can now reset your password.',
+            reset_id: reset_id
         });
 
     } catch (error) {
         console.error('❌ Verify reset code error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
     }
 });
 
-// ─── RESET PASSWORD ───
-router.post('/reset-password', limiter(10 * 60 * 1000, 3), async (req, res) => {
-    try {
-        const { email, code, new_password } = req.body;
+// ═══════════════════════════════════════════════════════════════════
+//  RESET PASSWORD
+// ═══════════════════════════════════════════════════════════════════
 
-        if (!email || !code || !new_password) {
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { reset_id, new_password } = req.body;
+
+        if (!reset_id || !new_password) {
             return res.status(400).json({
                 success: false,
-                error: 'Email, code, and new password required'
+                code: 'RESET_REQUIRED',
+                message: 'Please enter your new password.'
             });
         }
 
-        // ─── Validate new password ───
+        const data = stores.pending2FA.get(reset_id);
+        if (!data) {
+            return res.status(400).json({
+                success: false,
+                code: 'SESSION_EXPIRED',
+                message: 'Your reset session has expired. Please request a new code.'
+            });
+        }
+
+        if (!data.verified) {
+            return res.status(400).json({
+                success: false,
+                code: 'CODE_NOT_VERIFIED',
+                message: 'Please verify your reset code first.'
+            });
+        }
+
+        if (Date.now() > data.expires_at) {
+            stores.pending2FA.delete(reset_id);
+            return res.status(400).json({
+                success: false,
+                code: 'SESSION_EXPIRED',
+                message: 'Your reset session has expired. Please request a new code.'
+            });
+        }
+
         const pwErrors = validatePassword(new_password);
         if (pwErrors.length > 0) {
             return res.status(400).json({
                 success: false,
-                error: `Password must have: ${pwErrors.join(', ')}`
+                code: 'PASSWORD_WEAK',
+                message: `Your password must have: ${pwErrors.join(', ')}`
             });
         }
 
-        // ─── Find valid reset ───
-        let valid = false;
-        let userId = null;
-        for (const [key, data] of Object.entries(pendingResets)) {
-            if (data.email === email && data.code === code && new Date(data.expiresAt) > new Date()) {
-                valid = true;
-                userId = data.user_id;
-                delete pendingResets[key];
-                break;
-            }
-        }
-
-        if (!valid) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid or expired reset code'
-            });
-        }
-
-        // ─── Update password ───
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserByEmail(
-            email,
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            data.user_id,
             { password: new_password }
         );
 
@@ -548,189 +1430,221 @@ router.post('/reset-password', limiter(10 * 60 * 1000, 3), async (req, res) => {
             console.error('❌ Password update error:', updateError);
             return res.status(500).json({
                 success: false,
-                error: 'Failed to reset password. Please try again.'
+                code: 'PASSWORD_UPDATE_FAILED',
+                message: 'We could not update your password. Please try again.'
             });
         }
 
-        logSecurityEvent('PASSWORD_RESET_SUCCESS', userId, { email, ip: getClientIP(req) });
+        await revokeUserSessions(data.user_id);
+
+        await logSecurityActivity({
+            userId: data.user_id,
+            eventType: 'password_changed',
+            description: 'Password reset via forgot password flow',
+            metadata: { reset_id }
+        });
+
+        stores.pending2FA.delete(reset_id);
+
+        console.log(`✅ [RESET] Password reset successful for ${data.email}`);
 
         res.json({
             success: true,
-            message: 'Password reset successfully'
+            message: 'Password reset successful! You can now sign in with your new password.'
         });
 
     } catch (error) {
         console.error('❌ Reset password error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
     }
 });
 
-// ─── USER LOGIN ───
-router.post('/login', limiter(15 * 60 * 1000, 10), async (req, res) => {
+// ═══════════════════════════════════════════════════════════════════
+//  LOGOUT - NO RATE LIMITER
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/logout', authMiddleware, async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const userId = req.user.id;
+        const sessionId = req.user.session_id;
+        const refreshToken = req.body.refresh_token;
 
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email and password required'
+        if (sessionId) {
+            await supabaseAdmin
+                .from('user_sessions')
+                .update({
+                    is_active: false,
+                    is_current: false,
+                    revoked_at: new Date().toISOString()
+                })
+                .eq('user_id', userId)
+                .eq('session_id', sessionId);
+
+            const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('current_session_id')
+                .eq('id', userId)
+                .single();
+
+            if (profile?.current_session_id === sessionId) {
+                await supabaseAdmin
+                    .from('profiles')
+                    .update({
+                        current_session_id: null,
+                        session_created_at: null,
+                        session_expires_at: null
+                    })
+                    .eq('id', userId);
+            }
+        }
+
+        if (refreshToken) {
+            stores.refreshTokens.delete(refreshToken);
+            stores.usedRefreshTokens.set(refreshToken, {
+                user_id: userId,
+                session_id: sessionId || 'unknown',
+                expires_at: Date.now() + 24 * 60 * 60 * 1000
             });
         }
 
-        // ─── Track login attempts ───
         const ip = getClientIP(req);
-        const key = `login_${ip}`;
-        if (!loginAttempts.has(key)) {
-            loginAttempts.set(key, { count: 0, first: Date.now() });
-        }
-        const attempt = loginAttempts.get(key);
-
-        // Reset if more than 15 minutes old
-        if (Date.now() - attempt.first > 15 * 60 * 1000) {
-            loginAttempts.set(key, { count: 0, first: Date.now() });
-        }
-
-        if (attempt.count >= 10) {
-            return res.status(429).json({
-                success: false,
-                error: 'Too many login attempts. Please try again later.'
-            });
-        }
-
-        // ─── Attempt login ───
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password
+        await logSecurityActivity({
+            userId,
+            eventType: 'logout',
+            description: 'User logged out',
+            ip,
+            userAgent: req.headers['user-agent'],
+            metadata: { session_id: sessionId }
         });
 
-        if (signInError) {
-            attempt.count += 1;
-            loginAttempts.set(key, attempt);
-            logSecurityEvent('LOGIN_FAILED', null, { email, ip, reason: signInError.message });
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid email or password'
-            });
-        }
+        console.log(`🔐 [LOGOUT] User ${userId} logged out`);
 
-        // ─── Reset attempts on success ───
-        loginAttempts.delete(key);
+        res.json({
+            success: true,
+            message: 'You have been signed out successfully.'
+        });
 
-        const user = signInData.user;
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
+    }
+});
 
-        // ─── Get profile ───
-        const { data: profile, error: profileError } = await supabaseAdmin
+// ═══════════════════════════════════════════════════════════════════
+//  GET SESSION - NO RATE LIMITER
+// ═══════════════════════════════════════════════════════════════════
+
+router.get('/session', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const sessionId = req.user.session_id;
+
+        const { data: profile, error } = await supabaseAdmin
             .from('profiles')
-            .select('*')
-            .eq('id', user.id)
+            .select('current_session_id, session_expires_at, status')
+            .eq('id', userId)
             .single();
 
-        if (profileError || !profile) {
-            return res.status(404).json({
+        if (error || !profile) {
+            return res.status(401).json({
                 success: false,
-                error: 'Account not found'
-            });
-        }
-
-        if (profile.role === 'admin' || profile.role === 'super_admin') {
-            return res.status(403).json({
-                success: false,
-                error: 'This is a user login page. Admins must use the admin login.'
+                code: 'SESSION_INVALID',
+                message: 'Session not found.'
             });
         }
 
         if (profile.status === 'suspended') {
             return res.status(403).json({
                 success: false,
-                error: 'Account suspended. Please contact support.'
+                code: 'ACCOUNT_SUSPENDED',
+                message: 'Your account has been suspended.'
             });
         }
 
-        // ─── Get device info ───
-        const uaInfo = getUserAgentInfo(req);
-        const location = await getLocationFromIP(ip);
-
-        // ─── Update last login ───
-        await supabaseAdmin
-            .from('profiles')
-            .update({
-                last_login_at: new Date().toISOString(),
-                last_login_ip: ip,
-                last_login_browser: uaInfo.browser,
-                last_login_os: uaInfo.os,
-                last_login_device: uaInfo.device,
-                last_login_location: location
-            })
-            .eq('id', profile.id);
-
-        logSecurityEvent('LOGIN_SUCCESS', profile.id, {
-            email,
-            ip,
-            browser: uaInfo.browser,
-            os: uaInfo.os,
-            device: uaInfo.device,
-            location
-        });
-
-        // ─── Send login alert if new location ───
-        // Check if this is a new device/location
-        const previousLocation = profile.last_login_location || '';
-        const isNewLocation = previousLocation !== location && location !== 'Unknown';
-
-        if (isNewLocation) {
-            await emailService.sendLoginAlert(
-                email,
-                profile.username || 'User',
-                location,
-                `${uaInfo.browser} on ${uaInfo.os} (${uaInfo.device})`,
-                new Date().toLocaleString()
-            ).catch(() => {});
+        if (!profile.current_session_id || profile.current_session_id !== sessionId) {
+            return res.status(401).json({
+                success: false,
+                code: 'SESSION_REVOKED',
+                message: 'Your session has been ended because your account was signed in on another device.'
+            });
         }
 
-        // ─── Check if user has transaction PIN ───
-        const hasPin = !!profile.transaction_pin_hash;
+        if (profile.session_expires_at && new Date(profile.session_expires_at) < new Date()) {
+            return res.status(401).json({
+                success: false,
+                code: 'SESSION_EXPIRED',
+                message: 'Your session has expired. Please sign in again.'
+            });
+        }
+
+        await supabaseAdmin
+            .from('user_sessions')
+            .update({
+                last_activity_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('session_id', sessionId)
+            .eq('is_current', true);
 
         res.json({
             success: true,
-            data: {
-                user: {
-                    id: profile.id,
-                    email: profile.email,
-                    username: profile.username,
-                    role: profile.role,
-                    wallet_ngn: parseFloat(profile.wallet_ngn || 0),
-                    wallet_usd: parseFloat(profile.wallet_usd || 0),
-                    referral_code: profile.referral_code || '',
-                    has_transaction_pin: hasPin
-                },
-                token: signInData.session.access_token,
-                refresh_token: signInData.session.refresh_token
+            authenticated: true,
+            user: {
+                id: req.user.id,
+                email: req.user.email,
+                username: req.user.username,
+                role: req.user.role
             },
+            session_id: sessionId
         });
 
     } catch (error) {
-        console.error('❌ Login error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('❌ Session check error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong.'
+        });
     }
 });
 
-// ─── GET CURRENT USER ───
+// ═══════════════════════════════════════════════════════════════════
+//  GET CURRENT USER - NO RATE LIMITER
+// ═══════════════════════════════════════════════════════════════════
+
 router.get('/me', authMiddleware, async (req, res) => {
     try {
-        const { data: profile } = await supabaseAdmin
+        const userId = req.user.id;
+
+        const { data: profile, error } = await supabaseAdmin
             .from('profiles')
-            .select('*')
-            .eq('id', req.user.id)
+            .select('id, email, username, role, status, wallet_ngn, wallet_usd, referral_code, is_verified, transaction_pin_hash, last_login, last_seen, last_login_location, last_ip, last_login_device')
+            .eq('id', userId)
             .single();
 
-        if (!profile) {
+        if (error || !profile) {
             return res.status(404).json({
                 success: false,
-                error: 'User not found'
+                code: 'USER_NOT_FOUND',
+                message: 'User not found.'
             });
         }
 
-        // ─── Only return safe fields ───
+        const userSettings = await getUserSettings(userId);
+        const email2faEnabled = userSettings?.email_2fa_enabled || false;
+
+        const isAdmin = profile.role === 'admin' || profile.role === 'super_admin';
+        const lastSeen = profile.last_seen ? new Date(profile.last_seen).getTime() : 0;
+        const isOnline = lastSeen > 0 && (Date.now() - lastSeen <= 90 * 1000);
+
         res.json({
             success: true,
             data: {
@@ -738,268 +1652,105 @@ router.get('/me', authMiddleware, async (req, res) => {
                 email: profile.email,
                 username: profile.username,
                 role: profile.role || 'user',
+                isAdmin: isAdmin,
+                isSuperAdmin: profile.role === 'super_admin',
                 wallet_ngn: parseFloat(profile.wallet_ngn) || 0,
                 wallet_usd: parseFloat(profile.wallet_usd) || 0,
                 referral_code: profile.referral_code || '',
                 status: profile.status || 'active',
                 has_transaction_pin: !!profile.transaction_pin_hash,
-                last_login_at: profile.last_login_at,
+                is_verified: profile.is_verified || false,
+                email_2fa_enabled: email2faEnabled,
+                dashboard_url: isAdmin ? '/admin/dashboard' : '/dashboard',
+                last_login: profile.last_login,
                 last_login_location: profile.last_login_location,
+                last_login_ip: profile.last_ip,
                 last_login_device: profile.last_login_device,
-                // NEVER expose: password hash, PIN hash, internal IDs
-            },
-        });
-
-    } catch (error) {
-        console.error('Me error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ─── CREATE TRANSACTION PIN ───
-router.post('/create-pin', authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { pin } = req.body;
-
-        if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-            return res.status(400).json({
-                success: false,
-                error: 'PIN must be exactly 4 digits'
-            });
-        }
-
-        // ─── Check if PIN already exists ───
-        const { data: existing } = await supabaseAdmin
-            .from('profiles')
-            .select('transaction_pin_hash')
-            .eq('id', userId)
-            .single();
-
-        if (existing?.transaction_pin_hash) {
-            return res.status(400).json({
-                success: false,
-                error: 'PIN already set. Use change-pin endpoint.'
-            });
-        }
-
-        // ─── Hash PIN ───
-        const salt = await bcrypt.genSalt(10);
-        const pinHash = await bcrypt.hash(pin, salt);
-
-        // ─── Save PIN ───
-        const { error: updateError } = await supabaseAdmin
-            .from('profiles')
-            .update({
-                transaction_pin_hash: pinHash,
-                transaction_pin_set_at: new Date().toISOString(),
-                transaction_pin_attempts: 0,
-                transaction_pin_locked_until: null,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-
-        if (updateError) {
-            console.error('PIN create error:', updateError);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to save PIN'
-            });
-        }
-
-        logSecurityEvent('PIN_CREATED', userId, { ip: getClientIP(req) });
-
-        // ─── Return only boolean ───
-        res.json({
-            success: true,
-            message: 'PIN created successfully',
-            data: {
-                has_transaction_pin: true
+                last_seen: profile.last_seen,
+                is_online: isOnline
             }
         });
 
     } catch (error) {
-        console.error('Create PIN error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('❌ Me error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again.'
+        });
     }
 });
 
-// ─── CHANGE TRANSACTION PIN ───
-router.post('/change-pin', authMiddleware, async (req, res) => {
+// ═══════════════════════════════════════════════════════════════════
+//  HEARTBEAT - NO RATE LIMITER (Infrastructure traffic)
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/heartbeat', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { current_pin, new_pin } = req.body;
+        const now = new Date().toISOString();
 
-        if (!current_pin || !new_pin || new_pin.length !== 4 || !/^\d{4}$/.test(new_pin)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Current PIN and new 4-digit PIN required'
-            });
-        }
-
-        // ─── Get current hash ───
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('transaction_pin_hash')
-            .eq('id', userId)
-            .single();
-
-        if (!profile?.transaction_pin_hash) {
-            return res.status(400).json({
-                success: false,
-                error: 'No PIN set. Use create-pin endpoint.'
-            });
-        }
-
-        // ─── Verify current PIN ───
-        const isValid = await bcrypt.compare(current_pin, profile.transaction_pin_hash);
-        if (!isValid) {
-            logSecurityEvent('PIN_CHANGE_FAILED', userId, { ip: getClientIP(req) });
-            return res.status(401).json({
-                success: false,
-                error: 'Current PIN is incorrect'
-            });
-        }
-
-        // ─── Hash new PIN ───
-        const salt = await bcrypt.genSalt(10);
-        const newPinHash = await bcrypt.hash(new_pin, salt);
-
-        // ─── Update PIN ───
         await supabaseAdmin
             .from('profiles')
-            .update({
-                transaction_pin_hash: newPinHash,
-                transaction_pin_set_at: new Date().toISOString(),
-                transaction_pin_attempts: 0,
-                transaction_pin_locked_until: null,
-                updated_at: new Date().toISOString()
+            .update({ 
+                last_seen: now, 
+                updated_at: now 
             })
             .eq('id', userId);
 
-        logSecurityEvent('PIN_CHANGED', userId, { ip: getClientIP(req) });
-
-        res.json({
-            success: true,
-            message: 'PIN changed successfully',
-            data: { has_transaction_pin: true }
-        });
-
-    } catch (error) {
-        console.error('Change PIN error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ─── VERIFY TRANSACTION PIN ───
-router.post('/verify-pin', authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { pin } = req.body;
-
-        if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-            return res.status(400).json({
-                success: false,
-                error: 'PIN must be exactly 4 digits'
-            });
-        }
-
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('transaction_pin_hash, transaction_pin_attempts, transaction_pin_locked_until')
-            .eq('id', userId)
-            .single();
-
-        if (!profile?.transaction_pin_hash) {
-            return res.status(400).json({
-                success: false,
-                error: 'PIN not set. Please create a PIN first.',
-                code: 'PIN_NOT_SET'
-            });
-        }
-
-        // ─── Check lock ───
-        if (profile.transaction_pin_locked_until && new Date(profile.transaction_pin_locked_until) > new Date()) {
-            const remaining = Math.ceil((new Date(profile.transaction_pin_locked_until) - new Date()) / 60000);
-            return res.status(403).json({
-                success: false,
-                error: `PIN locked for ${remaining} minutes`,
-                code: 'PIN_LOCKED',
-                remaining_minutes: remaining
-            });
-        }
-
-        // ─── Verify ───
-        const isValid = await bcrypt.compare(pin, profile.transaction_pin_hash);
-
-        if (!isValid) {
-            const attempts = (profile.transaction_pin_attempts || 0) + 1;
-            const updates = { transaction_pin_attempts: attempts };
-
-            if (attempts >= 5) {
-                updates.transaction_pin_locked_until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-                updates.transaction_pin_attempts = 0;
-                await supabaseAdmin.from('profiles').update(updates).eq('id', userId);
-                logSecurityEvent('PIN_LOCKED', userId, { ip: getClientIP(req) });
-                return res.status(403).json({
-                    success: false,
-                    error: 'Too many attempts. PIN locked for 1 hour.',
-                    code: 'PIN_LOCKED',
-                    remaining_minutes: 60
-                });
-            }
-
-            await supabaseAdmin.from('profiles').update(updates).eq('id', userId);
-            return res.status(400).json({
-                success: false,
-                error: `Invalid PIN. ${5 - attempts} attempts remaining.`,
-                code: 'INVALID_PIN',
-                attempts_remaining: 5 - attempts
-            });
-        }
-
-        // ─── Reset attempts ───
         await supabaseAdmin
-            .from('profiles')
-            .update({
-                transaction_pin_attempts: 0,
-                transaction_pin_locked_until: null
+            .from('user_sessions')
+            .update({ 
+                last_activity_at: now 
             })
-            .eq('id', userId);
+            .eq('user_id', userId)
+            .eq('session_id', req.user.session_id)
+            .eq('is_current', true);
 
         res.json({
             success: true,
-            message: 'PIN verified',
-            data: { verified: true }
+            last_seen: now,
+            message: 'Heartbeat received'
         });
 
     } catch (error) {
-        console.error('Verify PIN error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('❌ Heartbeat error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Something went wrong.'
+        });
     }
 });
 
-// ─── LOGOUT ───
-router.post('/logout', authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        await supabase.auth.signOut();
-        logSecurityEvent('LOGOUT', userId, { ip: getClientIP(req) });
-        res.json({ success: true, message: 'Logged out' });
-    } catch (error) {
-        console.error('Logout error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+// ═══════════════════════════════════════════════════════════════════
+//  HEALTH CHECK - NO RATE LIMITER
+// ═══════════════════════════════════════════════════════════════════
 
-// ─── HEALTH CHECK ───
 router.get('/health', async (req, res) => {
-    res.json({
-        success: true,
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
-    });
+    try {
+        const { error } = await supabaseAdmin.from('profiles').select('id').limit(1);
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV || 'development',
+            token_config: {
+                access_token_expires_in: ACCESS_TOKEN_EXPIRES_IN,
+                refresh_token_expires_in: REFRESH_TOKEN_EXPIRES_IN
+            }
+        });
+    } catch (error) {
+        console.error('Health check error:', error);
+        res.status(503).json({
+            success: false,
+            status: 'unhealthy',
+            timestamp: new Date().toISOString(),
+            error: 'Database connection failed'
+        });
+    }
 });
 
 module.exports = router;

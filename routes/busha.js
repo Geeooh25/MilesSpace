@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const emailService = require('../services/emailService');
 const { authMiddleware } = require('../middleware/auth');
 const { supabaseAdmin } = require('../db/supabase');
+const { LedgerService } = require('../services/ledgerService');
+const IdempotencyService = require('../services/idempotencyService');
 const cacheService = require('../services/cacheService');
 
 // ─── CONFIG ───

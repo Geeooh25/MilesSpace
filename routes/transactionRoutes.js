@@ -1,492 +1,675 @@
+// routes/transactionRoutes.js
+// COMPLETE PRODUCTION-READY VERSION
+// Merges transactions + airtime_transactions + crypto_deposits into a
+// unified user-facing history. EVERY deposit shows regardless of status.
+
 const express = require('express');
 const router = express.Router();
 const { supabaseAdmin } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
 
-/* ─── CACHE ─── */
-const statsCache = new Map();
-const STATS_CACHE_TTL = 60000;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+const MERGE_CAP = 500;
 
-/* ─── GET /api/transactions - FAST VERSION ─── */
-router.get('/', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { type, status, search, page = 1, limit = 20 } = req.query;
+// ─── HELPERS ──────────────────────────────────────────────────────────
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+function parseLimit(value) {
+    const parsed = parseInt(value);
+    if (isNaN(parsed) || parsed < 1) return DEFAULT_LIMIT;
+    return Math.min(parsed, MAX_LIMIT);
+}
 
-    // Build query with proper indexes
-    let query = supabaseAdmin
-      .from('transactions')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)  // Uses idx_transactions_user_id
-      .order('created_at', { ascending: false })  // Uses idx_transactions_user_created
-      .range(offset, offset + parseInt(limit) - 1);
+function parsePage(value) {
+    const parsed = parseInt(value);
+    if (isNaN(parsed) || parsed < 1) return 1;
+    return parsed;
+}
 
-    if (type && type !== 'all') query = query.eq('type', type);
-    if (status && status !== 'all') query = query.eq('status', status);
-    if (search) query = query.or(`description.ilike.%${search}%,ref.ilike.%${search}%`);
+function num(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
 
-    const { data, error, count } = await query;
-    if (error) throw error;
+function positive(v) {
+    return Math.abs(num(v));
+}
 
-    // ─── Enrich with product details (only for displayed items) ───
-    const enriched = await enrichTransactionsWithProducts(data || []);
+// ─── Normalize a raw transactions row ────────────────────────────────
+// transactions row schema (canonical):
+//   ref, reference, category, currency, amount, amount_ngn, amount_usd,
+//   fee, revenue_ngn, revenue_usd, wallet_used, description, status,
+//   type, source_type, source_id, provider, provider_reference,
+//   meta, metadata, idempotency_key, created_at, updated_at,
+//   completed_at, failed_at, cancelled_at, refunded_at, reversed_at
+function mapTransaction(t) {
+    const currency = String(t.currency || t.wallet_used || 'NGN').toUpperCase();
+    const isUSD = currency === 'USD';
 
-    // ─── Get stats from cache or calculate ───
-    const cacheKey = `stats_${userId}`;
-    let stats = statsCache.get(cacheKey);
-    if (!stats || Date.now() - stats.timestamp > STATS_CACHE_TTL) {
-      stats = { data: await calculateTransactionStats(userId), timestamp: Date.now() };
-      statsCache.set(cacheKey, stats);
-    }
+    // Prefer the currency-specific column when present, else fall back.
+    const amountRaw =
+        isUSD
+            ? (t.amount_usd != null && Number(t.amount_usd) !== 0 ? t.amount_usd : t.amount)
+            : (t.amount_ngn != null && Number(t.amount_ngn) !== 0 ? t.amount_ngn : t.amount);
 
-    res.json({
-      success: true,
-      data: enriched,
-      count: count || 0,
-      stats: stats.data,
-      page: parseInt(page),
-      totalPages: Math.ceil((count || 0) / parseInt(limit))
-    });
+    const amount = num(amountRaw);
 
-  } catch (error) {
-    console.error('Transaction error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+    // Fee: prefer explicit `fee`, fall back to the revenue column.
+    const feeRaw =
+        t.fee != null && Number(t.fee) !== 0
+            ? t.fee
+            : (isUSD ? t.revenue_usd : t.revenue_ngn);
+    const fee = num(feeRaw);
 
-// ─── GET /api/transactions/export/csv ───
-router.get('/export/csv', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { currency = 'NGN', from, to } = req.query;
+    const meta = t.meta || t.metadata || {};
 
-    let query = supabaseAdmin
-      .from('transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    return {
+        id: t.id,
+        reference: t.ref || t.reference || t.id,
+        type: t.type || 'deposit',
+        status: t.status || 'pending',
+        currency,
+        wallet_used: t.wallet_used || currency,
+        amount,
+        fee,
+        net_amount: amount - fee,
+        description: t.description || t.type || 'Transaction',
+        category: t.category || null,
+        source_type: t.source_type || null,
+        source_id: t.source_id || null,
+        provider: t.provider || null,
+        provider_reference: t.provider_reference || null,
+        metadata: meta,
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+        completed_at: t.completed_at || null,
+        failed_at: t.failed_at || null,
+        cancelled_at: t.cancelled_at || null,
+        refunded_at: t.refunded_at || t.reversed_at || null
+    };
+}
 
-    // Filter by currency if provided (optional)
-    if (currency && currency !== 'ALL') {
-      if (currency === 'USD') query = query.gt('amount_usd', 0).or('amount_usd.is.not.null');
-      else if (currency === 'NGN') query = query.gt('amount_ngn', 0).or('amount_ngn.is.not.null');
-    }
+// ─── Normalize an airtime_transactions row ──────────────────────────
+function mapAirtimeToTransaction(a) {
+    const currency = String(a.currency || 'USD').toUpperCase();
+    const amount = num(a.total_amount);
+    const fee = num(a.fee);
+    const dest = a.destination_amount
+        ? ` · recipient got ${a.destination_amount} ${a.destination_currency || ''}`
+        : '';
 
-    if (from) query = query.gte('created_at', new Date(from).toISOString());
-    if (to) {
-      const toDate = new Date(to);
-      toDate.setDate(toDate.getDate() + 1); // include end day
-      query = query.lt('created_at', toDate.toISOString());
-    }
+    return {
+        id: a.id,
+        reference: a.reference || a.id,
+        type: 'airtime',
+        status: a.status || 'pending',
+        currency,
+        wallet_used: currency,
+        amount,
+        fee,
+        net_amount: amount - fee,
+        description: `Airtime: ${a.country_code || ''} ${a.phone_number || ''}${dest}`.trim(),
+        category: null,
+        source_type: 'airtime',
+        source_id: a.id,
+        provider: a.provider || 'dtone',
+        provider_reference: a.provider_transaction_id || null,
+        metadata: {
+            country_code: a.country_code,
+            phone_number: a.phone_number,
+            operator_id: a.operator_id,
+            operator_name: a.operator_name,
+            destination_amount: a.destination_amount,
+            destination_currency: a.destination_currency,
+            provider_cost: a.provider_cost,
+            provider_currency: a.provider_currency,
+            product_id: a.product_id,
+            quote_id: a.quote_id,
+            refunded: a.refunded,
+            failure_message: a.failure_message,
+            provider_status: a.provider_status,
+            ...(a.metadata || {})
+        },
+        created_at: a.created_at,
+        updated_at: a.updated_at,
+        completed_at: a.completed_at || null,
+        failed_at: a.failed_at || null,
+        cancelled_at: null,
+        refunded_at: a.refunded ? a.updated_at : null
+    };
+}
 
-    const { data, error } = await query;
-    if (error) throw error;
+// ─── Normalize a crypto_deposits row (guarantees crypto shows) ─────
+function mapCryptoToTransaction(c) {
+    const currency = 'USD';
+    const requested = num(c.requested_usd ?? c.requested_amount);
+    const credited  = num(c.credited_amount);
 
-    if (!data || data.length === 0) {
-      return res.status(404).json({ success: false, error: 'No transactions found for the given period' });
-    }
+    // Prefer credited amount when completed; otherwise show the requested
+    // amount so the user sees something meaningful while it's pending.
+    const amount = credited > 0 ? credited : requested;
 
-    // ─── Build CSV ───
-    const rows = data.map(t => ({
-      'Transaction ID': t.ref || t.id,
-      'Type': t.type || 'N/A',
-      'Description': t.description || 'N/A',
-      'Amount (NGN)': t.amount_ngn || 0,
-      'Amount (USD)': t.amount_usd || 0,
-      'Currency': t.currency || 'NGN',
-      'Status': t.status || 'N/A',
-      'Date': t.created_at ? new Date(t.created_at).toLocaleString('en-US', { timeZone: 'UTC' }) : 'N/A'
-    }));
+    const payCurrency = c.pay_currency || '';
 
-    // ─── Use the `csv` package or simple join ───
-    const csvHeaders = Object.keys(rows[0]);
-    const csvRows = [
-      csvHeaders.join(','),
-      ...rows.map(row => csvHeaders.map(header => `"${String(row[header] || '').replace(/"/g, '""')}"`).join(','))
-    ];
-    const csv = csvRows.join('\n');
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=statement_${userId.slice(0,8)}_${Date.now()}.csv`);
-    res.send(csv);
-
-  } catch (error) {
-    console.error('CSV export error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-
-
-/* ─── ENRICH TRANSACTIONS ─── */
-async function enrichTransactionsWithProducts(transactions) {
-  if (!transactions || transactions.length === 0) return transactions;
-
-  const orderIds = [];
-  const boostIds = [];
-  const campaignIds = [];
-  const smsIds = [];
-  const giftIds = [];
-
-  transactions.forEach(t => {
-    if (!t.order_id) return;
-    if (t.type === 'marketplace' || t.type === 'purchase') orderIds.push(t.order_id);
-    else if (t.type === 'boost') boostIds.push(t.order_id);
-    else if (t.type === 'campaign') campaignIds.push(t.order_id);
-    else if (t.type === 'virtual_sms') smsIds.push(t.order_id);
-    else if (t.type === 'gift' || t.type === 'gift_card') giftIds.push(t.order_id);
-  });
-
-  const [orders, boosts, campaigns, smsOrders, gifts] = await Promise.all([
-    orderIds.length > 0 ? supabaseAdmin.from('orders').select('*').in('id', orderIds) : { data: [] },
-    boostIds.length > 0 ? supabaseAdmin.from('boost_orders').select('*').in('id', boostIds) : { data: [] },
-    campaignIds.length > 0 ? supabaseAdmin.from('campaigns').select('*').in('id', campaignIds) : { data: [] },
-    smsIds.length > 0 ? supabaseAdmin.from('sms_orders').select('*').in('id', smsIds) : { data: [] },
-    giftIds.length > 0 ? supabaseAdmin.from('gift_orders').select('*').in('id', giftIds) : { data: [] }
-  ]);
-
-  const orderMap = {}; (orders.data || []).forEach(o => { orderMap[o.id] = o; });
-  const boostMap = {}; (boosts.data || []).forEach(b => { boostMap[b.id] = b; });
-  const campaignMap = {}; (campaigns.data || []).forEach(c => { campaignMap[c.id] = c; });
-  const smsMap = {}; (smsOrders.data || []).forEach(s => { smsMap[s.id] = s; });
-  const giftMap = {}; (gifts.data || []).forEach(g => { giftMap[g.id] = g; });
-
-  return transactions.map(t => {
-    let productDetails = null;
-
-    if ((t.type === 'marketplace' || t.type === 'purchase') && t.order_id && orderMap[t.order_id]) {
-      const o = orderMap[t.order_id];
-      productDetails = {
-        type: 'marketplace',
-        product_name: o.product_title || 'Marketplace Item',
-        product_id: o.product_id,
-        order_ref: o.order_ref,
-        delivered_data: o.delivered_data,
-        download_token: o.download_token,
-        download_count: o.download_count || 0,
-        order_created_at: o.created_at
-      };
-    }
-
-    if (t.type === 'boost' && t.order_id && boostMap[t.order_id]) {
-      const b = boostMap[t.order_id];
-      productDetails = {
-        type: 'boost',
-        service_name: b.service_name || 'Boost Service',
-        quantity: b.quantity || 1,
-        link: b.link || '',
-        order_ref: b.order_ref,
-        order_created_at: b.created_at
-      };
-    }
-
-    if (t.type === 'campaign' && t.order_id && campaignMap[t.order_id]) {
-      const c = campaignMap[t.order_id];
-      productDetails = {
-        type: 'campaign',
-        campaign_name: c.campaign_name || 'Campaign',
-        platform: c.platform || 'N/A',
-        budget_total: c.budget_total || 0,
+    return {
+        id: c.id,
+        reference: c.nowpayments_payment_id || c.id,
+        type: 'deposit',
         status: c.status || 'pending',
-        order_ref: c.order_ref,
-        order_created_at: c.created_at
-      };
-    }
-
-    if (t.type === 'virtual_sms' && t.order_id && smsMap[t.order_id]) {
-      const s = smsMap[t.order_id];
-      productDetails = {
-        type: 'sms',
-        country: s.country || 'N/A',
-        service: s.service || 'SMS',
-        phone_number: s.phone_number || 'N/A',
-        status: s.status || 'pending',
-        order_ref: s.order_ref,
-        order_created_at: s.created_at,
-        sms_code: s.sms_code || null
-      };
-    }
-
-    if ((t.type === 'gift' || t.type === 'gift_card') && t.order_id && giftMap[t.order_id]) {
-      const g = giftMap[t.order_id];
-      productDetails = {
-        type: 'gift',
-        product_name: g.product_name || 'Gift Item',
-        recipient: g.recipient_name || g.recipient_contact || 'N/A',
-        destination: g.recipient_country || 'N/A',
-        tracking_number: g.tracking_number || 'N/A',
-        order_ref: g.order_ref,
-        order_created_at: g.created_at,
-        status: g.status || 'pending'
-      };
-    }
-
-    return {
-      ...t,
-      amount_ngn: Math.abs(parseFloat(t.amount_ngn || 0)),
-      amount_usd: Math.abs(parseFloat(t.amount_usd || 0)),
-      _original_ngn: parseFloat(t.amount_ngn || 0),
-      _original_usd: parseFloat(t.amount_usd || 0),
-      product_details: productDetails,
-      is_purchase: !!productDetails,
-      order_ref: productDetails?.order_ref || t.ref || t.id
+        currency,
+        wallet_used: currency,
+        amount,
+        fee: num(c.fee_usd),
+        net_amount: amount,
+        description: `Crypto deposit — ${payCurrency}`,
+        category: 'credit',
+        source_type: 'crypto_deposit',
+        source_id: c.id,
+        provider: 'nowpayments',
+        provider_reference: c.nowpayments_payment_id || null,
+        metadata: {
+            pay_currency: payCurrency,
+            pay_network: c.pay_network || null,
+            requested_usd: requested,
+            required_usd: num(c.required_usd ?? c.gross_amount),
+            fee_percent: num(c.fee_percent),
+            credited_usd: credited,
+            actually_paid_crypto: c.actually_paid_crypto ?? null,
+            outcome_usd: c.outcome_usd ?? null,
+            expires_at: c.expires_at || null
+        },
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        completed_at: c.completed_at || null,
+        failed_at: c.failed_at || null,
+        cancelled_at: c.cancelled_at || null,
+        refunded_at: null
     };
-  });
 }
 
-/* ─── CALCULATE STATS ─── */
-async function calculateTransactionStats(userId) {
-  const { data, error } = await supabaseAdmin
-    .from('transactions')
-    .select('amount_ngn, amount_usd, type, status')
-    .eq('user_id', userId);
+// ═════════════════════════════════════════════════════════════════════
+//  GET /api/transactions — unified user history
+// ═════════════════════════════════════════════════════════════════════
+router.get('/', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const page = parsePage(req.query.page);
+        const limit = parseLimit(req.query.limit);
+        const offset = (page - 1) * limit;
+        const type = req.query.type && req.query.type !== 'all' ? req.query.type : null;
+        const status = req.query.status && req.query.status !== 'all' ? req.query.status : null;
+        const search = req.query.search || null;
 
-  if (error || !data) {
-    return {
-      totalCreditNGN: 0, totalDebitNGN: 0,
-      totalCreditUSD: 0, totalDebitUSD: 0,
-      giftOrders: 0, marketOrders: 0,
-      boostOrders: 0, campaignOrders: 0,
-      smsOrders: 0, totalTransactions: 0
-    };
-  }
+        // ─── 1. Main transactions table ──────────────────────────
+        let mainQ = supabaseAdmin
+            .from('transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(MERGE_CAP);
 
-  let totalCreditNGN = 0, totalDebitNGN = 0;
-  let totalCreditUSD = 0, totalDebitUSD = 0;
-  let giftOrders = 0, marketOrders = 0;
-  let boostOrders = 0, campaignOrders = 0, smsOrders = 0;
+        if (type) mainQ = mainQ.eq('type', type);
+        if (status) mainQ = mainQ.eq('status', status);
+        if (search) mainQ = mainQ.or(`ref.ilike.%${search}%,reference.ilike.%${search}%,description.ilike.%${search}%`);
 
-  data.forEach(t => {
-    const ngn = parseFloat(t.amount_ngn || 0);
-    const usd = parseFloat(t.amount_usd || 0);
+        const { data: mainTx, error: mainErr } = await mainQ;
+        if (mainErr && mainErr.code !== '42P01') {
+            console.error('Main transactions query error:', mainErr);
+            throw mainErr;
+        }
 
-    if (ngn > 0) totalCreditNGN += ngn;
-    else if (ngn < 0) totalDebitNGN += Math.abs(ngn);
+        // ─── 2. Airtime table (unless filtered out) ──────────────
+        let airtimeRows = [];
+        const includeAirtime = !type || type === 'airtime';
 
-    if (usd > 0) totalCreditUSD += usd;
-    else if (usd < 0) totalDebitUSD += Math.abs(usd);
+        if (includeAirtime) {
+            let airQ = supabaseAdmin
+                .from('airtime_transactions')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(MERGE_CAP);
 
-    if (t.type === 'giftcard' || t.type === 'gift_card' || t.type === 'gift') giftOrders++;
-    if (t.type === 'marketplace' || t.type === 'purchase') marketOrders++;
-    if (t.type === 'boost') boostOrders++;
-    if (t.type === 'campaign') campaignOrders++;
-    if (t.type === 'virtual_sms') smsOrders++;
-  });
+            if (status) airQ = airQ.eq('status', status);
+            if (search) airQ = airQ.or(`reference.ilike.%${search}%,phone_number.ilike.%${search}%`);
 
-  return {
-    totalCreditNGN, totalDebitNGN,
-    totalCreditUSD, totalDebitUSD,
-    giftOrders, marketOrders,
-    boostOrders, campaignOrders,
-    smsOrders,
-    totalTransactions: data.length
-  };
-}
+            const { data: rows, error: airErr } = await airQ;
+            if (airErr && airErr.code !== '42P01') {
+                console.error('Airtime query error:', airErr);
+            } else {
+                airtimeRows = rows || [];
+            }
+        }
 
-/* ─── GET /purchase-map ─── */
-router.get('/purchase-map', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const map = {};
+        // ─── 3. Crypto deposits (guarantees crypto is visible) ──
+        let cryptoRows = [];
+        const includeCrypto = !type || type === 'deposit' || type === 'crypto';
 
-    // ─── Marketplace orders ───
-    const { data: orders } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false });
+        if (includeCrypto) {
+            let cQ = supabaseAdmin
+                .from('crypto_deposits')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(MERGE_CAP);
 
-    if (orders) {
-      orders.forEach(o => {
-        const isUSD = o.wallet_used === 'USD';
-        map[o.order_ref] = {
-          product_name: o.product_title || 'Marketplace Item',
-          display_amount: isUSD ? o.price_usd : o.price_ngn,
-          display_currency: o.wallet_used || 'NGN',
-          purchased_at: o.created_at,
-          status: o.status || 'completed',
-          type: 'marketplace',
-          download_token: o.download_token,
-          download_count: o.download_count || 0,
-          wallet_used: o.wallet_used || 'NGN',
-          order_ref: o.order_ref,
-          delivered_data: o.delivered_data
-        };
-      });
+            if (status) cQ = cQ.eq('status', status);
+            if (search) cQ = cQ.or(`nowpayments_payment_id.ilike.%${search}%,pay_currency.ilike.%${search}%`);
+
+            const { data: rows, error: cErr } = await cQ;
+            if (cErr && cErr.code !== '42P01') {
+                console.error('Crypto query error:', cErr);
+            } else {
+                cryptoRows = rows || [];
+            }
+        }
+
+        // ─── 4. Merge + map ──────────────────────────────────────
+        const mainMapped = (mainTx || []).map(mapTransaction);
+        const airMapped  = airtimeRows.map(mapAirtimeToTransaction);
+        const cryptoMapped = cryptoRows.map(mapCryptoToTransaction);
+
+        // De-dupe: if a crypto deposit already produced a `transactions` row
+        // via `ref = paymentId`, prefer the crypto_deposits row (richer data)
+        // and drop the transactions duplicate.
+        const seenCryptoRefs = new Set(cryptoMapped.map(c => c.reference));
+        const filteredMain = mainMapped.filter(m => {
+            if (m.provider === 'nowpayments' && seenCryptoRefs.has(m.reference)) return false;
+            return true;
+        });
+
+        const merged = [...filteredMain, ...cryptoMapped, ...airMapped]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const totalCount = merged.length;
+        const paged = merged.slice(offset, offset + limit);
+
+        const stats = calculateStats(merged);
+        const totalPages = Math.ceil(totalCount / limit) || 1;
+
+        res.json({
+            success: true,
+            data: paged,
+            count: totalCount,
+            stats,
+            pagination: {
+                page,
+                limit,
+                total: totalCount,
+                totalPages,
+                hasMore: page < totalPages
+            }
+        });
+    } catch (error) {
+        console.error('❌ Transaction error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to load transactions'
+        });
     }
-
-    // ─── Boost orders ───
-    const { data: boosts } = await supabaseAdmin
-      .from('boost_orders')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false });
-
-    if (boosts) {
-      boosts.forEach(b => {
-        const isUSD = b.currency === 'USD';
-        map[b.order_ref] = {
-          product_name: b.service_name || 'Boost Service',
-          display_amount: isUSD ? b.total_amount : b.total_amount,
-          display_currency: b.currency || 'NGN',
-          purchased_at: b.created_at,
-          status: b.status || 'completed',
-          type: 'boost',
-          order_ref: b.order_ref,
-          quantity: b.quantity,
-          link: b.link
-        };
-      });
-    }
-
-    // ─── SMS orders ───
-    const { data: smsOrders } = await supabaseAdmin
-      .from('sms_orders')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false });
-
-    if (smsOrders) {
-      smsOrders.forEach(s => {
-        const isUSD = s.wallet_used === 'USD';
-        map[s.order_ref] = {
-          product_name: `${s.country || 'Virtual'} ${s.service || 'SMS'} Number`,
-          display_amount: isUSD ? s.price_usd : s.price_ngn,
-          display_currency: s.wallet_used || 'NGN',
-          purchased_at: s.created_at,
-          status: s.status || 'completed',
-          type: 'sms',
-          order_ref: s.order_ref,
-          phone_number: s.phone_number,
-          sms_code: s.sms_code || null
-        };
-      });
-    }
-
-    // ─── Gift orders ───
-    const { data: gifts } = await supabaseAdmin
-      .from('gift_orders')
-      .select('*')
-      .eq('user_id', userId)
-      .in('status', ['completed', 'delivered', 'shipped'])
-      .order('created_at', { ascending: false });
-
-    if (gifts) {
-      gifts.forEach(g => {
-        const isUSD = g.wallet_used === 'USD';
-        map[g.order_ref] = {
-          product_name: g.product_name || 'Gift Order',
-          display_amount: isUSD ? g.price_usd : g.price_ngn,
-          display_currency: g.wallet_used || 'NGN',
-          purchased_at: g.created_at,
-          status: g.status || 'completed',
-          type: 'gift',
-          tracking_number: g.tracking_number,
-          order_ref: g.order_ref,
-          recipient: g.recipient_name || g.recipient_contact || 'N/A',
-          destination: g.recipient_country || 'N/A'
-        };
-      });
-    }
-
-    res.json({ success: true, map });
-  } catch (error) {
-    console.error('Purchase map error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
 });
 
-/* ─── GET /stats ─── */
+// ─── GET /api/transactions/stats ─────────────────────────────────────
 router.get('/stats', authMiddleware, async (req, res) => {
-  try {
-    const stats = await calculateTransactionStats(req.user.id);
-    res.json({ success: true, stats });
-  } catch (error) {
-    console.error('Stats error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+    try {
+        const userId = req.user.id;
+
+        const [mainRes, airRes, cryptoRes] = await Promise.all([
+            supabaseAdmin.from('transactions').select('*').eq('user_id', userId),
+            supabaseAdmin.from('airtime_transactions').select('*').eq('user_id', userId),
+            supabaseAdmin.from('crypto_deposits').select('*').eq('user_id', userId)
+        ]);
+
+        const merged = [
+            ...(mainRes.data || []).map(mapTransaction),
+            ...(airRes.data || []).map(mapAirtimeToTransaction),
+            ...(cryptoRes.data || []).map(mapCryptoToTransaction)
+        ];
+
+        res.json({ success: true, stats: calculateStats(merged) });
+    } catch (error) {
+        console.error('❌ Stats error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
-/* ─── POST /download/:orderRef ─── */
-router.post('/download/:orderRef', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { orderRef } = req.params;
+// ─── GET /api/transactions/purchase-map ─────────────────────────────
+router.get('/purchase-map', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const map = {};
 
-    // ─── Try orders table ───
-    const { data: order, error } = await supabaseAdmin
-      .from('orders')
-      .select('id, order_ref, download_token, product_title, download_count, last_download_at, delivered_data')
-      .eq('user_id', userId)
-      .eq('order_ref', orderRef)
-      .single();
+        const { data: transactions } = await supabaseAdmin
+            .from('transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .in('type', ['marketplace', 'gift', 'boost', 'virtual_sms', 'airtime'])
+            .in('status', ['completed', 'processing'])
+            .order('created_at', { ascending: false })
+            .limit(100);
 
-    if (error || !order) {
-      // ─── Try boost_orders ───
-      const { data: boost, error: boostError } = await supabaseAdmin
-        .from('boost_orders')
-        .select('id, order_ref, download_token, service_name, download_count, last_download_at, link, quantity')
-        .eq('user_id', userId)
-        .eq('order_ref', orderRef)
-        .single();
+        (transactions || []).forEach(t => {
+            const ref = t.ref || t.reference || t.id;
+            const meta = t.meta || t.metadata || {};
+            map[ref] = {
+                transaction_id: t.id,
+                reference: ref,
+                type: t.type,
+                status: t.status,
+                amount: positive(t.amount_ngn || t.amount_usd || t.amount),
+                currency: t.currency || 'NGN',
+                description: t.description || t.type,
+                source_type: t.source_type,
+                source_id: t.source_id,
+                metadata: meta,
+                purchased_at: t.created_at,
+                download_token: meta.download_token || null,
+                download_count: meta.download_count || 0,
+                delivered_data: meta.delivered_data || null
+            };
+        });
 
-      if (boostError || !boost) {
-        return res.status(404).json({ success: false, error: 'Order not found' });
-      }
+        const { data: airtimeRows } = await supabaseAdmin
+            .from('airtime_transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .in('status', ['completed', 'processing', 'pending'])
+            .order('created_at', { ascending: false })
+            .limit(100);
 
-      if (!boost.download_token) {
-        return res.status(400).json({ success: false, error: 'No download available for this order' });
-      }
+        (airtimeRows || []).forEach(a => {
+            const ref = a.reference;
+            if (!map[ref]) {
+                map[ref] = {
+                    transaction_id: a.id,
+                    reference: ref,
+                    type: 'airtime',
+                    status: a.status,
+                    amount: positive(a.total_amount),
+                    currency: a.currency || 'USD',
+                    description: `Airtime: ${a.country_code || ''} ${a.phone_number || ''}`.trim(),
+                    purchased_at: a.created_at,
+                    metadata: {
+                        country_code: a.country_code,
+                        phone_number: a.phone_number,
+                        operator_id: a.operator_id,
+                        operator_name: a.operator_name,
+                        destination_amount: a.destination_amount,
+                        destination_currency: a.destination_currency
+                    }
+                };
+            }
+        });
 
-      await supabaseAdmin
-        .from('boost_orders')
-        .update({
-          download_count: (boost.download_count || 0) + 1,
-          last_download_at: new Date().toISOString()
-        })
-        .eq('id', boost.id);
-
-      return res.json({
-        success: true,
-        download_token: boost.download_token,
-        product_name: boost.service_name,
-        download_count: (boost.download_count || 0) + 1,
-        message: 'Download initiated successfully',
-        order_type: 'boost',
-        data: { service_name: boost.service_name, quantity: boost.quantity, link: boost.link, order_ref: boost.order_ref }
-      });
+        res.json({ success: true, map });
+    } catch (error) {
+        console.error('❌ Purchase map error:', error);
+        res.json({ success: true, map: {} });
     }
+});
 
-    if (!order.download_token) {
-      return res.status(400).json({ success: false, error: 'No download available for this order' });
+// ─── POST /api/transactions/download/:reference ─────────────────────
+router.post('/download/:reference', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { reference } = req.params;
+
+        const { data: tx } = await supabaseAdmin
+            .from('transactions')
+            .select('*')
+            .or(`ref.eq.${reference},reference.eq.${reference}`)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        const meta = tx?.meta || tx?.metadata || {};
+        if (tx && meta.download_token) {
+            const newCount = (meta.download_count || 0) + 1;
+            const newMeta = {
+                ...meta,
+                download_count: newCount,
+                last_download_at: new Date().toISOString()
+            };
+            await supabaseAdmin
+                .from('transactions')
+                .update({ meta: newMeta, metadata: newMeta })
+                .eq('id', tx.id);
+
+            return res.json({
+                success: true,
+                download_token: meta.download_token,
+                product_name: tx.description || 'Product',
+                download_count: newCount,
+                delivered_data: meta.delivered_data || null,
+                message: 'Download initiated successfully'
+            });
+        }
+
+        const { data: order } = await supabaseAdmin
+            .from('orders')
+            .select('id, order_ref, download_token, product_title, download_count, delivered_data')
+            .eq('order_ref', reference)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (order && order.download_token) {
+            const newCount = (order.download_count || 0) + 1;
+            await supabaseAdmin
+                .from('orders')
+                .update({ download_count: newCount, last_download_at: new Date().toISOString() })
+                .eq('id', order.id);
+
+            return res.json({
+                success: true,
+                download_token: order.download_token,
+                product_name: order.product_title || 'Product',
+                download_count: newCount,
+                delivered_data: order.delivered_data || null,
+                message: 'Download initiated successfully',
+                order_type: 'marketplace'
+            });
+        }
+
+        return res.status(404).json({ success: false, error: 'Order not found or no download available' });
+    } catch (error) {
+        console.error('❌ Download error:', error);
+        res.status(500).json({ success: false, error: error.message || 'Download failed' });
     }
+});
 
-    await supabaseAdmin
-      .from('orders')
-      .update({
-        download_count: (order.download_count || 0) + 1,
-        last_download_at: new Date().toISOString()
-      })
-      .eq('id', order.id);
+// ─── GET /api/transactions/export/csv ───────────────────────────────
+router.get('/export/csv', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { currency = 'all', from, to } = req.query;
 
-    res.json({
-      success: true,
-      download_token: order.download_token,
-      product_name: order.product_title,
-      download_count: (order.download_count || 0) + 1,
-      delivered_data: order.delivered_data,
-      message: 'Download initiated successfully',
-      order_type: 'marketplace'
+        let q = supabaseAdmin
+            .from('transactions')
+            .select('ref, reference, type, status, currency, amount, amount_ngn, amount_usd, fee, revenue_ngn, revenue_usd, description, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (currency && currency !== 'all') q = q.eq('currency', currency);
+        if (from) q = q.gte('created_at', new Date(from).toISOString());
+        if (to) {
+            const toDate = new Date(to);
+            toDate.setDate(toDate.getDate() + 1);
+            q = q.lt('created_at', toDate.toISOString());
+        }
+
+        const { data: transactions } = await q;
+
+        let aq = supabaseAdmin
+            .from('airtime_transactions')
+            .select('reference, status, currency, total_amount, fee, country_code, phone_number, operator_name, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (currency && currency !== 'all') aq = aq.eq('currency', currency);
+        if (from) aq = aq.gte('created_at', new Date(from).toISOString());
+        if (to) {
+            const toDate = new Date(to);
+            toDate.setDate(toDate.getDate() + 1);
+            aq = aq.lt('created_at', toDate.toISOString());
+        }
+
+        const { data: airtimeTx } = await aq;
+
+        const mainRows = (transactions || []).map(t => {
+            const isUSD = String(t.currency || '').toUpperCase() === 'USD';
+            const amountRaw = isUSD ? (t.amount_usd || t.amount) : (t.amount_ngn || t.amount);
+            const feeRaw = t.fee || (isUSD ? t.revenue_usd : t.revenue_ngn);
+            return {
+                reference: t.ref || t.reference || '',
+                type: t.type || '',
+                status: t.status || '',
+                currency: t.currency || 'NGN',
+                amount: positive(amountRaw),
+                fee: positive(feeRaw),
+                description: t.description || '',
+                created_at: t.created_at ? new Date(t.created_at).toISOString() : ''
+            };
+        });
+
+        const airRows = (airtimeTx || []).map(a => ({
+            reference: a.reference || '',
+            type: 'airtime',
+            status: a.status || '',
+            currency: a.currency || 'USD',
+            amount: positive(a.total_amount),
+            fee: positive(a.fee),
+            description: `Airtime: ${a.country_code || ''} ${a.phone_number || ''}`.trim(),
+            created_at: a.created_at ? new Date(a.created_at).toISOString() : ''
+        }));
+
+        const all = [...mainRows, ...airRows]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        if (all.length === 0) {
+            return res.status(404).json({ success: false, error: 'No transactions found for export' });
+        }
+
+        const rows = [['Reference', 'Type', 'Status', 'Currency', 'Amount', 'Fee', 'Description', 'Date']];
+        all.forEach(t => rows.push([
+            t.reference, t.type, t.status, t.currency, t.amount, t.fee, t.description, t.created_at
+        ]));
+
+        const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=transactions_${Date.now()}.csv`);
+        res.send(csv);
+    } catch (error) {
+        console.error('❌ CSV export error:', error);
+        res.status(500).json({ success: false, error: error.message || 'CSV export failed' });
+    }
+});
+
+// ─── GET /api/transactions/:id ──────────────────────────────────────
+router.get('/:id', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+        const { data: transaction } = await supabaseAdmin
+            .from('transactions')
+            .select('*')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (transaction) {
+            return res.json({ success: true, transaction: mapTransaction(transaction) });
+        }
+
+        const { data: crypto } = await supabaseAdmin
+            .from('crypto_deposits')
+            .select('*')
+            .eq('nowpayments_payment_id', id)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (crypto) {
+            return res.json({ success: true, transaction: mapCryptoToTransaction(crypto) });
+        }
+
+        if (isUuid) {
+            const { data: airtime } = await supabaseAdmin
+                .from('airtime_transactions')
+                .select('*')
+                .eq('id', id)
+                .eq('user_id', userId)
+                .maybeSingle();
+
+            if (airtime) {
+                return res.json({ success: true, transaction: mapAirtimeToTransaction(airtime) });
+            }
+        }
+
+        return res.status(404).json({ success: false, error: 'Transaction not found' });
+    } catch (error) {
+        console.error('❌ Transaction detail error:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to load transaction' });
+    }
+});
+
+// ─── CALCULATE STATS ────────────────────────────────────────────────
+function calculateStats(transactions) {
+    let totalCreditNGN = 0, totalDebitNGN = 0;
+    let totalCreditUSD = 0, totalDebitUSD = 0;
+    let giftOrders = 0, marketOrders = 0, boostOrders = 0, smsOrders = 0, airtimeOrders = 0;
+    let totalOrders = 0;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let monthlyCount = 0;
+
+    (transactions || []).forEach(t => {
+        const amount = num(t.amount);
+        const currency = String(t.currency || 'NGN').toUpperCase();
+        const type = String(t.type || '').toLowerCase();
+        const status = String(t.status || '').toLowerCase();
+
+        const isCredit = ['deposit', 'credit', 'fund', 'receive', 'cashback', 'referral_bonus', 'refund', 'fee_revenue'].includes(type);
+        const isCompleted = ['completed', 'refunded', 'finished'].includes(status);
+
+        if (isCompleted) {
+            if (currency === 'USD') {
+                if (isCredit) totalCreditUSD += amount;
+                else totalDebitUSD += amount;
+            } else {
+                if (isCredit) totalCreditNGN += amount;
+                else totalDebitNGN += amount;
+            }
+        }
+
+        if (['giftcard', 'gift_card', 'gift'].includes(type)) giftOrders++;
+        if (['marketplace', 'purchase'].includes(type)) marketOrders++;
+        if (type === 'boost') boostOrders++;
+        if (type === 'virtual_sms') smsOrders++;
+        if (type === 'airtime') airtimeOrders++;
+
+        if (['giftcard', 'gift_card', 'gift', 'marketplace', 'purchase', 'boost', 'virtual_sms', 'airtime'].includes(type)) {
+            totalOrders++;
+        }
+
+        if (t.created_at && new Date(t.created_at) >= monthStart) monthlyCount++;
     });
-  } catch (error) {
-    console.error('Download error:', error);
-    res.status(500).json({ success: false, error: error.message || 'Download failed' });
-  }
-});
+
+    return {
+        totalCreditNGN,
+        totalDebitNGN,
+        totalCreditUSD,
+        totalDebitUSD,
+        totalTransactions: (transactions || []).length,
+        giftOrders,
+        marketOrders,
+        boostOrders,
+        smsOrders,
+        airtimeOrders,
+        totalOrders,
+        monthlyCount
+    };
+}
 
 module.exports = router;

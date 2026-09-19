@@ -1,0 +1,2408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airtime, Data & Bills · MilesSpace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="/js/session.js"></script>
+<script src="/js/presence.js" defer></script>
+
+<style>
+:root{
+  --fd:'Space Grotesk',sans-serif;
+  --fb:'Inter',sans-serif;
+  --bg:#F5F6FB; --srf:#FFFFFF; --srf2:#FAFBFD; --bdr:#E4E7F1;
+  --t1:#121629; --t2:#565D78; --t3:#9298AC;
+  --p:#32407A; --pm:#28335f; --pl:#EBEEFC;
+  --acc:#F5A623; --acd:#d98c12; --accl:#FFF6E6;
+  --succ:#1C8F63; --sul:#E5F6EE;
+  --err:#D34848; --erl:#FBEAEA;
+  --r:12px; --rl:16px; --tr:.2s cubic-bezier(.4,0,.2,1); --sw:250px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--t1);font-family:var(--fb);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+input,select{font-family:inherit;}
+::selection{background:var(--pl);}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--p);outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important;}}
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--tr);overflow-y:auto;scrollbar-width:none;}
+.sidebar::-webkit-scrollbar{display:none;}
+@media(min-width:1025px){.sidebar{transform:translateX(0) !important;}.tb-hbg{display:none !important;}}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%);}.sidebar.open{transform:translateX(0);}.main{margin-left:0 !important;}}
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0;}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd);}
+.sb-lic{width:30px;height:30px;background:var(--acc);border-radius:8px;display:grid;place-items:center;font-size:.8rem;color:#fff;flex-shrink:0;overflow:hidden;box-shadow:0 4px 10px rgba(245,166,35,.35);}
+.sb-lic img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);}
+.sb-nav{padding:0 8px;}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:var(--tr);margin-bottom:2px;}
+.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0;}
+.sb-lnk:hover{background:var(--bg);color:var(--t1);}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600;}
+.sb-lnk.active i{color:var(--p);}
+.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0;}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:var(--tr);}
+.sb-prof:hover{background:var(--bg);}
+.sb-prof-link{display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer;}
+.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden;border:2px solid var(--acc);}
+.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.sb-ui{flex:1;min-width:0;}
+.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:var(--tr);cursor:pointer;flex-shrink:0;}
+.sb-out:hover{background:var(--erl);color:var(--err);}
+.sb-overlay{position:fixed;inset:0;background:rgba(18,22,41,.4);z-index:499;opacity:0;pointer-events:none;transition:var(--tr);}
+.sb-overlay.show{opacity:1;pointer-events:auto;}
+
+/* ---------- TOPBAR ---------- */
+.main{margin-left:var(--sw);min-height:100vh;}
+.topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:14px;padding:14px 28px;background:rgba(245,246,251,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--bdr);}
+.tb-hbg{width:36px;height:36px;border-radius:9px;border:1px solid var(--bdr);background:var(--srf);display:grid;place-items:center;color:var(--t2);flex-shrink:0;}
+.tb-brand{font-family:var(--fd);font-weight:700;font-size:.95rem;}
+.tb-spacer{flex:1;}
+.tb-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.tb-icon-btn{width:38px;height:38px;border-radius:50%;background:var(--srf);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.9rem;position:relative;transition:var(--tr);}
+.tb-icon-btn:hover{background:var(--pl);color:var(--p);border-color:var(--p);}
+.tb-av{width:38px;height:38px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.82rem;cursor:pointer;flex-shrink:0;transition:var(--tr);border:2px solid var(--acc);}
+.tb-av:hover{border-color:var(--acd);box-shadow:0 0 0 3px rgba(245,166,35,.18);}
+.wrap{max-width:900px;margin:0 auto;padding:28px 28px 100px;}
+
+/* ---------- PAGE HEADER + WALLET ---------- */
+.page-head{margin-bottom:20px;}
+.page-head h1{font-family:var(--fd);font-size:1.5rem;font-weight:700;letter-spacing:-.3px;margin-bottom:6px;}
+.page-head p{font-size:.88rem;color:var(--t2);max-width:56ch;}
+
+.wallet-card{background:var(--srf);border:1px solid var(--bdr);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;}
+.wallet-card .wc-icon{width:42px;height:42px;border-radius:12px;background:var(--pl);color:var(--p);display:grid;place-items:center;font-size:1.05rem;flex-shrink:0;}
+.wallet-card .wc-body{flex:1;min-width:0;}
+.wallet-card .wc-label{font-size:.72rem;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+.wallet-card .wc-amt{font-family:var(--fd);font-size:1.25rem;font-weight:700;margin-top:2px;}
+.wallet-card .wc-refresh{width:34px;height:34px;border-radius:9px;border:1px solid var(--bdr);background:var(--srf2);color:var(--t2);display:grid;place-items:center;flex-shrink:0;transition:var(--tr);}
+.wallet-card .wc-refresh:hover{color:var(--p);border-color:var(--p);background:var(--pl);}
+.wallet-card .wc-refresh.spin i{animation:spin .8s linear infinite;}
+
+/* ---------- SERVICE TABS ---------- */
+.svc-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
+.svc-tab{background:var(--srf);border:1.5px solid var(--bdr);border-radius:14px;padding:14px 10px;text-align:center;transition:var(--tr);}
+.svc-tab:hover{border-color:var(--p);}
+.svc-tab.active{border-color:var(--acc);background:var(--accl);box-shadow:0 0 0 3px rgba(245,166,35,.16);}
+.svc-tab .st-icon{width:34px;height:34px;border-radius:10px;background:var(--pl);color:var(--p);display:grid;place-items:center;font-size:.95rem;margin:0 auto 8px;}
+.svc-tab.active .st-icon{background:var(--acc);color:#fff;}
+.svc-tab .st-label{font-size:.78rem;font-weight:600;color:var(--t2);}
+.svc-tab.active .st-label{color:var(--acd);}
+@media(max-width:560px){.svc-tabs{grid-template-columns:repeat(2,1fr);}}
+
+/* ---------- CARD ---------- */
+.card{background:var(--srf);border:1px solid var(--bdr);border-radius:16px;padding:26px;margin-bottom:20px;}
+.card h2{font-family:var(--fd);font-size:1.1rem;font-weight:600;margin-bottom:4px;}
+.card .hint{font-size:.82rem;color:var(--t3);margin-bottom:20px;}
+.field{margin-bottom:18px;}
+.field label{display:block;font-size:.78rem;font-weight:600;color:var(--t2);margin-bottom:8px;}
+.text-input{width:100%;padding:12px 14px;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg);color:var(--t1);font-size:.9rem;transition:var(--tr);}
+.text-input:focus{border-color:var(--p);background:var(--srf);outline:none;box-shadow:0 0 0 3px rgba(50,64,122,.1);}
+
+/* ---------- NETWORK TILES ---------- */
+.net-grid{display:flex;gap:10px;flex-wrap:wrap;}
+.net-tile{flex:1;min-width:78px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 8px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);transition:var(--tr);}
+.net-tile:hover{border-color:var(--p);}
+.net-tile.selected{border-color:var(--acc);background:var(--accl);box-shadow:0 0 0 3px rgba(245,166,35,.16);}
+.net-tile .net-badge{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:#fff;border:1px solid var(--bdr);flex-shrink:0;}
+.net-tile .net-badge img{width:100%;height:100%;object-fit:contain;display:block;padding:3px;}
+.net-tile .net-badge svg{width:100%;height:100%;display:block;}
+.net-tile .net-name{font-size:.72rem;font-weight:600;color:var(--t2);}
+.net-tile.selected .net-name{color:var(--acd);}
+
+/* ---------- AUTO-DETECT CHIP ---------- */
+.detect-chip{display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:99px;background:var(--sul);color:var(--succ);font-size:.76rem;font-weight:600;margin-top:10px;border:1px solid rgba(28,143,99,.25);}
+.detect-chip.show{display:inline-flex;}
+.detect-chip.overridden{background:var(--accl);color:var(--acd);border-color:rgba(245,166,35,.35);}
+.detect-chip.loading{background:var(--bg);color:var(--t3);border-color:var(--bdr);}
+.detect-chip i{font-size:.8rem;}
+
+/* ---------- SEARCH DROPDOWN ---------- */
+.search-wrap{position:relative;}
+.search-input{width:100%;padding:12px 14px 12px 42px;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg);color:var(--t1);font-size:.88rem;transition:var(--tr);}
+.search-input:focus{border-color:var(--p);background:var(--srf);outline:none;box-shadow:0 0 0 3px rgba(50,64,122,.1);}
+.search-input:disabled{opacity:.55;cursor:not-allowed;}
+.search-wrap .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.85rem;pointer-events:none;}
+.search-wrap .chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.78rem;pointer-events:none;}
+.search-dropdown{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--srf);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 12px 40px rgba(18,22,41,.12);max-height:320px;overflow-y:auto;z-index:100;display:none;}
+.search-dropdown.show{display:block;}
+.search-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;transition:var(--tr);font-size:.85rem;border-bottom:1px solid var(--bg);}
+.search-item:last-child{border-bottom:none;}
+.search-item:hover{background:var(--pl);}
+.search-item .si-main{font-weight:600;color:var(--t1);}
+.search-item .si-sub{font-size:.72rem;color:var(--t3);margin-top:2px;}
+.search-item .si-price{font-weight:700;color:var(--p);font-size:.85rem;white-space:nowrap;}
+.search-empty{padding:18px 14px;text-align:center;font-size:.82rem;color:var(--t3);}
+
+/* ---------- SELECTED PLAN ---------- */
+.picked-card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--accl);border:1px solid var(--acc);border-radius:12px;padding:14px 16px;margin-top:10px;}
+.picked-card .pc-main{font-weight:700;font-size:.92rem;}
+.picked-card .pc-sub{font-size:.75rem;color:var(--t2);margin-top:2px;}
+.picked-card .pc-price{font-weight:700;color:var(--p);font-size:1rem;}
+
+/* ---------- AMOUNT CHIPS ---------- */
+.amt-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.amt-chip{padding:9px 16px;border:1.5px solid var(--bdr);border-radius:99px;font-size:.82rem;font-weight:600;color:var(--t2);background:var(--srf);transition:var(--tr);}
+.amt-chip:hover{border-color:var(--p);}
+.amt-chip.selected{border-color:var(--acc);background:var(--acc);color:#fff;}
+
+/* ---------- RADIO ROW ---------- */
+.radio-row{display:flex;gap:10px;}
+.radio-opt{flex:1;display:flex;align-items:center;gap:9px;padding:12px 14px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);transition:var(--tr);}
+.radio-opt:hover{border-color:var(--p);}
+.radio-opt.selected{border-color:var(--acc);background:var(--accl);}
+.radio-opt .rd{width:18px;height:18px;border-radius:50%;border:2px solid var(--bdr);flex-shrink:0;display:grid;place-items:center;transition:var(--tr);}
+.radio-opt.selected .rd{border-color:var(--acc);background:var(--acc);}
+.radio-opt.selected .rd::after{content:'';width:6px;height:6px;border-radius:50%;background:#fff;}
+.radio-opt span{font-size:.85rem;font-weight:600;color:var(--t2);}
+.radio-opt.selected span{color:var(--acd);}
+
+/* ---------- VERIFIED CUSTOMER CARD ---------- */
+.verified-card{background:var(--sul);border:1px solid rgba(28,143,99,.3);border-left:3px solid var(--succ);border-radius:12px;padding:16px;margin-bottom:18px;}
+.verified-card .vc-top{display:flex;align-items:center;gap:8px;font-size:.72rem;font-weight:700;color:var(--succ);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+.verified-card .vc-row{display:flex;justify-content:space-between;padding:4px 0;font-size:.85rem;color:var(--t2);}
+.verified-card .vc-row strong{color:var(--t1);font-weight:600;}
+
+/* ---------- PRICE BOX ---------- */
+.price-box{background:var(--bg);border:1px solid var(--bdr);border-radius:12px;padding:18px 20px;margin:20px 0;}
+.price-row{display:flex;justify-content:space-between;font-size:.86rem;color:var(--t2);padding:6px 0;}
+.price-row.total{border-top:none;padding-top:6px;margin-top:0;font-weight:700;color:var(--t1);font-size:1rem;}
+.price-row .v{font-weight:600;color:var(--t1);}
+.price-note{font-size:.74rem;color:var(--t3);margin-top:8px;line-height:1.5;}
+
+/* ---------- BUTTONS ---------- */
+.btn-primary{width:100%;background:var(--p);color:#fff;border-radius:12px;padding:14px;font-weight:600;font-size:.92rem;transition:var(--tr);display:flex;align-items:center;justify-content:center;gap:9px;}
+.btn-primary:hover:not(:disabled){background:var(--pm);transform:translateY(-1px);box-shadow:0 8px 20px rgba(245,166,35,.28);}
+.btn-primary:disabled{background:var(--t3);cursor:not-allowed;opacity:.7;}
+.btn-secondary{width:100%;background:var(--pl);color:var(--p);border-radius:12px;padding:13px;font-weight:600;font-size:.88rem;transition:var(--tr);}
+.btn-secondary:hover:not(:disabled){background:var(--p);color:#fff;}
+.btn-secondary:disabled{opacity:.55;cursor:not-allowed;}
+.btn-ghost{width:100%;background:none;color:var(--p);border:1.5px solid var(--bdr);border-radius:12px;padding:13px;font-weight:600;font-size:.86rem;margin-top:10px;transition:var(--tr);}
+.btn-ghost:hover{background:var(--accl);border-color:var(--acc);color:var(--acd);}
+
+/* ---------- SKELETON ---------- */
+@keyframes skel{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite;}
+
+/* ---------- TOAST ---------- */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--t1);color:#fff;padding:13px 20px;border-radius:10px;font-size:.85rem;box-shadow:0 12px 30px rgba(18,22,41,.25);transform:translateY(12px);opacity:0;transition:var(--tr);z-index:900;max-width:340px;font-weight:500;border-left:3px solid var(--acc);}
+.toast.show{transform:translateY(0);opacity:1;}
+
+/* ---------- PIN MODAL ---------- */
+.pin-modal{position:fixed;inset:0;background:rgba(18,22,41,.55);z-index:950;display:none;align-items:center;justify-content:center;padding:20px;}
+.pin-modal.show{display:flex;}
+.pin-card{background:var(--srf);border-radius:16px;padding:28px 26px;max-width:380px;width:100%;text-align:center;animation:fadeUp .25s var(--tr);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+.pin-icon{width:54px;height:54px;border-radius:50%;background:var(--accl);color:var(--acd);display:grid;place-items:center;margin:0 auto 14px;font-size:1.35rem;}
+.pin-card h3{font-family:var(--fd);font-size:1.15rem;font-weight:600;margin-bottom:6px;}
+.pin-card p{font-size:.83rem;color:var(--t3);margin-bottom:20px;}
+.pin-summary{background:var(--bg);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:18px;text-align:left;font-size:.8rem;}
+.pin-summary .row{display:flex;justify-content:space-between;padding:3px 0;color:var(--t2);}
+.pin-summary .row strong{color:var(--t1);font-weight:600;}
+.pin-input{width:100%;text-align:center;font-size:1.8rem;letter-spacing:.6em;padding:14px 12px 14px 20px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--bg);color:var(--t1);margin-bottom:18px;font-weight:700;transition:var(--tr);}
+.pin-input:focus{border-color:var(--acc);background:var(--srf);outline:none;box-shadow:0 0 0 3px rgba(245,166,35,.18);}
+.pin-input.error{border-color:var(--err);background:var(--erl);animation:shake .35s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.pin-error{font-size:.78rem;color:var(--err);margin-bottom:14px;min-height:18px;font-weight:500;}
+.pin-actions{display:flex;gap:10px;}
+.pin-actions .btn-primary{flex:1;margin:0;}
+.pin-actions .btn-ghost{flex:1;margin:0;}
+
+/* ---------- STATUS MODAL ---------- */
+.status-modal{position:fixed;inset:0;background:rgba(18,22,41,.55);z-index:960;display:none;align-items:center;justify-content:center;padding:20px;}
+.status-modal.show{display:flex;}
+.status-card{background:var(--srf);border-radius:16px;padding:32px 26px;max-width:420px;width:100%;text-align:center;animation:fadeUp .25s var(--tr);}
+.status-icon{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;font-size:1.4rem;}
+.status-icon.processing{background:var(--accl);color:var(--acd);}
+.status-icon.completed{background:var(--sul);color:var(--succ);}
+.status-icon.failed{background:var(--erl);color:var(--err);}
+.status-card h3{font-family:var(--fd);font-size:1.15rem;font-weight:600;margin-bottom:8px;}
+.status-card p{color:var(--t2);font-size:.88rem;max-width:40ch;margin:0 auto 20px;line-height:1.5;}
+.ref-summary{background:var(--bg);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;margin-bottom:18px;text-align:left;font-size:.82rem;}
+.ref-summary .row{display:flex;justify-content:space-between;padding:4px 0;color:var(--t2);}
+.ref-summary .row strong{color:var(--t1);font-weight:600;}
+.status-actions{display:flex;gap:10px;}
+.status-actions button{flex:1;margin:0;}
+
+/* ---------- HISTORY DRAWER ---------- */
+.hist-drawer{position:fixed;top:0;right:0;height:100vh;width:min(440px,92vw);background:var(--srf);box-shadow:-12px 0 40px rgba(18,22,41,.18);z-index:960;transform:translateX(100%);transition:transform .28s var(--tr);overflow-y:auto;padding:22px;}
+.hist-drawer.open{transform:translateX(0);}
+.hist-drawer h3{font-family:var(--fd);font-size:1.1rem;font-weight:700;margin-bottom:4px;}
+.hist-drawer .sub{font-size:.78rem;color:var(--t3);margin-bottom:18px;}
+.hist-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--t2);display:grid;place-items:center;cursor:pointer;transition:var(--tr);z-index:5;}
+.hist-close:hover{background:var(--erl);color:var(--err);}
+.hist-item{background:var(--srf2);border:1px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:var(--tr);position:relative;}
+.hist-item:hover{border-color:var(--p);background:var(--srf);transform:translateY(-1px);box-shadow:0 4px 12px rgba(18,22,41,.06);}
+.hist-item .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding-right:20px;}
+.hist-item .hi-icon{width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid var(--bdr);display:grid;place-items:center;flex-shrink:0;overflow:hidden;padding:4px;}
+.hist-item .hi-icon img{width:100%;height:100%;object-fit:contain;display:block;}
+.hist-item .hi-icon svg{width:100%;height:100%;display:block;}
+.hist-item .title{font-weight:600;font-size:.88rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hist-item .pill{font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;white-space:nowrap;}
+.hist-item .pill.completed{background:var(--sul);color:var(--succ);}
+.hist-item .pill.processing,.hist-item .pill.pending,.hist-item .pill.provider_unknown{background:var(--accl);color:var(--acd);}
+.hist-item .pill.failed,.hist-item .pill.refunded,.hist-item .pill.manual_review{background:var(--erl);color:var(--err);}
+.hist-item .meta{font-size:.74rem;color:var(--t3);}
+.hist-item .meta strong{color:var(--t1);font-weight:600;}
+.hist-item .hi-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.75rem;}
+.hist-empty{padding:40px 20px;text-align:center;color:var(--t3);font-size:.82rem;}
+.hist-loadmore{margin-top:6px;}
+
+/* ---------- RECEIPT MODAL ---------- */
+.receipt-modal{position:fixed;inset:0;background:rgba(18,22,41,.65);z-index:970;display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+.receipt-modal.show{display:flex;}
+.receipt-wrap{background:var(--srf);border-radius:20px;max-width:420px;width:100%;max-height:calc(100vh - 40px);overflow-y:auto;animation:fadeUp .25s var(--tr);box-shadow:0 24px 60px rgba(18,22,41,.35);}
+.receipt-head{background:linear-gradient(135deg,var(--p) 0%,var(--pm) 100%);color:#fff;padding:24px 22px 20px;border-radius:20px 20px 0 0;position:relative;overflow:hidden;}
+.receipt-head::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:20px;background:var(--srf);border-radius:50% 50% 0 0 / 100% 100% 0 0;}
+.receipt-logo{width:64px;height:64px;border-radius:14px;background:#fff;display:grid;place-items:center;margin-bottom:12px;overflow:hidden;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+.receipt-logo img{width:100%;height:100%;object-fit:contain;display:block;}
+.receipt-logo svg{width:100%;height:100%;display:block;}
+.receipt-head h3{font-family:var(--fd);font-size:1.05rem;font-weight:700;letter-spacing:-.2px;margin-bottom:2px;}
+.receipt-head p{font-size:.75rem;opacity:.85;}
+.receipt-head .rc-status{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:4px 12px;border-radius:99px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+.receipt-head .rc-status.completed{background:rgba(28,143,99,.25);color:#fff;}
+.receipt-head .rc-status.processing,.receipt-head .rc-status.pending{background:rgba(245,166,35,.3);color:#fff;}
+.receipt-head .rc-status.failed,.receipt-head .rc-status.refunded{background:rgba(211,72,72,.3);color:#fff;}
+
+.receipt-body{padding:22px 22px 8px;position:relative;z-index:2;}
+.receipt-amount{text-align:center;padding:6px 0 18px;border-bottom:1px dashed var(--bdr);margin-bottom:16px;}
+.receipt-amount .ra-label{font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
+.receipt-amount .ra-amt{font-family:var(--fd);font-size:2rem;font-weight:700;color:var(--t1);letter-spacing:-.5px;margin-top:4px;}
+.receipt-amount .ra-sub{font-size:.75rem;color:var(--t2);margin-top:4px;}
+
+.receipt-rows{font-size:.82rem;}
+.receipt-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bg);gap:12px;align-items:flex-start;}
+.receipt-row:last-child{border-bottom:none;}
+.receipt-row .rlabel{color:var(--t3);font-weight:500;flex-shrink:0;}
+.receipt-row .rvalue{color:var(--t1);font-weight:600;text-align:right;word-break:break-word;}
+.receipt-row.highlight .rvalue{color:var(--p);font-weight:700;}
+.receipt-row .rcopy{background:none;border:none;color:var(--p);font-size:.7rem;font-weight:600;padding:0;margin-left:6px;cursor:pointer;text-decoration:underline;}
+
+.receipt-note{background:var(--bg);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:.72rem;color:var(--t3);line-height:1.55;}
+
+.receipt-foot{padding:16px 22px 22px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--bdr);background:var(--srf2);border-radius:0 0 20px 20px;}
+.receipt-actions{display:flex;gap:8px;}
+.receipt-actions button{flex:1;padding:11px 8px;border-radius:10px;font-weight:600;font-size:.82rem;display:flex;align-items:center;justify-content:center;gap:6px;transition:var(--tr);}
+.btn-share{background:var(--p);color:#fff;}
+.btn-share:hover{background:var(--pm);}
+.btn-copy{background:var(--pl);color:var(--p);}
+.btn-copy:hover{background:var(--p);color:#fff;}
+.btn-close-receipt{background:var(--srf);color:var(--t2);border:1.5px solid var(--bdr);}
+.btn-close-receipt:hover{background:var(--bg);}
+.receipt-brand{text-align:center;font-size:.68rem;color:var(--t3);padding-top:6px;letter-spacing:.05em;}
+.receipt-brand strong{color:var(--p);font-weight:700;}
+
+/* ---------- SERVICE PANEL VISIBILITY ---------- */
+.svc-panel{display:none;}
+.svc-panel.active{display:block;}
+
+@media(max-width:640px){
+  .wrap{padding:20px 14px 80px;}
+  .card{padding:20px;}
+  .topbar{padding:12px 16px;}
+  .receipt-modal{padding:10px;}
+  .receipt-wrap{border-radius:16px;}
+  .receipt-head{border-radius:16px 16px 0 0;padding:20px 18px 18px;}
+  .receipt-body{padding:18px 18px 6px;}
+  .receipt-foot{padding:14px 18px 18px;border-radius:0 0 16px 16px;}
+  .receipt-amount .ra-amt{font-size:1.7rem;}
+}
+</style>
+</head>
+<script src="/js/session.js"></script>
+<script src="/js/presence.js"></script>
+<script src="/js/miles-widget.js" defer></script>
+
+<body>
+
+<div class="sb-overlay" id="sbOverlay"></div>
+
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
+      MilesSpace
+    </div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="airtime.html" class="sb-lnk active"><i class="fas fa-globe"></i> Global Airtime</a>
+    <a href="bills.html" class="sb-lnk active"><i class="fas fa-file-invoice-dollar"></i> Airtime, Data & Bills</a>
+    <a href="esim.html" class="sb-lnk"><i class="fas fa-sim-card"></i> Buy eSIM</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="usersettings.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Settings</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+  </nav>
+  <div class="sb-foot">
+    <div class="sb-prof">
+      <a href="usersettings.html" class="sb-prof-link">
+        <div class="sb-av" id="sbAv">U</div>
+        <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
+      </a>
+      <button class="sb-out" id="logoutBtn" title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbgBtn" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+    <span class="tb-brand">Airtime, Data & Bills</span>
+    <div class="tb-spacer"></div>
+    <div class="tb-right">
+      <button class="tb-icon-btn" id="histBtn" title="Transaction history"><i class="fas fa-history"></i></button>
+      <a href="notifications.html" class="tb-icon-btn"><i class="fas fa-bell"></i></a>
+      <a href="usersettings.html" class="tb-av" id="tbAv">U</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <div class="page-head">
+      <h1>Airtime, Data & Bills</h1>
+      <p>Buy airtime, data, pay bills and top up your meter — securely from your MilesSpace wallet.</p>
+    </div>
+
+    <div class="wallet-card">
+      <div class="wc-icon"><i class="fas fa-wallet"></i></div>
+      <div class="wc-body">
+        <div class="wc-label">NGN Wallet Balance</div>
+        <div class="wc-amt" id="walletAmt">₦0.00</div>
+      </div>
+      <button class="wc-refresh" id="walletRefreshBtn" title="Refresh balance"><i class="fas fa-rotate"></i></button>
+    </div>
+
+    <div class="svc-tabs" id="svcTabs">
+      <button class="svc-tab active" data-service="airtime"><div class="st-icon"><i class="fas fa-phone"></i></div><div class="st-label">Airtime</div></button>
+      <button class="svc-tab" data-service="data"><div class="st-icon"><i class="fas fa-wifi"></i></div><div class="st-label">Data</div></button>
+      <button class="svc-tab" data-service="electricity"><div class="st-icon"><i class="fas fa-bolt"></i></div><div class="st-label">Electricity</div></button>
+      <button class="svc-tab" data-service="tv"><div class="st-icon"><i class="fas fa-tv"></i></div><div class="st-label">Cable TV</div></button>
+    </div>
+
+    <!-- ================= AIRTIME ================= -->
+    <section class="svc-panel active" id="panel-airtime">
+      <div class="card">
+        <h2>Buy Airtime</h2>
+        <p class="hint">Recharge any supported mobile network instantly.</p>
+
+        <div class="field">
+          <label>Phone Number</label>
+          <input type="tel" class="text-input" id="airtimePhone" placeholder="080XXXXXXXX" inputmode="numeric" maxlength="15" autocomplete="off">
+          <div class="detect-chip" id="airtimeDetectChip"></div>
+        </div>
+
+        <div class="field">
+          <label>Network</label>
+          <div class="net-grid" id="airtimeNetGrid"></div>
+        </div>
+
+        <div class="field">
+          <label>Amount</label>
+          <div class="amt-chips" id="airtimeChips"></div>
+          <input type="number" class="text-input" id="airtimeAmount" placeholder="Enter amount (₦50 – ₦50,000)" min="50" max="50000">
+        </div>
+
+        <div class="price-box">
+          <div class="price-row total"><span>Airtime amount</span><span class="v" id="airtimeSumTotal">₦0.00</span></div>
+        </div>
+
+        <button class="btn-primary" id="airtimeBuyBtn" disabled><i class="fas fa-phone"></i> Buy Airtime</button>
+      </div>
+    </section>
+
+    <!-- ================= DATA ================= -->
+    <section class="svc-panel" id="panel-data">
+      <div class="card">
+        <h2>Buy Data</h2>
+        <p class="hint">Choose a data plan and send it directly to a phone number.</p>
+
+        <div class="field">
+          <label>Phone Number</label>
+          <input type="tel" class="text-input" id="dataPhone" placeholder="080XXXXXXXX" inputmode="numeric" maxlength="15" autocomplete="off">
+          <div class="detect-chip" id="dataDetectChip"></div>
+        </div>
+
+        <div class="field">
+          <label>Network</label>
+          <div class="net-grid" id="dataNetGrid"></div>
+        </div>
+
+        <div class="field">
+          <label>Data Plan</label>
+          <div class="search-wrap">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-input" id="dataPlanSearch" placeholder="Select a network first…" autocomplete="off" disabled>
+            <i class="fas fa-chevron-down chev"></i>
+            <div class="search-dropdown" id="dataPlanDropdown"></div>
+          </div>
+          <div class="picked-card" id="dataPlanPicked" hidden></div>
+        </div>
+
+        <div class="price-box">
+          <div class="price-row total"><span>Plan price</span><span id="dataSumTotal">₦0.00</span></div>
+        </div>
+
+        <button class="btn-primary" id="dataBuyBtn" disabled><i class="fas fa-wifi"></i> Buy Data</button>
+      </div>
+    </section>
+
+    <!-- ================= ELECTRICITY ================= -->
+    <section class="svc-panel" id="panel-electricity">
+      <div class="card">
+        <h2>Pay Electricity Bill</h2>
+        <p class="hint">Top up a prepaid or postpaid meter securely.</p>
+
+        <div class="field">
+          <label>Electricity Provider (Disco)</label>
+          <div class="search-wrap">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-input" id="elecProviderSearch" placeholder="Search for your provider…" autocomplete="off">
+            <i class="fas fa-chevron-down chev"></i>
+            <div class="search-dropdown" id="elecProviderDropdown"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Meter Type</label>
+          <div class="radio-row" id="elecMeterType">
+            <div class="radio-opt selected" data-value="prepaid"><div class="rd"></div><span>Prepaid</span></div>
+            <div class="radio-opt" data-value="postpaid"><div class="rd"></div><span>Postpaid</span></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Meter Number</label>
+          <input type="text" class="text-input" id="elecMeterNumber" placeholder="Enter meter number" inputmode="numeric">
+        </div>
+
+        <button class="btn-secondary" id="elecVerifyBtn" disabled><i class="fas fa-check-circle"></i> Verify Meter</button>
+
+        <div id="elecVerifiedWrap" style="margin-top:18px;" hidden>
+          <div class="verified-card">
+            <div class="vc-top"><i class="fas fa-circle-check"></i> Meter verified</div>
+            <div class="vc-row"><span>Customer</span><strong id="elecVCName">—</strong></div>
+            <div class="vc-row"><span>Meter Number</span><strong id="elecVCMeter">—</strong></div>
+            <div class="vc-row"><span>Provider</span><strong id="elecVCProvider">—</strong></div>
+            <div class="vc-row"><span>Allowed range</span><strong id="elecVCRange">—</strong></div>
+          </div>
+
+          <div class="field">
+            <label>Amount</label>
+            <div class="amt-chips" id="elecChips"></div>
+            <input type="number" class="text-input" id="elecAmount" placeholder="Enter amount">
+          </div>
+
+          <div class="price-box">
+            <div class="price-row total"><span>Amount</span><span id="elecSumTotal">₦0.00</span></div>
+          </div>
+
+          <button class="btn-primary" id="elecBuyBtn" disabled><i class="fas fa-bolt"></i> Pay Electricity Bill</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CABLE TV ================= -->
+    <section class="svc-panel" id="panel-tv">
+      <div class="card">
+        <h2>Pay TV Subscription</h2>
+        <p class="hint">Renew or change your cable TV package.</p>
+
+        <div class="field">
+          <label>Provider</label>
+          <div class="search-wrap">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-input" id="tvProviderSearch" placeholder="Search for your provider…" autocomplete="off">
+            <i class="fas fa-chevron-down chev"></i>
+            <div class="search-dropdown" id="tvProviderDropdown"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Smartcard / IUC Number</label>
+          <input type="text" class="text-input" id="tvCustomerId" placeholder="Enter smartcard or IUC number" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label>Subscription Type</label>
+          <div class="radio-row" id="tvSubType">
+            <div class="radio-opt selected" data-value="renew"><div class="rd"></div><span>Renew current package</span></div>
+            <div class="radio-opt" data-value="change"><div class="rd"></div><span>Change package</span></div>
+          </div>
+        </div>
+
+        <button class="btn-secondary" id="tvVerifyBtn" disabled><i class="fas fa-check-circle"></i> Verify Customer</button>
+
+        <div id="tvVerifiedWrap" style="margin-top:18px;" hidden>
+          <div class="verified-card">
+            <div class="vc-top"><i class="fas fa-circle-check"></i> Customer verified</div>
+            <div class="vc-row"><span>Customer</span><strong id="tvVCName">—</strong></div>
+            <div class="vc-row"><span>Current package</span><strong id="tvVCPackage">—</strong></div>
+            <div class="vc-row"><span>Customer number</span><strong id="tvVCNumber">—</strong></div>
+          </div>
+
+          <div class="field" id="tvPackageField">
+            <label>Select Package</label>
+            <div class="search-wrap">
+              <i class="fas fa-search search-icon"></i>
+              <input type="text" class="search-input" id="tvPackageSearch" placeholder="Search packages…" autocomplete="off" disabled>
+              <i class="fas fa-chevron-down chev"></i>
+              <div class="search-dropdown" id="tvPackageDropdown"></div>
+            </div>
+            <div class="picked-card" id="tvPackagePicked" hidden></div>
+          </div>
+
+          <div class="price-box">
+            <div class="price-row total"><span>Amount</span><span id="tvSumTotal">₦0.00</span></div>
+          </div>
+
+          <button class="btn-primary" id="tvBuyBtn" disabled><i class="fas fa-tv"></i> Pay TV Subscription</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- PIN MODAL -->
+<div class="pin-modal" id="pinModal" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <div class="pin-card">
+    <div class="pin-icon"><i class="fas fa-lock"></i></div>
+    <h3 id="pinTitle">Confirm Transaction</h3>
+    <p>Enter your 4-digit transaction PIN to complete this purchase.</p>
+    <div class="pin-summary" id="pinSummary"></div>
+    <input class="pin-input" id="pinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" autocomplete="off" aria-label="Transaction PIN">
+    <div class="pin-error" id="pinError" role="alert"></div>
+    <div class="pin-actions">
+      <button class="btn-ghost" id="pinCancelBtn" type="button">Cancel</button>
+      <button class="btn-primary" id="pinConfirmBtn" type="button">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS MODAL -->
+<div class="status-modal" id="statusModal" role="dialog" aria-modal="true">
+  <div class="status-card">
+    <div class="status-icon processing" id="statusIcon"><i class="fas fa-circle-notch spin"></i></div>
+    <h3 id="statusTitle">Processing your order…</h3>
+    <p id="statusText">This usually takes a few seconds. Don't close this window.</p>
+    <div id="statusRefSummary"></div>
+    <div class="status-actions">
+      <button class="btn-ghost" id="statusRetryBtn" hidden>Try Again</button>
+      <button class="btn-primary" id="statusDoneBtn" hidden>Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECEIPT MODAL -->
+<div class="receipt-modal" id="receiptModal" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
+  <div class="receipt-wrap" id="receiptWrap"></div>
+</div>
+
+<!-- HISTORY DRAWER -->
+<div class="hist-drawer" id="histDrawer" role="dialog" aria-modal="true" aria-labelledby="histTitle">
+  <button class="hist-close" id="histClose" aria-label="Close history"><i class="fas fa-times"></i></button>
+  <h3 id="histTitle">Transaction History</h3>
+  <p class="sub" id="histSub">Your airtime, data & bill payments</p>
+  <div id="histList"><div class="hist-empty">Loading…</div></div>
+  <button class="btn-ghost hist-loadmore" id="histLoadMoreBtn" hidden>Load more</button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* =========================================================================
+   CONFIG
+   ========================================================================= */
+const CONFIG = {
+  api: {
+    walletBalance: '/api/bills/wallet/balance',
+    networks: '/api/bills/networks',
+    elecProviders: '/api/bills/electricity/providers',
+    tvProviders: '/api/bills/tv/providers',
+    phoneLookup: '/api/bills/phone-lookup',
+    dataVariations: (serviceId) => `/api/bills/data/variations?service_id=${encodeURIComponent(serviceId)}`,
+    tvVariations:   (serviceId) => `/api/bills/tv/variations?service_id=${encodeURIComponent(serviceId)}`,
+    verifyCustomer: '/api/bills/verify-customer',
+    airtimePurchase: '/api/bills/airtime/purchase',
+    dataPurchase:    '/api/bills/data/purchase',
+    electricityPurchase: '/api/bills/electricity/purchase',
+    tvPurchase: '/api/bills/tv/purchase',
+    status:  (id) => `/api/bills/status/${encodeURIComponent(id)}`,
+    refresh: (id) => `/api/bills/status/${encodeURIComponent(id)}/refresh`,
+    history: (page, limit) => `/api/bills/history?page=${page}&limit=${limit}`
+  },
+  loginPage: 'login.html',
+  pollBackoffMs: [2000, 3000, 4000, 6000, 8000, 12000, 16000, 22000],
+  pollMaxAttempts: 15,
+  airtimeMin: 50,
+  airtimeMax: 50000,
+  lookupDebounceMs: 500
+};
+
+const AIRTIME_CHIPS = [100, 200, 500, 1000, 2000, 5000];
+const ELEC_CHIPS = [1000, 2000, 5000, 10000];
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+const SESSION_KEY = 'mx_sess';
+
+/* =========================================================================
+   PROVIDER LOGOS — LOCAL FILES with SVG fallback
+   Files served from /images/providers/*.png
+   If file missing, inline SVG appears automatically.
+   ========================================================================= */
+const PROVIDER_LOGOS = {
+  // ─── Nigerian Mobile Networks ───
+  mtn:        '/images/providers/mtn.png',
+  airtel:     '/images/providers/airtel.png',
+  glo:        '/images/providers/glo.png',
+  '9mobile':  '/images/providers/9mobile.png',
+
+  // ─── Cable TV ───
+  dstv:       '/images/providers/dstv.png',
+  gotv:       '/images/providers/gotv.png',
+  startimes:  '/images/providers/startimes.png',
+  showmax:    '/images/providers/showmax.png'
+};
+
+// Fallback text abbreviation
+const PROVIDER_FALLBACK_TEXT = {
+  mtn: 'MTN', airtel: 'AIR', glo: 'GLO', '9mobile': '9MO',
+  dstv: 'DStv', gotv: 'GOtv', startimes: 'ST', showmax: 'SMX',
+  'ikeja-electric': 'IKD', 'eko-electric': 'EKO', 'abuja-electric': 'ABJ',
+  'kano-electric': 'KAN', 'portharcourt-electric': 'PH', 'jos-electric': 'JOS',
+  'ibadan-electric': 'IBD', 'kaduna-electric': 'KAD', 'enugu-electric': 'ENU',
+  'benin-electric': 'BEN', 'aba-electric': 'ABA', 'yola-electric': 'YOL',
+  default: 'MS'
+};
+
+const PROVIDER_NAMES = {
+  mtn: 'MTN Nigeria',
+  airtel: 'Airtel Nigeria',
+  glo: 'Globacom',
+  '9mobile': '9mobile',
+  dstv: 'DStv',
+  gotv: 'GOtv',
+  startimes: 'StarTimes',
+  showmax: 'Showmax',
+  'ikeja-electric': 'Ikeja Electric',
+  'eko-electric': 'Eko Electric',
+  'abuja-electric': 'Abuja Electric',
+  'kano-electric': 'Kano Electric',
+  'portharcourt-electric': 'Port Harcourt Electric',
+  'jos-electric': 'Jos Electric',
+  'ibadan-electric': 'Ibadan Electric',
+  'kaduna-electric': 'Kaduna Electric',
+  'enugu-electric': 'Enugu Electric',
+  'benin-electric': 'Benin Electric',
+  'aba-electric': 'Aba Electric',
+  'yola-electric': 'Yola Electric'
+};
+
+function getProviderName(id) {
+  return PROVIDER_NAMES[id] || (id || '').toUpperCase();
+}
+
+function getProviderLogoSVG(providerId) {
+  const colors = {
+    mtn: '#F2C500', airtel: '#E4002B', glo: '#1AA64A', '9mobile': '#00A99D',
+    dstv: '#0072CE', gotv: '#00A651', startimes: '#F58220', showmax: '#E50914',
+    'ikeja-electric': '#0F4C81', 'eko-electric': '#003366', 'abuja-electric': '#006633',
+    'kano-electric': '#8B0000', 'portharcourt-electric': '#1B5E20', 'jos-electric': '#4A148C',
+    'ibadan-electric': '#B71C1C', 'kaduna-electric': '#01579B', 'enugu-electric': '#33691E',
+    'benin-electric': '#4E342E', 'aba-electric': '#1A237E', 'yola-electric': '#3E2723'
+  };
+  const color = colors[providerId] || '#32407A';
+  const text = PROVIDER_FALLBACK_TEXT[providerId] || PROVIDER_FALLBACK_TEXT.default;
+  const fontSize = text.length > 3 ? '10' : '13';
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="8" fill="${color}"/><text x="20" y="26" font-family="Arial Black,Arial" font-size="${fontSize}" font-weight="900" fill="#fff" text-anchor="middle">${text}</text></svg>`;
+}
+
+// Returns the inner HTML for a provider logo container.
+// Tries local image first; if it fails to load, replaces with SVG.
+function providerLogoHTML(providerId) {
+  const url = PROVIDER_LOGOS[providerId];
+  const fallbackSVG = getProviderLogoSVG(providerId);
+
+  if (!url) {
+    return fallbackSVG;
+  }
+
+  // Escape single quotes in the SVG so it can sit inside the onerror attribute
+  const escapedSvg = fallbackSVG.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+  return `<img src="${url}" alt="${escapeHtml(getProviderName(providerId))}" loading="lazy" decoding="async" onerror="this.onerror=null;this.outerHTML='${escapedSvg}';">`;
+}
+
+/* =========================================================================
+   SESSION
+   ========================================================================= */
+function getSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function getToken() { return getSession()?.token || ''; }
+function getUserFromSession() { return getSession()?.user || null; }
+function authHeaders() { const t = getToken(); return t ? { 'Authorization': `Bearer ${t}` } : {}; }
+function clearSession() { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); }
+function redirectToLogin() { window.location.href = CONFIG.loginPage; }
+
+/* =========================================================================
+   API CLIENT
+   ========================================================================= */
+async function apiGet(url) {
+  const res = await fetch(url, { headers: { ...authHeaders() } });
+  if (res.status === 401) { clearSession(); redirectToLogin(); throw new Error('Unauthorized'); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.success === false) {
+    const err = new Error(body.error || `Request failed (${res.status})`);
+    err.code = body.code;
+    err.httpStatus = res.status;
+    throw err;
+  }
+  return body;
+}
+
+async function apiPost(url, payload, extraHeaders = {}) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...extraHeaders },
+    body: JSON.stringify(payload)
+  });
+  if (res.status === 401) { clearSession(); redirectToLogin(); throw new Error('Unauthorized'); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.success === false) {
+    const err = new Error(body.error || `Request failed (${res.status})`);
+    err.code = body.code;
+    err.raw = body;
+    err.httpStatus = res.status;
+    throw err;
+  }
+  return body;
+}
+
+/* =========================================================================
+   HELPERS
+   ========================================================================= */
+function toast(msg, isError) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.style.background = isError ? 'var(--err)' : 'var(--t1)';
+  el.style.borderLeftColor = isError ? 'var(--err)' : 'var(--acc)';
+  el.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.remove('show'), 3600);
+}
+
+function moneyNGN(n) {
+  if (n == null || isNaN(n)) return '₦0.00';
+  return '₦' + Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+
+function newIdemKey() {
+  const uuid = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return `MS-${uuid}`.slice(0, 100);
+}
+
+function debounce(fn, ms) {
+  let timer = null;
+  return function debounced(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+function isValidPhoneFormat(phone) {
+  return /^\d{10,15}$/.test(phone);
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('en-NG', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
+  } catch { return iso; }
+}
+
+function formatTime(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleTimeString('en-NG', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+    });
+  } catch { return iso; }
+}
+
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return true;
+  } catch { return false; }
+}
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const State = {
+  user: null,
+  walletBalanceNgn: 0,
+  walletLoading: false,
+  activeService: 'airtime',
+
+  airtime: { network: null, amount: null, detectedNetwork: null, networkSource: null, manuallyOverridden: false },
+  data: { network: null, plans: [], selectedPlan: null, detectedNetwork: null, networkSource: null, manuallyOverridden: false },
+  electricity: { provider: null, meterType: 'prepaid', verified: null, amount: null },
+  tv: { provider: null, subscriptionType: 'renew', verified: null, packages: [], selectedPackage: null },
+
+  currentTxId: null,
+  currentReference: null,
+  pollAttempts: 0,
+  pollTimer: null,
+
+  histPage: 1,
+  histHasMore: false,
+  histItems: []
+};
+
+/* =========================================================================
+   SIDEBAR / TOPBAR
+   ========================================================================= */
+function initSidebar() {
+  const sb = $('#sb'); const overlay = $('#sbOverlay');
+  $('#hbgBtn')?.addEventListener('click', () => { sb.classList.add('open'); overlay.classList.add('show'); });
+  overlay?.addEventListener('click', () => { sb.classList.remove('open'); overlay.classList.remove('show'); });
+  $('#logoutBtn')?.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (window.logoutPresence) window.logoutPresence();
+    clearSession(); redirectToLogin();
+  });
+}
+
+function renderUserFromSession() {
+  const u = getUserFromSession();
+  if (!u) return;
+  const name = u.username || u.email?.split('@')[0] || 'Account';
+  const initial = name.trim().charAt(0).toUpperCase() || 'U';
+  $('#sbName').textContent = name;
+  $('#sbEmail').textContent = u.email || '';
+  $('#sbAv').textContent = initial;
+  $('#tbAv').textContent = initial;
+}
+
+/* =========================================================================
+   WALLET
+   ========================================================================= */
+async function fetchWalletBalance() {
+  if (State.walletLoading) return State.walletBalanceNgn;
+  State.walletLoading = true;
+  try {
+    const { data } = await apiGet(CONFIG.api.walletBalance);
+    State.walletBalanceNgn = toNum(data?.balance);
+    renderWallet();
+    return State.walletBalanceNgn;
+  } catch (e) {
+    console.error('Failed to fetch wallet balance:', e);
+    return State.walletBalanceNgn;
+  } finally {
+    State.walletLoading = false;
+  }
+}
+
+function renderWallet() {
+  $('#walletAmt').textContent = moneyNGN(State.walletBalanceNgn);
+}
+
+function initWalletRefresh() {
+  $('#walletRefreshBtn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.classList.add('spin');
+    await fetchWalletBalance();
+    setTimeout(() => btn.classList.remove('spin'), 500);
+  });
+}
+
+/* =========================================================================
+   SERVICE TABS
+   ========================================================================= */
+function initServiceTabs() {
+  $$('#svcTabs .svc-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const svc = tab.dataset.service;
+      State.activeService = svc;
+      $$('#svcTabs .svc-tab').forEach((t) => t.classList.toggle('active', t === tab));
+      $$('.svc-panel').forEach((p) => p.classList.remove('active'));
+      $(`#panel-${svc}`).classList.add('active');
+    });
+  });
+}
+
+/* =========================================================================
+   GENERIC SEARCH DROPDOWN
+   ========================================================================= */
+function createSearchDropdown(inputEl, ddEl, opts) {
+  let items = [];
+  let loading = false;
+
+  function setItems(newItems) { items = newItems || []; }
+
+  function filterItems(q) {
+    q = (q || '').trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((it) => opts.matchFn(it, q));
+  }
+
+  function renderList(list) {
+    if (loading) {
+      ddEl.innerHTML = `<div class="search-empty"><i class="fas fa-circle-notch spin"></i> ${escapeHtml(opts.loadingText || 'Loading…')}</div>`;
+      ddEl.classList.add('show');
+      return;
+    }
+    if (!list.length) {
+      ddEl.innerHTML = `<div class="search-empty">${escapeHtml(opts.emptyText || 'No results found')}</div>`;
+      ddEl.classList.add('show');
+      return;
+    }
+    ddEl.innerHTML = list.map((it, idx) => `<div class="search-item" data-index="${idx}">${opts.renderItem(it)}</div>`).join('');
+    ddEl.querySelectorAll('.search-item').forEach((el) => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.index);
+        ddEl.classList.remove('show');
+        opts.onSelect(list[idx]);
+      });
+    });
+    ddEl.classList.add('show');
+  }
+
+  inputEl.addEventListener('focus', () => { if (!inputEl.disabled) renderList(filterItems(inputEl.value)); });
+  inputEl.addEventListener('click', () => { if (!inputEl.disabled) renderList(filterItems(inputEl.value)); });
+  inputEl.addEventListener('input', () => renderList(filterItems(inputEl.value)));
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest(`#${inputEl.id}`) && !e.target.closest(`#${ddEl.id}`)) ddEl.classList.remove('show');
+  });
+
+  return {
+    setItems,
+    showLoading(text) { loading = true; opts.loadingText = text; renderList([]); ddEl.classList.add('show'); },
+    stopLoading() { loading = false; }
+  };
+}
+
+/* =========================================================================
+   NETWORK TILES
+   ========================================================================= */
+const NETWORKS = [
+  { id: 'mtn',      name: 'MTN' },
+  { id: 'airtel',   name: 'Airtel' },
+  { id: 'glo',      name: 'Glo' },
+  { id: '9mobile',  name: '9mobile' }
+];
+
+function renderNetworkGrid(containerEl, selectedId, onSelect) {
+  containerEl.innerHTML = NETWORKS.map((n) => `
+    <div class="net-tile ${n.id === selectedId ? 'selected' : ''}" data-net="${n.id}">
+      <div class="net-badge">${providerLogoHTML(n.id)}</div>
+      <div class="net-name">${escapeHtml(n.name)}</div>
+    </div>
+  `).join('');
+  containerEl.querySelectorAll('.net-tile').forEach((tile) => {
+    tile.addEventListener('click', () => onSelect(tile.dataset.net, containerEl));
+  });
+}
+
+function setNetworkSelection(containerEl, netId) {
+  containerEl.querySelectorAll('.net-tile').forEach((t) =>
+    t.classList.toggle('selected', t.dataset.net === netId)
+  );
+}
+
+/* =========================================================================
+   PHONE AUTO-DETECT
+   ========================================================================= */
+const lookupAbort = { airtime: null, data: null };
+const lookupSeq = { airtime: 0, data: 0 };
+
+function getDetectChipEl(service) {
+  return service === 'airtime' ? $('#airtimeDetectChip') : $('#dataDetectChip');
+}
+
+function renderDetectChip(service, state, payload) {
+  const chip = getDetectChipEl(service);
+  if (!chip) return;
+
+  chip.classList.remove('show', 'overridden', 'loading');
+
+  if (state === 'loading') {
+    chip.classList.add('show', 'loading');
+    chip.innerHTML = '<i class="fas fa-circle-notch spin"></i> Detecting network…';
+    return;
+  }
+
+  if (state === 'success') {
+    if (payload.manuallyOverridden) {
+      chip.classList.add('show', 'overridden');
+      chip.innerHTML = `<i class="fas fa-pen"></i> You selected <strong>${escapeHtml(payload.networkName)}</strong>`;
+    } else {
+      chip.classList.add('show');
+      chip.innerHTML = `<i class="fas fa-circle-check"></i> Detected <strong>${escapeHtml(payload.networkName)}</strong>`;
+    }
+    return;
+  }
+
+  if (state === 'error') {
+    chip.classList.add('show', 'overridden');
+    chip.innerHTML = `<i class="fas fa-triangle-exclamation"></i> ${escapeHtml(payload.error || 'Could not detect network. Please select manually.')}`;
+    return;
+  }
+
+  chip.innerHTML = '';
+}
+
+async function runPhoneLookup(service, phone) {
+  const seq = ++lookupSeq[service];
+
+  if (lookupAbort[service]) lookupAbort[service].abort();
+  const controller = new AbortController();
+  lookupAbort[service] = controller;
+
+  renderDetectChip(service, 'loading');
+
+  try {
+    const res = await fetch(CONFIG.api.phoneLookup, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ phone }),
+      signal: controller.signal
+    });
+
+    const body = await res.json().catch(() => ({}));
+    if (seq !== lookupSeq[service]) return;
+
+    if (!res.ok || body.success === false) {
+      renderDetectChip(service, 'error', { error: body.error || 'Detection failed' });
+      return;
+    }
+
+    const { network, network_name } = body.data;
+    const st = State[service];
+
+    if (!st.manuallyOverridden) {
+      st.network = network;
+      st.detectedNetwork = network;
+      st.networkSource = body.data.detection_source || 'prefix';
+      setNetworkSelection(
+        service === 'airtime' ? $('#airtimeNetGrid') : $('#dataNetGrid'),
+        network
+      );
+      refreshAirtimeButton();
+      refreshDataButton();
+
+      if (service === 'data') loadDataPlans(network);
+    }
+
+    renderDetectChip(service, 'success', {
+      networkName: network_name || network.toUpperCase(),
+      manuallyOverridden: st.manuallyOverridden
+    });
+
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    if (seq !== lookupSeq[service]) return;
+    renderDetectChip(service, 'error', { error: 'Could not detect network. Please select manually.' });
+  }
+}
+
+const debouncedLookup = {
+  airtime: debounce((phone) => runPhoneLookup('airtime', phone), CONFIG.lookupDebounceMs),
+  data: debounce((phone) => runPhoneLookup('data', phone), CONFIG.lookupDebounceMs)
+};
+
+function handlePhoneInput(service, phoneRaw) {
+  const phone = phoneRaw.replace(/\D/g, '');
+  const st = State[service];
+  if (phone.length < 11) {
+    st.detectedNetwork = null;
+    st.networkSource = null;
+    renderDetectChip(service, 'hidden');
+    return;
+  }
+  debouncedLookup[service](phone);
+}
+
+/* =========================================================================
+   AIRTIME — Fixed manual override state bug
+   ========================================================================= */
+function initAirtimePanel() {
+  renderNetworkGrid($('#airtimeNetGrid'), State.airtime.network, (netId, container) => {
+    const detected = State.airtime.detectedNetwork;
+
+    State.airtime.network = netId;
+
+    // ✅ FIXED: manuallyOverridden is true only if user picked a network
+    // that differs from auto-detected, OR there's no auto-detection at all.
+    State.airtime.manuallyOverridden = detected ? (detected !== netId) : true;
+
+    setNetworkSelection(container, netId);
+
+    if (State.airtime.manuallyOverridden) {
+      renderDetectChip('airtime', 'success', {
+        networkName: getProviderName(netId),
+        manuallyOverridden: true
+      });
+    } else {
+      renderDetectChip('airtime', 'hidden');
+    }
+    refreshAirtimeButton();
+  });
+
+  $('#airtimeChips').innerHTML = AIRTIME_CHIPS.map((a) => `<button type="button" class="amt-chip" data-amt="${a}">${moneyNGN(a).replace('.00', '')}</button>`).join('');
+  $('#airtimeChips').querySelectorAll('.amt-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      $('#airtimeChips').querySelectorAll('.amt-chip').forEach((c) => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      $('#airtimeAmount').value = chip.dataset.amt;
+      State.airtime.amount = toNum(chip.dataset.amt);
+      refreshAirtimeSummary();
+    });
+  });
+
+  $('#airtimePhone').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 15);
+    handlePhoneInput('airtime', e.target.value);
+    refreshAirtimeButton();
+  });
+
+  $('#airtimeAmount').addEventListener('input', (e) => {
+    $('#airtimeChips').querySelectorAll('.amt-chip').forEach((c) => c.classList.toggle('selected', Number(c.dataset.amt) === Number(e.target.value)));
+    State.airtime.amount = toNum(e.target.value);
+    refreshAirtimeSummary();
+  });
+
+  $('#airtimeBuyBtn').addEventListener('click', submitAirtime);
+}
+
+function refreshAirtimeSummary() {
+  const amt = toNum($('#airtimeAmount').value);
+  $('#airtimeSumTotal').textContent = moneyNGN(amt);
+  refreshAirtimeButton();
+}
+
+function refreshAirtimeButton() {
+  const phone = $('#airtimePhone').value.trim();
+  const amt = toNum($('#airtimeAmount').value);
+  const ok = State.airtime.network && isValidPhoneFormat(phone) && amt >= CONFIG.airtimeMin && amt <= CONFIG.airtimeMax;
+  $('#airtimeBuyBtn').disabled = !ok;
+}
+
+async function submitAirtime() {
+  const network = State.airtime.network;
+  const phone = $('#airtimePhone').value.trim();
+  const amount = toNum($('#airtimeAmount').value);
+  const netName = getProviderName(network);
+
+  const pin = await requestPin({
+    rows: [['Network', netName], ['Phone', phone], ['Amount', moneyNGN(amount)]]
+  });
+  if (!pin) return;
+
+  const btn = $('#airtimeBuyBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Placing order…';
+
+  try {
+    const idemKey = newIdemKey();
+    const { data } = await apiPost(
+      CONFIG.api.airtimePurchase,
+      { phone, serviceId: network, network_override: network, amount, transaction_pin: pin },
+      { 'Idempotency-Key': idemKey }
+    );
+    onPurchaseAccepted(data, {
+      type: 'Airtime', amount,
+      rows: [['Network', netName], ['Phone', phone], ['Amount', moneyNGN(amount)]]
+    });
+    await fetchWalletBalance();
+  } catch (e) {
+    handlePurchaseError(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+    refreshAirtimeButton();
+  }
+}
+
+/* =========================================================================
+   DATA — Fixed manual override state bug
+   ========================================================================= */
+let dataPlanDD;
+let dataPlansAbort = null;
+
+function initDataPanel() {
+  renderNetworkGrid($('#dataNetGrid'), State.data.network, (netId, container) => {
+    const detected = State.data.detectedNetwork;
+
+    State.data.network = netId;
+    State.data.manuallyOverridden = detected ? (detected !== netId) : true;
+    State.data.selectedPlan = null;
+    $('#dataPlanPicked').hidden = true;
+
+    setNetworkSelection(container, netId);
+
+    if (State.data.manuallyOverridden) {
+      renderDetectChip('data', 'success', {
+        networkName: getProviderName(netId),
+        manuallyOverridden: true
+      });
+    } else {
+      renderDetectChip('data', 'hidden');
+    }
+
+    loadDataPlans(netId);
+    refreshDataSummary();
+  });
+
+  dataPlanDD = createSearchDropdown($('#dataPlanSearch'), $('#dataPlanDropdown'), {
+    matchFn: (p, q) => (p.label || '').toLowerCase().includes(q),
+    renderItem: (p) => `
+      <div>
+        <div class="si-main">${escapeHtml(p.dataAmount)} · ${escapeHtml(p.validity)}</div>
+        <div class="si-sub">${escapeHtml(p.name)}</div>
+      </div>
+      <div class="si-price">${moneyNGN(p.price)}</div>
+    `,
+    onSelect: (p) => {
+      State.data.selectedPlan = p;
+      $('#dataPlanSearch').value = `${p.dataAmount} · ${p.validity}`;
+      $('#dataPlanPicked').hidden = false;
+      $('#dataPlanPicked').innerHTML = `
+        <div>
+          <div class="pc-main">${escapeHtml(p.dataAmount)} · ${escapeHtml(p.validity)}</div>
+          <div class="pc-sub">${escapeHtml(p.name)}</div>
+        </div>
+        <div class="pc-price">${moneyNGN(p.price)}</div>
+      `;
+      refreshDataSummary();
+    },
+    emptyText: 'No data plans available for this network.'
+  });
+
+  $('#dataPhone').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 15);
+    handlePhoneInput('data', e.target.value);
+    refreshDataButton();
+  });
+
+  $('#dataBuyBtn').addEventListener('click', submitData);
+}
+
+async function loadDataPlans(serviceId) {
+  const input = $('#dataPlanSearch');
+  input.disabled = true;
+  input.value = '';
+  dataPlanDD.setItems([]);
+  dataPlanDD.showLoading('Loading data plans…');
+
+  if (dataPlansAbort) dataPlansAbort.abort();
+  dataPlansAbort = new AbortController();
+  const thisAbort = dataPlansAbort;
+
+  try {
+    const { data } = await apiGet(CONFIG.api.dataVariations(serviceId));
+    if (thisAbort.signal.aborted) return;
+
+    const plans = (Array.isArray(data) ? data : []).map((v) => ({
+      variationId: v.variation_id || v.variation_code,
+      variationCode: v.variation_code || v.variation_id,
+      dataAmount: v.data_plan || v.plan_name || v.name || 'Data plan',
+      validity: v.validity || v.validity_days || v.validity_period || '—',
+      name: v.service_name || v.name || '',
+      price: toNum(v.price || v.variation_amount),
+      label: `${v.data_plan || v.name || ''} ${v.service_name || ''}`
+    }));
+
+    dataPlanDD.stopLoading();
+    dataPlanDD.setItems(plans);
+    input.disabled = plans.length === 0;
+    input.placeholder = plans.length ? 'Select a data plan…' : 'No plans available';
+    $('#dataPlanDropdown').classList.remove('show');
+  } catch (e) {
+    if (thisAbort.signal.aborted) return;
+    dataPlanDD.stopLoading();
+    input.disabled = true;
+    input.placeholder = 'Data plans temporarily unavailable';
+    toast(e.message || 'Could not load data plans', true);
+  }
+  refreshDataButton();
+}
+
+function refreshDataSummary() {
+  const p = State.data.selectedPlan;
+  const amt = p ? p.price : 0;
+  $('#dataSumTotal').textContent = moneyNGN(amt);
+  refreshDataButton();
+}
+
+function refreshDataButton() {
+  const phone = $('#dataPhone').value.trim();
+  const ok = State.data.network && State.data.selectedPlan && isValidPhoneFormat(phone);
+  $('#dataBuyBtn').disabled = !ok;
+}
+
+async function submitData() {
+  const network = State.data.network;
+  const phone = $('#dataPhone').value.trim();
+  const plan = State.data.selectedPlan;
+  const netName = getProviderName(network);
+
+  const pin = await requestPin({
+    rows: [
+      ['Network', netName],
+      ['Phone', phone],
+      ['Plan', `${plan.dataAmount} · ${plan.validity}`],
+      ['Amount', moneyNGN(plan.price)]
+    ]
+  });
+  if (!pin) return;
+
+  const btn = $('#dataBuyBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Placing order…';
+
+  try {
+    const idemKey = newIdemKey();
+    const { data } = await apiPost(
+      CONFIG.api.dataPurchase,
+      {
+        phone,
+        serviceId: network,
+        network_override: network,
+        variationId: plan.variationCode || plan.variationId,
+        transaction_pin: pin
+      },
+      { 'Idempotency-Key': idemKey }
+    );
+    onPurchaseAccepted(data, {
+      type: 'Data', amount: plan.price,
+      rows: [['Network', netName], ['Phone', phone], ['Plan', `${plan.dataAmount} · ${plan.validity}`]]
+    });
+    await fetchWalletBalance();
+  } catch (e) {
+    handlePurchaseError(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+    refreshDataButton();
+  }
+}
+
+/* =========================================================================
+   ELECTRICITY
+   ========================================================================= */
+let elecProviderDD;
+let elecVerifyAbort = null;
+
+function initElectricityPanel() {
+  elecProviderDD = createSearchDropdown($('#elecProviderSearch'), $('#elecProviderDropdown'), {
+    matchFn: (p, q) => p.name.toLowerCase().includes(q),
+    renderItem: (p) => `<div><div class="si-main">${escapeHtml(p.name)}</div></div>`,
+    onSelect: (p) => {
+      State.electricity.provider = p;
+      $('#elecProviderSearch').value = p.name;
+      resetElecVerification();
+      refreshElecVerifyButton();
+    },
+    emptyText: 'No providers found'
+  });
+
+  apiGet(CONFIG.api.elecProviders).then(({ data }) => {
+    elecProviderDD.setItems(Array.isArray(data) ? data : []);
+  }).catch(() => {
+    elecProviderDD.setItems([]);
+  });
+
+  $('#elecMeterType').querySelectorAll('.radio-opt').forEach((opt) => {
+    opt.addEventListener('click', () => {
+      $('#elecMeterType').querySelectorAll('.radio-opt').forEach((o) => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      State.electricity.meterType = opt.dataset.value;
+      resetElecVerification();
+    });
+  });
+
+  $('#elecMeterNumber').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+    resetElecVerification();
+    refreshElecVerifyButton();
+  });
+
+  $('#elecChips').innerHTML = ELEC_CHIPS.map((a) => `<button type="button" class="amt-chip" data-amt="${a}">${moneyNGN(a).replace('.00', '')}</button>`).join('');
+  $('#elecChips').querySelectorAll('.amt-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      $('#elecChips').querySelectorAll('.amt-chip').forEach((c) => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      $('#elecAmount').value = chip.dataset.amt;
+      refreshElecSummary();
+    });
+  });
+  $('#elecAmount').addEventListener('input', () => {
+    $('#elecChips').querySelectorAll('.amt-chip').forEach((c) => c.classList.toggle('selected', Number(c.dataset.amt) === Number($('#elecAmount').value)));
+    refreshElecSummary();
+  });
+
+  $('#elecVerifyBtn').addEventListener('click', verifyElectricityMeter);
+  $('#elecBuyBtn').addEventListener('click', submitElectricity);
+
+  refreshElecVerifyButton();
+}
+
+function resetElecVerification() {
+  State.electricity.verified = null;
+  $('#elecVerifiedWrap').hidden = true;
+}
+
+function refreshElecVerifyButton() {
+  const meter = $('#elecMeterNumber').value.trim();
+  $('#elecVerifyBtn').disabled = !(State.electricity.provider && meter.length >= 5);
+}
+
+async function verifyElectricityMeter() {
+  const provider = State.electricity.provider;
+  const meter = $('#elecMeterNumber').value.trim();
+  const variationId = State.electricity.meterType;
+
+  const btn = $('#elecVerifyBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Verifying meter…';
+
+  if (elecVerifyAbort) elecVerifyAbort.abort();
+  elecVerifyAbort = new AbortController();
+
+  try {
+    const { data } = await apiPost(CONFIG.api.verifyCustomer, {
+      customerId: meter,
+      serviceId: provider.id,
+      variationId
+    });
+    const v = data || {};
+    const min = toNum(v.min_purchase_amount || v.minPurchaseAmount);
+    const max = toNum(v.max_purchase_amount || v.maxPurchaseAmount);
+
+    State.electricity.verified = {
+      customerName: v.customer_name || v.customerName || '—',
+      customerAddress: v.address || v.customer_address || null,
+      min, max
+    };
+
+    $('#elecVCName').textContent = State.electricity.verified.customerName;
+    $('#elecVCMeter').textContent = meter;
+    $('#elecVCProvider').textContent = provider.name;
+    $('#elecVCRange').textContent = (min || max) ? `${moneyNGN(min)} – ${moneyNGN(max)}` : 'No limit specified';
+
+    $('#elecVerifiedWrap').hidden = false;
+    $('#elecAmount').min = min || 0;
+    if (max) $('#elecAmount').max = max;
+    refreshElecSummary();
+  } catch (e) {
+    resetElecVerification();
+    toast(e.message || 'Could not verify meter details', true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
+function refreshElecSummary() {
+  const amt = toNum($('#elecAmount').value);
+  $('#elecSumTotal').textContent = moneyNGN(amt);
+
+  const v = State.electricity.verified;
+  let ok = !!v && amt > 0;
+  if (v && v.min && amt < v.min) ok = false;
+  if (v && v.max && amt > v.max) ok = false;
+  $('#elecBuyBtn').disabled = !ok;
+}
+
+async function submitElectricity() {
+  const provider = State.electricity.provider;
+  const meter = $('#elecMeterNumber').value.trim();
+  const variationId = State.electricity.meterType;
+  const amount = toNum($('#elecAmount').value);
+  const v = State.electricity.verified;
+
+  const pin = await requestPin({
+    rows: [
+      ['Provider', provider.name],
+      ['Meter', meter],
+      ['Meter type', variationId === 'prepaid' ? 'Prepaid' : 'Postpaid'],
+      ['Customer', v.customerName],
+      ['Amount', moneyNGN(amount)]
+    ]
+  });
+  if (!pin) return;
+
+  const btn = $('#elecBuyBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Placing order…';
+
+  try {
+    const idemKey = newIdemKey();
+    const { data } = await apiPost(
+      CONFIG.api.electricityPurchase,
+      { customerId: meter, serviceId: provider.id, variationId, amount, transaction_pin: pin },
+      { 'Idempotency-Key': idemKey }
+    );
+    onPurchaseAccepted(data, {
+      type: 'Electricity', amount,
+      rows: [['Provider', provider.name], ['Meter', meter], ['Customer', v.customerName]]
+    });
+    await fetchWalletBalance();
+  } catch (e) {
+    handlePurchaseError(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+    refreshElecSummary();
+  }
+}
+
+/* =========================================================================
+   CABLE TV — Fixed null-reference crash on pkg.price
+   ========================================================================= */
+let tvProviderDD, tvPackageDD;
+let tvPackagesAbort = null;
+
+function initTvPanel() {
+  tvProviderDD = createSearchDropdown($('#tvProviderSearch'), $('#tvProviderDropdown'), {
+    matchFn: (p, q) => p.name.toLowerCase().includes(q),
+    renderItem: (p) => `<div><div class="si-main">${escapeHtml(p.name)}</div></div>`,
+    onSelect: (p) => {
+      State.tv.provider = p;
+      $('#tvProviderSearch').value = p.name;
+      resetTvVerification();
+      refreshTvVerifyButton();
+    },
+    emptyText: 'No providers found'
+  });
+
+  apiGet(CONFIG.api.tvProviders).then(({ data }) => {
+    tvProviderDD.setItems(Array.isArray(data) ? data : []);
+  }).catch(() => {
+    tvProviderDD.setItems([]);
+  });
+
+  tvPackageDD = createSearchDropdown($('#tvPackageSearch'), $('#tvPackageDropdown'), {
+    matchFn: (p, q) => (p.name || '').toLowerCase().includes(q),
+    renderItem: (p) => `<div><div class="si-main">${escapeHtml(p.name)}</div></div><div class="si-price">${moneyNGN(p.price)}</div>`,
+    onSelect: (p) => {
+      State.tv.selectedPackage = p;
+      $('#tvPackageSearch').value = p.name;
+      $('#tvPackagePicked').hidden = false;
+      $('#tvPackagePicked').innerHTML = `<div class="pc-main">${escapeHtml(p.name)}</div><div class="pc-price">${moneyNGN(p.price)}</div>`;
+      refreshTvSummary();
+    },
+    emptyText: 'No packages available'
+  });
+
+  $('#tvSubType').querySelectorAll('.radio-opt').forEach((opt) => {
+    opt.addEventListener('click', () => {
+      $('#tvSubType').querySelectorAll('.radio-opt').forEach((o) => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      State.tv.subscriptionType = opt.dataset.value;
+      resetTvVerification();
+    });
+  });
+
+  $('#tvCustomerId').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+    resetTvVerification();
+    refreshTvVerifyButton();
+  });
+
+  $('#tvVerifyBtn').addEventListener('click', verifyTvCustomer);
+  $('#tvBuyBtn').addEventListener('click', submitTv);
+
+  refreshTvVerifyButton();
+}
+
+function resetTvVerification() {
+  State.tv.verified = null;
+  State.tv.selectedPackage = null;
+  $('#tvVerifiedWrap').hidden = true;
+  $('#tvPackagePicked').hidden = true;
+}
+
+function refreshTvVerifyButton() {
+  const cust = $('#tvCustomerId').value.trim();
+  $('#tvVerifyBtn').disabled = !(State.tv.provider && cust.length >= 5);
+}
+
+async function verifyTvCustomer() {
+  const provider = State.tv.provider;
+  const customerId = $('#tvCustomerId').value.trim();
+
+  const btn = $('#tvVerifyBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Verifying customer…';
+
+  if (tvPackagesAbort) tvPackagesAbort.abort();
+  tvPackagesAbort = new AbortController();
+
+  try {
+    const { data } = await apiPost(CONFIG.api.verifyCustomer, { customerId, serviceId: provider.id });
+    const v = data || {};
+    const currentPackage = v.current_bouquet || v.currentBouquet || v.package_bouquet || v.current_package || '—';
+    const renewalAmount = toNum(v.renewal_amount || v.renewalAmount || 0);
+    const customerNumber = v.customer_number || v.customerNumber || customerId;
+
+    State.tv.verified = {
+      customerName: v.customer_name || v.customerName || '—',
+      currentPackage, renewalAmount, customerNumber
+    };
+
+    $('#tvVCName').textContent = State.tv.verified.customerName;
+    $('#tvVCPackage').textContent = currentPackage;
+    $('#tvVCNumber').textContent = customerNumber;
+    $('#tvVerifiedWrap').hidden = false;
+
+    await loadTvPackages(provider.id, currentPackage);
+    refreshTvSummary();
+  } catch (e) {
+    resetTvVerification();
+    toast(e.message || 'Could not verify customer details', true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
+async function loadTvPackages(serviceId, currentPackageName) {
+  const input = $('#tvPackageSearch');
+  input.disabled = true;
+  input.value = '';
+  $('#tvPackagePicked').hidden = true;
+  State.tv.selectedPackage = null;
+  tvPackageDD.setItems([]);
+  tvPackageDD.showLoading('Loading packages…');
+
+  try {
+    const { data } = await apiGet(CONFIG.api.tvVariations(serviceId));
+    const packages = (Array.isArray(data) ? data : []).map((v) => ({
+      variationId: v.variation_id || v.variation_code,
+      variationCode: v.variation_code || v.variation_id,
+      name: v.package_bouquet || v.name || 'Package',
+      price: toNum(v.price || v.variation_amount)
+    }));
+    tvPackageDD.stopLoading();
+    tvPackageDD.setItems(packages);
+    input.disabled = packages.length === 0;
+    input.placeholder = packages.length ? 'Select a package…' : 'No packages available';
+
+    if (State.tv.subscriptionType === 'renew' && currentPackageName) {
+      const match = packages.find((p) => p.name.toLowerCase() === String(currentPackageName).toLowerCase());
+      if (match) {
+        State.tv.selectedPackage = match;
+        input.value = match.name;
+        $('#tvPackagePicked').hidden = false;
+        $('#tvPackagePicked').innerHTML = `<div class="pc-main">${escapeHtml(match.name)}</div><div class="pc-price">${moneyNGN(match.price)}</div>`;
+      }
+    }
+  } catch (e) {
+    tvPackageDD.stopLoading();
+    input.disabled = true;
+    input.placeholder = 'Packages temporarily unavailable';
+    toast(e.message || 'Could not load TV packages', true);
+  }
+}
+
+function refreshTvSummary() {
+  const v = State.tv.verified;
+  const pkg = State.tv.selectedPackage;
+  const isRenew = State.tv.subscriptionType === 'renew';
+
+  // ✅ FIXED: safe navigation for pkg and v
+  const amount = isRenew && v?.renewalAmount > 0
+    ? v.renewalAmount
+    : (pkg?.price || 0);
+
+  // ✅ FIXED: only update tvSumTotal (removed tvSumPlan which didn't exist)
+  $('#tvSumTotal').textContent = moneyNGN(amount);
+
+  const ok = !!v && (pkg || (isRenew && v.renewalAmount > 0)) && amount > 0;
+  $('#tvBuyBtn').disabled = !ok;
+}
+
+async function submitTv() {
+  const provider = State.tv.provider;
+  const customerId = $('#tvCustomerId').value.trim();
+  const subscriptionType = State.tv.subscriptionType;
+  const pkg = State.tv.selectedPackage;
+  const v = State.tv.verified;
+  const isRenew = subscriptionType === 'renew';
+
+  // ✅ FIXED: safe navigation
+  const amount = isRenew && v?.renewalAmount > 0 ? v.renewalAmount : (pkg?.price || 0);
+
+  const pin = await requestPin({
+    rows: [
+      ['Provider', provider.name],
+      ['Number', customerId],
+      ['Package', pkg ? pkg.name : (v?.currentPackage || '—')],
+      ['Type', isRenew ? 'Renewal' : 'Change package'],
+      ['Amount', moneyNGN(amount)]
+    ]
+  });
+  if (!pin) return;
+
+  const btn = $('#tvBuyBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Placing order…';
+
+  try {
+    const idemKey = newIdemKey();
+    const { data } = await apiPost(
+      CONFIG.api.tvPurchase,
+      {
+        customerId,
+        serviceId: provider.id,
+        variationId: pkg ? (pkg.variationCode || pkg.variationId) : undefined,
+        subscriptionType,
+        amount,
+        transaction_pin: pin
+      },
+      { 'Idempotency-Key': idemKey }
+    );
+    onPurchaseAccepted(data, {
+      type: 'TV Subscription', amount,
+      rows: [['Provider', provider.name], ['Number', customerId], ['Package', pkg ? pkg.name : (v?.currentPackage || '—')]]
+    });
+    await fetchWalletBalance();
+  } catch (e) {
+    handlePurchaseError(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+    refreshTvSummary();
+  }
+}
+
+/* =========================================================================
+   PIN MODAL
+   ========================================================================= */
+function requestPin({ rows }) {
+  return new Promise((resolve) => {
+    const modal = $('#pinModal');
+    const input = $('#pinInput');
+    const errEl = $('#pinError');
+    const okBtn = $('#pinConfirmBtn');
+    const cancelBtn = $('#pinCancelBtn');
+
+    $('#pinSummary').innerHTML = rows.map(([k, v]) => `<div class="row"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`).join('');
+
+    input.value = '';
+    errEl.textContent = '';
+    input.classList.remove('error');
+    modal.classList.add('show');
+    setTimeout(() => input.focus(), 60);
+
+    const cleanup = () => {
+      modal.classList.remove('show');
+      input.value = '';
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      input.removeEventListener('keydown', onKey);
+      input.removeEventListener('input', onInput);
+    };
+    const onInput = () => {
+      input.value = input.value.replace(/\D/g, '').slice(0, 4);
+      input.classList.remove('error');
+      errEl.textContent = '';
+    };
+    const onOk = () => {
+      const v = input.value.trim();
+      if (!/^\d{4}$/.test(v)) {
+        input.classList.add('error');
+        errEl.textContent = 'PIN must be 4 digits';
+        return;
+      }
+      const pin = v;
+      cleanup();
+      resolve(pin);
+    };
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onKey = (e) => { if (e.key === 'Enter') onOk(); if (e.key === 'Escape') onCancel(); };
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKey);
+    input.addEventListener('input', onInput);
+  });
+}
+
+/* =========================================================================
+   PURCHASE RESULT
+   ========================================================================= */
+function handlePurchaseError(e) {
+  if (e.code === 'PIN_LOCKED') toast(e.message || 'PIN is locked. Try again later.', true);
+  else if (e.code === 'INVALID_PIN') toast(e.message || 'Invalid PIN', true);
+  else if (e.code === 'PIN_REQUIRED') toast('Transaction PIN is required', true);
+  else if (e.code === 'INSUFFICIENT_BALANCE') toast(e.message || 'Insufficient wallet balance', true);
+  else if (e.code === 'DUPLICATE_REQUEST' || e.code === 'IDEMPOTENCY_CONFLICT') toast('That request already went through. Please check history.', true);
+  else if (e.code === 'INVALID_PLAN' || e.code === 'PLANS_UNAVAILABLE') toast(e.message || 'Selected plan is unavailable', true);
+  else if (e.code === 'INVALID_NETWORK') toast('Please select a valid network', true);
+  else toast(e.message || 'Could not start your order.', true);
+}
+
+function onPurchaseAccepted(data, meta) {
+  State.currentTxId = data.transactionId;
+  State.currentReference = data.reference || null;
+  State.pollAttempts = 0;
+
+  showStatusModal(meta);
+
+  if (data.status === 'completed') {
+    showCompletedState(meta);
+    fetchWalletBalance();
+  } else if (data.status === 'failed' || data.status === 'refunded') {
+    showFailedState(data.error || 'This order was rejected by the provider. Your wallet has been refunded.');
+    fetchWalletBalance();
+  } else {
+    pollStatus(meta);
+  }
+}
+
+/* =========================================================================
+   STATUS MODAL
+   ========================================================================= */
+function showStatusModal(meta) {
+  $('#statusModal').classList.add('show');
+  $('#statusIcon').className = 'status-icon processing';
+  $('#statusIcon').innerHTML = '<i class="fas fa-circle-notch spin"></i>';
+  $('#statusTitle').textContent = `Processing your ${meta.type.toLowerCase()} order…`;
+  $('#statusText').textContent = "This usually takes a few seconds. Don't close this window.";
+  $('#statusRefSummary').innerHTML = renderRefSummary(meta);
+  $('#statusRetryBtn').hidden = true;
+  $('#statusDoneBtn').hidden = true;
+}
+
+function closeStatusModal() {
+  $('#statusModal').classList.remove('show');
+  if (State.pollTimer) { clearTimeout(State.pollTimer); State.pollTimer = null; }
+}
+
+function renderRefSummary(meta) {
+  const rows = [...meta.rows];
+  if (State.currentReference) rows.push(['Reference', State.currentReference]);
+  return `<div class="ref-summary">${rows.map(([k, v]) => `<div class="row"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`).join('')}</div>`;
+}
+
+function showCompletedState(meta) {
+  $('#statusIcon').className = 'status-icon completed';
+  $('#statusIcon').innerHTML = '<i class="fas fa-check"></i>';
+  $('#statusTitle').textContent = `${meta.type} successful`;
+  $('#statusText').textContent = `Your ${meta.type.toLowerCase()} purchase was completed successfully.`;
+  $('#statusRefSummary').innerHTML = renderRefSummary(meta);
+  $('#statusDoneBtn').hidden = false;
+  $('#statusRetryBtn').hidden = true;
+  $('#statusDoneBtn').onclick = () => {
+    const txId = State.currentTxId;
+    closeStatusModal();
+    resetActivePanel();
+    if (txId) showReceiptForId(txId);
+  };
+}
+
+function showFailedState(msg) {
+  $('#statusIcon').className = 'status-icon failed';
+  $('#statusIcon').innerHTML = '<i class="fas fa-xmark"></i>';
+  $('#statusTitle').textContent = "That order didn't go through";
+  $('#statusText').textContent = msg || "We couldn't complete this order. Please try again.";
+  $('#statusDoneBtn').hidden = false;
+  $('#statusDoneBtn').textContent = 'Close';
+  $('#statusRetryBtn').hidden = true;
+  $('#statusDoneBtn').onclick = () => closeStatusModal();
+}
+
+function showManualReviewState(msg) {
+  $('#statusIcon').className = 'status-icon processing';
+  $('#statusIcon').innerHTML = '<i class="fas fa-hourglass-half"></i>';
+  $('#statusTitle').textContent = 'Under review';
+  $('#statusText').textContent = msg || "We're confirming this order with our provider. Our team will be in touch shortly.";
+  $('#statusDoneBtn').hidden = false;
+  $('#statusDoneBtn').textContent = 'Close';
+  $('#statusRetryBtn').hidden = true;
+  $('#statusDoneBtn').onclick = () => closeStatusModal();
+}
+
+function updateProcessingMessage() {
+  const a = State.pollAttempts;
+  if (a <= 3) $('#statusText').textContent = 'Confirming with our provider — this usually takes a few seconds.';
+  else if (a <= 8) $('#statusText').textContent = 'Still confirming with our provider. Most orders complete within a minute.';
+  else $('#statusText').textContent = "This is taking a little longer than usual. You can safely close this and check History later.";
+}
+
+async function pollStatus(meta) {
+  updateProcessingMessage();
+
+  if (State.pollAttempts >= CONFIG.pollMaxAttempts) {
+    $('#statusIcon').className = 'status-icon processing';
+    $('#statusIcon').innerHTML = '<i class="fas fa-clock"></i>';
+    $('#statusTitle').textContent = 'Still confirming';
+    $('#statusText').textContent = 'Your order is safe. Check History shortly for the final status.';
+    $('#statusDoneBtn').hidden = false;
+    $('#statusDoneBtn').textContent = 'Close';
+    $('#statusDoneBtn').onclick = () => closeStatusModal();
+    fetchWalletBalance();
+    return;
+  }
+
+  const delayMs = CONFIG.pollBackoffMs[Math.min(State.pollAttempts, CONFIG.pollBackoffMs.length - 1)];
+  State.pollTimer = setTimeout(async () => {
+    State.pollAttempts++;
+    try {
+      const { data: order } = await apiGet(CONFIG.api.status(State.currentTxId));
+      State.currentReference = order.reference || State.currentReference;
+      $('#statusRefSummary').innerHTML = renderRefSummary(meta);
+
+      if (order.status === 'completed') { showCompletedState(meta); fetchWalletBalance(); return; }
+      if (order.status === 'refunded' || order.status === 'failed') {
+        showFailedState(
+          order.status === 'refunded'
+            ? 'This order could not be completed. Your wallet has been refunded.'
+            : (order.failureReason || 'This order could not be completed.')
+        );
+        fetchWalletBalance();
+        return;
+      }
+      if (order.status === 'manual_review') {
+        showManualReviewState(order.failureReason);
+        fetchWalletBalance();
+        return;
+      }
+      pollStatus(meta);
+    } catch (e) {
+      pollStatus(meta);
+    }
+  }, delayMs);
+}
+
+function resetActivePanel() {
+  if (State.activeService === 'airtime') {
+    $('#airtimePhone').value = '';
+    $('#airtimeAmount').value = '';
+    $('#airtimeChips').querySelectorAll('.amt-chip').forEach((c) => c.classList.remove('selected'));
+    refreshAirtimeSummary();
+  } else if (State.activeService === 'data') {
+    $('#dataPhone').value = '';
+    State.data.selectedPlan = null;
+    $('#dataPlanPicked').hidden = true;
+    $('#dataPlanSearch').value = '';
+    refreshDataSummary();
+  } else if (State.activeService === 'electricity') {
+    $('#elecMeterNumber').value = '';
+    $('#elecAmount').value = '';
+    resetElecVerification();
+    refreshElecVerifyButton();
+  } else if (State.activeService === 'tv') {
+    $('#tvCustomerId').value = '';
+    resetTvVerification();
+    refreshTvVerifyButton();
+  }
+}
+
+/* =========================================================================
+   RECEIPT MODAL
+   ========================================================================= */
+const SERVICE_LABEL = { airtime: 'Airtime', data: 'Data', electricity: 'Electricity', tv: 'Cable TV' };
+
+async function showReceiptForId(transactionId) {
+  try {
+    const { data: tx } = await apiGet(CONFIG.api.status(transactionId));
+    showReceipt(tx);
+  } catch (e) {
+    toast(e.message || 'Could not load receipt', true);
+  }
+}
+
+function showReceipt(tx) {
+  if (!tx) return;
+  const wrap = $('#receiptWrap');
+  wrap.innerHTML = renderReceiptHTML(tx);
+  $('#receiptModal').classList.add('show');
+  bindReceiptActions(tx);
+}
+
+function closeReceiptModal() {
+  $('#receiptModal').classList.remove('show');
+}
+
+function renderReceiptHTML(tx) {
+  const status = (tx.status || 'processing').toLowerCase();
+  const serviceLabel = SERVICE_LABEL[tx.serviceType] || (tx.serviceType || '').toUpperCase();
+  const providerId = (tx.serviceId || '').toLowerCase();
+  const logoHTML = providerLogoHTML(providerId);
+  const providerName = getProviderName(providerId);
+
+  const amount = toNum(tx.customerAmount || tx.amount);
+
+  const rows = [];
+
+  rows.push({
+    label: 'Transaction ID',
+    value: tx.transactionId || '—',
+    copy: tx.transactionId
+  });
+
+  if (tx.reference) {
+    rows.push({
+      label: 'Reference',
+      value: tx.reference,
+      copy: tx.reference
+    });
+  }
+
+  if (tx.serviceType === 'airtime' || tx.serviceType === 'data') {
+    rows.push({ label: 'Subscriber Number', value: tx.recipient || '—', copy: tx.recipient });
+    rows.push({ label: 'Network', value: providerName });
+  } else if (tx.serviceType === 'electricity') {
+    rows.push({ label: 'Meter Number', value: tx.recipient || '—', copy: tx.recipient });
+    rows.push({ label: 'Provider', value: providerName });
+    if (tx.units) rows.push({ label: 'Units', value: tx.units, highlight: true });
+    if (tx.token) rows.push({ label: 'Token', value: tx.token, copy: tx.token, highlight: true });
+  } else if (tx.serviceType === 'tv') {
+    rows.push({ label: 'Smartcard Number', value: tx.recipient || '—', copy: tx.recipient });
+    rows.push({ label: 'Provider', value: providerName });
+    if (tx.package) rows.push({ label: 'Package', value: tx.package });
+  } else {
+    rows.push({ label: 'Recipient', value: tx.recipient || '—' });
+    rows.push({ label: 'Provider', value: providerName });
+  }
+
+  rows.push({ label: 'Amount', value: moneyNGN(amount), highlight: true });
+  rows.push({ label: 'Payment Method', value: 'MilesSpace Wallet (NGN)' });
+  rows.push({ label: 'Date', value: formatDate(tx.createdAt) });
+  rows.push({ label: 'Time', value: formatTime(tx.createdAt) });
+
+  if (tx.refunded) {
+    rows.push({ label: 'Refunded', value: 'Yes — wallet credited', highlight: true });
+  }
+
+  if (tx.failureReason && (status === 'failed' || status === 'refunded')) {
+    rows.push({ label: 'Reason', value: tx.failureReason });
+  }
+
+  const confirmation = status === 'completed'
+    ? `Transaction delivered successfully to ${tx.recipient || 'the recipient'}.`
+    : status === 'processing'
+    ? 'Confirmation pending from provider. We will notify you once finalised.'
+    : status === 'failed' || status === 'refunded'
+    ? 'Transaction failed and your wallet has been credited back.'
+    : 'Awaiting confirmation.';
+
+  const statusIcon = status === 'completed' ? 'fa-circle-check'
+    : status === 'processing' || status === 'pending' ? 'fa-circle-notch spin'
+    : status === 'failed' || status === 'refunded' ? 'fa-circle-xmark'
+    : 'fa-circle-info';
+
+  const rowsHTML = rows.map(r => `
+    <div class="receipt-row ${r.highlight ? 'highlight' : ''}">
+      <span class="rlabel">${escapeHtml(r.label)}</span>
+      <span class="rvalue">
+        ${escapeHtml(r.value)}
+        ${r.copy ? `<button class="rcopy" data-copy="${escapeHtml(r.copy)}">Copy</button>` : ''}
+      </span>
+    </div>
+  `).join('');
+
+  return `
+    <div class="receipt-head">
+      <div class="receipt-logo">${logoHTML}</div>
+      <h3 id="receiptTitle">${escapeHtml(serviceLabel)} Receipt</h3>
+      <p>${escapeHtml(providerName)} · MilesSpace</p>
+      <div class="rc-status ${escapeHtml(status)}">
+        <i class="fas ${statusIcon}"></i>
+        ${escapeHtml(status.replace('_', ' '))}
+      </div>
+    </div>
+
+    <div class="receipt-body">
+      <div class="receipt-amount">
+        <div class="ra-label">Amount Paid</div>
+        <div class="ra-amt">${moneyNGN(amount)}</div>
+        <div class="ra-sub">${escapeHtml(confirmation)}</div>
+      </div>
+
+      <div class="receipt-rows">
+        ${rowsHTML}
+      </div>
+
+      <div class="receipt-note">
+        <i class="fas fa-shield-halved"></i>
+        This receipt is your proof of purchase. Keep the Transaction ID
+        <strong>${escapeHtml(tx.transactionId || '')}</strong> for any disputes or support requests.
+      </div>
+    </div>
+
+    <div class="receipt-foot">
+      <div class="receipt-actions">
+        <button class="btn-share" data-action="share"><i class="fas fa-share-nodes"></i> Share</button>
+        <button class="btn-copy" data-action="copy-all"><i class="fas fa-copy"></i> Copy</button>
+      </div>
+      <button class="btn-close-receipt" data-action="close">Close</button>
+      <div class="receipt-brand">Powered by <strong>MilesSpace</strong></div>
+    </div>
+  `;
+}
+
+function bindReceiptActions(tx) {
+  const wrap = $('#receiptWrap');
+
+  wrap.querySelectorAll('.rcopy').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const val = btn.dataset.copy;
+      const ok = await copyToClipboard(val);
+      toast(ok ? 'Copied' : 'Copy failed', !ok);
+    });
+  });
+
+  wrap.querySelectorAll('[data-action]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+
+      if (action === 'close') { closeReceiptModal(); return; }
+
+      if (action === 'copy-all') {
+        const text = receiptToText(tx);
+        const ok = await copyToClipboard(text);
+        toast(ok ? 'Receipt copied to clipboard' : 'Copy failed', !ok);
+        return;
+      }
+
+      if (action === 'share') {
+        const text = receiptToText(tx);
+        const title = `${SERVICE_LABEL[tx.serviceType] || 'Receipt'} — ${tx.reference || tx.transactionId}`;
+
+        if (navigator.share) {
+          try { await navigator.share({ title, text }); }
+          catch (err) {
+            if (err.name !== 'AbortError') {
+              const ok = await copyToClipboard(text);
+              toast(ok ? 'Receipt copied (share unavailable)' : 'Share failed', !ok);
+            }
+          }
+        } else {
+          const ok = await copyToClipboard(text);
+          toast(ok ? 'Receipt copied — share manually' : 'Copy failed', !ok);
+        }
+      }
+    });
+  });
+}
+
+function receiptToText(tx) {
+  const status = (tx.status || 'processing').toLowerCase();
+  const serviceLabel = SERVICE_LABEL[tx.serviceType] || (tx.serviceType || '').toUpperCase();
+  const providerName = getProviderName((tx.serviceId || '').toLowerCase());
+  const amount = toNum(tx.customerAmount || tx.amount);
+
+  const lines = [];
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('       MILESSPACE RECEIPT');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push(`Service      : ${serviceLabel}`);
+  lines.push(`Provider     : ${providerName}`);
+  lines.push(`Status       : ${status.replace('_', ' ').toUpperCase()}`);
+  lines.push('');
+  lines.push(`Transaction  : ${tx.transactionId || '—'}`);
+  lines.push(`Reference    : ${tx.reference || '—'}`);
+  lines.push(`Recipient    : ${tx.recipient || '—'}`);
+  if (tx.units) lines.push(`Units        : ${tx.units}`);
+  if (tx.token) lines.push(`Token        : ${tx.token}`);
+  if (tx.package) lines.push(`Package      : ${tx.package}`);
+  lines.push('');
+  lines.push(`Amount Paid  : ${moneyNGN(amount)}`);
+  lines.push('');
+  lines.push(`Payment      : MilesSpace Wallet (NGN)`);
+  lines.push(`Date         : ${formatDate(tx.createdAt)}`);
+  lines.push(`Time         : ${formatTime(tx.createdAt)}`);
+  if (tx.refunded) lines.push(`Refunded     : Yes`);
+  if (tx.failureReason) lines.push(`Reason       : ${tx.failureReason}`);
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('Thank you for using MilesSpace');
+  return lines.join('\n');
+}
+
+document.addEventListener('click', (e) => {
+  const modal = $('#receiptModal');
+  if (modal && modal.classList.contains('show')) {
+    if (e.target === modal) closeReceiptModal();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = $('#receiptModal');
+    if (modal && modal.classList.contains('show')) closeReceiptModal();
+  }
+});
+
+/* =========================================================================
+   HISTORY DRAWER
+   ========================================================================= */
+async function openHistory() {
+  const drawer = $('#histDrawer');
+  drawer.classList.add('open');
+  State.histPage = 1;
+  await loadHistory(true);
+}
+function closeHistory() { $('#histDrawer').classList.remove('open'); }
+
+async function loadHistory(replace) {
+  const list = $('#histList');
+  const loadMoreBtn = $('#histLoadMoreBtn');
+  if (replace) list.innerHTML = '<div class="hist-empty">Loading…</div>';
+
+  try {
+    const { data, meta } = await apiGet(CONFIG.api.history(State.histPage, 20));
+    const items = Array.isArray(data) ? data : [];
+
+    if (replace) {
+      State.histItems = items;
+      if (!items.length) {
+        list.innerHTML = '<div class="hist-empty">No airtime, data or bill payments yet.</div>';
+        $('#histSub').textContent = 'No transactions yet';
+        loadMoreBtn.hidden = true;
+        return;
+      }
+      list.innerHTML = '';
+    } else {
+      State.histItems = State.histItems.concat(items);
+    }
+
+    $('#histSub').textContent = `${meta?.total ?? State.histItems.length} transaction${(meta?.total ?? State.histItems.length) === 1 ? '' : 's'}`;
+
+    list.insertAdjacentHTML('beforeend', items.map(renderHistItem).join(''));
+
+    list.querySelectorAll('.hist-item[data-tx-id]').forEach((el) => {
+      if (el.dataset.bound === '1') return;
+      el.dataset.bound = '1';
+      el.addEventListener('click', () => {
+        const txId = el.dataset.txId;
+        if (txId) showReceiptForId(txId);
+      });
+    });
+
+    State.histHasMore = !!meta?.hasMore;
+    loadMoreBtn.hidden = !State.histHasMore;
+  } catch (e) {
+    if (replace) list.innerHTML = '<div class="hist-empty">Could not load history.</div>';
+    toast(e.message || 'Could not load history', true);
+  }
+}
+
+function renderHistItem(t) {
+  const providerId = (t.service_id || '').toLowerCase();
+  const logoHTML = providerLogoHTML(providerId);
+  const label = SERVICE_LABEL[t.service_type] || t.service_type || 'Transaction';
+  const providerName = getProviderName(providerId);
+  const status = (t.status || 'processing').toLowerCase();
+  const recipient = t.recipient || '—';
+  const amount = toNum(t.customer_amount || t.amount);
+  return `
+    <div class="hist-item" data-tx-id="${escapeHtml(t.id || '')}" role="button" tabindex="0" aria-label="View receipt">
+      <div class="row1">
+        <div class="hi-icon">${logoHTML}</div>
+        <div class="title">${escapeHtml(label)} · ${escapeHtml(providerName)}</div>
+        <span class="pill ${escapeHtml(status)}">${escapeHtml(status.replace('_', ' '))}</span>
+      </div>
+      <div class="meta"><strong>${escapeHtml(recipient)}</strong> · ${moneyNGN(amount)}</div>
+      <div class="meta" style="margin-top:2px;">${escapeHtml(t.reference || '')} · ${t.created_at ? new Date(t.created_at).toLocaleString() : ''}</div>
+      <i class="fas fa-chevron-right hi-arrow"></i>
+    </div>
+  `;
+}
+
+function initHistory() {
+  $('#histBtn')?.addEventListener('click', openHistory);
+  $('#histClose')?.addEventListener('click', closeHistory);
+  $('#histLoadMoreBtn')?.addEventListener('click', async () => {
+    State.histPage += 1;
+    await loadHistory(false);
+  });
+}
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+function init() {
+  if (!getToken()) { redirectToLogin(); return; }
+
+  initSidebar();
+  initServiceTabs();
+  initWalletRefresh();
+  initHistory();
+
+  renderUserFromSession();
+  fetchWalletBalance();
+
+  initAirtimePanel();
+  initDataPanel();
+  initElectricityPanel();
+  initTvPanel();
+
+  refreshAirtimeButton();
+  refreshDataButton();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

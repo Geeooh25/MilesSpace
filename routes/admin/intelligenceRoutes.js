@@ -42,8 +42,6 @@ function getActivityIcon(action) {
         'view_wallet': '💰',
         'view_transactions': '💳',
         'view_settings': '⚙️',
-        'create_campaign': '📢',
-        'create_gift': '🎁',
         'fund_wallet': '💰',
         'withdraw': '📤',
         'purchase_sms': '📱',

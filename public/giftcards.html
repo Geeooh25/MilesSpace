@@ -1,969 +1,2269 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
-<title>MilesSpace | Sell Gift Cards</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<style>
-:root{
-  --p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;
-  --acc:#f59e0b;--acd:#d97706;--acl:#fef3c7;
-  --ok:#10b981;--okl:#d1fae5;--err:#ef4444;--erl:#fee2e2;
-  --bg:#edf1f4;--srf:#fff;--srf2:#f7f9fb;
-  --bdr:#dde4e9;--t1:#0a2530;--t2:#456475;--t3:#8aa4ae;
-  --sw:268px;--r:12px;--rl:16px;--rxl:22px;--rp:999px;
-  --s0:0 1px 3px rgba(0,0,0,.04);--s1:0 4px 14px rgba(0,0,0,.07);--s2:0 8px 28px rgba(0,0,0,.1);
-  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--ease:cubic-bezier(.25,.8,.25,1);
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{font-size:15px;scroll-behavior:smooth}
-body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
-a{text-decoration:none;color:inherit}button{font-family:inherit;cursor:pointer;border:none;background:none}input,select,textarea{font-family:inherit}
-img{max-width:100%;display:block}
-.app{display:flex;min-height:100vh}.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh;min-width:0}
-@media(max-width:1024px){.main{margin-left:0!important}}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Wallet — MilesSpace</title>
 
-/* SIDEBAR */
-.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
-.sidebar::-webkit-scrollbar{display:none}
-@media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}}
-.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
-.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd)}
-.sb-logo img{width:28px;height:28px;border-radius:7px;flex-shrink:0}
-.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
-.sb-nav{padding:0 8px}
-.sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:all .18s;margin-bottom:2px;text-decoration:none}
-.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
-.sb-lnk:hover{background:var(--bg);color:var(--t1)}
-.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
-.sb-lnk.active i{color:var(--p)}
-.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
-.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
-.sb-prof:hover{background:var(--bg)}
-.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden}
-.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.sb-ui{flex:1;min-width:0}
-.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;cursor:pointer}
-.sb-out:hover{background:var(--erl);color:var(--err)}
+  <link rel="preconnect" href="https://api.nowpayments.io" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
-/* TOPBAR */
-.topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 20px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:12px}
-.tb-hbg{width:34px;height:34px;border-radius:9px;background:var(--pl);color:var(--p);font-size:.88rem;display:none;place-items:center;flex-shrink:0;cursor:pointer}
-@media(max-width:1024px){.tb-hbg{display:grid}}
-.tb-title{font-family:var(--fd);font-size:.92rem;font-weight:700;color:var(--t1);flex:1}
-.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
-.tb-btn{width:34px;height:34px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.85rem;cursor:pointer;text-decoration:none}
-.tb-btn:hover{background:var(--pl);color:var(--p)}
-.tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.78rem;color:#fff;border:2px solid var(--acc);cursor:pointer;overflow:hidden;flex-shrink:0}
-.tb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.45);backdrop-filter:blur(4px);z-index:490}.ov.on{display:block}
-.content{padding:20px 22px;flex:1;width:100%;max-width:800px}@media(max-width:768px){.content{padding:14px 13px 82px}}
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
+  <script src="/js/session.js"></script>
+  <script src="/js/presence.js" defer></script>
 
-/* PAGE */
-.page-back{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:600;color:var(--t2);margin-bottom:16px;transition:color .2s}
-.page-back:hover{color:var(--p)}
-.page-title{font-family:var(--fd);font-size:1.4rem;font-weight:800;color:var(--t1);margin-bottom:4px}
-.page-sub{font-size:.84rem;color:var(--t3);margin-bottom:22px}
+  <style>
+    /* ─── COMPLETE STYLES (identical to your current version) ─── */
+    :root {
+      --p: #0c3d4a;
+      --pm: #155e72;
+      --pl: #e8f4f7;
+      --pxl: #f2fafb;
+      --acc: #f59e0b;
+      --acd: #d97706;
+      --acl: #fef3c7;
+      --ok: #10b981;
+      --okl: #d1fae5;
+      --err: #ef4444;
+      --erl: #fee2e2;
+      --usd: #1652f0;
+      --usdl: #dbeafe;
+      --bg: #f4f6f8;
+      --srf: #fff;
+      --srf2: #f8f9fa;
+      --bdr: #e4e8ec;
+      --t1: #0f1923;
+      --t2: #4a6070;
+      --t3: #92a8b4;
+      --sw: 264px;
+      --r: 10px;
+      --rl: 16px;
+      --rxl: 20px;
+      --rp: 999px;
+      --s0: 0 1px 4px rgba(0,0,0,.05);
+      --s1: 0 4px 14px rgba(0,0,0,.07);
+      --s2: 0 8px 28px rgba(0,0,0,.1);
+      --fd: 'Syne', sans-serif;
+      --fb: 'DM Sans', sans-serif;
+      --ease: cubic-bezier(.25,.8,.25,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html{font-size:15px;scroll-behavior:smooth}
+    body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    a{text-decoration:none;color:inherit}
+    button{font-family:inherit;cursor:pointer;border:none;background:none}
+    input,select,textarea{font-family:inherit}
+    .app{display:flex;min-height:100vh}
+    .main-content{margin-left:var(--sw);flex:1;min-width:0}
+    @media(max-width:1024px){.main-content{margin-left:0}}
+    .sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding:20px 12px 18px}
+    .sidebar::-webkit-scrollbar{display:none}
+    @media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}}
+    .sb-brand{padding:0 6px 18px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+    .sb-logo{display:flex;align-items:center;gap:10px;font-family:var(--fd);font-weight:700;font-size:18px;color:var(--t1)}
+    .sb-logo img{width:28px;height:28px;border-radius:7px;flex-shrink:0}
+    .sb-sec{padding:18px 8px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+    .sb-nav{padding:0 4px}
+    .sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;color:var(--t2);font-size:13.5px;font-weight:500;transition:all .18s;margin-bottom:1px;text-decoration:none}
+    .sb-lnk i{width:17px;text-align:center;font-size:14px;flex-shrink:0;opacity:.7}
+    .sb-lnk:hover{background:var(--bg);color:var(--t1)}
+    .sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
+    .sb-lnk.active i{color:var(--p);opacity:1}
+    .sb-foot{margin-top:auto;padding:12px 6px 0;border-top:1px solid var(--bdr);flex-shrink:0}
+    .sb-prof{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:10px;transition:all .18s;cursor:pointer;text-decoration:none}
+    .sb-prof:hover{background:var(--bg)}
+    .sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff;flex-shrink:0;overflow:hidden}
+    .sb-av img{width:100%;height:100%;object-fit:cover}
+    .sb-ui{flex:1;min-width:0}
+    .sb-un{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sb-ue{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sb-out{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:14px;transition:all .18s;cursor:pointer;border:none;background:none}
+    .sb-out:hover{background:var(--erl);color:var(--err)}
+    .hamburger{display:none;position:fixed;top:14px;left:14px;z-index:501;width:40px;height:40px;border-radius:10px;background:var(--srf);border:1px solid var(--bdr);font-size:18px;cursor:pointer;align-items:center;justify-content:center;box-shadow:var(--s1)}
+    @media(max-width:1024px){.hamburger{display:flex}}
+    .scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:499}
+    .scrim.show{display:block}
+    .topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 20px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:12px}
+    .tb-hbg{display:none;width:34px;height:34px;border-radius:9px;background:var(--pl);color:var(--p);font-size:.88rem;place-items:center;flex-shrink:0;cursor:pointer}
+    @media(max-width:1024px){.tb-hbg{display:grid}}
+    .tb-title{font-family:var(--fd);font-size:.92rem;font-weight:700;color:var(--t1);flex:1}
+    .tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .tb-btn{width:34px;height:34px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.85rem;cursor:pointer;transition:all .2s;text-decoration:none}
+    .tb-btn:hover{background:var(--pl);color:var(--p)}
+    .tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.78rem;color:#fff;border:2px solid var(--acc);cursor:pointer;flex-shrink:0;overflow:hidden}
+    .tb-av img{width:100%;height:100%;object-fit:cover}
+    .content{padding:20px 22px;flex:1;max-width:1100px;margin:0 auto}
+    @media(max-width:768px){.content{padding:14px 13px 82px}}
+    .page-header{margin-bottom:24px}
+    .page-header h1{font-family:var(--fd);font-size:1.3rem;font-weight:800;color:var(--t1);letter-spacing:-0.3px}
+    .page-header p{font-size:.8rem;color:var(--t3);margin-top:4px}
+    .type-tabs{display:inline-flex;background:var(--srf);border:1px solid var(--bdr);border-radius:10px;padding:4px;margin-bottom:24px}
+    .type-tabs button{border:none;background:transparent;padding:10px 22px;font-size:13px;font-weight:600;color:var(--t3);border-radius:7px;cursor:pointer;font-family:inherit;transition:all .2s}
+    .type-tabs button.active{background:var(--srf);color:var(--t1);box-shadow:0 0 0 1px var(--bdr)}
+    .type-tabs button:hover{color:var(--t1)}
+    /* Two-tab pill switcher used inside the Add Funds modal for the USD wallet.
+       Same pill shell/active-state as .type-tabs, stretched to full width. */
+    .type-tabs.full{display:flex;width:100%;margin-bottom:16px}
+    .type-tabs.full button{flex:1;padding:9px 10px;font-size:13px;font-weight:600}
+    .wallet-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:0;max-width:620px}
+    @media(max-width:640px){.wallet-cards{grid-template-columns:1fr;max-width:100%}}
+    .wallet-card{background:var(--srf);border:2px solid var(--bdr);border-radius:12px;padding:20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all 0.2s}
+    .wallet-card:hover{border-color:var(--p)}
+    .wallet-card.active{background:var(--pl);border-color:var(--p)}
+    .wallet-card .wname{font-size:15.5px;font-weight:700;color:var(--t1)}
+    .wallet-card .wbalance{font-size:13px;font-weight:600;color:var(--t3);margin-top:4px}
+    .wallet-card .wicon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;flex-shrink:0}
+    .wicon.ngn{background:var(--p)}
+    .wicon.usd{background:var(--usd)}
+    .balance-panel{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);margin-top:24px;max-width:620px;padding:48px 24px 32px;text-align:center;box-shadow:var(--s0)}
+    @media(max-width:640px){.balance-panel{max-width:100%;padding:36px 16px 28px}}
+    .balance-label{font-size:14px;color:var(--t3);margin-bottom:14px}
+    .balance-amount{font-size:42px;font-weight:800;color:var(--t1);margin-bottom:36px}
+    @media(max-width:640px){.balance-amount{font-size:34px}}
+    .balance-amount .cents{font-size:26px;font-weight:600;color:var(--t3)}
+    .balance-amount .symbol{font-size:26px;vertical-align:top;position:relative;top:8px;margin-right:2px}
+    .action-row{display:flex;justify-content:center;gap:40px;margin-bottom:34px;flex-wrap:wrap;}
+    @media(max-width:480px){.action-row{gap:20px}}
+    .action{display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;border:none;background:none;font-family:inherit}
+    .action .circle{width:56px;height:56px;border-radius:50%;background:var(--p);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;transition:all 0.2s}
+    .action:hover .circle{background:var(--pm);transform:scale(1.05)}
+    .action .alabel{font-size:13.5px;font-weight:700;color:var(--t1)}
+    .action .crypto-badge{font-size:9px;background:var(--acc);color:#fff;padding:1px 6px;border-radius:99px;font-weight:700;margin-top:2px}
+    .footer-links{font-size:13.5px;color:var(--t3)}
+    .footer-links a{color:#3b82c4;text-decoration:none;font-weight:600;margin:0 12px;cursor:pointer}
+    .footer-links a:hover{text-decoration:underline}
+    .footer-links .sep{color:var(--bdr)}
+    .crypto-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+    @media(max-width:480px){.crypto-grid{grid-template-columns:1fr}}
+    .crypto-option{padding:10px 12px;border:2px solid var(--bdr);border-radius:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all 0.15s;background:var(--srf2)}
+    .crypto-option:hover{border-color:var(--p)}
+    .crypto-option.selected{border-color:var(--acc);background:var(--acl)}
+    .crypto-option .coin-icon{font-size:18px;width:28px;text-align:center}
+    .crypto-option .coin-name{font-weight:600;font-size:13px}
+    .crypto-option .coin-network{font-size:10px;color:var(--t3)}
+    .preset-btn{padding:6px 12px;border:1px solid var(--bdr);border-radius:6px;background:var(--srf2);font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;transition:all 0.15s}
+    .preset-btn:hover{border-color:var(--p);color:var(--p);background:var(--pl)}
+    .modal-overlay{position:fixed;inset:0;background:rgba(12,61,74,.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000;animation:fadeIn 0.25s ease}
+    .modal-overlay.open{display:flex}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .modal{background:var(--srf);border-radius:var(--rxl);width:100%;max-width:440px;padding:24px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s ease}
+    @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+    .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .modal-head h3{margin:0;font-size:16px;font-weight:700;color:var(--t1)}
+    .modal-head h3 i{color:var(--acc);margin-right:8px}
+    .modal-close{border:none;background:none;font-size:20px;cursor:pointer;color:var(--t3);transition:color 0.2s}
+    .modal-close:hover{color:var(--err)}
+    .form-group{margin-bottom:14px}
+    .form-group label{display:block;font-size:12.5px;font-weight:600;color:var(--t3);margin-bottom:6px}
+    .form-group input,.form-group select{width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:13.5px;font-family:inherit;background:var(--srf2);transition:border 0.2s}
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--p)}
+    .form-group input:disabled{opacity:.6;cursor:not-allowed}
+    .btn{width:100%;padding:12px;border-radius:9px;border:none;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s}
+    .btn-primary{background:var(--p);color:#fff}
+    .btn-primary:hover{background:var(--pm);transform:translateY(-1px)}
+    .btn-primary:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+    .btn-gold{background:var(--acc);color:#fff}
+    .btn-gold:hover{background:var(--acd)}
+    .btn-success{background:var(--ok);color:#fff}
+    .btn-success:hover{background:#059669}
+    .payment-info{background:var(--srf2);border-radius:10px;padding:14px;margin:12px 0;text-align:center}
+    .payment-info .qr-placeholder{width:120px;height:120px;margin:12px auto;background:#fff;border:2px dashed var(--bdr);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--t3)}
+    .payment-info .address{font-family:'Courier New',monospace;font-size:12px;word-break:break-all;background:#fff;padding:8px 12px;border-radius:6px;border:1px solid var(--bdr);margin:8px 0}
+    .copy-btn{background:var(--p);color:#fff;border:none;padding:4px 12px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600}
+    .copy-btn:hover{background:var(--pm)}
+    .toast-container{position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+    .toast{padding:12px 18px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;box-shadow:var(--s2);animation:slideIn 0.3s ease;max-width:360px}
+    .toast.success{background:var(--ok)}
+    .toast.error{background:var(--err)}
+    .toast.info{background:var(--p)}
+    @keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+    .status-badge{display:inline-block;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700}
+    .status-badge.waiting{background:#fef9c3;color:#92400e}
+    .status-badge.processing{background:#dbeafe;color:#1e40af}
+    .status-badge.finished{background:var(--okl);color:#065f46}
+    .status-badge.failed{background:var(--erl);color:#991b1b}
+    .mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:54px;background:rgba(255,255,255,.88);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:17px;box-shadow:0 6px 22px rgba(12,61,74,.12);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+    .mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.5rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1}
+    .mni i{font-size:.84rem;padding:5px 6px;border-radius:9px;transition:all .18s}
+    .mni.active{color:var(--p)}
+    .mni.active i{background:var(--pl);color:var(--p)}
+    @media(max-width:768px){.mnav{display:flex}}
+    .tx-panel{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);margin-top:20px;max-width:900px;padding:18px 20px 8px;box-shadow:var(--s0)}
+    .tx-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;position:relative}
+    .tx-panel-head h3{font-family:var(--fd);font-size:1.05rem;font-weight:800;color:var(--t1)}
+    .tx-filter-wrap{position:relative}
+    .tx-filter-btn{width:34px;height:34px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);cursor:pointer;font-size:13px}
+    .tx-filter-btn:hover{background:var(--pl);color:var(--p)}
+    .tx-filter-menu{display:none;position:absolute;top:42px;right:0;background:var(--srf);border:1px solid var(--bdr);border-radius:10px;box-shadow:var(--s2);width:190px;z-index:50;overflow:hidden}
+    .tx-filter-menu.show{display:block}
+    .tx-filter-menu button{display:block;width:100%;text-align:left;padding:12px 16px;font-size:13px;font-weight:600;color:var(--t1);background:none;border:none;border-bottom:1px solid var(--bdr);cursor:pointer}
+    .tx-filter-menu button:last-child{border-bottom:none}
+    .tx-filter-menu button:hover{background:var(--pl);color:var(--p)}
+    .tx-row{display:grid;grid-template-columns:2fr 1.2fr 1.3fr 1.6fr;align-items:center;padding:13px 4px;border-bottom:1px solid var(--bdr);font-size:13px;cursor:pointer;transition:background .15s}
+    .tx-row:hover{background:var(--srf2)}
+    .tx-row.tx-head{cursor:default}
+    .tx-row.tx-head:hover{background:transparent}
+    .tx-row:last-child{border-bottom:none}
+    .tx-bank{display:flex;align-items:center;gap:10px}
+    .tx-bank-icon{width:34px;height:34px;border-radius:50%;background:var(--pl);color:var(--p);display:grid;place-items:center;font-size:14px;flex-shrink:0}
+    .tx-bank-name{font-weight:700;color:var(--t1)}
+    .tx-bank-acc{font-size:11px;color:var(--t3)}
+    .tx-status{display:flex;align-items:center;gap:6px;font-weight:600}
+    .tx-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex-shrink:0}
+    .tx-dot.pending{background:#eab308}
+    .tx-dot.failed{background:var(--err)}
+    .tx-date{color:var(--t2)}
+    .tx-empty{padding:24px 4px;text-align:center;color:var(--t3);font-size:13px}
+    @media(max-width:640px){
+      .tx-row{grid-template-columns:1.6fr 1fr 1fr}
+      .tx-row>div:nth-child(4),.tx-row.tx-head>div:nth-child(4){display:none}
+    }
+    .side-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(10,20,28,.45);z-index:900}
+    .side-drawer-overlay.show{display:block}
+    .side-drawer{position:fixed;top:0;right:-460px;width:460px;max-width:92vw;height:100vh;background:var(--srf);z-index:901;transition:right .3s var(--ease);overflow-y:auto;box-shadow:var(--s2)}
+    .side-drawer.open{right:0}
+    .drawer-head{display:flex;align-items:center;gap:14px;padding:20px 24px;border-bottom:1px solid var(--bdr);position:sticky;top:0;background:var(--srf);z-index:2}
+    .drawer-back{width:34px;height:34px;border-radius:50%;background:var(--pl);color:var(--p);display:grid;place-items:center;border:none;cursor:pointer;flex-shrink:0;font-size:13px}
+    .drawer-back:hover{background:var(--p);color:#fff}
+    .drawer-head h3{font-family:var(--fd);font-size:1.05rem;font-weight:800;color:var(--t1)}
+    .drawer-body{padding:20px 24px 32px}
+    .bd-filter-row{display:flex;align-items:center;gap:8px;background:var(--srf2);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--t2);font-weight:600;margin-bottom:20px}
+    .bd-sec-title{font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    .bd-item{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--bdr)}
+    .bd-item:last-child{border-bottom:none}
+    .bd-left{display:flex;align-items:center;gap:12px}
+    .bd-icon{width:38px;height:38px;border-radius:50%;background:var(--pl);display:grid;place-items:center;font-size:16px;flex-shrink:0}
+    .bd-name{font-size:13.5px;font-weight:700;color:var(--t1)}
+    .bd-amt{font-size:13.5px;font-weight:700;color:var(--t1)}
+    #verifyStatus .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--bdr);border-top-color:var(--p);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
 
-/* FORM CARD */
-.form-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);padding:24px;box-shadow:var(--s0)}
-.fg{margin-bottom:16px}
-.flbl{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-bottom:5px}
-.finp,.fsel,.ftxt{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.86rem;color:var(--t1);background:var(--srf2);outline:none;transition:all .2s;-webkit-appearance:none;appearance:none}
-.finp:focus,.fsel:focus,.ftxt:focus{border-color:var(--p);background:var(--srf)}
-.ftxt{resize:vertical;min-height:74px;font-family:var(--fb);line-height:1.5}
-.fsel-wrap{position:relative}
-.fsel-wrap::after{content:'\f078';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.62rem;pointer-events:none}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:500px){.frow{grid-template-columns:1fr}}
-.fhint{font-size:.68rem;color:var(--t3);margin-top:4px}
+    .giftpoint-card {
+      background: linear-gradient(145deg, var(--acc) 0%, var(--acd) 100%);
+      border-radius: var(--rxl);
+      padding: 24px 20px;
+      color: #fff;
+      margin-bottom: 24px;
+      box-shadow: var(--s1);
+      display: none;
+    }
+    .giftpoint-card.active { display: block; }
+    .giftpoint-card .gp-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .giftpoint-card .gp-label {
+      font-size: .7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      opacity: .8;
+    }
+    .giftpoint-card .gp-amount {
+      font-family: var(--fd);
+      font-size: 2rem;
+      font-weight: 800;
+    }
+    .giftpoint-card .gp-sub {
+      font-size: .75rem;
+      opacity: .8;
+      margin-top: 4px;
+    }
+    .giftpoint-card .gp-progress {
+      margin-top: 14px;
+      height: 4px;
+      background: rgba(255,255,255,.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .giftpoint-card .gp-progress-fill {
+      height: 100%;
+      background: #fff;
+      border-radius: 4px;
+      transition: width .6s ease;
+    }
 
-/* UPLOAD */
-.upload-area{border:2px dashed var(--bdr);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;transition:all .22s;background:var(--srf2);margin-bottom:10px;position:relative}
-.upload-area:hover,.upload-area.drag{border-color:var(--p);background:var(--pxl)}
-.upload-area.has-file{border-color:var(--ok);background:var(--okl)}
-.upload-area input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.upload-area i{font-size:1.5rem;color:var(--t3);display:block;margin-bottom:6px}
-.upload-area p{font-size:.8rem;color:var(--t2)}
-.upload-area .file-list{font-size:.74rem;color:var(--ok);margin-top:6px;font-weight:600}
-.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.thumb{position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:1px solid var(--bdr);background:var(--srf2);flex-shrink:0}
-.thumb img{width:100%;height:100%;object-fit:cover}
-.thumb .rm{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(10,37,48,.7);color:#fff;display:grid;place-items:center;font-size:.6rem;cursor:pointer}
+    .beneficiary-section {
+      background: var(--srf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rxl);
+      padding: 18px 16px;
+      margin-bottom: 20px;
+    }
+    .beneficiary-section .bs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .beneficiary-section .bs-header h4 {
+      font-family: var(--fd);
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--t1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .beneficiary-section .bs-header .add-btn {
+      padding: 4px 12px;
+      border-radius: var(--rp);
+      background: var(--pl);
+      color: var(--p);
+      font-size: .65rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid var(--bdr);
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .beneficiary-section .bs-header .add-btn:hover {
+      background: var(--p);
+      color: #fff;
+      border-color: var(--p);
+    }
+    .beneficiary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 8px;
+    }
+    .beneficiary-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1.5px solid var(--bdr);
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: all .2s;
+      background: var(--srf2);
+    }
+    .beneficiary-item:hover {
+      border-color: var(--p);
+      background: var(--pl);
+      transform: translateY(-1px);
+    }
+    .beneficiary-item .bi-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: .7rem;
+      flex-shrink: 0;
+      background: var(--pl);
+      color: var(--p);
+    }
+    .beneficiary-item .bi-info { flex: 1; min-width: 0; }
+    .beneficiary-item .bi-name { font-size: .72rem; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .beneficiary-item .bi-detail { font-size: .6rem; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .beneficiary-item .bi-badge { font-size: .5rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: var(--okl); color: #065f46; }
+    .beneficiary-item .bi-check { width: 16px; height: 16px; border-radius: 50%; background: var(--ok); display: none; place-items: center; color: #fff; font-size: .4rem; flex-shrink: 0; }
+    .beneficiary-item.selected .bi-check { display: grid; }
+    .beneficiary-item.selected { border-color: var(--ok); background: var(--okl); }
 
-/* WALLET SELECT */
-.wallet-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
-.w-opt{border:1.5px solid var(--bdr);border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:all .18s;background:var(--srf)}
-.w-opt:hover{border-color:var(--pm)}
-.w-opt.selected{border-color:var(--p);background:var(--pxl)}
-.w-opt-top{display:flex;align-items:center;gap:8px;margin-bottom:3px}
-.w-opt-ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:.72rem;flex-shrink:0}
-.w-opt-name{font-size:.8rem;font-weight:600;color:var(--t1)}
-.w-opt-bal{font-size:.7rem;color:var(--t3)}
-
-/* RATE + TOTAL BOX */
-.rate-box{background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px 16px;margin-bottom:16px}
-.rate-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.8rem}
-.rate-row:last-child{border-bottom:none;padding-top:10px;font-weight:700;font-size:.88rem}
-.rate-lbl{color:var(--t2)}.rate-val{color:var(--t1);font-weight:600}
-.rate-val.highlight{color:var(--ok);font-size:.92rem}
-
-/* SUBMIT BTN */
-.btn-submit{width:100%;padding:13px;border-radius:var(--rp);background:var(--ok);color:#fff;font-family:var(--fd);font-weight:700;font-size:.88rem;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .22s}
-.btn-submit:hover{background:#059669;transform:translateY(-1px)}
-.btn-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
-
-/* INFO BOX */
-.ibox{padding:10px 13px;border-radius:var(--r);margin-bottom:16px;display:flex;align-items:flex-start;gap:9px;font-size:.78rem;line-height:1.5}
-.ibox-warn{background:var(--acl);border:1px solid #fde68a;color:#92400e}
-.ibox-info{background:#eff8ff;border:1px solid #bfdbfe;color:#1e40af}
-
-/* TOASTS */
-.toasts{position:fixed;bottom:72px;right:14px;z-index:900;display:flex;flex-direction:column;gap:6px;max-width:320px;pointer-events:none}
-.toast{display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:var(--rp);box-shadow:var(--s2);font-size:.77rem;font-weight:500;pointer-events:auto;animation:tIn .22s ease;background:var(--srf);color:var(--t1)}
-.toast.ok{background:var(--okl);color:#065f46}.toast.err{background:var(--erl);color:#991b1b}
-@keyframes tIn{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
-
-/* MOBILE NAV */
-.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:54px;background:rgba(255,255,255,.88);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.8);border-radius:18px;box-shadow:0 6px 24px rgba(0,0,0,.1);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
-.mni{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.52rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1}
-.mni i{font-size:.86rem;padding:5px 7px;border-radius:9px;transition:all .18s}
-.mni.active{color:var(--p)}.mni.active i{background:var(--pl);color:var(--p)}
-@media(max-width:768px){.mnav{display:flex}}
-
-/* ═══ SUCCESS SCREEN ═══ */
-.success-ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.55);backdrop-filter:blur(6px);z-index:1000;align-items:center;justify-content:center;padding:16px}
-.success-ov.on{display:flex}
-.success-card{background:var(--srf);border-radius:var(--rxl);padding:36px 28px;max-width:380px;width:100%;text-align:center;box-shadow:var(--s2);position:relative;overflow:hidden;animation:popIn .35s var(--ease)}
-@keyframes popIn{from{opacity:0;transform:scale(.92) translateY(8px)}to{opacity:1;transform:none}}
-.s-check{width:74px;height:74px;border-radius:50%;background:var(--okl);display:grid;place-items:center;margin:0 auto 18px;animation:pulse 1.6s ease-in-out infinite}
-.s-check i{font-size:2rem;color:var(--ok)}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-.s-title{font-family:var(--fd);font-size:1.25rem;font-weight:800;color:var(--t1);margin-bottom:8px}
-.s-sub{font-size:.83rem;color:var(--t2);line-height:1.55;margin-bottom:22px}
-.s-btn{width:100%;padding:12px;border-radius:var(--rp);background:var(--p);color:#fff;font-family:var(--fd);font-weight:700;font-size:.85rem;margin-bottom:12px;transition:all .2s}
-.s-btn:hover{background:var(--pm)}
-.s-link{font-size:.76rem;color:var(--t2);font-weight:600;text-decoration:underline;cursor:pointer}
-.confetti-wrap{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.confetti{position:absolute;top:-12px;width:8px;height:14px;opacity:.9;animation:fall linear forwards}
-@keyframes fall{to{transform:translateY(420px) rotate(540deg);opacity:0}}
-
-/* INFO MODAL */
-.modal-ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.55);backdrop-filter:blur(6px);z-index:1100;align-items:center;justify-content:center;padding:16px}
-.modal-ov.on{display:flex}
-.modal-card{background:var(--srf);border-radius:var(--rxl);padding:26px;max-width:380px;width:100%;box-shadow:var(--s2);animation:popIn .3s var(--ease)}
-.modal-card h3{font-family:var(--fd);font-size:1.05rem;font-weight:800;color:var(--t1);margin-bottom:14px}
-.modal-card ul{list-style:none;display:flex;flex-direction:column;gap:12px;margin-bottom:18px}
-.modal-card li{display:flex;align-items:flex-start;gap:10px;font-size:.82rem;color:var(--t2);line-height:1.5}
-.modal-card li i{color:var(--p);margin-top:2px;flex-shrink:0;width:16px;text-align:center}
-.modal-close{width:100%;padding:11px;border-radius:var(--rp);background:var(--srf2);border:1.5px solid var(--bdr);color:var(--t1);font-weight:700;font-size:.83rem}
-.modal-close:hover{background:var(--pl);border-color:var(--p);color:var(--p)}
-
-/* ═══ MOBILE RESPONSIVE ═══ */
-@media(max-width:480px){
-  .content{padding:12px 12px 90px}
-  .page-title{font-size:1.18rem}
-  .page-sub{font-size:.78rem;margin-bottom:16px}
-  .form-card{padding:16px;border-radius:var(--rl)}
-  .wallet-opts{grid-template-columns:1fr}
-  .w-opt{padding:9px 10px}
-  .upload-area{padding:18px 12px}
-  .upload-area i{font-size:1.2rem}
-  .upload-area p{font-size:.74rem}
-  .rate-box{padding:12px 13px}
-  .rate-row{font-size:.75rem}
-  .rate-row:last-child{font-size:.84rem}
-  .btn-submit{font-size:.82rem;padding:12px}
-  .ibox{font-size:.73rem;padding:9px 11px}
-  .tb-title{font-size:.82rem}
-  .thumb{width:56px;height:56px}
-  .success-card{padding:28px 20px}
-  .s-title{font-size:1.1rem}
-  .s-sub{font-size:.8rem}
-}
-@media(max-width:360px){
-  .frow{gap:8px}
-  .fg{margin-bottom:12px}
-  .finp,.fsel,.ftxt{padding:9px 10px;font-size:.82rem}
-}
-</style>
-<script src="/js/session.js"></script>
-<script src="/js/presence.js" defer></script>
+    /* ─── DEPOSIT CURRENCY PICKER (inside Add Funds modal) ─── */
+    .dep-curr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 8px;
+      margin: 4px 0 14px;
+    }
+    .dep-curr {
+      padding: 12px 10px;
+      border: 1.5px solid var(--bdr);
+      border-radius: 10px;
+      background: var(--srf);
+      cursor: pointer;
+      text-align: left;
+      transition: all .15s;
+      font-family: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .dep-curr:hover { border-color: var(--p); background: var(--pl); }
+    .dep-curr.selected { border-color: var(--acc); background: var(--acl); box-shadow: 0 0 0 2px rgba(245,158,11,.15); }
+    .dep-curr .dc-flag { font-size: 18px; line-height: 1; margin-bottom: 2px; }
+    .dep-curr .dc-code { font-size: 12.5px; font-weight: 800; color: var(--t1); letter-spacing: .02em; }
+    .dep-curr .dc-name { font-size: 9.5px; color: var(--t3); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dep-quote {
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #f0f7fa, #e8f4f7);
+      border: 1px solid #cce8ee;
+      display: none;
+    }
+    .dep-quote.show { display: block; }
+    .dep-quote .row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 3px 0; }
+    .dep-quote .row.total { padding-top: 8px; margin-top: 4px; border-top: 1px dashed #a7d0d9; }
+    .dep-quote .lbl { color: var(--t2); }
+    .dep-quote .val { font-weight: 700; color: var(--t1); font-variant-numeric: tabular-nums; }
+    .dep-quote .row.total .val { color: var(--p); font-size: 14px; }
+    .dep-note { margin-top: 8px; font-size: 10.5px; color: var(--t3); line-height: 1.5; }
+    .dep-note i { color: var(--acc); margin-right: 3px; }
+    .amount-with-sym {
+      position: relative;
+    }
+    .amount-with-sym .sym-prefix {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--t2);
+      pointer-events: none;
+    }
+    .amount-with-sym input {
+      padding-left: 42px !important;
+      font-weight: 700;
+      font-size: 15px;
+    }
+  </style>
 </head>
+<script src="/js/miles-widget.js" defer></script>
 <body>
-<div class="ov" id="ov"></div>
-<div class="app">
 
-<!-- SIDEBAR -->
-<aside class="sidebar" id="sb">
-  <div class="sb-brand"><div class="sb-logo"><img src="/images/miles.png" alt="MilesSpace">MilesSpace</div></div>
+<div class="app">
+  <aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
+      MilesSpace
+    </div>
+  </div>
   <p class="sb-sec">Menu</p>
   <nav class="sb-nav">
     <a href="dashboard.html" class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
     <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
     <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
     <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
-    <a href="giftcards.html" class="sb-lnk active"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="airtime.html" class="sb-lnk active"><i class="fas fa-globe"></i> Global Airtime</a>
+    <a href="bills.html" class="sb-lnk active"><i class="fas fa-file-invoice-dollar"></i> Airtime, Data & Bills</a>
+    <a href="esim.html" class="sb-lnk"><i class="fas fa-sim-card"></i> Buy eSIM</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
     <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
     <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
-    <a href="Sendgift.html" class="sb-lnk"><i class="fas fa-gift"></i> Send Gift</a>
   </nav>
   <p class="sb-sec">Account</p>
   <nav class="sb-nav">
-    <a href="profile.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Profile</a>
+    <a href="usersettings.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Settings</a>
     <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
   </nav>
   <div class="sb-foot">
-    <a href="profile.html" class="sb-prof">
-      <div class="sb-av" id="sbAv">U</div>
-      <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
-      <button class="sb-out" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i></button>
-    </a>
+    <div class="sb-prof">
+      <a href="usersettings.html" class="sb-prof-link">
+        <div class="sb-av" id="sbAv">U</div>
+        <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
+      </a>
+      <button class="sb-out" id="logoutBtn" title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
   </div>
 </aside>
+  <div class="scrim" id="scrim"></div>
 
-<!-- MAIN -->
-<div class="main">
-  <header class="topbar">
-    <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
-    <p class="tb-title">Sell Gift Cards</p>
-    <div class="tb-right">
-      <a href="notifications.html" class="tb-btn"><i class="fas fa-bell"></i></a>
-      <a href="profile.html" class="tb-av" id="tbAv">U</a>
-    </div>
-  </header>
+  <div class="main-content">
+    <header class="topbar">
+      <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
+      <p class="tb-title">💳 Wallet</p>
+      <div class="tb-right">
+        <a href="notifications.html" class="tb-btn"><i class="fas fa-bell"></i></a>
+        <div class="tb-av" id="tbAv">U</div>
+      </div>
+    </header>
+    <div class="content">
+      <div class="page-header"><h1>Wallet</h1><p>Manage your Naira and USD wallets. Add funds in your local currency.</p></div>
 
-  <main class="content">
-    <a href="giftcards.html" class="page-back"><i class="fas fa-arrow-left"></i> Back to Gift Cards</a>
-    <h1 class="page-title">💳 Sell Gift Cards</h1>
-    <p class="page-sub">Convert your gift cards to instant cash in your Naira or Dollar wallet.</p>
-
-    <div class="form-card">
-      <div class="ibox ibox-warn">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>Only submit unused, valid gift cards. Fraudulent submissions will result in account suspension.</span>
+      <div class="type-tabs">
+        <button class="active" id="tabFiat" onclick="switchWalletTab('fiat')">💵 Fiat</button>
+        <button id="tabGift" onclick="switchWalletTab('gift')">🎁 Gift Point</button>
       </div>
 
-      <!-- Gift Card Name -->
-      <div class="fg">
-        <label class="flbl">Gift Card Name *</label>
-        <div class="fsel-wrap">
-          <select class="fsel" id="cardName" onchange="onCardChange()">
-            <option value="">-- Select a gift card --</option>
-            <optgroup label="🎮 Gaming">
-              <option value="Steam">Steam</option>
-              <option value="Xbox">Xbox</option>
-              <option value="PlayStation">PlayStation</option>
-              <option value="Nintendo eShop">Nintendo eShop</option>
-            </optgroup>
-            <optgroup label="🛒 Shopping">
-              <option value="Amazon">Amazon</option>
-              <option value="eBay">eBay</option>
-              <option value="Walmart">Walmart</option>
-              <option value="Target">Target</option>
-            </optgroup>
-            <optgroup label="🎵 Entertainment">
-              <option value="iTunes / Apple">iTunes / Apple</option>
-              <option value="Google Play">Google Play</option>
-              <option value="Netflix">Netflix</option>
-              <option value="Spotify">Spotify</option>
-            </optgroup>
-            <optgroup label="💳 Prepaid Cards">
-              <option value="Visa Prepaid">Visa Prepaid</option>
-              <option value="Mastercard Prepaid">Mastercard Prepaid</option>
-              <option value="American Express">American Express</option>
-            </optgroup>
-            <optgroup label="🛜 Other">
-              <option value="Other Gift Card">Other Gift Card</option>
-            </optgroup>
-          </select>
+      <div class="giftpoint-card" id="giftpointCard">
+        <div class="gp-top">
+          <span class="gp-label">🎁 Gift Point Balance</span>
+          <span style="font-size:.6rem;opacity:.6;">Earned from transactions</span>
+        </div>
+        <div class="gp-amount" id="giftpointBalance">₦0.00</div>
+        <div class="gp-sub">Lifetime earned: <span id="giftLifetimeEarned">₦0.00</span></div>
+        <div class="gp-progress">
+          <div class="gp-progress-fill" id="giftProgressFill" style="width:0%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.6rem;opacity:.7;margin-top:4px;">
+          <span>Min redeem: ₦500</span>
+          <span id="giftProgressLabel">0% of ₦5,000 goal</span>
         </div>
       </div>
 
-      <!-- Card Country & Subcategory -->
-      <div class="frow">
-        <div class="fg">
-          <label class="flbl">Card Country</label>
-          <div class="fsel-wrap">
-            <select class="fsel" id="cardCountry">
-              <option value="US">🇺🇸 United States</option>
-              <option value="UK">🇬🇧 United Kingdom</option>
-              <option value="CA">🇨🇦 Canada</option>
-              <option value="DE">🇩🇪 Germany</option>
-              <option value="FR">🇫🇷 France</option>
-              <option value="AU">🇦🇺 Australia</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+      <div class="wallet-cards" id="walletCards">
+        <div class="wallet-card active" id="cardNGN" onclick="selectWallet('NGN')">
+          <div><div class="wname">🇳🇬 Naira Wallet</div><div class="wbalance" id="balanceNGN">₦0.00</div></div>
+          <div class="wicon ngn">₦</div>
         </div>
-        <div class="fg">
-          <label class="flbl">Card Subcategory</label>
-          <div class="fsel-wrap">
-            <select class="fsel" id="cardSubcategory">
-              <option value="">Physical / Digital</option>
-              <option value="physical">Physical Card</option>
-              <option value="digital">Digital / eCode</option>
-            </select>
-          </div>
+        <div class="wallet-card" id="cardUSD" onclick="selectWallet('USD')">
+          <div><div class="wname">🇺🇸 USD Wallet</div><div class="wbalance" id="balanceUSD">$0.00</div></div>
+          <div class="wicon usd">$</div>
         </div>
       </div>
 
-      <!-- Amount -->
-      <div class="fg">
-        <label class="flbl">Total Gift Card Amount (USD) *</label>
-        <input type="number" class="finp" id="cardAmount" placeholder="e.g. 50" min="1" max="500" step="0.01" oninput="calcRate()"/>
-      </div>
-
-      <!-- Card Image Upload -->
-      <div class="fg">
-        <label class="flbl">Upload Card Image(s) — Front &amp; Back, or Screenshot</label>
-        <div class="upload-area" id="uploadArea">
-          <input type="file" accept="image/*" multiple id="cardImages" onchange="onFileSelect(this,'cardImages')"/>
-          <i class="fas fa-cloud-upload-alt"></i>
-          <p>Click to upload or drag &amp; drop</p>
-          <p class="file-list" id="fileList" style="display:none"></p>
+      <div class="beneficiary-section">
+        <div class="bs-header">
+          <h4><i class="fas fa-users"></i> Saved Beneficiaries</h4>
+          <button class="add-btn" onclick="openAddBeneficiary()"><i class="fas fa-plus"></i> Add</button>
         </div>
-        <div class="thumbs" id="cardThumbs"></div>
-        <p class="fhint">You can upload multiple files at once (front, back, or a screenshot for digital cards).</p>
-      </div>
-
-      <!-- Card Code -->
-      <div class="fg">
-        <label class="flbl">Card Code / Number</label>
-        <input type="text" class="finp" id="cardCode" placeholder="Enter the card number or redeem code"/>
-      </div>
-
-      <!-- PIN -->
-      <div class="fg">
-        <label class="flbl">PIN (if applicable)</label>
-        <input type="text" class="finp" id="cardPin" placeholder="Enter PIN if your card has one"/>
-      </div>
-
-      <!-- Receipt Upload -->
-      <div class="fg">
-        <label class="flbl">Upload Receipt (optional)</label>
-        <div class="upload-area" id="receiptArea">
-          <input type="file" accept="image/*,.pdf" multiple id="receiptImages" onchange="onFileSelect(this,'receiptImages')"/>
-          <i class="fas fa-receipt"></i>
-          <p>Click to upload or drag &amp; drop</p>
-          <p class="file-list" id="receiptFileList" style="display:none"></p>
+        <div class="beneficiary-grid" id="beneficiaryGrid">
+          <div class="tx-empty" style="grid-column:1/-1;padding:12px;">Loading beneficiaries…</div>
         </div>
-        <div class="thumbs" id="receiptThumbs"></div>
       </div>
 
-      <!-- Payout Method -->
-      <div class="fg">
-        <label class="flbl">Payout Method *</label>
-        <div class="wallet-opts">
-          <div class="w-opt selected" id="wNGN" onclick="selWallet('ngn')">
-            <div class="w-opt-top">
-              <div class="w-opt-ic" style="background:var(--pl);color:var(--p)"><i class="fas fa-naira-sign"></i></div>
-              <p class="w-opt-name">Naira Wallet</p>
+      <div class="balance-panel">
+        <div class="balance-label" id="balanceLabel">Naira Balance</div>
+        <div class="balance-amount" id="balanceAmount"><span class="symbol">₦</span>0<span class="cents">.00</span></div>
+        <div class="action-row">
+          <button class="action" onclick="openModal('fundModal')"><div class="circle"><i class="fas fa-plus"></i></div><div class="alabel">Add Funds</div></button>
+        </div>
+        <div class="footer-links">
+          <a onclick="openBreakdownPanel()">📊 View Breakdown</a>
+          <span class="sep">|</span>
+          <a onclick="openStatementPanel()">⬇️ Download Statement</a>
+        </div>
+      </div>
+
+      <div class="tx-panel">
+        <div class="tx-panel-head">
+          <h3>Transactions</h3>
+          <div class="tx-filter-wrap">
+            <button class="tx-filter-btn" id="txFilterBtn" onclick="toggleTxFilter()"><i class="fas fa-sliders-h"></i></button>
+            <div class="tx-filter-menu" id="txFilterMenu">
+              <button onclick="filterTx('all')">All</button>
+              <button onclick="filterTx('deposit')">Deposits</button>
+              <button onclick="filterTx('crypto')">Crypto</button>
+              <button onclick="filterTx('giftcard')">Gift Cards</button>
+              <button onclick="filterTx('marketplace')">Marketplace</button>
+              <button onclick="filterTx('virtual')">Virtual Numbers</button>
+              <button onclick="filterTx('boost')">Social Boost</button>
+              <button onclick="filterTx('cashback')">Cashback</button>
             </div>
-            <p class="w-opt-bal" id="wNGNBal">₦0.00 available</p>
-          </div>
-          <div class="w-opt" id="wUSD" onclick="selWallet('usd')">
-            <div class="w-opt-top">
-              <div class="w-opt-ic" style="background:#dbeafe;color:#1d4ed8"><i class="fas fa-dollar-sign"></i></div>
-              <p class="w-opt-name">Dollar Wallet</p>
-            </div>
-            <p class="w-opt-bal" id="wUSDBal">$0.00 available</p>
           </div>
         </div>
+        <div class="tx-table">
+          <div class="tx-row tx-head"><div>Recipient</div><div>Amount</div><div>Status</div><div>Date</div></div>
+          <div id="txRows"><div class="tx-empty">Loading transactions…</div></div>
+        </div>
       </div>
-
-      <!-- Rate + Total -->
-      <div class="rate-box" id="rateBox" style="display:none">
-        <div class="rate-row"><span class="rate-lbl">Card Value</span><span class="rate-val" id="rvUSD">$0.00</span></div>
-        <div class="rate-row"><span class="rate-lbl">Sell Rate</span><span class="rate-val" id="rvRate">₦0/USD</span></div>
-        <div class="rate-row"><span class="rate-lbl">Processing Fee (3%)</span><span class="rate-val" id="rvFee">₦0.00</span></div>
-        <div class="rate-row"><span class="rate-lbl">You Receive</span><span class="rate-val highlight" id="rvTotal">₦0.00</span></div>
-      </div>
-
-      <!-- Promo Code -->
-      <div class="fg">
-        <label class="flbl">Promo Code</label>
-        <input type="text" class="finp" id="promoCode" placeholder="Enter promo code"/>
-      </div>
-
-      <!-- Notes -->
-      <div class="fg">
-        <label class="flbl">Notes / Additional Info</label>
-        <textarea class="ftxt" id="comment" placeholder="Any notes for our team (optional)"></textarea>
-      </div>
-
-      <div class="ibox ibox-info">
-        <i class="fas fa-info-circle"></i>
-        <span>You must either upload a gift card image or add the card code above. Cards are verified within 2-24 hours.</span>
-      </div>
-
-      <button class="btn-submit" id="submitBtn" onclick="submitSell()" disabled>
-        <i class="fas fa-paper-plane"></i> Submit Gift Card for Verification
-      </button>
     </div>
-  </main>
-</div>
+  </div>
+  <nav class="mnav">
+    <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+    <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+    <a href="fund.html" class="mni active"><i class="fas fa-wallet"></i><span>Wallet</span></a>
+    <a href="market.html" class="mni"><i class="fas fa-store"></i><span>Market</span></a>
+    <a href="settings.html" class="mni"><i class="fas fa-user"></i><span>Settings</span></a>
+  </nav>
 </div>
 
-<nav class="mnav">
-  <a href="dashboard.html" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
-  <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
-  <a href="fund.html" class="mni"><i class="fas fa-wallet"></i><span>Fund</span></a>
-  <a href="giftcards.html" class="mni active"><i class="fas fa-gift"></i><span>Gifts</span></a>
-  <a href="profile.html" class="mni"><i class="fas fa-user"></i><span>Profile</span></a>
-</nav>
-<div class="toasts" id="toastWrap"></div>
+<div class="toast-container" id="toastContainer"></div>
 
-<!-- SUCCESS SCREEN -->
-<div class="success-ov" id="successOv">
-  <div class="success-card" id="successCard">
-    <div class="confetti-wrap" id="confettiWrap"></div>
-    <div class="s-check"><i class="fas fa-check"></i></div>
-    <h2 class="s-title">Transaction Submitted!</h2>
-    <p class="s-sub">Your gift card has been submitted successfully. We are currently verifying it. You will receive a notification once processing is complete.</p>
-    <button class="s-btn" onclick="continueAfterSubmit()">Continue</button>
-    <span class="s-link" onclick="openInfoModal()">What does this mean?</span>
+<div class="side-drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<div class="side-drawer" id="breakdownDrawer">
+  <div class="drawer-head"><button class="drawer-back" onclick="closeDrawer()"><i class="fas fa-arrow-left"></i></button><h3>Account Breakdown</h3></div>
+  <div class="drawer-body">
+    <div class="type-tabs" style="margin-bottom:18px;width:100%;">
+      <button class="active" id="earnTab" onclick="switchBreakdownTab('earn')">Earnings</button>
+      <button id="spendTab" onclick="switchBreakdownTab('spend')">Spendings</button>
+    </div>
+    <div class="bd-filter-row"><i class="fas fa-filter"></i> <span id="bdFilterLabel">Showing all transactions</span></div>
+    <p class="bd-sec-title" id="bdSecTitle">Transaction History</p>
+    <div id="bdList"><div class="tx-empty">Loading…</div></div>
   </div>
 </div>
 
-<!-- INFO MODAL -->
-<div class="modal-ov" id="infoModal">
-  <div class="modal-card">
-    <h3>What happens next?</h3>
-    <ul>
-      <li><i class="fas fa-list-check"></i> Your gift card has entered our verification queue.</li>
-      <li><i class="fas fa-clock"></i> Verification usually takes 5–30 minutes depending on the card type.</li>
-      <li><i class="fas fa-bell"></i> You will receive a notification when verification is completed.</li>
-      <li><i class="fas fa-wallet"></i> Your wallet will be credited automatically after approval.</li>
-    </ul>
-    <button class="modal-close" onclick="closeInfoModal()">Got it</button>
+<div class="side-drawer" id="statementDrawer">
+  <div class="drawer-head"><button class="drawer-back" onclick="closeDrawer()"><i class="fas fa-arrow-left"></i></button><h3>📄 Download Statement</h3></div>
+  <div class="drawer-body">
+    <div class="form-group"><label>Account</label>
+      <select id="stmtAccount"><option value="NGN">🇳🇬 NGN</option><option value="USD">🇺🇸 USD</option></select>
+    </div>
+    <div class="form-group"><label>From</label><input type="date" id="stmtFrom"></div>
+    <div class="form-group"><label>To</label><input type="date" id="stmtTo"></div>
+    <div class="form-group"><label>Transaction PIN</label><input type="password" id="stmtPin" placeholder="****" maxlength="4" inputmode="numeric"></div>
+    <button class="btn btn-primary" onclick="downloadStatement()"><i class="fas fa-file-download"></i> Download Statement</button>
+    <div style="margin-top:10px;font-size:.65rem;color:var(--t3);text-align:center;">
+      <i class="fas fa-lock"></i> PIN required for security
+    </div>
+  </div>
+</div>
+
+<div class="side-drawer" id="txDetailDrawer">
+  <div class="drawer-head"><button class="drawer-back" onclick="closeDrawer()"><i class="fas fa-arrow-left"></i></button><h3>Transaction Details</h3></div>
+  <div class="drawer-body" id="txDetailBody"><div class="tx-empty">Select a transaction</div></div>
+</div>
+
+<div class="modal-overlay" id="addBeneficiaryModal">
+  <div class="modal">
+    <div class="modal-head"><h3><i class="fas fa-user-plus"></i> Add Beneficiary</h3><button class="modal-close" onclick="closeModal('addBeneficiaryModal')">✕</button></div>
+    <div class="form-group">
+      <label>Type</label>
+      <select id="beneficiaryType" onchange="toggleBeneficiaryFields()">
+        <option value="bank">🏦 Bank Account</option>
+        <option value="crypto">🪙 Crypto Wallet</option>
+      </select>
+    </div>
+    <div id="bankFields">
+      <div class="form-group"><label>Bank Name</label><select id="beneficiaryBank" onchange="verifyBeneficiaryBank()"><option value="">Select bank</option></select></div>
+      <div class="form-group"><label>Account Number</label><input type="text" id="beneficiaryAccountNumber" placeholder="10-digit account number" maxlength="12" oninput="verifyBeneficiaryBank()"></div>
+      <div class="form-group" id="beneficiaryNameGroup" style="display:none;"><label>Account Name</label><input type="text" id="beneficiaryAccountName" placeholder="Account holder name" readonly></div>
+      <div id="beneficiaryVerifyStatus" style="font-size:.7rem;margin-top:4px;min-height:18px;"></div>
+    </div>
+    <div id="cryptoFields" style="display:none;">
+      <div class="form-group"><label>Coin</label>
+        <select id="beneficiaryCoin">
+          <option value="BTC">Bitcoin (BTC)</option>
+          <option value="ETH">Ethereum (ETH)</option>
+          <option value="USDT">Tether (USDT)</option>
+          <option value="LTC">Litecoin (LTC)</option>
+          <option value="SOL">Solana (SOL)</option>
+          <option value="TRX">Tron (TRX)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Network</label>
+        <select id="beneficiaryNetwork">
+          <option value="BTC">Bitcoin</option>
+          <option value="ERC20">ERC20</option>
+          <option value="TRC20">TRC20</option>
+          <option value="BEP20">BEP20</option>
+          <option value="SOL">Solana</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Wallet Address</label><input type="text" id="beneficiaryAddress" placeholder="Enter wallet address"></div>
+    </div>
+    <div class="form-group"><label>Nickname (optional)</label><input type="text" id="beneficiaryNickname" placeholder="e.g., My Binance Wallet"></div>
+    <button class="btn btn-primary" onclick="saveBeneficiary()"><i class="fas fa-save"></i> Save Beneficiary</button>
+  </div>
+</div>
+
+<!-- FUND MODAL -->
+<div class="modal-overlay" id="fundModal">
+  <div class="modal">
+    <div class="modal-head"><h3><i class="fas fa-plus-circle"></i> <span id="fundTitle">Add Funds</span></h3><button class="modal-close" onclick="closeModal('fundModal')">✕</button></div>
+
+    <!-- USD wallet only: two-tab switcher between bank/mobile-money deposit and crypto top-up -->
+    <div class="type-tabs full" id="fundTypeTabs" style="display:none;">
+      <button class="active" id="fundTabCurrency" onclick="switchFundTab('currency')">🌍 Other currency</button>
+      <button id="fundTabCrypto" onclick="switchFundTab('crypto')">🪙 Crypto</button>
+    </div>
+
+    <!-- Currency / amount / quote flow — used for NGN wallet (NGN only) and USD wallet "Other currency" tab -->
+    <div id="fundCurrencyFlow">
+      <div id="fundCurrencySection" style="display:none;">
+        <div class="form-group" style="margin-bottom:8px;">
+          <label>Select currency <span style="font-weight:400;text-transform:none;color:var(--t3);font-size:11px;">· one currency per deposit</span></label>
+          <div class="dep-curr-grid" id="depCurrencyGrid">
+            <div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--t3);padding:6px;">
+              <span class="spinner" style="border-color:var(--bdr);border-top-color:var(--p)"></span> Loading currencies…
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label id="fundAmountLabel">Amount</label>
+        <div class="amount-with-sym">
+          <span class="sym-prefix" id="amountSym">₦</span>
+          <input type="number" id="fundAmount" placeholder="0" min="0" step="0.01" inputmode="decimal" oninput="validateAmount()">
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;" id="presetContainer"></div>
+      </div>
+
+      <div class="dep-quote" id="depQuote">
+        <div class="row"><span class="lbl">You pay</span><span class="val" id="qSource">—</span></div>
+        <div class="row"><span class="lbl">Rate</span><span class="val" id="qRate">—</span></div>
+        <div class="row"><span class="lbl">Fee</span><span class="val" id="qFee">Included</span></div>
+        <div class="row total"><span class="lbl" id="qTargetLabel">You receive</span><span class="val" id="qTarget">—</span></div>
+      </div>
+      <div class="dep-note" id="depNote" style="display:none;">
+        <i class="fas fa-info-circle"></i> Rate is locked for 30 minutes after you continue. Your wallet is credited once payment is confirmed.
+      </div>
+    </div>
+
+    <!-- Crypto flow — USD wallet "Crypto" tab only -->
+    <div id="cryptoOptions" style="display:none;">
+      <label style="font-size:12.5px;font-weight:600;color:var(--t3);display:block;margin-bottom:6px;">Select Cryptocurrency</label>
+      <div class="crypto-grid" id="cryptoGrid"></div>
+      <div id="networkSelection" style="display:none;"><label>Select Network</label><select id="networkSelect"></select></div>
+      <div id="minAmountHint"><span id="minAmountText"></span></div>
+    </div>
+
+    <button class="btn btn-primary" id="fundBtn" onclick="submitFund()"><i class="fas fa-arrow-right"></i> <span id="fundBtnText">Continue</span></button>
+    <div style="margin-top:10px;font-size:11px;color:var(--t3);text-align:center;" id="fundProviderBadge">🔒 Secure payment</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="paymentModal">
+  <div class="modal">
+    <div class="modal-head"><h3><i class="fas fa-credit-card"></i> Complete Payment</h3><button class="modal-close" onclick="closeModal('paymentModal')">✕</button></div>
+    <div id="paymentContent">
+      <div class="payment-info">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);">Send <span id="payAmount">0.00</span> <span id="payCurrency">LTC</span></div>
+        <div style="font-size:12px;color:var(--t3);margin:4px 0;">≈ $<span id="usdAmount">0.00</span> USD</div>
+        <div class="qr-placeholder" id="qrDisplay"><i class="fas fa-qrcode"></i></div>
+        <div style="font-size:12px;color:var(--t3);">Scan with your wallet app</div>
+        <div class="address" id="cryptoAddress">—</div>
+        <button class="copy-btn" onclick="copyAddress()">📋 Copy Address</button>
+        <div style="margin-top:8px;font-size:11px;color:var(--t3);"><span id="paymentTimer">⏰ Expires in: 29:58</span></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-gold" onclick="checkPaymentStatus()" id="checkPaymentBtn"><i class="fas fa-sync-alt"></i> Check Payment</button>
+        <button class="btn btn-primary" onclick="closeModal('paymentModal')" style="flex:1;">Close</button>
+      </div>
+      <div id="paymentStatus" style="margin-top:10px;text-align:center;"></div>
+    </div>
   </div>
 </div>
 
 <script>
 'use strict';
 
-// =============================================
-// CONFIG
-// =============================================
-const SK = 'mx_sess';
-const API = '/api';
+/* ============================================
+   STATE
+============================================ */
+const State = {
+  currentWallet: 'NGN',
+  currentTab: 'fiat',
+  usdFundTab: 'currency',        // 'currency' | 'crypto' — which tab is active inside the USD Add Funds modal
+  selectedCrypto: 'LTC',
+  selectedNetworkId: 'LTC',
+  wallets: { NGN: { balance: 0 }, USD: { balance: 0 } },
+  cashback: { balance: 0, lifetimeEarned: 0 },
+  banks: [],
+  beneficiaries: [],
+  txCache: [],
+  txFilter: 'all',
+  breakdownTab: 'earn',
+  verifiedAccount: null,
+  currentPaymentId: null,
+  paymentInterval: null,
+  timerInterval: null,
+  qrCodeInstance: null,
+  hasPin: null,
+  isLoading: false,
+  selectedBeneficiary: null,
 
-// =============================================
-// SESSION HELPERS
-// =============================================
-function getSess() {
-  try {
-    const raw = localStorage.getItem(SK) || sessionStorage.getItem(SK) || 'null';
-    return JSON.parse(raw);
-  } catch(e) {
-    return null;
-  }
+  depCurrencies: [],
+  depSelectedCurrency: null,
+  depQuote: null,
+  depQuoteDebounce: null,
+  depSubmitting: false
+};
+
+/* ============================================
+   DOM REFS
+============================================ */
+const $ = id => document.getElementById(id);
+const DOM = {
+  sidebar: $('sidebar'),
+  scrim: $('scrim'),
+  hbg: $('hbg'),
+  sbAv: $('sbAv'),
+  sbName: $('sbName'),
+  sbEmail: $('sbEmail'),
+  tbAv: $('tbAv'),
+  balanceNGN: $('balanceNGN'),
+  balanceUSD: $('balanceUSD'),
+  balanceLabel: $('balanceLabel'),
+  balanceAmount: $('balanceAmount'),
+  cardNGN: $('cardNGN'),
+  cardUSD: $('cardUSD'),
+  giftpointCard: $('giftpointCard'),
+  giftpointBalance: $('giftpointBalance'),
+  giftLifetimeEarned: $('giftLifetimeEarned'),
+  giftProgressFill: $('giftProgressFill'),
+  giftProgressLabel: $('giftProgressLabel'),
+  beneficiaryGrid: $('beneficiaryGrid'),
+  fundModal: $('fundModal'),
+  paymentModal: $('paymentModal'),
+  addBeneficiaryModal: $('addBeneficiaryModal'),
+  fundAmount: $('fundAmount'),
+  fundBtn: $('fundBtn'),
+  fundBtnText: $('fundBtnText'),
+  fundProviderBadge: $('fundProviderBadge'),
+  fundTitle: $('fundTitle'),
+  fundAmountLabel: $('fundAmountLabel'),
+  amountSym: $('amountSym'),
+  fundTypeTabs: $('fundTypeTabs'),
+  fundTabCurrency: $('fundTabCurrency'),
+  fundTabCrypto: $('fundTabCrypto'),
+  fundCurrencyFlow: $('fundCurrencyFlow'),
+  fundCurrencySection: $('fundCurrencySection'),
+  depCurrencyGrid: $('depCurrencyGrid'),
+  depQuote: $('depQuote'),
+  qSource: $('qSource'),
+  qRate: $('qRate'),
+  qFee: $('qFee'),
+  qTarget: $('qTarget'),
+  qTargetLabel: $('qTargetLabel'),
+  depNote: $('depNote'),
+  cryptoOptions: $('cryptoOptions'),
+  cryptoGrid: $('cryptoGrid'),
+  networkSelection: $('networkSelection'),
+  networkSelect: $('networkSelect'),
+  minAmountHint: $('minAmountHint'),
+  minAmountText: $('minAmountText'),
+  presetContainer: $('presetContainer'),
+  payAmount: $('payAmount'),
+  payCurrency: $('payCurrency'),
+  usdAmount: $('usdAmount'),
+  qrDisplay: $('qrDisplay'),
+  cryptoAddress: $('cryptoAddress'),
+  paymentStatus: $('paymentStatus'),
+  paymentTimer: $('paymentTimer'),
+  txRows: $('txRows'),
+  txFilterMenu: $('txFilterMenu'),
+  bdList: $('bdList'),
+  bdFilterLabel: $('bdFilterLabel'),
+  bdSecTitle: $('bdSecTitle'),
+  earnTab: $('earnTab'),
+  spendTab: $('spendTab'),
+  stmtAccount: $('stmtAccount'),
+  stmtFrom: $('stmtFrom'),
+  stmtTo: $('stmtTo'),
+  stmtPin: $('stmtPin'),
+  drawerOverlay: $('drawerOverlay'),
+  breakdownDrawer: $('breakdownDrawer'),
+  statementDrawer: $('statementDrawer'),
+  txDetailDrawer: $('txDetailDrawer'),
+  txDetailBody: $('txDetailBody'),
+  toastContainer: $('toastContainer'),
+  tabFiat: $('tabFiat'),
+  tabGift: $('tabGift'),
+  walletCards: $('walletCards'),
+  beneficiaryType: $('beneficiaryType'),
+  beneficiaryBank: $('beneficiaryBank'),
+  beneficiaryAccountNumber: $('beneficiaryAccountNumber'),
+  beneficiaryAccountName: $('beneficiaryAccountName'),
+  beneficiaryNameGroup: $('beneficiaryNameGroup'),
+  beneficiaryVerifyStatus: $('beneficiaryVerifyStatus'),
+  beneficiaryCoin: $('beneficiaryCoin'),
+  beneficiaryNetwork: $('beneficiaryNetwork'),
+  beneficiaryAddress: $('beneficiaryAddress'),
+  beneficiaryNickname: $('beneficiaryNickname'),
+  bankFields: $('bankFields'),
+  cryptoFields: $('cryptoFields')
+};
+
+/* ============================================
+   CONSTANTS
+============================================ */
+const API_BASE = '/api';
+const SESSION_KEY = 'mx_sess';
+const DEFAULT_CRYPTO = 'LTC';
+
+/* ============================================
+   COIN CONFIG (USD crypto wallet only)
+============================================ */
+const COIN_NETWORKS = {
+  BTC: [{ id: 'BTC', label: 'Bitcoin (BTC)' }],
+  ETH: [{ id: 'ETH', label: 'Ethereum (ETH)' }],
+  LTC: [{ id: 'LTC', label: 'Litecoin (LTC)' }],
+  USDT: [{ id: 'USDTTRC20', label: 'Tether (TRC20)' }, { id: 'USDTERC20', label: 'Tether (ERC20)' }, { id: 'USDTBSC', label: 'Tether (BSC)' }],
+  XRP: [{ id: 'XRP', label: 'Ripple (XRP)' }],
+  DOGE: [{ id: 'DOGE', label: 'Dogecoin (DOGE)' }],
+  TRX: [{ id: 'TRX', label: 'Tron (TRX)' }],
+  ADA: [{ id: 'ADA', label: 'Cardano (ADA)' }],
+  SOL: [{ id: 'SOL', label: 'Solana (SOL)' }]
+};
+const MIN_RECOMMEND = { BTC: 20, ETH: 15, LTC: 5, USDT: 10, XRP: 20, DOGE: 10, TRX: 5, ADA: 15, SOL: 15 };
+const COIN_ICONS = { BTC: '₿', ETH: '◆', LTC: 'Ł', USDT: '💎', XRP: '✕', DOGE: 'Ð', TRX: '🔱', ADA: '₳', SOL: '◎' };
+const COIN_LIST = [
+  { id: 'BTC', label: 'Bitcoin' }, { id: 'ETH', label: 'Ethereum' }, { id: 'LTC', label: 'Litecoin' },
+  { id: 'USDT', label: 'Tether (USDT)' }, { id: 'XRP', label: 'Ripple' }, { id: 'DOGE', label: 'Dogecoin' },
+  { id: 'TRX', label: 'Tron' }, { id: 'ADA', label: 'Cardano' }, { id: 'SOL', label: 'Solana' }
+];
+
+/* ============================================
+   TX TYPE MAP
+============================================ */
+const TX_TYPE_MAP = {
+  deposit: { label: 'Deposit', icon: 'fa-plus-circle', bg: 'var(--okl)', cl: '#065f46' },
+  withdrawal: { label: 'Withdrawal', icon: 'fa-arrow-up', bg: 'var(--erl)', cl: 'var(--err)' },
+  crypto: { label: 'Crypto Purchase', icon: 'fa-coins', bg: '#fef3c7', cl: '#d97706' },
+  giftcard: { label: 'Gift Card', icon: 'fa-gift', bg: '#d1fae5', cl: '#065f46' },
+  marketplace: { label: 'Marketplace', icon: 'fa-store', bg: 'var(--acl)', cl: 'var(--acd)' },
+  virtual: { label: 'Virtual Number', icon: 'fa-phone-alt', bg: '#ede9fe', cl: '#7c3aed' },
+  boost: { label: 'Social Boost', icon: 'fa-chart-line', bg: 'var(--pl)', cl: 'var(--p)' },
+  cashback: { label: 'Cashback', icon: 'fa-coins', bg: 'var(--acl)', cl: 'var(--acd)' },
+  receive: { label: 'Receive', icon: 'fa-arrow-down', bg: 'var(--okl)', cl: '#065f46' },
+  airtime: { label: 'Airtime', icon: 'fa-phone', bg: '#e8f4f7', cl: '#0c3d4a' },
+  data: { label: 'Data', icon: 'fa-wifi', bg: '#f3f0ff', cl: '#7c3aed' },
+  electricity: { label: 'Electricity', icon: 'fa-lightbulb', bg: '#fef3c7', cl: '#d97706' }
+};
+
+function getTxType(type) {
+  const key = (type || '').toLowerCase();
+  return TX_TYPE_MAP[key] || { label: type || 'Transaction', icon: 'fa-receipt', bg: 'var(--pl)', cl: 'var(--p)' };
 }
 
-function getToken() {
-  const sess = getSess();
-  return sess?.token || '';
-}
-
-// Redirect if not logged in
-if (!getToken()) {
-  location.href = 'login.html';
-}
-
-// =============================================
-// API HELPER
-// =============================================
-async function apiCall(path, opts = {}) {
-  const headers = {
-    'Content-Type': 'application/json',
+/* ============================================
+   DEBOUNCE
+============================================ */
+const debounce = (fn, delay = 400) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
   };
+};
+
+/* ============================================
+   HELPERS
+============================================ */
+const getToken = () => {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw).token || null : null;
+  } catch { return null; }
+};
+
+const getSession = () => {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+
+const redirectToLogin = () => window.location.href = 'login.html';
+
+const formatNaira = (n) => Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatUSD = (n) => Number(n).toFixed(2);
+const getInitials = (name) => name ? name.charAt(0).toUpperCase() : 'U';
+
+/* ============================================
+   CURRENCY HELPERS
+============================================ */
+function currencySymbol(code) {
+  const map = { NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R', XAF: 'FCFA', XOF: 'CFA', TZS: 'TSh', EGP: 'E£', USD: '$' };
+  return map[code] || code;
+}
+function currencyDecimals(code) {
+  return ['XAF','XOF','TZS','KES'].includes(code) ? 0 : 2;
+}
+function formatMoney(amount, code) {
+  const symbol = currencySymbol(code);
+  const num = Number(amount) || 0;
+  const decimals = currencyDecimals(code);
+  return `${symbol}${num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+function currencyFlag(code) {
+  const map = {
+    NGN: '🇳🇬', GHS: '🇬🇭', KES: '🇰🇪', ZAR: '🇿🇦',
+    XAF: '🌍', XOF: '🌍', TZS: '🇹🇿', EGP: '🇪🇬', USD: '🇺🇸'
+  };
+  return map[code] || '🌍';
+}
+
+/* ============================================
+   API REQUEST
+============================================ */
+const apiCache = new Map();
+const CACHE_TTL = 60000;
+
+async function apiRequest(endpoint, options = {}, useCache = false) {
   const token = getToken();
-  if (token) {
-    headers['Authorization'] = 'Bearer ' + token;
+  if (!token) { redirectToLogin(); return null; }
+
+  const cacheKey = endpoint + JSON.stringify(options);
+  if (useCache && apiCache.has(cacheKey)) {
+    const cached = apiCache.get(cacheKey);
+    if (Date.now() - cached.timestamp < CACHE_TTL) return cached.data;
+    apiCache.delete(cacheKey);
   }
 
-  const response = await fetch(API + path, {
-    ...opts,
-    headers: {
-      ...headers,
-      ...(opts.headers || {})
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+  try {
+    const resp = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    let data = {};
+    try { data = await resp.json(); } catch {}
+
+    if (resp.status === 401) {
+      const REAL_AUTH_FAILURES = ['NO_TOKEN', 'INVALID_TOKEN', 'SESSION_EXPIRED', 'AUTH_SERVICE_UNAVAILABLE'];
+      if (!data.code || REAL_AUTH_FAILURES.includes(data.code)) {
+        redirectToLogin();
+        return null;
+      }
+      return { success: false, ...data };
     }
-  });
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || 'HTTP ' + response.status);
+    if (!resp.ok) return { success: false, error: data.error || 'Request failed', ...data };
+
+    if (useCache) apiCache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
+  } catch (e) {
+    console.error('API Error:', e);
+    return { success: false, error: e.message || 'Network error' };
   }
-  return data;
 }
 
-// =============================================
-// FORMAT HELPERS
-// =============================================
-function fNGN(n) {
-  return '₦' + (Number(n) || 0).toLocaleString('en-NG', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
-function fUSD(n) {
-  return '$' + (Number(n) || 0).toFixed(2);
-}
-
-// =============================================
-// TOAST
-// =============================================
-function toast(msg, type = 'info') {
-  const wrap = document.getElementById('toastWrap');
-  const el = document.createElement('div');
-  el.className = 'toast ' + type;
-  const icons = {
-    ok: 'fa-check-circle',
-    err: 'fa-times-circle',
-    warn: 'fa-exclamation-triangle',
-    info: 'fa-info-circle'
-  };
-  el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
-  wrap.appendChild(el);
+/* ============================================
+   TOAST
+============================================ */
+function showToast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  DOM.toastContainer.appendChild(t);
   setTimeout(() => {
-    el.style.cssText = 'opacity:0;transition:all .25s';
-    setTimeout(() => el.remove(), 280);
-  }, 3800);
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(40px)';
+    t.style.transition = 'all 0.3s';
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
 }
 
-// =============================================
-// STATE
-// =============================================
-let _wallet = 'ngn';
-let _ngn = 0;
-let _usd = 0;
-let _cardFiles = [];
-let _receiptFiles = [];
-let _rates = {};
-
-// =============================================
-// LOAD RATES FROM API
-// =============================================
-async function loadRates() {
-  try {
-    const data = await apiCall('/rates/giftcards');
-    if (data.success && Array.isArray(data.rates) && data.rates.length) {
-      const map = {};
-      data.rates.forEach(r => {
-        const key = r.card_name || r.name || r.type;
-        if (key) {
-          map[key.toLowerCase()] = Number(r.rate_ngn || r.rate || 0);
-        }
-      });
-      _rates = map;
-      console.log('✅ Loaded rates:', Object.keys(_rates).length);
-    }
-  } catch(e) {
-    console.warn('Failed to load rates:', e.message);
-    // Fallback rates
-    _rates = {
-      'steam': 1440,
-      'xbox': 1430,
-      'playstation': 1445,
-      'nintendo eshop': 1420,
-      'amazon': 1480,
-      'ebay': 1390,
-      'walmart': 1400,
-      'target': 1400,
-      'itunes / apple': 1460,
-      'google play': 1420,
-      'netflix': 1470,
-      'spotify': 1410,
-      'visa prepaid': 1400,
-      'mastercard prepaid': 1400,
-      'american express': 1380,
-      'other gift card': 1350,
-    };
-  }
-}
-
-// =============================================
-// LOAD USER BALANCE - FIXED
-// =============================================
-async function loadUser() {
-  const cached = getSess()?.user;
-  if (cached) populateUser(cached);
-
-  try {
-    const data = await apiCall('/auth/me');
-    if (data) {
-      // Handle different response formats
-      const userData = data.data || data;
-      populateUser(userData);
-      const sess = getSess();
-      if (sess) {
-        sess.user = userData;
-        localStorage.setItem(SK, JSON.stringify(sess));
-      }
-    }
-  } catch (e) {
-    console.warn('Failed to load user:', e.message);
-    // Try to use cached data
-    const cached = getSess()?.user;
-    if (cached) populateUser(cached);
-  }
-}
-
-function populateUser(u) {
-  // Handle different field names
-  const name = u.username || u.full_name || u.email?.split('@')[0] || 'User';
-  const init = name.charAt(0).toUpperCase();
-  
-  document.getElementById('sbName').textContent = name;
-  document.getElementById('sbEmail').textContent = u.email || '';
-
-  // Avatar
-  ['sbAv', 'tbAv'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      if (u.avatar_url) {
-        el.innerHTML = `<img src="${u.avatar_url}" alt="av"/>`;
-      } else {
-        el.textContent = init;
-      }
-    }
-  });
-
-  // Get wallet balances - handle different field names
-  const ngn = u.wallet_ngn || u.ngn_balance || u.ngnBalance || u.balance_ngn || 0;
-  const usd = u.wallet_usd || u.usd_balance || u.usdBalance || u.balance_usd || 0;
-  
-  _ngn = parseFloat(ngn) || 0;
-  _usd = parseFloat(usd) || 0;
-  
-  document.getElementById('wNGNBal').textContent = fNGN(_ngn) + ' available';
-  document.getElementById('wUSDBal').textContent = fUSD(_usd) + ' available';
-  
-  console.log('💰 Wallet balances loaded:', { ngn: _ngn, usd: _usd });
-}
-
-// =============================================
-// UI: CARD SELECTION
-// =============================================
-function onCardChange() {
-  calcRate();
-}
-
-function selWallet(w) {
-  _wallet = w;
-  document.getElementById('wNGN').classList.toggle('selected', w === 'ngn');
-  document.getElementById('wUSD').classList.toggle('selected', w === 'usd');
-  calcRate();
-}
-
-// =============================================
-// UI: CALCULATE RATE
-// =============================================
-function calcRate() {
-  const cardName = document.getElementById('cardName').value;
-  const amt = parseFloat(document.getElementById('cardAmount').value) || 0;
-  const box = document.getElementById('rateBox');
-  const btn = document.getElementById('submitBtn');
-
-  if (!cardName || amt <= 0) {
-    box.style.display = 'none';
-    btn.disabled = true;
-    return;
-  }
-
-  const key = cardName.toLowerCase();
-  const rate = _rates[key] || 1350;
-  const base = amt * rate;
-  const fee = base * 0.03;
-  const total = base - fee;
-
-  document.getElementById('rvUSD').textContent = fUSD(amt);
-  document.getElementById('rvRate').textContent = '₦' + rate.toLocaleString() + '/USD';
-  document.getElementById('rvFee').textContent = fNGN(fee);
-  document.getElementById('rvTotal').textContent = _wallet === 'ngn' ? fNGN(total) : fUSD(total / 1620);
-
-  box.style.display = 'block';
-  btn.disabled = false;
-}
-
-// =============================================
-// FILE HANDLING
-// =============================================
-function renderThumbs(files, thumbWrapId) {
-  const wrap = document.getElementById(thumbWrapId);
-  wrap.innerHTML = '';
-  files.forEach((f, i) => {
-    const div = document.createElement('div');
-    div.className = 'thumb';
-    if (f.type && f.type.startsWith('image/')) {
-      const url = URL.createObjectURL(f);
-      div.innerHTML = `<img src="${url}" alt="${f.name}"/><span class="rm" onclick="removeFile('${thumbWrapId}',${i})"><i class="fas fa-times"></i></span>`;
-    } else {
-      div.innerHTML = `<div style="display:grid;place-items:center;width:100%;height:100%;color:var(--t3)"><i class="fas fa-file-pdf"></i></div><span class="rm" onclick="removeFile('${thumbWrapId}',${i})"><i class="fas fa-times"></i></span>`;
-    }
-    wrap.appendChild(div);
-  });
-}
-
-function removeFile(thumbWrapId, idx) {
-  if (thumbWrapId === 'cardThumbs') {
-    _cardFiles.splice(idx, 1);
-    renderThumbs(_cardFiles, 'cardThumbs');
-    updateFileListLabel('fileList', _cardFiles, 'uploadArea');
-  } else {
-    _receiptFiles.splice(idx, 1);
-    renderThumbs(_receiptFiles, 'receiptThumbs');
-    updateFileListLabel('receiptFileList', _receiptFiles, 'receiptArea');
-  }
-}
-
-function updateFileListLabel(labelId, files, areaId) {
-  const fl = document.getElementById(labelId);
-  const area = document.getElementById(areaId);
-  if (files.length > 0) {
-    area.classList.add('has-file');
-    fl.style.display = 'block';
-    fl.textContent = files.length + ' file(s) selected';
-  } else {
-    area.classList.remove('has-file');
-    fl.style.display = 'none';
-  }
-}
-
-function onFileSelect(input, which) {
-  const newFiles = Array.from(input.files || []);
-  if (which === 'cardImages') {
-    _cardFiles = _cardFiles.concat(newFiles);
-    renderThumbs(_cardFiles, 'cardThumbs');
-    updateFileListLabel('fileList', _cardFiles, 'uploadArea');
-  } else {
-    _receiptFiles = _receiptFiles.concat(newFiles);
-    renderThumbs(_receiptFiles, 'receiptThumbs');
-    updateFileListLabel('receiptFileList', _receiptFiles, 'receiptArea');
-  }
-  input.value = '';
-}
-
-// =============================================
-// DRAG & DROP
-// =============================================
-function setupDragDrop(areaId, inputId, which) {
-  const area = document.getElementById(areaId);
-  const input = document.getElementById(inputId);
-
-  ['dragenter', 'dragover'].forEach(ev => {
-    area.addEventListener(ev, e => {
-      e.preventDefault();
-      e.stopPropagation();
-      area.classList.add('drag');
-    });
-  });
-
-  ['dragleave', 'drop'].forEach(ev => {
-    area.addEventListener(ev, e => {
-      e.preventDefault();
-      e.stopPropagation();
-      area.classList.remove('drag');
-    });
-  });
-
-  area.addEventListener('drop', e => {
-    const dt = e.dataTransfer;
-    if (dt && dt.files && dt.files.length) {
-      const dtList = new DataTransfer();
-      Array.from(dt.files).forEach(f => dtList.items.add(f));
-      input.files = dtList.files;
-      onFileSelect(input, which);
-    }
-  });
-}
-
-// =============================================
-// SUBMIT - FIXED
-// =============================================
-async function submitSell() {
-  const cardName = document.getElementById('cardName').value;
-  const amt = parseFloat(document.getElementById('cardAmount').value);
-  const country = document.getElementById('cardCountry').value;
-  const sub = document.getElementById('cardSubcategory').value;
-  const code = document.getElementById('cardCode').value.trim();
-  const pin = document.getElementById('cardPin').value.trim();
-  const promo = document.getElementById('promoCode').value.trim();
-  const comment = document.getElementById('comment').value.trim();
-
-  if (!cardName) {
-    toast('Select a gift card', 'err');
-    return;
-  }
-  if (!amt || amt < 1) {
-    toast('Enter a valid amount', 'err');
-    return;
-  }
-  if (_cardFiles.length === 0 && !code) {
-    toast('Upload a card image or enter the card code', 'err');
-    return;
-  }
-
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
-
-  try {
-    const formData = new FormData();
-    formData.append('card_name', cardName);
-    formData.append('amount_usd', amt);
-    formData.append('country', country);
-    formData.append('subcategory', sub);
-    formData.append('wallet_type', _wallet);
-    formData.append('promo_code', promo);
-    formData.append('card_code', code);
-    formData.append('pin', pin);
-    formData.append('comment', comment);
-    
-    _cardFiles.forEach(f => formData.append('card_images', f));
-    _receiptFiles.forEach(f => formData.append('receipt', f));
-
-    const headers = {};
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = 'Bearer ' + token;
-    }
-
-    const response = await fetch(API + '/rates/giftcards/sell', {
-      method: 'POST',
-      headers: headers,
-      body: formData
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Submission failed');
-    }
-
-    // Update balance after successful submission
-    if (data.data && data.data.new_balance !== undefined) {
-      if (_wallet === 'ngn') {
-        _ngn = data.data.new_balance;
-      } else {
-        _usd = data.data.new_balance;
-      }
-      document.getElementById('wNGNBal').textContent = fNGN(_ngn) + ' available';
-      document.getElementById('wUSDBal').textContent = fUSD(_usd) + ' available';
-    }
-
-    showSuccessScreen();
-    toast('Gift card submitted successfully! ✅', 'ok');
-
-  } catch (e) {
-    toast(e.message || 'Submission failed', 'err');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Gift Card for Verification';
-  }
-}
-
-// =============================================
-// SUCCESS SCREEN
-// =============================================
-const CONFETTI_COLORS = ['#0c3d4a', '#f59e0b', '#10b981', '#155e72', '#fbbf24', '#34d399'];
-
-function fireConfetti() {
-  const wrap = document.getElementById('confettiWrap');
-  wrap.innerHTML = '';
-  const count = 40;
-  for (let i = 0; i < count; i++) {
-    const el = document.createElement('div');
-    el.className = 'confetti';
-    el.style.left = Math.random() * 100 + '%';
-    el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
-    el.style.animationDuration = (1.4 + Math.random() * 1.2) + 's';
-    el.style.animationDelay = (Math.random() * 0.4) + 's';
-    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-    wrap.appendChild(el);
-  }
-  setTimeout(() => { wrap.innerHTML = ''; }, 3200);
-}
-
-function showSuccessScreen() {
-  document.getElementById('successOv').classList.add('on');
-  fireConfetti();
-}
-
-function continueAfterSubmit() {
-  document.getElementById('successOv').classList.remove('on');
-  location.href = 'dashboard.html';
-}
-
-function openInfoModal() {
-  document.getElementById('infoModal').classList.add('on');
-}
-
-function closeInfoModal() {
-  document.getElementById('infoModal').classList.remove('on');
-}
-
-// =============================================
-// SIDEBAR
-// =============================================
+/* ============================================
+   SIDEBAR
+============================================ */
 function initSidebar() {
-  const sb = document.getElementById('sb');
-  const ov = document.getElementById('ov');
-  const hbg = document.getElementById('hbg');
+  const sb = DOM.sidebar, scrim = DOM.scrim, hbg = DOM.hbg;
+  const isMobile = () => window.innerWidth < 1025;
 
-  hbg?.addEventListener('click', () => {
-    sb.classList.toggle('open');
-    ov.classList.toggle('on');
+  if (hbg) hbg.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!isMobile()) return;
+    sb.classList.add('open'); scrim.classList.add('show');
   });
 
-  ov?.addEventListener('click', () => {
-    sb.classList.remove('open');
-    ov.classList.remove('on');
+  if (scrim) scrim.addEventListener('click', () => {
+    sb.classList.remove('open'); scrim.classList.remove('show');
   });
 
   window.addEventListener('resize', () => {
-    if (window.innerWidth >= 1025) {
-      sb.classList.remove('open');
-      ov.classList.remove('on');
-    }
+    if (!isMobile()) { sb.classList.remove('open'); scrim.classList.remove('show'); }
   });
 }
 
-function doLogout() {
-  try {
-    apiCall('/auth/logout', { method: 'POST' });
-  } catch (e) {}
-  localStorage.removeItem(SK);
-  sessionStorage.removeItem(SK);
-  location.href = 'login.html';
+/* ============================================
+   USER UI
+============================================ */
+function updateUserUI() {
+  const s = getSession();
+  if (s?.user) {
+    const u = s.user;
+    const n = u.username || u.email || 'User';
+    const e = u.email || '';
+    const i = getInitials(n);
+    DOM.sbName.textContent = n;
+    DOM.sbEmail.textContent = e;
+    DOM.sbAv.textContent = i;
+    DOM.tbAv.textContent = i;
+  }
 }
 
-// =============================================
-// INIT
-// =============================================
-(async function init() {
-  console.log('🚀 Initializing Sell Gift Cards page...');
-  
+/* ============================================
+   WALLET BALANCE
+============================================ */
+async function loadWalletBalance() {
+  try {
+    const resp = await apiRequest('/wallet/balances');
+    let ngn = 0, usd = 0, hasPin = false;
+
+    if (resp?.data) {
+      ngn = parseFloat(resp.data.ngn_balance) || 0;
+      usd = parseFloat(resp.data.usd_balance) || 0;
+      hasPin = resp.data.has_pin === true;
+    } else if (resp?.ngn_balance !== undefined) {
+      ngn = parseFloat(resp.ngn_balance) || 0;
+      usd = parseFloat(resp.usd_balance) || 0;
+    } else if (resp?.wallet_ngn !== undefined) {
+      ngn = parseFloat(resp.wallet_ngn) || 0;
+      usd = parseFloat(resp.wallet_usd) || 0;
+    }
+
+    State.wallets.NGN.balance = ngn;
+    State.wallets.USD.balance = usd;
+    State.hasPin = hasPin;
+    updateWalletUI();
+  } catch (e) { console.error('Balance error:', e); }
+}
+
+function updateWalletUI() {
+  const ngn = State.wallets.NGN.balance;
+  const usd = State.wallets.USD.balance;
+  DOM.balanceNGN.textContent = `₦${formatNaira(ngn)}`;
+  DOM.balanceUSD.textContent = `$${formatUSD(usd)}`;
+  const bal = State.currentWallet === 'NGN' ? ngn : usd;
+  const sym = State.currentWallet === 'NGN' ? '₦' : '$';
+  const parts = bal.toFixed(2).split('.');
+  DOM.balanceLabel.textContent = State.currentWallet === 'NGN' ? 'Naira Balance' : 'USD Balance';
+  DOM.balanceAmount.innerHTML = `<span class="symbol">${sym}</span>${parts[0]}<span class="cents">.${parts[1]}`;
+}
+
+/* ============================================
+   GIFT POINT / CASHBACK
+============================================ */
+async function loadCashbackBalance() {
+  try {
+    const resp = await apiRequest('/cashback/balance', {}, true);
+    if (resp?.data) {
+      State.cashback.balance = resp.data.balance || 0;
+      State.cashback.lifetimeEarned = resp.data.lifetime_earned || 0;
+    } else if (resp?.balance !== undefined) {
+      State.cashback.balance = resp.balance || 0;
+      State.cashback.lifetimeEarned = resp.lifetime_earned || 0;
+    }
+    updateGiftpointUI();
+  } catch (e) { console.error('Cashback error:', e); }
+}
+
+function updateGiftpointUI() {
+  const bal = State.cashback.balance;
+  DOM.giftpointBalance.textContent = `₦${formatNaira(bal)}`;
+  DOM.giftLifetimeEarned.textContent = `₦${formatNaira(State.cashback.lifetimeEarned)}`;
+  const goal = 5000;
+  const pct = Math.min(100, (bal / goal) * 100);
+  DOM.giftProgressFill.style.width = pct + '%';
+  DOM.giftProgressLabel.textContent = `${pct.toFixed(0)}% of ₦${formatNaira(goal)} goal`;
+}
+
+/* ============================================
+   SWITCH WALLET TAB
+============================================ */
+function switchWalletTab(tab) {
+  State.currentTab = tab;
+  DOM.tabFiat.classList.toggle('active', tab === 'fiat');
+  DOM.tabGift.classList.toggle('active', tab === 'gift');
+  DOM.giftpointCard.classList.toggle('active', tab === 'gift');
+  DOM.walletCards.style.display = tab === 'fiat' ? 'grid' : 'none';
+  const panel = document.querySelector('.balance-panel');
+  if (panel) panel.style.display = tab === 'fiat' ? 'block' : 'none';
+}
+
+/* ============================================
+   SELECT WALLET
+============================================ */
+function selectWallet(cur) {
+  State.currentWallet = cur;
+  DOM.cardNGN.classList.toggle('active', cur === 'NGN');
+  DOM.cardUSD.classList.toggle('active', cur === 'USD');
+  updateWalletUI();
+}
+
+/* ============================================
+   BENEFICIARIES
+============================================ */
+async function loadBeneficiaries() {
+  try {
+    const resp = await apiRequest('/wallet/beneficiaries', {}, true);
+    State.beneficiaries = resp?.success ? (resp.data || []) : [];
+    renderBeneficiaries();
+  } catch (e) {
+    console.error('Beneficiaries error:', e);
+    State.beneficiaries = [];
+    renderBeneficiaries();
+  }
+}
+
+function renderBeneficiaries() {
+  const grid = DOM.beneficiaryGrid;
+  if (!State.beneficiaries || State.beneficiaries.length === 0) {
+    grid.innerHTML = '<div class="tx-empty" style="grid-column:1/-1;padding:12px;">No saved beneficiaries yet</div>';
+    return;
+  }
+
+  grid.innerHTML = State.beneficiaries.map(b => {
+    const isBank = b.type === 'bank';
+    const icon = isBank ? 'fa-university' : 'fa-coins';
+    const detail = isBank ? `${b.bank_name || ''} · ${b.account_number || ''}` : `${b.coin || ''} · ${b.network || ''}`;
+    const label = isBank ? (b.account_name || b.nickname || 'Bank Account') : (b.nickname || b.coin || 'Crypto Wallet');
+
+    return `<div class="beneficiary-item" onclick="selectBeneficiary('${b.id}')" data-id="${b.id}">
+      <div class="bi-icon"><i class="fas ${icon}"></i></div>
+      <div class="bi-info">
+        <div class="bi-name">${label}</div>
+        <div class="bi-detail">${detail}</div>
+      </div>
+      <span class="bi-badge">${isBank ? 'Bank' : 'Crypto'}</span>
+      <span class="bi-check"><i class="fas fa-check" style="font-size:.4rem"></i></span>
+    </div>`;
+  }).join('');
+}
+
+function selectBeneficiary(id) {
+  const b = State.beneficiaries.find(x => x.id === id);
+  if (!b) return;
+  State.selectedBeneficiary = b;
+  document.querySelectorAll('.beneficiary-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.id === id);
+  });
+  showToast(`Selected ${b.nickname || b.account_name || b.coin || 'beneficiary'}`, 'success');
+}
+
+function openAddBeneficiary() {
+  DOM.addBeneficiaryModal.classList.add('open');
+  toggleBeneficiaryFields();
+  loadBanksForBeneficiary();
+  DOM.beneficiaryVerifyStatus.innerHTML = '';
+}
+
+function toggleBeneficiaryFields() {
+  const type = DOM.beneficiaryType.value;
+  DOM.bankFields.style.display = type === 'bank' ? 'block' : 'none';
+  DOM.cryptoFields.style.display = type === 'crypto' ? 'block' : 'none';
+  DOM.beneficiaryVerifyStatus.innerHTML = '';
+}
+
+async function loadBanksForBeneficiary() {
+  try {
+    const resp = await apiRequest('/wallet/withdraw/banks');
+    if (resp?.success) {
+      const sel = DOM.beneficiaryBank;
+      sel.innerHTML = '<option value="">Select bank</option>';
+      (resp.banks || []).forEach(b => {
+        sel.innerHTML += `<option value="${b.code}">${b.name}</option>`;
+      });
+    }
+  } catch (e) {
+    const sel = DOM.beneficiaryBank;
+    sel.innerHTML = `<option value="">Select bank</option>
+      <option value="044">Access Bank</option>
+      <option value="058">GTBank</option>
+      <option value="011">First Bank</option>
+      <option value="057">Zenith Bank</option>
+      <option value="033">UBA</option>`;
+  }
+}
+
+const verifyBeneficiaryBank = debounce(async function() {
+  const bankCode = DOM.beneficiaryBank?.value;
+  const acc = DOM.beneficiaryAccountNumber?.value?.trim();
+  const statusEl = DOM.beneficiaryVerifyStatus;
+  const nameGroup = DOM.beneficiaryNameGroup;
+  const nameInput = DOM.beneficiaryAccountName;
+
+  if (!bankCode || !acc || acc.length < 10) {
+    if (nameGroup) nameGroup.style.display = 'none';
+    if (nameInput) nameInput.value = '';
+    if (statusEl) statusEl.innerHTML = '';
+    return;
+  }
+
+  if (acc.length > 12) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--err);">⚠️ Account number too long</span>';
+    return;
+  }
+
+  if (statusEl) statusEl.innerHTML = '<span class="spinner"></span> Verifying account...';
+  if (nameGroup) nameGroup.style.display = 'none';
+
+  try {
+    const resp = await apiRequest('/wallet/withdraw/verify-account', {
+      method: 'POST',
+      body: JSON.stringify({ bank_code: bankCode, account_number: acc })
+    });
+    if (resp?.success && resp.data) {
+      if (nameGroup) nameGroup.style.display = 'block';
+      if (nameInput) nameInput.value = resp.data.account_name || '';
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--ok);">✅ Verified: ${resp.data.account_name || 'Account'}</span>`;
+    } else {
+      if (nameGroup) nameGroup.style.display = 'none';
+      if (nameInput) nameInput.value = '';
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--err);">❌ ${resp?.error || 'Verification failed'}</span>`;
+    }
+  } catch (e) {
+    if (nameGroup) nameGroup.style.display = 'none';
+    if (nameInput) nameInput.value = '';
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--err);">❌ ${e.message || 'Verification failed'}</span>`;
+  }
+}, 600);
+
+async function saveBeneficiary() {
+  const type = DOM.beneficiaryType.value;
+  const nickname = DOM.beneficiaryNickname.value.trim();
+  let payload = { type, nickname };
+
+  if (type === 'bank') {
+    const bankCode = DOM.beneficiaryBank.value;
+    const accountNumber = DOM.beneficiaryAccountNumber.value.trim();
+    const accountName = DOM.beneficiaryAccountName.value.trim();
+
+    if (!bankCode) { showToast('Please select a bank', 'error'); return; }
+    if (!accountNumber || accountNumber.length < 10) { showToast('Please enter a valid account number', 'error'); return; }
+    if (!accountName) { showToast('Please verify your account number first', 'error'); return; }
+
+    payload.bank_code = bankCode;
+    payload.account_number = accountNumber;
+    payload.account_name = accountName;
+    payload.bank_name = '';
+  } else {
+    const coin = DOM.beneficiaryCoin.value;
+    const network = DOM.beneficiaryNetwork.value;
+    const address = DOM.beneficiaryAddress.value.trim();
+    if (!address || address.length < 5) { showToast('Please enter a valid wallet address', 'error'); return; }
+    payload.coin = coin;
+    payload.network = network;
+    payload.wallet_address = address;
+  }
+
+  try {
+    const resp = await apiRequest('/wallet/beneficiaries', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (resp?.success) {
+      showToast('Beneficiary saved successfully!', 'success');
+      closeModal('addBeneficiaryModal');
+      DOM.beneficiaryNickname.value = '';
+      DOM.beneficiaryAccountNumber.value = '';
+      DOM.beneficiaryAccountName.value = '';
+      DOM.beneficiaryAddress.value = '';
+      DOM.beneficiaryNameGroup.style.display = 'none';
+      DOM.beneficiaryVerifyStatus.innerHTML = '';
+      await loadBeneficiaries();
+    } else {
+      showToast(resp?.error || 'Failed to save beneficiary', 'error');
+    }
+  } catch (e) {
+    showToast(e.message || 'Failed to save beneficiary', 'error');
+  }
+}
+
+/* ============================================
+   LOAD TRANSACTIONS
+============================================ */
+async function loadTransactionsTable() {
+  try {
+    const resp = await apiRequest('/transactions', {}, true);
+    let transactions = [];
+    if (resp?.data && Array.isArray(resp.data)) transactions = resp.data;
+    else if (Array.isArray(resp)) transactions = resp;
+    else if (resp?.transactions && Array.isArray(resp.transactions)) transactions = resp.transactions;
+    else if (resp?.result && Array.isArray(resp.result)) transactions = resp.result;
+
+    if (!transactions || transactions.length === 0) {
+      DOM.txRows.innerHTML = '<div class="tx-empty">No transactions found</div>';
+      State.txCache = [];
+      return;
+    }
+
+    State.txCache = transactions;
+    DOM.txRows.innerHTML = transactions.slice(0, 20).map((t, idx) => renderTxRow(t, idx)).join('');
+  } catch (e) {
+    DOM.txRows.innerHTML = '<div class="tx-empty">Error loading transactions</div>';
+  }
+}
+
+function renderTxRow(t, idx) {
+  let amount = 0;
+  if (t.amount_ngn !== undefined) amount = parseFloat(t.amount_ngn) || 0;
+  else if (t.amount !== undefined) amount = parseFloat(t.amount) || 0;
+  else if (t.amount_usd !== undefined) amount = parseFloat(t.amount_usd) || 0;
+
+  const absAmt = Math.abs(amount);
+  const currency = (t.currency || 'NGN').toUpperCase();
+  const sym = currency === 'USD' ? '$' : '₦';
+  const status = (t.status || 'pending').toLowerCase();
+  const isCompleted = status === 'completed' || status === 'finished';
+  const isFailed = status === 'failed';
+  const dot = isCompleted ? '' : (isFailed ? 'failed' : 'pending');
+  const date = t.created_at ? new Date(t.created_at).toLocaleString() : '—';
+
+  let recipient = 'Wallet';
+  if (t.account_name && t.bank_name) recipient = `${t.account_name} · ${t.bank_name}`;
+  else if (t.crypto_address) recipient = t.crypto_address.slice(0, 6) + '...' + t.crypto_address.slice(-4);
+  else if (t.account_number) recipient = `Account ${t.account_number}`;
+
+  const isCredit = amount > 0 || ['deposit', 'credit', 'fund', 'receive'].includes((t.type || '').toLowerCase());
+  const cfg = getTxType(t.type);
+
+  return `<div class="tx-row" onclick="showTransactionDetail(${idx})">
+    <div class="tx-bank">
+      <div class="tx-bank-icon" style="background:${cfg.bg};color:${cfg.cl}"><i class="fas ${cfg.icon}"></i></div>
+      <div>
+        <div class="tx-bank-name">${cfg.label}</div>
+        <div class="tx-bank-acc">${recipient}</div>
+      </div>
+    </div>
+    <div class="${isCredit ? 'amt-c' : 'amt-d'}">${isCredit ? '+' : '-'}${sym}${formatNaira(absAmt)}</div>
+    <div class="tx-status"><span class="tx-dot ${dot}"></span>${status}</div>
+    <div class="tx-date">${date}</div>
+  </div>`;
+}
+
+function filterTx(type) {
+  State.txFilter = type;
+  DOM.txFilterMenu.classList.remove('show');
+  const filtered = type === 'all' ? State.txCache
+    : State.txCache.filter(t => {
+        const tType = (t.type || '').toLowerCase();
+        return tType === type ||
+               (type === 'deposit' && ['deposit', 'fund', 'credit', 'receive'].includes(tType));
+      });
+
+  if (!filtered || !filtered.length) {
+    DOM.txRows.innerHTML = '<div class="tx-empty">No transactions found for this filter</div>';
+    return;
+  }
+  DOM.txRows.innerHTML = filtered.slice(0, 20).map((t) => renderTxRow(t, State.txCache.indexOf(t))).join('');
+}
+
+function toggleTxFilter() { DOM.txFilterMenu.classList.toggle('show'); }
+
+/* ============================================
+   TRANSACTION DETAIL
+============================================ */
+function showTransactionDetail(idx) {
+  const t = State.txCache[idx];
+  if (!t) { DOM.txDetailBody.innerHTML = '<div class="tx-empty">Transaction not found</div>'; return; }
+
+  let amount = 0;
+  if (t.amount_ngn !== undefined) amount = parseFloat(t.amount_ngn) || 0;
+  else if (t.amount !== undefined) amount = parseFloat(t.amount) || 0;
+  else if (t.amount_usd !== undefined) amount = parseFloat(t.amount_usd) || 0;
+
+  const absAmt = Math.abs(amount);
+  const currency = (t.currency || 'NGN').toUpperCase();
+  const sym = currency === 'USD' ? '$' : '₦';
+  const date = t.created_at ? new Date(t.created_at).toLocaleString() : '—';
+  const cfg = getTxType(t.type);
+  const isCredit = amount > 0 || ['deposit', 'credit', 'fund', 'receive'].includes((t.type || '').toLowerCase());
+
+  const details = [
+    { icon: '🔖', label: 'Reference', value: t.ref || t.provider_reference || t.id || '—' },
+    { icon: '💰', label: 'Amount', value: `${isCredit ? '+' : '-'}${sym}${absAmt.toFixed(2)}` },
+    { icon: '📌', label: 'Status', value: (t.status || 'pending').toUpperCase() },
+    { icon: '📅', label: 'Date', value: date }
+  ];
+
+  if (t.account_name && t.bank_name) {
+    details.push({ icon: '👤', label: 'Recipient', value: t.account_name });
+    details.push({ icon: '🏛️', label: 'Bank', value: t.bank_name });
+    details.push({ icon: '🔢', label: 'Account', value: t.account_number || '—' });
+  } else if (t.crypto_address) {
+    details.push({ icon: '🪙', label: 'Coin', value: t.crypto_currency || 'USDT' });
+    details.push({ icon: '🔗', label: 'Network', value: t.crypto_network || '—' });
+    details.push({ icon: '📍', label: 'Address', value: t.crypto_address });
+  }
+
+  if (t.description) details.push({ icon: '📝', label: 'Description', value: t.description });
+
+  DOM.txDetailBody.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div style="background:${cfg.bg};color:${cfg.cl};width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.2rem;margin:0 auto;">
+        <i class="fas ${cfg.icon}"></i>
+      </div>
+      <div style="font-family:var(--fd);font-size:1.3rem;font-weight:800;text-align:center;margin-top:6px;">
+        ${isCredit ? '+' : '-'}${sym}${absAmt.toFixed(2)}
+      </div>
+      <div style="font-size:.7rem;color:var(--t3);text-align:center;">${cfg.label}</div>
+    </div>
+    ${details.map(d => `
+      <div class="bd-item">
+        <div class="bd-left">
+          <div class="bd-icon" style="background:var(--srf2);color:var(--t1);font-size:1rem;">${d.icon}</div>
+          <div class="bd-name">${d.label}</div>
+        </div>
+        <div class="bd-amt" style="max-width:200px;word-break:break-all;text-align:right;font-size:.8rem;">${d.value}</div>
+      </div>
+    `).join('')}
+  `;
+
+  DOM.drawerOverlay.classList.add('show');
+  DOM.txDetailDrawer.classList.add('open');
+}
+
+/* ============================================
+   MODALS
+============================================ */
+function openModal(id) {
+  const m = document.getElementById(id);
+  if (!m) return;
+
+  if (id === 'fundModal') {
+    const isNGN = State.currentWallet === 'NGN';
+    DOM.fundTitle.textContent = `Add Funds — ${isNGN ? 'NGN Wallet' : 'USD Wallet'}`;
+
+    if (isNGN) {
+      // NGN wallet only accepts NGN — no picker, no tabs, no crypto tab.
+      DOM.fundTypeTabs.style.display = 'none';
+      DOM.fundCurrencyFlow.style.display = 'block';
+      DOM.cryptoOptions.style.display = 'none';
+      DOM.fundCurrencySection.style.display = 'none';
+      DOM.depNote.style.display = 'block';
+      DOM.fundProviderBadge.textContent = '🔒 Secure payment partner';
+      DOM.fundBtnText.textContent = 'Continue to payment';
+
+      loadDepositCurrencies().then((ok) => {
+        if (!ok) return;
+        const ngn = State.depCurrencies.find(c => c.code === 'NGN');
+        State.depSelectedCurrency = ngn || null;
+        DOM.fundAmount.value = '';
+        DOM.depQuote.classList.remove('show');
+        DOM.fundBtn.disabled = true;
+        updateAmountInputForCurrency();
+        renderPresets();
+      });
+    } else {
+      // USD wallet — two-tab switcher: Other currency vs Crypto
+      switchFundTab(State.usdFundTab || 'currency');
+    }
+  }
+  m.classList.add('open');
+}
+
+function switchFundTab(tab) {
+  State.usdFundTab = tab;
+  DOM.fundTypeTabs.style.display = 'flex';
+  DOM.fundTabCurrency.classList.toggle('active', tab === 'currency');
+  DOM.fundTabCrypto.classList.toggle('active', tab === 'crypto');
+
+  const isCurrencyTab = tab === 'currency';
+  DOM.fundCurrencyFlow.style.display = isCurrencyTab ? 'block' : 'none';
+  DOM.fundCurrencySection.style.display = isCurrencyTab ? 'block' : 'none';
+  DOM.depNote.style.display = isCurrencyTab ? 'block' : 'none';
+  DOM.cryptoOptions.style.display = isCurrencyTab ? 'none' : 'block';
+  DOM.fundProviderBadge.textContent = isCurrencyTab ? '🔒 Secure payment partner' : '🔒 Secure crypto checkout';
+
+  if (isCurrencyTab) {
+    DOM.fundBtnText.textContent = 'Continue to payment';
+    loadDepositCurrencies().then((ok) => {
+      if (!ok) return;
+      // USD wallet only accepts non-NGN currencies through this tab
+      if (!State.depSelectedCurrency || State.depSelectedCurrency.code === 'NGN') {
+        State.depSelectedCurrency = State.depCurrencies.find(c => c.code !== 'NGN') || null;
+      }
+      DOM.fundAmount.value = '';
+      DOM.depQuote.classList.remove('show');
+      DOM.fundBtn.disabled = true;
+      renderDepositCurrencies();
+      updateAmountInputForCurrency();
+      renderPresets();
+    });
+  } else {
+    DOM.fundBtnText.textContent = 'Generate Payment';
+    DOM.fundAmountLabel.textContent = 'Amount (USD)';
+    DOM.amountSym.textContent = '$';
+    DOM.fundAmount.disabled = false;
+    DOM.fundAmount.placeholder = '0';
+    DOM.fundAmount.value = '';
+    DOM.fundBtn.disabled = false;
+    renderPresets();
+    renderCryptoOptions();
+    updateNetworkDropdown(State.selectedCrypto);
+  }
+}
+
+function closeModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.classList.remove('open');
+  if (State.paymentInterval) { clearInterval(State.paymentInterval); State.paymentInterval = null; }
+  if (State.timerInterval) { clearInterval(State.timerInterval); State.timerInterval = null; }
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+
+/* ============================================
+   DRAWERS
+============================================ */
+function closeDrawer() {
+  DOM.drawerOverlay.classList.remove('show');
+  DOM.breakdownDrawer.classList.remove('open');
+  DOM.statementDrawer.classList.remove('open');
+  DOM.txDetailDrawer.classList.remove('open');
+}
+
+function openBreakdownPanel() {
+  DOM.drawerOverlay.classList.add('show');
+  DOM.breakdownDrawer.classList.add('open');
+  loadBreakdownData();
+}
+
+function switchBreakdownTab(tab) {
+  State.breakdownTab = tab;
+  DOM.earnTab.classList.toggle('active', tab === 'earn');
+  DOM.spendTab.classList.toggle('active', tab === 'spend');
+  loadBreakdownData();
+}
+
+async function loadBreakdownData() {
+  try {
+    const txs = State.txCache || [];
+    const isEarn = State.breakdownTab === 'earn';
+    const filtered = txs.filter(t => {
+      let amount = 0;
+      if (t.amount_ngn !== undefined) amount = parseFloat(t.amount_ngn) || 0;
+      else if (t.amount !== undefined) amount = parseFloat(t.amount) || 0;
+      return isEarn ? amount > 0 : amount < 0;
+    });
+
+    DOM.bdSecTitle.textContent = isEarn ? 'Earning History' : 'Spending History';
+    DOM.bdFilterLabel.textContent = `Showing ${filtered.length} ${isEarn ? 'earnings' : 'spendings'}`;
+
+    if (filtered.length === 0) {
+      DOM.bdList.innerHTML = `<div class="tx-empty">No ${isEarn ? 'earnings' : 'spendings'} found</div>`;
+      return;
+    }
+
+    DOM.bdList.innerHTML = filtered.slice(0, 20).map(t => {
+      let amount = 0;
+      if (t.amount_ngn !== undefined) amount = parseFloat(t.amount_ngn) || 0;
+      else if (t.amount !== undefined) amount = parseFloat(t.amount) || 0;
+      const amt = Math.abs(amount);
+      const cfg = getTxType(t.type);
+      const sym = (t.currency || 'NGN') === 'USD' ? '$' : '₦';
+      const date = t.created_at ? new Date(t.created_at).toLocaleDateString() : '—';
+      return `<div class="bd-item">
+        <div class="bd-left">
+          <div class="bd-icon" style="background:${cfg.bg};color:${cfg.cl}"><i class="fas ${cfg.icon}"></i></div>
+          <div>
+            <div class="bd-name">${cfg.label}</div>
+            <div style="font-size:.6rem;color:var(--t3)">${date}</div>
+          </div>
+        </div>
+        <div class="bd-amt ${isEarn ? 'amt-c' : 'amt-d'}">${isEarn ? '+' : '-'}${sym}${formatNaira(amt)}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    DOM.bdList.innerHTML = '<div class="tx-empty">Error loading breakdown</div>';
+  }
+}
+
+/* ============================================
+   STATEMENT
+============================================ */
+function openStatementPanel() {
+  DOM.drawerOverlay.classList.add('show');
+  DOM.statementDrawer.classList.add('open');
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  DOM.stmtFrom.value = firstDay.toISOString().split('T')[0];
+  DOM.stmtTo.value = now.toISOString().split('T')[0];
+}
+
+async function downloadStatement() {
+  const account = DOM.stmtAccount.value;
+  const from = DOM.stmtFrom.value;
+  const to = DOM.stmtTo.value;
+  const pin = DOM.stmtPin.value;
+
+  if (!pin || pin.length !== 4) { showToast('Please enter your 4-digit PIN', 'error'); return; }
+  if (!from || !to) { showToast('Please select date range', 'error'); return; }
+
+  try {
+    const resp = await apiRequest('/wallet/withdraw/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify({ pin })
+    });
+
+    if (!resp?.success) {
+      if (resp?.code === 'PIN_LOCKED') {
+        showToast(`PIN locked for ${resp.remaining_minutes || 60} minutes`, 'error');
+        return;
+      }
+      showToast(resp?.error || 'Invalid PIN', 'error');
+      return;
+    }
+
+    const txs = State.txCache || [];
+    const filtered = txs.filter(t => {
+      const date = new Date(t.created_at);
+      const cur = (t.currency || 'NGN') === 'USD' ? 'USD' : 'NGN';
+      return date >= new Date(from) && date <= new Date(to) && cur === account;
+    });
+
+    if (filtered.length === 0) { showToast('No transactions found for this period', 'info'); return; }
+
+    let content = `MILESSPACE STATEMENT\n${'='.repeat(50)}\n`;
+    content += `Account: ${account}\nPeriod: ${from} to ${to}\nGenerated: ${new Date().toLocaleString()}\n${'='.repeat(50)}\n\n`;
+    content += `Date\t\tType\t\tAmount\t\tStatus\t\tRecipient\n${'-'.repeat(60)}\n`;
+
+    filtered.forEach(t => {
+      let amount = 0;
+      if (t.amount_ngn !== undefined) amount = parseFloat(t.amount_ngn) || 0;
+      else if (t.amount !== undefined) amount = parseFloat(t.amount) || 0;
+      const sym = (t.currency || 'NGN') === 'USD' ? '$' : '₦';
+      const date = t.created_at ? new Date(t.created_at).toLocaleDateString() : '—';
+      const cfg = getTxType(t.type);
+      let recipient = t.account_name || t.crypto_address || t.bank_name || '—';
+      content += `${date}\t${cfg.label}\t${sym}${formatNaira(Math.abs(amount))}\t${t.status || 'pending'}\t${recipient}\n`;
+    });
+
+    const total = filtered.reduce((sum, t) => {
+      let amount = 0;
+      if (t.amount_ngn !== undefined) amount = parseFloat(t.amount_ngn) || 0;
+      else if (t.amount !== undefined) amount = parseFloat(t.amount) || 0;
+      return sum + amount;
+    }, 0);
+    content += `\n${'='.repeat(50)}\nTotal: ${account === 'USD' ? '$' : '₦'}${formatNaira(total)}\n${'='.repeat(50)}\n`;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `statement_${account}_${from}_to_${to}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Statement downloaded successfully!', 'success');
+    closeDrawer();
+  } catch (e) {
+    showToast(e.message || 'Failed to download statement', 'error');
+  }
+}
+
+/* ============================================
+   PIN STATUS
+============================================ */
+async function loadPinStatus() {
+  try {
+    const resp = await apiRequest('/wallet/withdraw/pin-status');
+    if (resp?.data) { State.hasPin = resp.data.has_pin === true; return State.hasPin; }
+    State.hasPin = false;
+    return false;
+  } catch (e) {
+    State.hasPin = false;
+    return false;
+  }
+}
+
+/* ============================================
+   DEPOSIT CURRENCIES
+============================================ */
+async function loadDepositCurrencies() {
+  if (State.depCurrencies.length > 0) return true;
+  try {
+    const resp = await apiRequest('/wallet/deposit-currencies');
+    if (!resp?.success) throw new Error(resp?.error || 'Failed');
+    State.depCurrencies = resp.currencies || [];
+
+    if (State.depCurrencies.length === 0) {
+      DOM.depCurrencyGrid.innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--err);text-align:center;padding:6px;">No deposit currencies are enabled. Contact support.</div>`;
+      DOM.fundBtn.disabled = true;
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('Deposit currencies error:', e);
+    DOM.depCurrencyGrid.innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--err);text-align:center;padding:6px;">Could not load currencies.</div>`;
+    DOM.fundBtn.disabled = true;
+    return false;
+  }
+}
+
+function renderDepositCurrencies() {
+  // NGN wallet: picker is hidden entirely (NGN-only). USD wallet "Other currency"
+  // tab: every enabled currency except NGN, since NGN cannot fund the USD wallet.
+  const list = State.currentWallet === 'USD'
+    ? State.depCurrencies.filter(c => c.code !== 'NGN')
+    : State.depCurrencies.filter(c => c.code === 'NGN');
+
+  if (list.length === 0) {
+    DOM.depCurrencyGrid.innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--err);text-align:center;padding:6px;">No currencies available for this wallet.</div>`;
+    return;
+  }
+
+  DOM.depCurrencyGrid.innerHTML = list.map(c => `
+    <button type="button" class="dep-curr ${State.depSelectedCurrency?.code === c.code ? 'selected' : ''}" data-code="${c.code}">
+      <span class="dc-flag">${currencyFlag(c.code)}</span>
+      <span class="dc-code">${c.code}</span>
+      <span class="dc-name">${c.display_name}</span>
+    </button>
+  `).join('');
+
+  DOM.depCurrencyGrid.querySelectorAll('.dep-curr').forEach(btn => {
+    btn.addEventListener('click', () => selectDepositCurrency(btn.dataset.code));
+  });
+}
+
+function selectDepositCurrency(code) {
+  const c = State.depCurrencies.find(x => x.code === code);
+  if (!c) return;
+  State.depSelectedCurrency = c;
+  State.depQuote = null;
+
+  DOM.depCurrencyGrid.querySelectorAll('.dep-curr').forEach(b => {
+    b.classList.toggle('selected', b.dataset.code === code);
+  });
+
+  updateAmountInputForCurrency();
+  DOM.fundAmount.value = '';
+  DOM.depQuote.classList.remove('show');
+  DOM.fundBtn.disabled = true;
+  renderPresets();
+}
+
+function updateAmountInputForCurrency() {
+  const c = State.depSelectedCurrency;
+  if (!c) {
+    DOM.fundAmountLabel.textContent = 'Amount';
+    DOM.amountSym.textContent = '';
+    DOM.fundAmount.placeholder = 'No currencies available';
+    DOM.fundAmount.disabled = true;
+    DOM.fundBtn.disabled = true;
+    return;
+  }
+  DOM.fundAmount.disabled = false;
+  DOM.fundAmountLabel.textContent = `Amount (${c.code})`;
+  DOM.amountSym.textContent = currencySymbol(c.code);
+  DOM.fundAmount.placeholder = `Min ${formatMoney(c.min_amount, c.code)}`;
+}
+
+function buildPresets(c) {
+  const min = Number(c.min_amount);
+  const code = c.code;
+  const map = {
+    NGN: [1000, 5000, 10000, 50000, 100000],
+    GHS: [50, 100, 500, 1000],
+    KES: [1000, 5000, 10000, 50000],
+    ZAR: [100, 500, 1000, 5000],
+    XAF: [5000, 10000, 50000, 100000],
+    XOF: [5000, 10000, 50000, 100000],
+    TZS: [10000, 50000, 100000, 500000],
+    EGP: [500, 1000, 5000, 10000]
+  };
+  const arr = map[code] || [min, min * 5, min * 10, min * 50];
+  return arr.filter(a => a >= min && a <= Number(c.max_amount)).slice(0, 5);
+}
+
+/* ============================================
+   QUOTE
+============================================ */
+function inCurrencyFlow() {
+  return State.currentWallet === 'NGN' || (State.currentWallet === 'USD' && State.usdFundTab === 'currency');
+}
+
+async function fetchDepositQuote() {
+  const cfg = State.depSelectedCurrency;
+  if (!cfg) return;
+
+  const amount = parseFloat(DOM.fundAmount.value);
+  if (!amount || amount <= 0) { DOM.depQuote.classList.remove('show'); DOM.fundBtn.disabled = true; return; }
+  if (amount < Number(cfg.min_amount)) { DOM.depQuote.classList.remove('show'); DOM.fundBtn.disabled = true; return; }
+  if (amount > Number(cfg.max_amount)) {
+    DOM.depQuote.classList.remove('show');
+    DOM.fundBtn.disabled = true;
+    showToast(`Maximum is ${formatMoney(cfg.max_amount, cfg.code)}`, 'error');
+    return;
+  }
+
+  // NGN deposits: 1:1 into NGN wallet — no round-trip to the quote endpoint needed.
+  if (cfg.code === 'NGN') {
+    State.depQuote = {
+      source_currency: 'NGN',
+      source_amount: amount.toFixed(2),
+      target_currency: 'NGN',
+      rate: '1.0000',
+      gross_ngn: amount.toFixed(2),
+      final_ngn: amount.toFixed(2),
+      markup: 0,
+      source: 'MILESSPACE'
+    };
+    renderDepositQuote();
+    DOM.fundBtn.disabled = false;
+    return;
+  }
+
+  // Non-NGN currencies (USD wallet "Other currency" tab): quote through the API,
+  // then show the USD-equivalent credit since the destination is the USD wallet.
+  DOM.depQuote.classList.add('show');
+  DOM.qSource.textContent = formatMoney(amount, cfg.code);
+  DOM.qRate.textContent = 'Calculating…';
+  DOM.qTarget.textContent = '…';
+  DOM.fundBtn.disabled = true;
+
+  const resp = await apiRequest('/wallet/deposits/quote', {
+    method: 'POST',
+    body: JSON.stringify({ currency: cfg.code, amount })
+  });
+
+  if (!resp?.success) {
+    DOM.qRate.textContent = '—';
+    DOM.qTarget.textContent = '—';
+    DOM.fundBtn.disabled = true;
+    if (resp?.code === 'UNSUPPORTED_CURRENCY' || resp?.code === 'FX_RATE_UNAVAILABLE') {
+      showToast(resp.error || 'Rate unavailable', 'error');
+    }
+    return;
+  }
+
+  State.depQuote = resp.data;
+  renderDepositQuote();
+  DOM.fundBtn.disabled = false;
+}
+
+function renderDepositQuote() {
+  const q = State.depQuote;
+  const cfg = State.depSelectedCurrency;
+  if (!q || !cfg) { DOM.depQuote.classList.remove('show'); return; }
+
+  DOM.depQuote.classList.add('show');
+  DOM.qSource.textContent = formatMoney(q.source_amount, q.source_currency);
+
+  // NGN wallet: show NGN amount 1:1
+  if (cfg.code === 'NGN') {
+    DOM.qRate.textContent = '1 NGN = ₦1.0000';
+    DOM.qFee.textContent = 'Included';
+    DOM.qTargetLabel.textContent = 'You receive';
+    DOM.qTarget.textContent = `₦${Number(q.final_ngn).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return;
+  }
+
+  // USD wallet: destination is USD, so show the USD-equivalent credit.
+  const sourceCcy = cfg.code;
+  DOM.qRate.textContent = `1 ${sourceCcy} = ₦${Number(q.rate).toFixed(4)}`;
+
+  const usdNgnRate = Number(q.usd_ngn_rate || window.__USD_NGN_RATE || 1620);
+  const usdFinal = q.usd_equivalent !== undefined ? Number(q.usd_equivalent) : (Number(q.final_ngn) / usdNgnRate);
+  DOM.qTargetLabel.textContent = 'You receive';
+  DOM.qTarget.textContent = `$${usdFinal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  DOM.qFee.textContent = Number(q.markup) > 0 ? `${(Number(q.markup) * 100).toFixed(2)}% (included)` : 'Included';
+}
+
+/* ============================================
+   PRESETS
+============================================ */
+function renderPresets() {
+  if (inCurrencyFlow()) {
+    const cfg = State.depSelectedCurrency;
+    if (!cfg) { DOM.presetContainer.innerHTML = ''; return; }
+    const presets = buildPresets(cfg);
+    DOM.presetContainer.innerHTML = presets.map(a =>
+      `<button class="preset-btn" onclick="setPreset(${a})">${formatMoney(a, cfg.code)}</button>`
+    ).join('');
+  } else {
+    const amounts = [5, 10, 20, 50, 100];
+    DOM.presetContainer.innerHTML = amounts.map(a =>
+      `<button class="preset-btn" onclick="setPreset(${a})">$${a.toLocaleString()}</button>`
+    ).join('');
+  }
+}
+
+function setPreset(a) {
+  DOM.fundAmount.value = a;
+  validateAmount();
+}
+
+/* ============================================
+   CRYPTO OPTIONS (USD wallet "Crypto" tab only)
+============================================ */
+function renderCryptoOptions() {
+  const g = DOM.cryptoGrid;
+  g.innerHTML = '';
+  COIN_LIST.forEach(coin => {
+    const d = document.createElement('div');
+    d.className = 'crypto-option' + (coin.id === State.selectedCrypto ? ' selected' : '');
+    d.dataset.coin = coin.id;
+    d.onclick = () => selectCrypto(coin.id);
+    const min = MIN_RECOMMEND[coin.id] || 5;
+    d.innerHTML = `<span class="coin-icon">${COIN_ICONS[coin.id] || '🪙'}</span><div><div class="coin-name">${coin.label}</div><div class="coin-network">Min: $${min}</div></div>`;
+    g.appendChild(d);
+  });
+}
+
+function updateNetworkDropdown(coinId) {
+  const nets = COIN_NETWORKS[coinId] || [];
+  if (nets.length > 1) {
+    DOM.networkSelection.style.display = 'block';
+    DOM.networkSelect.innerHTML = nets.map(n => `<option value="${n.id}">${n.label}</option>`).join('');
+    DOM.networkSelect.onchange = function() {
+      State.selectedNetworkId = this.value;
+      validateAmount();
+    };
+    State.selectedNetworkId = nets[0].id;
+    DOM.networkSelect.value = State.selectedNetworkId;
+  } else {
+    DOM.networkSelection.style.display = 'none';
+    State.selectedNetworkId = nets.length === 1 ? nets[0].id : coinId;
+  }
+}
+
+function selectCrypto(coin) {
+  State.selectedCrypto = coin;
+  document.querySelectorAll('.crypto-option').forEach(e => e.classList.toggle('selected', e.dataset.coin === coin));
+  updateNetworkDropdown(coin);
+  validateAmount();
+}
+
+/* ============================================
+   VALIDATE
+============================================ */
+function validateAmount() {
+  if (inCurrencyFlow()) {
+    const cfg = State.depSelectedCurrency;
+    if (!cfg) return;
+    clearTimeout(State.depQuoteDebounce);
+    State.depQuoteDebounce = setTimeout(fetchDepositQuote, 400);
+    return;
+  }
+
+  const amt = parseFloat(DOM.fundAmount?.value || 0);
+  const min = MIN_RECOMMEND[State.selectedCrypto] || 5;
+  if (amt > 0 && amt < min) {
+    DOM.minAmountHint.style.display = 'block';
+    DOM.minAmountText.textContent = `Minimum for ${State.selectedCrypto} is $${min}. Try LTC or TRX for lower minimums.`;
+  } else {
+    DOM.minAmountHint.style.display = 'none';
+  }
+}
+
+/* ============================================
+   SUBMIT
+============================================ */
+async function submitFund() {
+  const amt = parseFloat(DOM.fundAmount?.value || 0);
+  if (!amt || amt <= 0) { showToast('Please enter a valid amount', 'error'); return; }
+
+  if (inCurrencyFlow()) {
+    await submitCurrencyDeposit(amt);
+  } else {
+    await submitCryptoDeposit(amt);
+  }
+}
+
+// Handles both: NGN wallet (currency locked to NGN) and USD wallet's
+// "Other currency" tab (any non-NGN currency). The backend routes the
+// credited wallet based on the deposit's currency.
+async function submitCurrencyDeposit(amt) {
+  const cfg = State.depSelectedCurrency;
+  if (!cfg) { showToast('Select a payment currency', 'error'); return; }
+  if (State.depSubmitting) return;
+
+  if (amt < Number(cfg.min_amount)) { showToast(`Minimum is ${formatMoney(cfg.min_amount, cfg.code)}`, 'error'); return; }
+  if (amt > Number(cfg.max_amount)) { showToast(`Maximum is ${formatMoney(cfg.max_amount, cfg.code)}`, 'error'); return; }
+
+  State.depSubmitting = true;
+  DOM.fundBtn.disabled = true;
+  DOM.fundBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating payment…';
+
+  try {
+    const ik = 'IK-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const resp = await apiRequest('/wallet/deposits/kora/initialize', {
+      method: 'POST',
+      body: JSON.stringify({ currency: cfg.code, amount: amt, idempotency_key: ik })
+    });
+
+    if (!resp?.success) { showToast(resp?.error || 'Could not start payment', 'error'); return; }
+    const url = resp.checkout_url;
+    if (!url) { showToast('Payment provider did not return a checkout URL', 'error'); return; }
+
+    showToast('Redirecting to secure checkout…', 'info');
+    setTimeout(() => { window.location.href = url; }, 500);
+  } catch (e) {
+    showToast('Something went wrong. Please try again.', 'error');
+  } finally {
+    State.depSubmitting = false;
+    DOM.fundBtn.disabled = false;
+    DOM.fundBtn.innerHTML = '<i class="fas fa-arrow-right"></i> <span>Continue to payment</span>';
+  }
+}
+
+async function submitCryptoDeposit(amt) {
+  if (amt < 1) { showToast('Minimum deposit is $1', 'error'); return; }
+
+  DOM.fundBtn.disabled = true;
+  DOM.fundBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+  try {
+    const payId = State.selectedNetworkId || COIN_NETWORKS[State.selectedCrypto]?.[0]?.id || State.selectedCrypto;
+    const user = getSession()?.user || {};
+    const ik = `ik_${user.id?.slice(0,8) || 'anon'}_${amt}_${Date.now().toString(36)}`;
+    const resp = await apiRequest('/wallet/nowpayments/deposit', {
+      method: 'POST',
+      body: JSON.stringify({
+        amount: amt,
+        currency: 'USD',
+        pay_currency: payId,
+        ipn_callback_url: 'https://95eb-102-207-252-5.ngrok-free.app/api/wallet/nowpayments/webhook',
+        idempotency_key: ik
+      })
+    });
+    if (!resp?.success) throw new Error(resp?.error || 'Payment creation failed');
+
+    const pay = resp.data;
+    State.currentPaymentId = pay.id || pay.payment_id;
+    closeModal('fundModal');
+
+    DOM.payAmount.textContent = (pay.pay_amount || 0).toFixed(8);
+    const nets = COIN_NETWORKS[State.selectedCrypto] || [];
+    const sel = nets.find(n => n.id === payId);
+    DOM.payCurrency.textContent = sel ? sel.label : payId;
+    DOM.usdAmount.textContent = (pay.price_amount || amt).toFixed(2);
+    if (pay.address) {
+      DOM.cryptoAddress.textContent = pay.address;
+      if (typeof QRCode !== 'undefined') {
+        DOM.qrDisplay.innerHTML = '';
+        State.qrCodeInstance = new QRCode(DOM.qrDisplay, { text: pay.address, width: 120, height: 120 });
+      }
+    }
+    DOM.paymentStatus.innerHTML = '<span class="status-badge waiting">⏳ Awaiting Payment</span>';
+    openModal('paymentModal');
+    startPaymentTimer(1800);
+    State.paymentInterval = setInterval(checkPaymentStatus, 30000);
+    showToast('Payment created! Send crypto to the address shown.', 'info');
+  } catch (e) {
+    showToast(e.message || 'Payment failed. Please try again.', 'error');
+  } finally {
+    DOM.fundBtn.disabled = false;
+    DOM.fundBtn.innerHTML = '<i class="fas fa-arrow-right"></i> <span>Generate Payment</span>';
+  }
+}
+
+/* ============================================
+   PAYMENT STATUS
+============================================ */
+async function checkPaymentStatus() {
+  if (!State.currentPaymentId) return;
+  try {
+    const resp = await apiRequest(`/wallet/nowpayments/status/${State.currentPaymentId}`);
+    if (!resp?.success) throw new Error(resp?.error || 'Status check failed');
+    const st = resp.data?.status;
+    const map = {
+      'waiting': { label: '⏳ Awaiting Payment', class: 'waiting' },
+      'processing': { label: '🔄 Processing', class: 'processing' },
+      'finished': { label: '✅ Completed', class: 'finished' },
+      'failed': { label: '❌ Failed', class: 'failed' }
+    };
+    const info = map[st] || map.waiting;
+    DOM.paymentStatus.innerHTML = `<span class="status-badge ${info.class}">${info.label}</span>`;
+    if (st === 'finished' || st === 'completed') {
+      clearInterval(State.paymentInterval);
+      clearInterval(State.timerInterval);
+      showToast('Payment confirmed! Wallet credited.', 'success');
+      setTimeout(() => { closeModal('paymentModal'); loadWalletBalance(); apiCache.clear(); loadTransactionsTable(); }, 2000);
+    }
+  } catch (e) { console.error('Status check error:', e); }
+}
+
+function startPaymentTimer(sec) {
+  let rem = sec;
+  clearInterval(State.timerInterval);
+  State.timerInterval = setInterval(() => {
+    rem--;
+    const m = Math.floor(rem / 60);
+    const s = rem % 60;
+    DOM.paymentTimer.textContent = `⏰ Expires in: ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    if (rem <= 0) {
+      clearInterval(State.timerInterval);
+      DOM.paymentStatus.innerHTML = '<span class="status-badge failed">⏰ Expired</span>';
+      clearInterval(State.paymentInterval);
+    }
+  }, 1000);
+}
+
+function copyAddress() {
+  const addr = DOM.cryptoAddress.textContent;
+  if (!addr || addr === '—') { showToast('No address available', 'error'); return; }
+  navigator.clipboard?.writeText(addr).then(() => showToast('Address copied!', 'success'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = addr;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      showToast('Address copied!', 'success');
+    });
+}
+
+/* ============================================
+   LOGOUT
+============================================ */
+function doLogout() {
+  if (typeof window.doUserLogout === 'function') window.doUserLogout();
+  else {
+    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+    window.location.href = 'login.html';
+  }
+}
+
+/* ============================================
+   RETURN QUERY
+============================================ */
+function handleReturnQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const dep = params.get('deposit');
+  if (!dep) return;
+
+  if (dep === 'success') showToast('Deposit confirmed! Your wallet has been credited.', 'success');
+  else if (dep === 'pending') showToast('Deposit is being processed. You will receive an email once confirmed.', 'info');
+  else if (dep === 'not_found') showToast('We could not find that deposit. Contact support if funds were debited.', 'error');
+  else if (dep === 'missing_reference') showToast('Missing deposit reference.', 'error');
+  else if (dep === 'error') showToast('There was an error completing your deposit. Please contact support.', 'error');
+
+  try { window.history.replaceState({}, '', window.location.pathname); } catch {}
+}
+
+/* ============================================
+   INIT
+============================================ */
+document.addEventListener('DOMContentLoaded', async function() {
+  if (!getToken()) { redirectToLogin(); return; }
+
+  updateUserUI();
   initSidebar();
-  
-  // Load user data first (this will populate balances)
-  await loadUser();
-  
-  // Then load rates
-  await loadRates();
-  
-  // Setup drag and drop
-  setupDragDrop('uploadArea', 'cardImages', 'cardImages');
-  setupDragDrop('receiptArea', 'receiptImages', 'receiptImages');
-  
-  console.log('✅ Initialization complete');
-})();
+
+  await Promise.all([
+    loadWalletBalance(),
+    loadTransactionsTable(),
+    loadCashbackBalance(),
+    loadPinStatus(),
+    loadBeneficiaries()
+  ]);
+
+  renderPresets();
+  renderCryptoOptions();
+  updateNetworkDropdown(DEFAULT_CRYPTO);
+  handleReturnQuery();
+  loadDepositCurrencies().catch(() => {});
+  DOM.logoutBtn?.addEventListener('click', doLogout);
+
+  console.log('💳 Wallet page ready');
+});
+
+/* ============================================
+   EXPOSE
+============================================ */
+window.selectWallet = selectWallet;
+window.switchWalletTab = switchWalletTab;
+window.switchFundTab = switchFundTab;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.filterTx = filterTx;
+window.toggleTxFilter = toggleTxFilter;
+window.openBreakdownPanel = openBreakdownPanel;
+window.switchBreakdownTab = switchBreakdownTab;
+window.openStatementPanel = openStatementPanel;
+window.downloadStatement = downloadStatement;
+window.closeDrawer = closeDrawer;
+window.submitFund = submitFund;
+window.copyAddress = copyAddress;
+window.checkPaymentStatus = checkPaymentStatus;
+window.setPreset = setPreset;
+window.validateAmount = validateAmount;
+window.selectCrypto = selectCrypto;
+window.doLogout = doLogout;
+window.showTransactionDetail = showTransactionDetail;
+window.openAddBeneficiary = openAddBeneficiary;
+window.toggleBeneficiaryFields = toggleBeneficiaryFields;
+window.verifyBeneficiaryBank = verifyBeneficiaryBank;
+window.saveBeneficiary = saveBeneficiary;
+window.selectBeneficiary = selectBeneficiary;
 </script>
 </body>
 </html>
