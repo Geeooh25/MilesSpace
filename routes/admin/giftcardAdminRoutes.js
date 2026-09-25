@@ -1,931 +1,554 @@
-// routes/admin/giftcardAdminRoutes.js
+// routes/admin/giftCardAdminRoutes.js
+// ─────────────────────────────────────────────────────────────────
+// Admin Gift Cards API — routes only.
+//
+//   GET  /api/admin/gift-cards/summary
+//   GET  /api/admin/gift-cards/orders
+//   GET  /api/admin/gift-cards/orders/:id
+//   POST /api/admin/gift-cards/orders/:id/reveal-code
+//   POST /api/admin/gift-cards/orders/:id/retry
+//   POST /api/admin/gift-cards/orders/:id/refund
+//   POST /api/admin/gift-cards/orders/:id/sync
+//   GET  /api/admin/gift-cards/products
+//   PUT  /api/admin/gift-cards/products/:id/enabled
+//   GET  /api/admin/gift-cards/provider/health
+//
+// No business logic here. No direct DB writes. The service is the
+// only place that touches the order or the wallet.
+//
+// Error responses are sanitized — internal error messages never
+// reach the admin client. The full message is logged server-side
+// with the request id so support can correlate.
+//
+// Response shape (single canonical form):
+//   Success:  { success: true, data: {...} }
+//   Error:    { success: false, code, message, request_id }
+// ─────────────────────────────────────────────────────────────────
+
+'use strict';
+
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');                              // ← add
-const { supabase, supabaseAdmin } = require('../../db/supabase'); // ← add `supabase`
 const crypto = require('crypto');
+const { requirePermission, PERMISSIONS } = require('../../middleware/adminAuth');
+const giftCards = require('../../services/giftCardService');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'miles-exchange-secret-key-2024'; // ← add
+// ─── Identifier validation ───────────────────────────────────────
+// gift_card_orders.id is BIGINT in this deployment. Products are
+// also integer-keyed. If you migrate to UUID later, swap this regex
+// for the UUID pattern in ONE place.
+const ORDER_ID_RE = /^\d{1,19}$/;
 
-// ─── MIDDLEWARE: Verify Admin (Supabase first, custom JWT fallback) ───
-async function verifyAdmin(req, res, next) {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ success: false, error: 'No token provided', code: 'NO_TOKEN' });
-    }
+// ─── Request ID middleware (per request) ─────────────────────────
+router.use((req, res, next) => {
+    req.gcRequestId = req.headers['x-request-id']
+        || `GC-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    res.setHeader('X-Request-ID', req.gcRequestId);
+    next();
+});
 
-    try {
-        // ← FIXED: use `supabase` (anon client), not `supabaseAdmin`
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+// ─── Response helpers ────────────────────────────────────────────
 
-        if (!authError && user) {
-            const { data: profile, error: profileError } = await supabaseAdmin
-                .from('profiles')
-                .select('role, email, username')
-                .eq('id', user.id)
-                .single();
-
-            if (!profileError && profile && (profile.role === 'admin' || profile.role === 'super_admin')) {
-                req.adminId = user.id;
-                req.adminEmail = profile.email || user.email;
-                req.adminUsername = profile.username || user.email?.split('@')[0] || 'Admin';
-                req.adminRole = profile.role;
-                req.user = user;
-                return next();
-            }
-
-            if (profile) {
-                return res.status(403).json({ success: false, error: 'Admin access required', code: 'ADMIN_REQUIRED' });
-            }
-        }
-
-        // ← ADDED: fallback to custom JWT (issued by /api/admin/login)
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded.role !== 'admin' && decoded.role !== 'super_admin') {
-            return res.status(403).json({ success: false, error: 'Admin access required', code: 'ADMIN_REQUIRED' });
-        }
-
-        const { data: profile, error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .select('role, email, username')
-            .eq('id', decoded.userId)
-            .single();
-
-        if (profileError || !profile) {
-            return res.status(404).json({ success: false, error: 'User profile not found', code: 'PROFILE_NOT_FOUND' });
-        }
-
-        req.adminId = decoded.userId;
-        req.adminEmail = profile.email || decoded.email;
-        req.adminUsername = profile.username || decoded.email?.split('@')[0] || 'Admin';
-        req.adminRole = profile.role;
-        req.user = { id: decoded.userId, email: decoded.email };
-        next();
-    } catch (error) {
-        console.error('Admin verification error:', error);
-        return res.status(401).json({ success: false, error: 'Authentication failed', code: 'AUTH_FAILED' });
-    }
-}
-// ─── HELPER: Generate Order ID ───
-function generateOrderId() {
-    const prefix = 'GC';
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = crypto.randomBytes(3).toString('hex').toUpperCase();
-    return `${prefix}${timestamp}${random}`;
+// Every successful response uses the same envelope.
+function sendOk(res, payload) {
+    if (res.headersSent) return;
+    res.json({ success: true, data: payload });
 }
 
-// ─── HELPER: Enrich orders with user details ───
-async function enrichOrdersWithUsers(orders) {
-    if (!orders || orders.length === 0) return orders;
-    
-    const userIds = [...new Set(orders.map(o => o.user_id).filter(Boolean))];
-    if (userIds.length === 0) return orders;
-    
-    const { data: users } = await supabaseAdmin
-        .from('profiles')
-        .select('id, email, username, avatar_url, phone')
-        .in('id', userIds);
-    
-    const userMap = {};
-    users?.forEach(u => userMap[u.id] = u);
-    
-    return orders.map(o => ({
-        ...o,
-        username: userMap[o.user_id]?.username || 'Unknown',
-        email: userMap[o.user_id]?.email || 'Unknown',
-        phone: userMap[o.user_id]?.phone || 'N/A',
-        avatar_url: userMap[o.user_id]?.avatar_url || null
-    }));
+// Safe messages keyed by stable code. Never send raw err.message.
+const SAFE_MESSAGES = {
+    INVALID_ID:                 'Invalid identifier.',
+    REASON_REQUIRED:            'A reason is required.',
+    NOT_FOUND:                  'Resource not found.',
+    GCO_NOT_FOUND:              'Gift card order not found.',
+    GCP_NOT_FOUND:              'Gift card product not found.',
+    NO_DELIVERY:                'No delivery is available for this order.',
+    ALREADY_COMPLETED:          'This order is already completed.',
+    ALREADY_REFUNDED:           'This order is already refunded.',
+    IN_REFUND_STATE:            'This order is in a refund state.',
+    NOT_REFUNDABLE:             'This order is not eligible for a refund.',
+    NO_TRANSACTION:             'This order has no associated wallet transaction.',
+    TX_NOT_FOUND:               'The original transaction could not be found.',
+    TX_NOT_REFUNDABLE:          'The original transaction is not refundable.',
+    TX_NOT_DEBIT:               'The original transaction is not a wallet debit.',
+    MISSING_ORDER_DATA:         'Order is missing required data.',
+    MISSING_PRODUCT_ID:         'Order is missing the provider product id.',
+    ORDER_STATE_CHANGED:        'The order changed before this action completed. Reload and try again.',
+    INVALID_STATUS_TRANSITION:  'That status change is not allowed.',
+    PRODUCT_CHANGED:            'The product changed before this action completed.',
+    AUDIT_WRITE_FAILED:         'The action was aborted because the audit log could not be written.',
+    LEDGER_REFUND_FAILED:       'The wallet refund could not be completed.',
+    DELIVERY_WRITE_FAILED:      'The delivery could not be persisted.',
+    PROVIDER_QUERY_FAILED:      'The provider could not be reached.',
+    PROVIDER_STATE_UNKNOWN:     'The provider state is unknown — reconciliation is required.',
+    PROVIDER_PURCHASE_FAILED:   'The provider rejected the purchase request.',
+    INVALID_ENABLED:            'The enabled field must be a boolean.',
+    IDEMPOTENCY_CONFLICT:       'This request key was already used with different parameters.',
+    IDEMPOTENCY_IN_PROGRESS:    'A matching request is already in progress.',
+    UNKNOWN_ERROR:              'An unexpected error occurred.'
+};
+
+function sendErr(res, req, err) {
+    if (res.headersSent) return;
+    const status = err?.status || 500;
+    const code = err?.code || 'GIFTCARD_ERROR';
+    const clientMessage = SAFE_MESSAGES[code] || 'Gift card request failed.';
+
+    // Full detail goes to the server log, correlated by request id.
+    if (status >= 500 || !SAFE_MESSAGES[code]) {
+        console.error('[ADMIN GIFTCARD]', req.gcRequestId, code, err?.message || err);
+    }
+
+    const body = {
+        success: false,
+        code,
+        message: clientMessage,
+        request_id: req.gcRequestId
+    };
+    if (err?.allowed_transitions) body.allowed_transitions = err.allowed_transitions;
+    if (err?.current_status) body.current_status = err.current_status;
+    if (err?.expected_status) body.expected_status = err.expected_status;
+
+    res.status(status).json(body);
 }
 
-// ─── HELPER: Get gift card rates ───
-async function getGiftCardRates() {
-    const { data, error } = await supabaseAdmin
-        .from('gift_card_rates')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-    
-    if (error) {
-        console.error('Error fetching rates:', error);
-        return [];
-    }
-    return data || [];
+function ctxFrom(req) {
+    return {
+        adminId: req.adminContext?.id || null,
+        adminEmail: req.adminContext?.email || null,
+        adminRole: req.adminContext?.role || null,
+        ip: req.ip || req.headers['x-forwarded-for'] || null,
+        userAgent: req.headers['user-agent'] || null,
+        requestId: req.gcRequestId
+    };
 }
 
-// ============================================================
-// 1. GET /admin/giftcards/stats - Dashboard Stats
-// ============================================================
-router.get('/giftcards/stats', verifyAdmin, async (req, res) => {
-    try {
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+// ─── Validation helpers ──────────────────────────────────────────
 
-        // ─── Get all orders from gift_card_transactions ───
-        const { data: allOrders } = await supabaseAdmin
-            .from('gift_card_transactions')
-            .select('*');
-
-        // ─── Get today's orders ───
-        const { data: todayOrders } = await supabaseAdmin
-            .from('gift_card_transactions')
-            .select('*')
-            .gte('created_at', `${today}T00:00:00`)
-            .lt('created_at', `${today}T23:59:59`);
-
-        // ─── Get month's orders ───
-        const { data: monthOrders } = await supabaseAdmin
-            .from('gift_card_transactions')
-            .select('*')
-            .gte('created_at', monthStart);
-
-        // ─── Get products from gift_card_rates ───
-        const products = await getGiftCardRates();
-
-        // ─── Get unique customers ───
-        const uniqueCustomers = new Set(allOrders?.map(o => o.user_id) || []);
-
-        // ─── Calculate stats ───
-        const stats = {
-            totalOrders: allOrders?.length || 0,
-            pending: allOrders?.filter(o => o.status === 'pending' || o.status === 'submitted' || o.status === 'under_review').length || 0,
-            processing: allOrders?.filter(o => ['processing', 'approved'].includes(o.status)).length || 0,
-            delivered: allOrders?.filter(o => ['paid', 'completed'].includes(o.status)).length || 0,
-            cancelled: allOrders?.filter(o => o.status === 'cancelled').length || 0,
-            refunded: allOrders?.filter(o => o.status === 'refunded').length || 0,
-            rejected: allOrders?.filter(o => o.status === 'rejected').length || 0,
-            revenueNGN: allOrders?.reduce((sum, o) => sum + (o.wallet_type === 'NGN' ? (o.estimated_payout || 0) : 0), 0) || 0,
-            revenueUSD: allOrders?.reduce((sum, o) => sum + (o.wallet_type === 'USD' ? (o.estimated_payout || 0) : 0), 0) || 0,
-            totalCustomers: uniqueCustomers.size || 0,
-            totalProducts: products?.length || 0,
-            activeProducts: products?.filter(p => p.is_active !== false).length || 0
-        };
-
-        res.json({
-            success: true,
-            stats
-        });
-
-    } catch (error) {
-        console.error('Stats error:', error);
-        res.status(500).json({ success: false, error: error.message });
+function validateIdParam(req, res, next) {
+    const raw = String(req.params.id || '');
+    if (!ORDER_ID_RE.test(raw)) {
+        const e = new Error('Invalid order identifier.');
+        e.status = 400;
+        e.code = 'INVALID_ID';
+        return sendErr(res, req, e);
     }
-});
+    next();
+}
 
-// ============================================================
-// 2. GET /admin/gift-orders - Get All Orders
-// ============================================================
-router.get('/gift-orders', verifyAdmin, async (req, res) => {
-    try {
-        const {
-            status,
-            period,
-            currency,
-            country,
-            supplier,
-            wallet,
-            search,
-            limit = 100,
-            page = 1
-        } = req.query;
+function validateQueryDates(req, res, next) {
+    const { from, to } = req.query;
+    if (from) {
+        const d = new Date(from);
+        if (isNaN(d.getTime())) {
+            const e = new Error('Invalid from date.');
+            e.status = 422; e.code = 'INVALID_DATE';
+            return sendErr(res, req, e);
+        }
+    }
+    if (to) {
+        const d = new Date(to);
+        if (isNaN(d.getTime())) {
+            const e = new Error('Invalid to date.');
+            e.status = 422; e.code = 'INVALID_DATE';
+            return sendErr(res, req, e);
+        }
+    }
+    if (from && to && new Date(from) > new Date(to)) {
+        const e = new Error('from must be before to.');
+        e.status = 422; e.code = 'INVALID_DATE_RANGE';
+        return sendErr(res, req, e);
+    }
+    next();
+}
 
-        const offset = (parseInt(page) - 1) * parseInt(limit);
+// ─── Idempotency ─────────────────────────────────────────────────
+//
+// Correctness notes:
+//   • The unique index on (admin_id, endpoint, idempotency_key)
+//     is the atomic guard. Two concurrent requests with the same
+//     key: one wins the INSERT, the other sees a conflict.
+//   • The stored response is replayed when the same key arrives
+//     again with the same request hash.
+//   • Same key + different request body → 409 IDEMPOTENCY_CONFLICT.
+//   • We do not swallow DB errors during persist — idempotency
+//     that silently fails is worse than no idempotency at all.
 
-        let query = supabaseAdmin
-            .from('gift_card_transactions')
-            .select('*', { count: 'exact' });
+function hashRequest({ adminId, endpoint, body, params, query }) {
+    const canonical = JSON.stringify({
+        adminId,
+        endpoint,
+        body: body || {},
+        params: params || {},
+        query: query || {}
+    });
+    return crypto.createHash('sha256').update(canonical).digest('hex');
+}
 
-        // ─── Apply filters ───
-        if (status && status !== 'all') {
-            if (status === 'pending') {
-                query = query.in('status', ['pending', 'submitted', 'under_review']);
-            } else if (status === 'processing') {
-                query = query.in('status', ['processing', 'approved']);
-            } else if (status === 'delivered') {
-                query = query.in('status', ['paid', 'completed']);
-            } else {
-                query = query.eq('status', status);
+async function withIdempotency({ req, operationName }) {
+    const key = req.headers['idempotency-key'];
+    if (!key || String(key).length < 8) {
+        // No key provided — operate without idempotency.
+        return { fresh: true, enabled: false };
+    }
+
+    const adminId = req.adminContext?.id || 'anon';
+    const endpoint = `${req.method} ${req.baseUrl}${req.path.replace(/\/\d+(\/|$)/, '/:id$1')}`;
+    const idemKey = String(key).slice(0, 200);
+    const requestHash = hashRequest({
+        adminId,
+        endpoint,
+        body: req.body,
+        params: { id: req.params.id },
+        query: { operation: operationName }
+    });
+
+    const { supabaseAdmin } = require('../../db/supabase');
+
+    // 1. Look up an existing record.
+    const { data: existing, error: lookupErr } = await supabaseAdmin
+        .from('admin_idempotency')
+        .select('id, request_hash, status, response, expires_at')
+        .eq('admin_id', adminId)
+        .eq('endpoint', endpoint)
+        .eq('idempotency_key', idemKey)
+        .maybeSingle();
+
+    if (lookupErr) {
+        const e = new Error('Idempotency lookup failed.');
+        e.status = 500; e.code = 'IDEMPOTENCY_LOOKUP_FAILED';
+        e.cause = lookupErr.message;
+        throw e;
+    }
+
+    if (existing && (!existing.expires_at || new Date(existing.expires_at) > new Date())) {
+        // Same key was used before.
+        if (existing.request_hash && existing.request_hash !== requestHash) {
+            const e = new Error('Idempotency key reused with different parameters.');
+            e.status = 409; e.code = 'IDEMPOTENCY_CONFLICT';
+            throw e;
+        }
+        if (existing.status === 'completed' && existing.response) {
+            return { fresh: false, replay: existing.response, enabled: true };
+        }
+        if (existing.status === 'processing') {
+            const e = new Error('A matching request is already in progress.');
+            e.status = 409; e.code = 'IDEMPOTENCY_IN_PROGRESS';
+            throw e;
+        }
+        // status === 'failed' — fall through and allow retry.
+    }
+
+    // 2. Atomically claim the key. The unique index protects us.
+    const insertRow = {
+        admin_id: adminId,
+        endpoint,
+        idempotency_key: idemKey,
+        request_hash: requestHash,
+        status: 'processing',
+        response: null,
+        status_code: null,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    };
+
+    const { error: insertErr } = await supabaseAdmin
+        .from('admin_idempotency')
+        .insert(insertRow);
+
+    if (insertErr) {
+        if (String(insertErr.code) === '23505') {
+            // Lost the race. Another request claimed the key. Re-read
+            // and replay if it is completed.
+            const { data: re } = await supabaseAdmin
+                .from('admin_idempotency')
+                .select('status, response, request_hash')
+                .eq('admin_id', adminId)
+                .eq('endpoint', endpoint)
+                .eq('idempotency_key', idemKey)
+                .maybeSingle();
+            if (re?.status === 'completed' && re.response) {
+                return { fresh: false, replay: re.response, enabled: true };
             }
+            const e = new Error('A matching request is already in progress.');
+            e.status = 409; e.code = 'IDEMPOTENCY_IN_PROGRESS';
+            throw e;
         }
+        const e = new Error('Idempotency claim failed.');
+        e.status = 500; e.code = 'IDEMPOTENCY_CLAIM_FAILED';
+        e.cause = insertErr.message;
+        throw e;
+    }
 
-        if (currency && currency !== 'all') {
-            query = query.eq('card_currency', currency);
-        }
-
-        if (country && country !== 'all') {
-            query = query.eq('card_country', country);
-        }
-
-        if (wallet && wallet !== 'all') {
-            query = query.eq('wallet_type', wallet);
-        }
-
-        // ─── Period filter ───
-        if (period && period !== 'all') {
-            const now = new Date();
-            let startDate;
-            switch (period) {
-                case 'today':
-                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    break;
-                case 'yesterday':
-                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-                    break;
-                case 'week':
-                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-                    break;
-                case 'month':
-                    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-                    break;
-                case 'year':
-                    startDate = new Date(now.getFullYear(), 0, 1);
-                    break;
-                case '30days':
-                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
-                    break;
-                default:
-                    startDate = null;
+    return {
+        fresh: true,
+        enabled: true,
+        persist: async (response, statusCode = 200) => {
+            const { error: updErr } = await supabaseAdmin
+                .from('admin_idempotency')
+                .update({
+                    status: 'completed',
+                    response,
+                    status_code: statusCode
+                })
+                .eq('admin_id', adminId)
+                .eq('endpoint', endpoint)
+                .eq('idempotency_key', idemKey);
+            if (updErr) {
+                console.warn('[ADMIN GIFTCARD] idempotency persist failed:', updErr.message);
             }
-            if (startDate) {
-                query = query.gte('created_at', startDate.toISOString());
-            }
-        }
-
-        // ─── Search ───
-        if (search && search.length > 0) {
-            query = query.or(`reference.ilike.%${search}%,card_brand.ilike.%${search}%,card_code.ilike.%${search}%`);
-        }
-
-        // ─── Get total count ───
-        const { count: totalCount } = await query;
-        query = query.order('created_at', { ascending: false });
-
-        // ─── Paginate ───
-        const { data: orders, error } = await query.range(offset, offset + parseInt(limit) - 1);
-
-        if (error) throw error;
-
-        // ─── Enrich with user details ───
-        const enriched = await enrichOrdersWithUsers(orders || []);
-
-        // ─── Map to frontend expected format ───
-        const mappedOrders = enriched.map(o => ({
-            id: o.reference || o.id,
-            reference: o.reference,
-            user_id: o.user_id,
-            username: o.username || 'Unknown',
-            email: o.email || 'Unknown',
-            phone: o.phone || 'N/A',
-            brand: o.card_brand || 'Unknown',
-            country: o.card_country || 'USA',
-            currency: o.card_currency || 'USD',
-            denomination: o.card_amount || 0,
-            quantity: o.quantity || 1,
-            selling_price: o.wallet_type === 'NGN' ? o.estimated_payout : (o.estimated_payout || 0) / 1620,
-            cost_price: o.final_payout || 0,
-            profit: (o.wallet_type === 'NGN' ? o.estimated_payout : o.estimated_payout / 1620) - (o.final_payout || 0),
-            wallet_type: o.wallet_type || 'NGN',
-            supplier: 'Manual',
-            delivery_method: 'Instant',
-            status: o.status || 'pending',
-            admin_notes: o.admin_notes || '',
-            assigned_admin: 'System',
-            wallet: o.wallet_type || 'NGN',
-            created_at: o.created_at,
-            updated_at: o.updated_at,
-            fraud_score: o.fraud_score || 0,
-            is_fraud_flagged: o.is_fraud_flagged || false
-        }));
-
-        res.json({
-            success: true,
-            orders: mappedOrders,
-            total: totalCount || 0,
-            page: parseInt(page),
-            pageSize: parseInt(limit)
-        });
-
-    } catch (error) {
-        console.error('Get orders error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 3. GET /admin/giftcards/products - Get All Products
-// ============================================================
-router.get('/giftcards/products', verifyAdmin, async (req, res) => {
-    try {
-        const { data: products, error } = await supabaseAdmin
-            .from('gift_card_rates')
-            .select('*')
-            .eq('is_active', true)
-            .order('sort_order', { ascending: true });
-
-        if (error) throw error;
-
-        // ─── Map to frontend format ───
-        const mappedProducts = (products || []).map(p => ({
-            id: p.id,
-            brand_name: p.card_name || 'Unnamed',
-            country: p.country || 'Global',
-            currency: 'USD',
-            category: p.card_type || 'Physical',
-            description: `${p.card_name} gift card - ${p.country}`,
-            image_url: '',
-            delivery_time: 'Instant',
-            supplier: 'Manual',
-            stock: 100,
-            price_ngn: p.rate_ngn * 1.1,
-            price_usd: 1,
-            cost_price: p.rate_ngn,
-            margin: 8,
-            fulfillment_mode: 'manual',
-            popular: p.is_positive || false,
-            featured: p.is_positive || false,
-            active: p.is_active !== false,
-            rate_ngn: p.rate_ngn,
-            icon: p.icon || '🎁',
-            change_percent: p.change_percent || '0.0%',
-            is_positive: p.is_positive !== false
-        }));
-
-        res.json({
-            success: true,
-            products: mappedProducts
-        });
-
-    } catch (error) {
-        console.error('Get products error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 4. POST /admin/gifts/products - Create Product
-// ============================================================
-router.post('/admin/gifts/products', verifyAdmin, async (req, res) => {
-    try {
-        const {
-            brand_name,
-            country,
-            currency,
-            category,
-            description,
-            image_url,
-            delivery_time,
-            supplier,
-            stock,
-            price_ngn,
-            price_usd,
-            cost_price,
-            margin,
-            fulfillment_mode,
-            popular,
-            featured,
-            active
-        } = req.body;
-
-        const { data: product, error } = await supabaseAdmin
-            .from('gift_card_rates')
-            .insert({
-                card_name: brand_name || 'Unnamed',
-                country: country || 'Global',
-                rate_ngn: cost_price || 0,
-                icon: '🎁',
-                change_percent: '0.0%',
-                is_positive: true,
-                card_type: category || 'Physical',
-                is_active: active !== false,
-                sort_order: 0,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // ─── Log admin activity ───
-        await supabaseAdmin
-            .from('admin_activity')
-            .insert({
-                admin_id: req.adminId,
-                action: 'gift_product_created',
-                entity_type: 'gift_card_rates',
-                entity_id: product.id,
-                details: { card_name: product.card_name },
-                ip_address: req.ip || 'unknown',
-                created_at: new Date().toISOString()
-            });
-
-        res.json({
-            success: true,
-            message: 'Product created successfully',
-            product
-        });
-
-    } catch (error) {
-        console.error('Create product error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 5. PUT /admin/gifts/products/:id - Update Product
-// ============================================================
-router.put('/admin/gifts/products/:id', verifyAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const {
-            brand_name,
-            country,
-            rate_ngn,
-            icon,
-            change_percent,
-            is_positive,
-            card_type,
-            is_active,
-            sort_order
-        } = req.body;
-
-        const updates = {
-            card_name: brand_name,
-            country: country || 'Global',
-            rate_ngn: rate_ngn || 0,
-            icon: icon || '🎁',
-            change_percent: change_percent || '0.0%',
-            is_positive: is_positive !== false,
-            card_type: card_type || 'Physical',
-            is_active: is_active !== false,
-            sort_order: sort_order || 0,
-            updated_at: new Date().toISOString()
-        };
-
-        const { data: product, error } = await supabaseAdmin
-            .from('gift_card_rates')
-            .update(updates)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // ─── Log admin activity ───
-        await supabaseAdmin
-            .from('admin_activity')
-            .insert({
-                admin_id: req.adminId,
-                action: 'gift_product_updated',
-                entity_type: 'gift_card_rates',
-                entity_id: product.id,
-                details: { card_name: product.card_name },
-                ip_address: req.ip || 'unknown',
-                created_at: new Date().toISOString()
-            });
-
-        res.json({
-            success: true,
-            message: 'Product updated successfully',
-            product
-        });
-
-    } catch (error) {
-        console.error('Update product error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 6. DELETE /admin/gifts/products/:id - Delete Product
-// ============================================================
-router.delete('/admin/gifts/products/:id', verifyAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Soft delete - just deactivate
-        const { data: product, error } = await supabaseAdmin
-            .from('gift_card_rates')
-            .update({ is_active: false, updated_at: new Date().toISOString() })
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // ─── Log admin activity ───
-        await supabaseAdmin
-            .from('admin_activity')
-            .insert({
-                admin_id: req.adminId,
-                action: 'gift_product_deleted',
-                entity_type: 'gift_card_rates',
-                entity_id: id,
-                details: { card_name: product?.card_name || 'Unknown' },
-                ip_address: req.ip || 'unknown',
-                created_at: new Date().toISOString()
-            });
-
-        res.json({
-            success: true,
-            message: 'Product deleted successfully'
-        });
-
-    } catch (error) {
-        console.error('Delete product error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 7. GET /ticker/items - Get Ticker Items (Public)
-// ============================================================
-router.get('/ticker/items', async (req, res) => {
-    try {
-        const { data: tickerItems, error } = await supabaseAdmin
-            .from('ticker_items')
-            .select('*')
-            .eq('active', true)
-            .order('sort_order', { ascending: true });
-
-        if (error) {
-            console.error('Ticker DB error:', error);
-            return res.json({
-                success: true,
-                data: [
-                    { id: '1', icon: '📢', text: 'Special promotion: 10% bonus on gift cards!', badge: 'HOT', badgeColor: '#ef4444', link: '/giftcards.html' },
-                    { id: '2', icon: '🆕', text: 'New virtual numbers for UK and Canada now available', badge: 'NEW', badgeColor: '#3b82f6', link: '/virtual.html' },
-                    { id: '3', icon: '🎉', text: 'Welcome bonus: Get $5 free when you fund your wallet', badge: 'FREE', badgeColor: '#10b981', link: '/fund.html' }
-                ]
-            });
-        }
-
-        res.json({
-            success: true,
-            data: tickerItems || []
-        });
-
-    } catch (error) {
-        console.error('Ticker error:', error);
-        res.json({
-            success: true,
-            data: [
-                { id: '1', icon: '📢', text: 'Special promotion: 10% bonus on gift cards!', badge: 'HOT', badgeColor: '#ef4444', link: '/giftcards.html' },
-                { id: '2', icon: '🆕', text: 'New virtual numbers for UK and Canada now available' },
-                { id: '3', icon: '🎉', text: 'Welcome bonus: Get $5 free when you fund your wallet', badge: 'NEW' }
-            ]
-        });
-    }
-});
-
-// ============================================================
-// 8. POST /admin/ticker/items - Create Ticker Item
-// ============================================================
-router.post('/admin/ticker/items', verifyAdmin, async (req, res) => {
-    try {
-        const { icon, text, badge, badgeColor, link, sort_order } = req.body;
-
-        if (!text) {
-            return res.status(400).json({ success: false, error: 'Text is required' });
-        }
-
-        const { data: item, error } = await supabaseAdmin
-            .from('ticker_items')
-            .insert({
-                icon: icon || '📌',
-                text: text,
-                badge: badge || null,
-                badge_color: badgeColor || null,
-                link: link || null,
-                sort_order: sort_order || 999,
-                active: true,
-                created_at: new Date().toISOString(),
-                created_by: req.adminId
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // ─── Log admin activity ───
-        await supabaseAdmin
-            .from('admin_activity')
-            .insert({
-                admin_id: req.adminId,
-                action: 'ticker_item_created',
-                entity_type: 'ticker_items',
-                entity_id: item.id,
-                details: { text: text },
-                ip_address: req.ip || 'unknown',
-                created_at: new Date().toISOString()
-            });
-
-        res.json({
-            success: true,
-            message: 'Ticker item created successfully',
-            data: item
-        });
-
-    } catch (error) {
-        console.error('Create ticker error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 9. PUT /admin/ticker/items/:id - Update Ticker Item
-// ============================================================
-router.put('/admin/ticker/items/:id', verifyAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { icon, text, badge, badgeColor, link, sort_order, active } = req.body;
-
-        const { data: item, error } = await supabaseAdmin
-            .from('ticker_items')
-            .update({
-                icon: icon || '📌',
-                text: text,
-                badge: badge || null,
-                badge_color: badgeColor || null,
-                link: link || null,
-                sort_order: sort_order || 999,
-                active: active !== false,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // ─── Log admin activity ───
-        await supabaseAdmin
-            .from('admin_activity')
-            .insert({
-                admin_id: req.adminId,
-                action: 'ticker_item_updated',
-                entity_type: 'ticker_items',
-                entity_id: id,
-                details: { text: text },
-                ip_address: req.ip || 'unknown',
-                created_at: new Date().toISOString()
-            });
-
-        res.json({
-            success: true,
-            message: 'Ticker item updated successfully',
-            data: item
-        });
-
-    } catch (error) {
-        console.error('Update ticker error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 10. DELETE /admin/ticker/items/:id - Delete Ticker Item
-// ============================================================
-router.delete('/admin/ticker/items/:id', verifyAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const { error } = await supabaseAdmin
-            .from('ticker_items')
-            .delete()
-            .eq('id', id);
-
-        if (error) throw error;
-
-        // ─── Log admin activity ───
-        await supabaseAdmin
-            .from('admin_activity')
-            .insert({
-                admin_id: req.adminId,
-                action: 'ticker_item_deleted',
-                entity_type: 'ticker_items',
-                entity_id: id,
-                ip_address: req.ip || 'unknown',
-                created_at: new Date().toISOString()
-            });
-
-        res.json({
-            success: true,
-            message: 'Ticker item deleted successfully'
-        });
-
-    } catch (error) {
-        console.error('Delete ticker error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// 11. PUT /admin/gift-orders/:id - Update Order Status
-// ============================================================
-router.put('/admin/gift-orders/:id', verifyAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status, admin_notes, assigned_admin } = req.body;
-
-        // Find order by reference
-        const { data: existingOrder, error: findError } = await supabaseAdmin
-            .from('gift_card_transactions')
-            .select('*')
-            .eq('reference', id)
-            .single();
-
-        if (findError) {
-            const { data: byId, error: idError } = await supabaseAdmin
-                .from('gift_card_transactions')
-                .select('*')
-                .eq('id', id)
-                .single();
-            
-            if (idError) {
-                return res.status(404).json({ success: false, error: 'Order not found' });
-            }
-            existingOrder = byId;
-        }
-
-        const updates = {
-            status: status,
-            admin_notes: admin_notes || existingOrder.admin_notes || '',
-            updated_at: new Date().toISOString()
-        };
-
-        if (status === 'approved' || status === 'paid') {
-            updates.paid_at = new Date().toISOString();
-        }
-
-        if (status === 'rejected') {
-            updates.reviewed_at = new Date().toISOString();
-            updates.reviewed_by = req.adminId;
-        }
-
-        if (status === 'processing') {
-            updates.review_status = 'processing';
-        }
-
-        const { data: order, error } = await supabaseAdmin
-            .from('gift_card_transactions')
-            .update(updates)
-            .eq('id', existingOrder.id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // ─── Log admin activity ───
-        await supabaseAdmin
-            .from('admin_activity')
-            .insert({
-                admin_id: req.adminId,
-                action: 'gift_order_status_updated',
-                entity_type: 'gift_card_transactions',
-                entity_id: order.id,
-                details: { status: status, admin_notes: admin_notes },
-                ip_address: req.ip || 'unknown',
-                created_at: new Date().toISOString()
-            });
-
-        // ─── Create notification for user ───
-        if (order.user_id) {
+        },
+        fail: async () => {
             await supabaseAdmin
-                .from('notifications')
-                .insert({
-                    user_id: order.user_id,
-                    title: `Gift Card Order ${status.toUpperCase()}`,
-                    message: `Your gift card order (${order.reference}) has been ${status}. ${admin_notes || ''}`,
-                    type: status === 'paid' || status === 'approved' ? 'success' : 'info',
-                    icon: status === 'paid' || status === 'approved' ? '✅' : '📌',
-                    link: `/giftcards/order/${order.reference}`,
-                    is_read: false,
-                    created_at: new Date().toISOString()
-                });
+                .from('admin_idempotency')
+                .update({ status: 'failed' })
+                .eq('admin_id', adminId)
+                .eq('endpoint', endpoint)
+                .eq('idempotency_key', idemKey);
         }
+    };
+}
 
-        res.json({
-            success: true,
-            message: 'Order updated successfully',
-            order: {
-                ...order,
-                id: order.reference
-            }
-        });
+// ═════════════════════════════════════════════════════════════════
+//  SUMMARY
+// ═════════════════════════════════════════════════════════════════
 
-    } catch (error) {
-        console.error('Update order error:', error);
-        res.status(500).json({ success: false, error: error.message });
+router.get(
+    '/gift-cards/summary',
+    requirePermission(PERMISSIONS.SERVICES_READ),
+    validateQueryDates,
+    async (req, res) => {
+        try {
+            const summary = await giftCards.getSummary({
+                from: req.query.from || null,
+                to: req.query.to || null
+            });
+            sendOk(res, { summary });
+        } catch (err) { sendErr(res, req, err); }
     }
-});
+);
 
-// ============================================================
-// 12. GET /admin/gift-orders/:id - Get Single Order
-// ============================================================
-router.get('/admin/gift-orders/:id', verifyAdmin, async (req, res) => {
-    try {
-        const { id } = req.params;
+// ═════════════════════════════════════════════════════════════════
+//  ORDERS
+// ═════════════════════════════════════════════════════════════════
 
-        let { data: order, error } = await supabaseAdmin
-            .from('gift_card_transactions')
-            .select('*')
-            .eq('reference', id)
-            .single();
+router.get(
+    '/gift-cards/orders',
+    requirePermission(PERMISSIONS.ORDERS_READ),
+    validateQueryDates,
+    async (req, res) => {
+        try {
+            const result = await giftCards.listOrders({
+                page: parseInt(req.query.page, 10) || 1,
+                limit: parseInt(req.query.limit, 10) || 25,
+                status: req.query.status || null,
+                brand: req.query.brand || null,
+                country: req.query.country || null,
+                provider: req.query.provider || null,
+                user_id: req.query.user_id || null,
+                from: req.query.from || null,
+                to: req.query.to || null,
+                search: req.query.search || null
+            });
+            sendOk(res, result);
+        } catch (err) { sendErr(res, req, err); }
+    }
+);
 
-        if (error) {
-            const { data: byId, error: idError } = await supabaseAdmin
-                .from('gift_card_transactions')
-                .select('*')
-                .eq('id', id)
-                .single();
-            
-            if (idError) {
-                return res.status(404).json({ success: false, error: 'Order not found' });
-            }
-            order = byId;
+router.get(
+    '/gift-cards/orders/:id',
+    requirePermission(PERMISSIONS.ORDERS_READ),
+    validateIdParam,
+    async (req, res) => {
+        try {
+            const data = await giftCards.getOrder(req.params.id);
+            sendOk(res, data);
+        } catch (err) { sendErr(res, req, err); }
+    }
+);
+
+// ─── Reveal code ─────────────────────────────────────────────────
+router.post(
+    '/gift-cards/orders/:id/reveal-code',
+    requirePermission(PERMISSIONS.ORDERS_RESOLVE),
+    validateIdParam,
+    async (req, res) => {
+        let idem = null;
+        try {
+            idem = await withIdempotency({ req, operationName: 'reveal-code' });
+            if (!idem.fresh) return res.json(idem.replay);
+
+            const data = await giftCards.revealDeliveryCode({
+                orderId: req.params.id,
+                ctx: ctxFrom(req)
+            });
+            const response = { success: true, data };
+            if (idem.enabled) await idem.persist(response, 200);
+            sendOk(res, data);
+        } catch (err) {
+            if (idem?.enabled) await idem.fail?.();
+            sendErr(res, req, err);
         }
+    }
+);
 
-        const [enriched] = await enrichOrdersWithUsers([order]);
-
-        res.json({
-            success: true,
-            order: {
-                ...enriched,
-                id: enriched.reference
+// ─── Retry ───────────────────────────────────────────────────────
+router.post(
+    '/gift-cards/orders/:id/retry',
+    requirePermission(PERMISSIONS.ORDERS_RESOLVE),
+    validateIdParam,
+    async (req, res) => {
+        let idem = null;
+        try {
+            const { reason } = req.body || {};
+            if (!reason || String(reason).trim().length < 4) {
+                const e = new Error('A reason is required.');
+                e.status = 422; e.code = 'REASON_REQUIRED';
+                throw e;
             }
-        });
 
-    } catch (error) {
-        console.error('Get order error:', error);
-        res.status(500).json({ success: false, error: error.message });
+            idem = await withIdempotency({ req, operationName: 'retry' });
+            if (!idem.fresh) return res.json(idem.replay);
+
+            const result = await giftCards.retryOrder({
+                orderId: req.params.id,
+                reason: String(reason).slice(0, 500),
+                ctx: ctxFrom(req)
+            });
+            const response = { success: true, data: result };
+            if (idem.enabled) await idem.persist(response, 200);
+            sendOk(res, result);
+        } catch (err) {
+            if (idem?.enabled) await idem.fail?.();
+            sendErr(res, req, err);
+        }
     }
-});
+);
 
-// ============================================================
-// 13. GET /admin/giftcards/rates - Get Gift Card Rates
-// ============================================================
-router.get('/giftcards/rates', verifyAdmin, async (req, res) => {
-    try {
-        const rates = await getGiftCardRates();
-        
-        res.json({
-            success: true,
-            rates: rates.map(r => ({
-                ...r,
-                change_percent: r.change_percent || (Math.random() * 0.8 - 0.2).toFixed(2) + '%',
-                is_positive: r.is_positive !== false
-            }))
-        });
+// ─── Refund ──────────────────────────────────────────────────────
+router.post(
+    '/gift-cards/orders/:id/refund',
+    requirePermission(PERMISSIONS.TRANSACTIONS_REFUND),
+    validateIdParam,
+    async (req, res) => {
+        let idem = null;
+        try {
+            const { reason } = req.body || {};
+            if (!reason || String(reason).trim().length < 4) {
+                const e = new Error('A reason is required.');
+                e.status = 422; e.code = 'REASON_REQUIRED';
+                throw e;
+            }
 
-    } catch (error) {
-        console.error('Get rates error:', error);
-        res.status(500).json({ success: false, error: error.message });
+            idem = await withIdempotency({ req, operationName: 'refund' });
+            if (!idem.fresh) return res.json(idem.replay);
+
+            const result = await giftCards.refundOrder({
+                orderId: req.params.id,
+                reason: String(reason).slice(0, 500),
+                ctx: ctxFrom(req)
+            });
+            const response = { success: true, data: result };
+            if (idem.enabled) await idem.persist(response, 200);
+            sendOk(res, result);
+        } catch (err) {
+            if (idem?.enabled) await idem.fail?.();
+            sendErr(res, req, err);
+        }
     }
-});
+);
 
-// ============================================================
-// 14. GET /admin/giftcards/orders/recent - Recent Orders (for dashboard)
-// ============================================================
-router.get('/giftcards/orders/recent', verifyAdmin, async (req, res) => {
-    try {
-        const limit = parseInt(req.query.limit) || 5;
-
-        const { data: orders, error } = await supabaseAdmin
-            .from('gift_card_transactions')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(limit);
-
-        if (error) throw error;
-
-        const enriched = await enrichOrdersWithUsers(orders || []);
-
-        const mappedOrders = enriched.map(o => ({
-            id: o.reference || o.id,
-            reference: o.reference,
-            user_id: o.user_id,
-            username: o.username || 'Unknown',
-            email: o.email || 'Unknown',
-            brand: o.card_brand || 'Unknown',
-            country: o.card_country || 'USA',
-            amount: o.card_amount || 0,
-            currency: o.card_currency || 'USD',
-            wallet_type: o.wallet_type || 'NGN',
-            status: o.status || 'pending',
-            created_at: o.created_at
-        }));
-
-        res.json({
-            success: true,
-            orders: mappedOrders
-        });
-
-    } catch (error) {
-        console.error('Recent orders error:', error);
-        res.status(500).json({ success: false, error: error.message });
+// ─── Sync ────────────────────────────────────────────────────────
+// Sync is a read/reconciliation operation. It is safe to call
+// repeatedly; the service is idempotent. We do not gate it on
+// Idempotency-Key because it does not create side effects.
+router.post(
+    '/gift-cards/orders/:id/sync',
+    requirePermission(PERMISSIONS.ORDERS_RESOLVE),
+    validateIdParam,
+    async (req, res) => {
+        try {
+            const result = await giftCards.syncOrder({
+                orderId: req.params.id,
+                ctx: ctxFrom(req)
+            });
+            sendOk(res, result);
+        } catch (err) { sendErr(res, req, err); }
     }
-});
+);
+
+// ═════════════════════════════════════════════════════════════════
+//  PRODUCTS
+// ═════════════════════════════════════════════════════════════════
+
+router.get(
+    '/gift-cards/products',
+    requirePermission(PERMISSIONS.SERVICES_READ),
+    async (req, res) => {
+        try {
+            const result = await giftCards.listProducts({
+                page: parseInt(req.query.page, 10) || 1,
+                limit: parseInt(req.query.limit, 10) || 50,
+                enabled: req.query.enabled || null,
+                country: req.query.country || null,
+                brand: req.query.brand || null
+            });
+            sendOk(res, result);
+        } catch (err) { sendErr(res, req, err); }
+    }
+);
+
+router.put(
+    '/gift-cards/products/:id/enabled',
+    requirePermission(PERMISSIONS.SERVICES_MANAGE),
+    validateIdParam,
+    async (req, res) => {
+        let idem = null;
+        try {
+            const { enabled, reason } = req.body || {};
+            if (typeof enabled !== 'boolean') {
+                const e = new Error('enabled must be a boolean.');
+                e.status = 422; e.code = 'INVALID_ENABLED';
+                throw e;
+            }
+            if (!reason || String(reason).trim().length < 4) {
+                const e = new Error('A reason is required.');
+                e.status = 422; e.code = 'REASON_REQUIRED';
+                throw e;
+            }
+
+            idem = await withIdempotency({ req, operationName: 'product-enabled' });
+            if (!idem.fresh) return res.json(idem.replay);
+
+            const result = await giftCards.setProductEnabled({
+                productId: req.params.id,
+                enabled,
+                reason: String(reason).slice(0, 500),
+                ctx: ctxFrom(req)
+            });
+            const response = { success: true, data: result };
+            if (idem.enabled) await idem.persist(response, 200);
+            sendOk(res, result);
+        } catch (err) {
+            if (idem?.enabled) await idem.fail?.();
+            sendErr(res, req, err);
+        }
+    }
+);
+
+// ═════════════════════════════════════════════════════════════════
+//  PROVIDER HEALTH
+// ═════════════════════════════════════════════════════════════════
+
+router.get(
+    '/gift-cards/provider/health',
+    requirePermission(PERMISSIONS.PROVIDERS_READ),
+    async (req, res) => {
+        try {
+            const health = await giftCards.getProviderHealth();
+            sendOk(res, { health });
+        } catch (err) { sendErr(res, req, err); }
+    }
+);
 
 module.exports = router;

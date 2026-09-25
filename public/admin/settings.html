@@ -1,1102 +1,1375 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, viewport-fit=cover">
-    <title>Settings · MilesSpace Admin</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="/js/admin-session.js"></script>
-    <style>
-        :root{
-            --bg:#F5F6FA;--surface:#FFFFFF;--ink:#171B26;--ink-soft:#6B7280;--ink-faint:#9CA3AF;
-            --sidebar-bg:#12162A;--sidebar-bg-2:#171C33;--sidebar-ink:#AAB0C6;--sidebar-ink-dim:#6E7490;
-            --accent:#E8A33D;--teal:#1FA7A0;--teal-dark:#168A84;
-            --danger:#E5484D;--danger-bg:#FDECEC;--warning:#E8A33D;--warning-bg:#FBF1DE;
-            --success:#2AA876;--success-bg:#E7F6EF;--info:#4C7EF3;--info-bg:#EAF0FE;--neutral-bg:#EEF0F5;
-            --border:#E7E9F1;--border-soft:#F0F1F6;
-            --radius-lg:16px;--radius-md:12px;--radius-sm:8px;
-            --shadow-sm:0 1px 2px rgba(18,22,42,0.05);--shadow-md:0 6px 20px rgba(18,22,42,0.08);--shadow-lg:0 16px 40px rgba(18,22,42,0.14);
-            --sidebar-w:264px;--topbar-h:68px;
-            --transition:0.25s cubic-bezier(.4,0,.2,1);
-        }
-        *{box-sizing:border-box;margin:0;padding:0;}
-        html{scroll-behavior:smooth;}
-        body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);display:flex;min-height:100vh;-webkit-font-smoothing:antialiased;}
-        h1,h2,h3,h4,.font-display{font-family:'Plus Jakarta Sans',sans-serif;}
-        button{font-family:inherit;cursor:pointer;}
-        input,select,textarea{font-family:inherit;}
-        ::-webkit-scrollbar{width:8px;height:8px;}
-        ::-webkit-scrollbar-thumb{background:#D6D9E4;border-radius:8px;}
-        ::-webkit-scrollbar-track{background:transparent;}
-        :focus-visible{outline:2px solid var(--teal);outline-offset:2px;}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings · MilesSpace Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2026-mfa-v1"></script>
+<script src="/js/admin-permissions.js?v=2026-mfa-v1"></script>
+<style>
+:root{
+    --brand:#0f4c5c; --brand-deep:#0a3542; --brand-light:#14607a;
+    --gold:#f5a623; --gold-soft:#fde3ad;
+    --bg:#f4f7fb; --surface:#ffffff; --border:rgba(15,76,92,.09);
+    --text:#0c1f26; --text-dim:#5b7480; --text-faint:#8fa3ab;
+    --success:#16a34a; --success-bg:#e9f9ef;
+    --danger:#dc2626;  --danger-bg:#fdecec;
+    --warn:#f59e0b;    --warn-bg:#fef3d9;
+    --info:#2563a8;    --info-bg:#e8f1fb;
+    --radius:12px; --radius-lg:16px;
+    --shadow-sm:0 1px 2px rgba(8,42,51,.06);
+    --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
+    --sidebar-w:264px; --topbar-h:68px;
+}
+html.dark{
+    --bg:#08151a; --surface:#12262c; --border:rgba(255,255,255,.08);
+    --text:#eaf3f5; --text-dim:#9db4bb; --text-faint:#5b7480;
+    --success-bg:rgba(22,163,74,.15); --danger-bg:rgba(220,38,38,.15);
+    --warn-bg:rgba(245,158,11,.15); --info-bg:rgba(37,99,168,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;min-width:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
 
-        /* Sidebar */
-        .sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,var(--sidebar-bg) 0%,var(--sidebar-bg-2) 100%);color:var(--sidebar-ink);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100;transition:transform var(--transition);}
-        .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99;display:none;}
-        .sidebar-backdrop.show{display:block;}
-        .brand{display:flex;align-items:center;gap:12px;padding:24px 22px 20px;border-bottom:1px solid rgba(255,255,255,0.06);}
-        .brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent),#F4C265);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 4px 12px rgba(232,163,61,0.35);}
-        .brand-text strong{display:block;color:#fff;font-size:15px;font-weight:800;}
-        .brand-text span{font-size:11px;color:var(--sidebar-ink-dim);text-transform:uppercase;letter-spacing:.4px;}
-        .nav-scroll{flex:1;overflow-y:auto;padding:16px 12px 12px;}
-        .nav-group{margin-bottom:18px;}
-        .nav-label{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--sidebar-ink-dim);padding:0 10px 8px;}
-        .nav-item{display:flex;align-items:center;gap:11px;padding:9.5px 10px;border-radius:10px;font-size:13.5px;font-weight:500;color:var(--sidebar-ink);margin-bottom:2px;transition:background .15s,color .15s;text-decoration:none;position:relative;}
-        .nav-item .ic{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
-        .nav-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
-        .nav-item.active{background:rgba(31,167,160,0.16);color:#fff;}
-        .nav-item.active::before{content:'';position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:3px;height:18px;border-radius:3px;background:var(--teal);}
-        .nav-item.dashboard-link{border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;padding-top:12px;color:var(--accent);}
-        .nav-item.dashboard-link:hover{background:rgba(232,163,61,0.12);color:#fff;}
-        .sidebar-foot{padding:16px 18px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;}
-        .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),#3FC9C2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12.5px;flex-shrink:0;}
-        .who strong{display:block;color:#fff;font-size:13px;font-weight:600;}
-        .who span{font-size:11px;color:var(--sidebar-ink-dim);}
+/* ─── Layout ─── */
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
 
-        /* Main */
-        .main{margin-left:var(--sidebar-w);flex:1;min-width:0;display:flex;flex-direction:column;}
-        .topbar{height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:50;gap:8px;}
-        .topbar-left{display:flex;align-items:center;gap:16px;min-width:0;}
-        .menu-toggle{display:none;background:none;border:none;font-size:20px;color:var(--ink);padding:8px;border-radius:8px;width:40px;height:40px;align-items:center;justify-content:center;}
-        .menu-toggle:hover{background:var(--neutral-bg);}
-        .crumb{font-size:13px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-        .crumb strong{color:var(--ink);font-weight:600;}
-        .topbar-search{display:flex;align-items:center;gap:8px;background:var(--neutral-bg);border-radius:10px;padding:8px 14px;flex:1;max-width:320px;border:1px solid transparent;transition:border-color .15s,background .15s;}
-        .topbar-search:focus-within{border-color:var(--teal);background:var(--surface);}
-        .topbar-search input{border:none;background:none;outline:none;font-size:13px;width:100%;color:var(--ink);}
-        .topbar-search input::placeholder{color:var(--ink-faint);}
-        .topbar-right{display:flex;align-items:center;gap:12px;flex-shrink:0;}
-        .icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink-soft);transition:background .15s,transform .1s;}
-        .icon-btn:hover{background:var(--neutral-bg);}
-        .icon-btn:active{transform:scale(.94);}
-        .av-mini{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),#3FC9C2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0;}
+.sidebar{background:linear-gradient(180deg,var(--brand-deep),var(--brand) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:60}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:15px;color:#0c1d22;font-weight:800}
+.brand-text strong{font-size:15px;font-weight:800;display:block}
+.brand-text span{font-size:10.5px;color:#9fd4de;text-transform:uppercase;letter-spacing:.06em}
+.nav-scroll{flex:1;overflow-y:auto;margin-top:6px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;transition:background .15s}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;font-weight:600}
+.nav-item .ic{width:17px;text-align:center}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff}
 
-        /* Content */
-        .content{padding:26px 28px 60px;max-width:1440px;width:100%;margin:0 auto;}
-        .page-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:22px;}
-        .page-head h1{font-size:23px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:10px;}
-        .page-head p{font-size:13.5px;color:var(--ink-soft);margin-top:4px;}
-        .page-head .badge{font-size:11px;background:var(--success-bg);color:var(--success);padding:4px 12px;border-radius:99px;font-weight:600;}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{min-height:var(--topbar-h);position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 26px;background:rgba(255,255,255,.78);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+html.dark .topbar{background:rgba(18,38,44,.78)}
+.topbar h1{margin:0;font-size:18px;font-weight:800}
+.topbar .sub{font-size:12px;color:var(--text-dim);margin-top:2px}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.content{padding:22px 26px 60px;max-width:1440px;width:100%;margin:0 auto}
 
-        /* Settings Layout */
-        .settings-layout{display:flex;gap:24px;align-items:flex-start;}
-        .settings-sidebar{width:240px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;position:sticky;top:calc(var(--topbar-h)+20px);max-height:calc(100vh-var(--topbar-h)-60px);overflow-y:auto;}
-        .settings-sidebar .nav-item{padding:8px 12px;font-size:13px;border-radius:8px;margin-bottom:1px;color:var(--ink-soft);display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s;text-decoration:none;}
-        .settings-sidebar .nav-item:hover{background:var(--neutral-bg);color:var(--ink);}
-        .settings-sidebar .nav-item.active{background:var(--teal);color:#fff;}
-        .settings-content{flex:1;min-width:0;display:flex;flex-direction:column;gap:20px;}
+/* ─── Hamburger + scrim (mobile only) ─── */
+.hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text);width:38px;height:38px;border-radius:9px;font-size:15px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
+.hamburger:hover{background:var(--bg)}
+.scrim{display:none;position:fixed;inset:0;background:rgba(8,21,26,.5);z-index:55}
+.scrim.show{display:block}
 
-        /* Settings Panel */
-        .settings-panel{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
-        .settings-panel.active{display:block;animation:fadeUp .3s ease;}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-        .panel-header{padding:20px 24px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-        .panel-header h2{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;}
-        .panel-header p{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
-        .panel-body{padding:24px;}
+/* ─── Settings layout ─── */
+.layout{display:flex;gap:22px;align-items:flex-start}
+.side-menu{width:230px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px;position:sticky;top:calc(var(--topbar-h) + 16px);max-height:calc(100vh - var(--topbar-h) - 40px);overflow-y:auto}
+.side-menu .nav-item{padding:9px 12px;font-size:13px;color:var(--text-dim);border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.side-menu .nav-item:hover{background:var(--bg);color:var(--text)}
+.side-menu .nav-item.active{background:var(--brand);color:#fff}
+.panels{flex:1;min-width:0}
+.panel{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel.active{display:block}
+.panel-head{padding:20px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.panel-head h2{margin:0;font-size:17px;font-weight:800}
+.panel-head p{margin:4px 0 0;font-size:12.5px;color:var(--text-dim);max-width:640px}
+.panel-body{padding:22px}
+.panel-actions{display:flex;gap:8px;margin-top:22px;padding-top:18px;border-top:1px solid var(--border);flex-wrap:wrap}
 
-        /* Form Elements */
-        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
-        .form-grid .full{grid-column:1/-1;}
-        .field{display:flex;flex-direction:column;gap:6px;}
-        .field label{font-size:12.5px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;}
-        .field .hint{font-size:11.5px;color:var(--ink-faint);font-weight:400;}
-        .field input,.field select,.field textarea{padding:10px 12px;border-radius:9px;border:1px solid var(--border);font-size:13px;outline:none;background:var(--surface);transition:border-color .15s;width:100%;}
-        .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(31,167,160,0.12);}
-        .field textarea{resize:vertical;min-height:80px;}
-        .field .input-group{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden;}
-        .field .input-group span{padding:0 12px;color:var(--ink-soft);font-weight:600;font-size:13px;background:var(--neutral-bg);height:100%;display:flex;align-items:center;}
-        .field .input-group input{border:none;padding:10px 12px;flex:1;outline:none;font-size:13px;background:transparent;}
-        .field .input-group input:focus{box-shadow:none;}
+/* ─── Form ─── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field.full{grid-column:1/-1}
+.field label{font-size:12.5px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.field label .hint{font-weight:400;color:var(--text-faint);font-size:11.5px}
+.field input,.field select,.field textarea{padding:10px 12px;border-radius:9px;border:1px solid var(--border);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text);width:100%;transition:border-color .15s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,76,92,.08)}
+.field textarea{resize:vertical;min-height:80px}
+.field .error-msg{font-size:11.5px;color:var(--danger);display:none}
+.field.has-error input,.field.has-error select,.field.has-error textarea{border-color:var(--danger)}
+.field.has-error .error-msg{display:block}
 
-        .price-card{background:var(--neutral-bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;}
-        .price-card .price-title{font-size:14px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
-        .price-card .price-title .icon{font-size:18px;}
-        .price-card .price-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-        .price-card .price-grid .field{margin-bottom:0;}
+.section{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.section .title{font-size:13.5px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 
-        /* Toggles */
-        .toggle-wrap{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border-soft);gap:16px;}
-        .toggle-wrap:last-child{border-bottom:none;}
-        .toggle-wrap .info{flex:1;}
-        .toggle-wrap .info .t{font-size:13px;font-weight:600;}
-        .toggle-wrap .info .d{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
-        .toggle{position:relative;width:44px;height:26px;flex-shrink:0;}
-        .toggle input{opacity:0;width:0;height:0;}
-        .toggle .slider{position:absolute;inset:0;background:var(--border);border-radius:99px;cursor:pointer;transition:background .2s;}
-        .toggle .slider::before{content:"";position:absolute;width:18px;height:18px;left:4px;bottom:4px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);}
-        .toggle input:checked+.slider{background:var(--teal);}
-        .toggle input:checked+.slider::before{transform:translateX(18px);}
+/* ─── Toggles ─── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);gap:14px}
+.toggle-row:last-child{border-bottom:none}
+.toggle-row .info{flex:1;padding-right:16px;min-width:0}
+.toggle-row .info .t{font-size:13px;font-weight:600}
+.toggle-row .info .d{font-size:11.5px;color:var(--text-dim);margin-top:2px}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;inset:0;background:var(--border);border-radius:99px;cursor:pointer;transition:background .2s}
+.toggle .slider::before{content:"";position:absolute;width:18px;height:18px;left:4px;bottom:4px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle input:checked + .slider{background:var(--success)}
+.toggle input:checked + .slider::before{transform:translateX(18px)}
+.toggle input:disabled + .slider{opacity:.5;cursor:not-allowed}
+.toggle.danger input:checked + .slider{background:var(--danger)}
 
-        /* Buttons */
-        .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;border:1px solid transparent;transition:all .15s;white-space:nowrap;}
-        .btn:active{transform:scale(.97);}
-        .btn-primary{background:var(--teal);color:#fff;box-shadow:0 4px 12px rgba(31,167,160,0.28);}
-        .btn-primary:hover{background:var(--teal-dark);transform:translateY(-1px);}
-        .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--border);}
-        .btn-ghost:hover{background:var(--neutral-bg);}
-        .btn-danger{background:var(--danger);color:#fff;}
-        .btn-danger:hover{background:#c0392b;}
-        .btn-success{background:var(--success);color:#fff;}
-        .btn-success:hover{background:#238e63;}
-        .btn-sm{padding:6px 12px;font-size:12px;border-radius:8px;}
-        .panel-actions{display:flex;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--border-soft);flex-wrap:wrap;}
+/* ─── Buttons ─── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;border:1px solid transparent;cursor:pointer;transition:all .15s;font-family:inherit;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--brand-light)}
+.btn-ghost{background:var(--surface);color:var(--text);border-color:var(--border)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover:not(:disabled){background:#b91c1c}
+.btn-sm{padding:7px 12px;font-size:12px}
 
-        /* Toast */
-        .toast-stack{position:fixed;bottom:24px;right:24px;z-index:1200;display:flex;flex-direction:column;gap:10px;max-width:380px;}
-        .toast{background:var(--ink);color:#fff;padding:13px 18px;border-radius:11px;font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;animation:toastIn .25s ease;width:100%;}
-        .toast.success::before{content:'✓';background:var(--success);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
-        .toast.danger::before{content:'✕';background:var(--danger);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
-        .toast.info::before{content:'ℹ️';font-size:12px;flex-shrink:0;}
-        @keyframes toastIn{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+/* ─── Status badges ─── */
+.status-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px}
+.status-pill.ok{background:var(--success-bg);color:var(--success)}
+.status-pill.off{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.status-pill.warn{background:var(--warn-bg);color:#b3720a}
+.status-pill.err{background:var(--danger-bg);color:var(--danger)}
 
-        /* Responsive */
-        @media (max-width:1200px){
-            .settings-sidebar{width:200px;}
-            .form-grid{grid-template-columns:1fr;}
-            .price-card .price-grid{grid-template-columns:1fr 1fr;}
-        }
-        @media (max-width:992px){
-            .settings-layout{flex-direction:column;}
-            .settings-sidebar{width:100%;position:static;max-height:none;display:flex;flex-wrap:wrap;gap:4px;padding:10px 12px;overflow-x:auto;}
-            .settings-sidebar .nav-item{flex:1;min-width:100px;justify-content:center;padding:8px 12px;font-size:12px;white-space:nowrap;}
-        }
-        @media (max-width:768px){
-            .sidebar{transform:translateX(-100%);}
-            .sidebar.open{transform:translateX(0);}
-            .sidebar-backdrop.show{display:block;}
-            .main{margin-left:0;}
-            .menu-toggle{display:flex;}
-            .topbar-search{display:none;}
-            .topbar{padding:0 16px;}
-            .crumb{font-size:12px;}
-            .page-head h1{font-size:19px;}
-            .content{padding:16px 14px 50px;}
-            .panel-header{padding:16px 18px;}
-            .panel-body{padding:16px;}
-            .price-card .price-grid{grid-template-columns:1fr;}
-            .settings-sidebar .nav-item{min-width:80px;font-size:11px;padding:6px 10px;}
-        }
-        @media (max-width:480px){
-            .page-head{flex-direction:column;align-items:flex-start;}
-            .panel-actions{flex-direction:column;}
-            .panel-actions .btn{width:100%;justify-content:center;}
-            .settings-sidebar .nav-item{min-width:100%;justify-content:flex-start;}
-        }
-    </style>
+/* ─── Tables ─── */
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.history-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px}
+.history-table th{text-align:left;padding:10px 12px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap}
+.history-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.history-table tr:last-child td{border-bottom:none}
+
+/* ─── Loading / Empty ─── */
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;display:block;height:12px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.empty-box{text-align:center;padding:30px 20px;color:var(--text-faint);font-size:13px}
+.empty-box .ic{font-size:22px;margin-bottom:6px;display:block}
+
+/* ─── Toast ─── */
+.toast-stack{position:fixed;bottom:22px;right:22px;z-index:1200;display:flex;flex-direction:column;gap:10px;max-width:380px}
+.toast{background:#0c1f26;color:#fff;padding:12px 16px;border-radius:11px;font-size:12.8px;font-weight:500;box-shadow:var(--shadow-md);border-left:3px solid var(--gold);animation:toastIn .25s ease}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+/* ─── Emergency ─── */
+.emergency-box{border:1px solid var(--danger);border-radius:var(--radius);padding:16px;background:var(--danger-bg)}
+.emergency-box .title{color:var(--danger);font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13.5px}
+.emergency-note{font-size:11.5px;color:var(--text-dim);margin-top:8px;line-height:1.4}
+
+/* ─── Two-Factor panel ─── */
+.mfa-state{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;background:var(--bg);border:1px solid var(--border);margin-bottom:18px}
+.mfa-state .icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--warn-bg);color:#b3720a;flex-shrink:0}
+.mfa-state.on .icon{background:var(--success-bg);color:var(--success)}
+.mfa-state .meta{flex:1;min-width:0}
+.mfa-state .meta strong{font-size:13.5px;display:block;color:var(--text)}
+.mfa-state .meta span{font-size:12px;color:var(--text-dim)}
+.mfa-steps{margin:8px 0 14px 18px;color:var(--text-dim);font-size:13px;line-height:1.75}
+.mfa-qr-box{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;background:var(--bg);border:1px dashed var(--border);border-radius:12px;padding:18px;margin-bottom:16px}
+.mfa-qr-box img{width:190px;height:190px;background:#fff;border-radius:12px;padding:8px;border:1px solid var(--border);flex-shrink:0}
+.mfa-qr-box .qr-meta{flex:1;min-width:220px}
+.mfa-qr-box .qr-meta h4{margin:0 0 6px;font-size:14px;color:var(--text)}
+.mfa-qr-box .qr-meta p{font-size:12.5px;color:var(--text-dim);line-height:1.55;margin:0 0 10px}
+.mfa-secret{font-family:'JetBrains Mono',monospace;font-size:12px;background:#fff;padding:10px 12px;border-radius:8px;border:1px solid var(--border);word-break:break-all;color:var(--text)}
+.mfa-code-input{width:100%;max-width:240px;padding:14px;border-radius:10px;border:1px solid var(--border);font-size:22px;font-weight:700;text-align:center;letter-spacing:.3em;font-family:'JetBrains Mono',monospace;background:var(--surface);color:var(--text)}
+.recovery-codes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.recovery-codes code{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#7a3517;background:#fff;padding:8px 10px;border-radius:6px;text-align:center;letter-spacing:.04em;border:1px solid #f0c26c}
+
+/* ──────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ────────────────────────────────────────────────────────────── */
+
+/* Tablet — side-menu becomes a scroll strip */
+@media(max-width:1100px){
+    .layout{flex-direction:column}
+    .side-menu{width:100%;position:static;max-height:none;display:flex;flex-wrap:nowrap;gap:6px;padding:8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .side-menu .nav-item{flex:0 0 auto;white-space:nowrap;margin-bottom:0}
+}
+
+/* Mobile — sidebar becomes an off-canvas drawer */
+@media(max-width:900px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:fixed;left:0;top:0;width:82%;max-width:320px;height:100vh;transform:translateX(-100%);transition:transform .25s ease;box-shadow:var(--shadow-md)}
+    .sidebar.open{transform:translateX(0)}
+    .hamburger{display:inline-flex}
+    .topbar{padding:12px 14px}
+    .topbar h1{font-size:16px}
+    .topbar .sub{font-size:11px}
+    .content{padding:14px 12px 80px}
+    .panel-head{padding:16px 14px}
+    .panel-body{padding:16px 14px}
+    .form-grid{grid-template-columns:1fr;gap:14px}
+}
+
+/* Phone — tighter stack, full-width actions */
+@media(max-width:480px){
+    .topbar-actions{width:100%;margin-left:0}
+    .topbar-actions .btn{flex:1;justify-content:center}
+    .panel-actions{flex-direction:column}
+    .panel-actions .btn{width:100%;justify-content:center}
+    .mfa-qr-box{flex-direction:column;align-items:stretch}
+    .mfa-qr-box img{width:100%;max-width:220px;height:auto;align-self:center}
+    .mfa-code-input{max-width:100%}
+    .recovery-codes{grid-template-columns:1fr}
+    .toast-stack{left:12px;right:12px;max-width:none}
+    .mfa-state{flex-wrap:wrap}
+    .emergency-box{padding:12px}
+}
+</style>
 </head>
 <body>
 
-<!-- Sidebar Backdrop -->
-<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+<div class="scrim" id="scrim"></div>
 
-<!-- Sidebar -->
+<div class="app">
+
+<!-- ═══ Sidebar ═══ -->
 <aside class="sidebar" id="sidebar">
     <div class="brand">
-        <div class="brand-mark">⚙️</div>
-        <div class="brand-text"><strong>MilesSpace</strong><span>Admin Console</span></div>
+        <div class="brand-mark">M</div>
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
     </div>
-    <div class="nav-scroll">
-        <div class="nav-group">
-            <div class="nav-label">Main</div>
-            <a href="dashboard.html" class="nav-item dashboard-link"><span class="ic">📊</span>Dashboard</a>
-        </div>
-        <div class="nav-group">
-            <div class="nav-label">Settings</div>
-            <div class="nav-item active" data-section="general"><span class="ic">📋</span>General</div>
-            <div class="nav-item" data-section="prices"><span class="ic">💰</span>Prices & Markups</div>
-            <div class="nav-item" data-section="exchange"><span class="ic">💱</span>Exchange Rates</div>
-            <div class="nav-item" data-section="fees"><span class="ic">💳</span>Fees</div>
-            <div class="nav-item" data-section="wallet"><span class="ic">🏦</span>Wallet</div>
-            <div class="nav-item" data-section="security"><span class="ic">🔐</span>Security</div>
-            <div class="nav-item" data-section="notifications"><span class="ic">🔔</span>Notifications</div>
-            <div class="nav-item" data-section="email"><span class="ic">📧</span>Email</div>
-            <div class="nav-item" data-section="system"><span class="ic">🖥️</span>System</div>
-        </div>
-    </div>
+    <nav class="nav-scroll">
+        <div class="nav-label">Overview</div>
+        <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
+        <div class="nav-label">Customers</div>
+        <a href="/admin/users" class="nav-item"><span class="ic">👥</span>Users</a>
+        <a href="/admin/support" class="nav-item"><span class="ic">💬</span>Support</a>
+        <div class="nav-label">Money</div>
+        <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span>Transactions</a>
+        <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span>Deposits</a>
+        <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span>Ledger</a>
+        <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span>Reconciliation</a>
+        <div class="nav-label">System</div>
+        <a href="/admin/settings" class="nav-item active"><span class="ic">⚙️</span>Settings</a>
+    </nav>
     <div class="sidebar-foot">
         <div class="av" id="adminAvatar">DA</div>
-        <div class="who">
-            <strong id="adminName">Admin</strong>
-            <span id="adminRole">Super Admin</span>
+        <div style="min-width:0;overflow:hidden">
+            <strong id="adminName" style="font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Admin</strong>
+            <div id="adminRole" style="font-size:10.5px;color:#8fbac2">Loading…</div>
         </div>
     </div>
 </aside>
 
-<!-- Main -->
+<!-- ═══ Main ═══ -->
 <div class="main">
-    <div class="topbar">
-        <div class="topbar-left">
-            <button class="menu-toggle" id="menuToggle">☰</button>
-            <div class="crumb">Settings / <strong id="crumbActive">General</strong></div>
+    <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+        <div style="min-width:0">
+            <h1>⚙️ Settings</h1>
+            <div class="sub">Single authority for MilesSpace configuration. Not a place to move money.</div>
         </div>
-        <div class="topbar-search"><span>🔍</span><input type="text" placeholder="Search settings..." id="settingsSearch"></div>
-        <div class="topbar-right">
-            <button class="icon-btn" title="Refresh" id="refreshBtn"><i class="fas fa-sync-alt"></i></button>
-            <div class="av-mini" id="adminAvatarMini">DA</div>
+        <div class="topbar-actions">
+            <span id="versionBadge" class="status-pill off" title="Configuration version">v—</span>
+            <button class="btn btn-ghost" id="refreshBtn"><i class="fas fa-rotate-right"></i> Refresh</button>
+            <button class="btn btn-primary" id="saveAllBtn" disabled><i class="fas fa-save"></i> Save all changes</button>
         </div>
-    </div>
+    </header>
 
     <div class="content">
-        <div class="page-head">
-            <div>
-                <h1>⚙️ Settings <span class="badge">Live</span></h1>
-                <p>Configure platform settings, prices, markups, and more</p>
-            </div>
-            <button class="btn btn-primary" onclick="saveAllSettings()"><i class="fas fa-save"></i> Save All Settings</button>
-        </div>
+        <div class="layout">
+            <aside class="side-menu" id="settingsMenu">
+                <div class="nav-item active" data-section="general"><i class="fas fa-sliders-h" style="width:16px"></i> General</div>
+                <div class="nav-item" data-section="rates"><i class="fas fa-coins" style="width:16px"></i> Currency &amp; Rates</div>
+                <div class="nav-item" data-section="fees"><i class="fas fa-percent" style="width:16px"></i> Fees</div>
+                <div class="nav-item" data-section="pricing"><i class="fas fa-tags" style="width:16px"></i> Service Pricing</div>
+                <div class="nav-item" data-section="wallet"><i class="fas fa-wallet" style="width:16px"></i> Wallet &amp; Deposits</div>
+                <div class="nav-item" data-section="limits"><i class="fas fa-gauge-high" style="width:16px"></i> Transaction Limits</div>
+                <div class="nav-item" data-section="services"><i class="fas fa-toggle-on" style="width:16px"></i> Service Availability</div>
+                <div class="nav-item" data-section="providers"><i class="fas fa-plug" style="width:16px"></i> Providers</div>
+                <div class="nav-item" data-section="notifications"><i class="fas fa-bell" style="width:16px"></i> Notifications</div>
+                <div class="nav-item" data-section="security"><i class="fas fa-shield-halved" style="width:16px"></i> Security</div>
+                <div class="nav-item" data-section="mfa"><i class="fas fa-key" style="width:16px"></i> Two-Factor</div>
+                <div class="nav-item" data-section="emergency"><i class="fas fa-triangle-exclamation" style="width:16px;color:var(--danger)"></i> Emergency</div>
+                <div class="nav-item" data-section="history"><i class="fas fa-clock-rotate-left" style="width:16px"></i> Rate History</div>
+                <div class="nav-item" data-section="audit"><i class="fas fa-clipboard-list" style="width:16px"></i> Audit Log</div>
+                <div class="nav-item" data-section="health"><i class="fas fa-heart-pulse" style="width:16px"></i> Configuration Health</div>
+            </aside>
 
-        <div class="settings-layout">
-            <!-- Settings Sidebar -->
-            <div class="settings-sidebar" id="settingsSidebar">
-                <div class="nav-item active" data-section="general"><i class="fas fa-sliders-h" style="width:18px;"></i> General</div>
-                <div class="nav-item" data-section="prices"><i class="fas fa-tags" style="width:18px;"></i> Prices & Markups</div>
-                <div class="nav-item" data-section="exchange"><i class="fas fa-exchange-alt" style="width:18px;"></i> Exchange Rates</div>
-                <div class="nav-item" data-section="fees"><i class="fas fa-percent" style="width:18px;"></i> Fees</div>
-                <div class="nav-item" data-section="wallet"><i class="fas fa-wallet" style="width:18px;"></i> Wallet</div>
-                <div class="nav-item" data-section="security"><i class="fas fa-shield-alt" style="width:18px;"></i> Security</div>
-                <div class="nav-item" data-section="notifications"><i class="fas fa-bell" style="width:18px;"></i> Notifications</div>
-                <div class="nav-item" data-section="email"><i class="fas fa-envelope" style="width:18px;"></i> Email</div>
-                <div class="nav-item" data-section="system"><i class="fas fa-server" style="width:18px;"></i> System</div>
-            </div>
+            <div class="panels" id="settingsPanels">
 
-            <!-- Settings Content -->
-            <div class="settings-content" id="settingsContent">
-
-                <!-- ==================== GENERAL ==================== -->
-                <div class="settings-panel active" id="panel-general">
-                    <div class="panel-header">
-                        <div><h2>📋 General Settings</h2><p>Basic platform configuration</p></div>
+                <!-- ════════ GENERAL ════════ -->
+                <div class="panel active" id="panel-general">
+                    <div class="panel-head">
+                        <div><h2>📋 General</h2><p>Basic platform configuration.</p></div>
                     </div>
                     <div class="panel-body">
                         <div class="form-grid">
-                            <div class="field"><label>Platform Name</label><input type="text" id="platform_name" placeholder="MilesSpace"></div>
-                            <div class="field"><label>Company Name</label><input type="text" id="company_name" placeholder="MilesSpace Ltd"></div>
-                            <div class="field"><label>Support Email</label><input type="email" id="support_email" placeholder="support@milesspace.com"></div>
-                            <div class="field"><label>Support Phone</label><input type="tel" id="support_phone" placeholder="+234 800 000 0000"></div>
-                            <div class="field"><label>Timezone</label>
-                                <select id="timezone">
-                                    <option value="Africa/Lagos">Africa/Lagos</option>
-                                    <option value="UTC">UTC</option>
-                                    <option value="America/New_York">America/New_York</option>
-                                    <option value="Europe/London">Europe/London</option>
-                                </select>
-                            </div>
-                            <div class="field"><label>Default Currency</label>
-                                <select id="default_currency">
+                            <div class="field"><label>Platform name</label><input type="text" data-key="platform_name"></div>
+                            <div class="field"><label>Company name</label><input type="text" data-key="company_name"></div>
+                            <div class="field"><label>Support email</label><input type="email" data-key="support_email"></div>
+                            <div class="field"><label>Support phone</label><input type="tel" data-key="support_phone"></div>
+                            <div class="field"><label>Website</label><input type="text" data-key="website_url"></div>
+                            <div class="field">
+                                <label>Default currency</label>
+                                <select data-key="default_currency">
                                     <option value="NGN">NGN (₦)</option>
                                     <option value="USD">USD ($)</option>
-                                    <option value="GBP">GBP (£)</option>
-                                    <option value="EUR">EUR (€)</option>
                                 </select>
                             </div>
+                            <div class="field">
+                                <label>Timezone</label>
+                                <select data-key="timezone">
+                                    <option value="Africa/Lagos">Africa/Lagos</option>
+                                    <option value="UTC">UTC</option>
+                                    <option value="Europe/London">Europe/London</option>
+                                    <option value="America/New_York">America/New_York</option>
+                                </select>
+                            </div>
+                            <div class="field full">
+                                <label>Maintenance message <span class="hint">Shown to customers while maintenance mode is on</span></label>
+                                <textarea data-key="maintenance_message" rows="3"></textarea>
+                            </div>
                         </div>
+
+                        <div class="section" style="margin-top:18px">
+                            <div class="title"><i class="fas fa-wrench" style="color:var(--warn)"></i> Platform Status</div>
+                            <div class="toggle-row">
+                                <div class="info">
+                                    <div class="t">Maintenance mode</div>
+                                    <div class="d">Take MilesSpace offline for customers. Admins keep access.</div>
+                                </div>
+                                <label class="toggle"><input type="checkbox" data-key="maintenance_mode"><span class="slider"></span></label>
+                            </div>
+                        </div>
+
                         <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('general')"><i class="fas fa-save"></i> Save General</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('general')"><i class="fas fa-undo"></i> Reset</button>
+                            <button class="btn btn-primary" data-action="save-section" data-section="general"><i class="fas fa-save"></i> Save general</button>
+                            <button class="btn btn-ghost" data-action="reset-section" data-section="general"><i class="fas fa-undo"></i> Reset to defaults</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== PRICES & MARKUPS ==================== -->
-                <div class="settings-panel" id="panel-prices">
-                    <div class="panel-header">
-                        <div><h2>💰 Prices & Markups</h2><p>Configure selling prices and markups for all services</p></div>
+                <!-- ════════ RATES ════════ -->
+                <div class="panel" id="panel-rates">
+                    <div class="panel-head">
+                        <div><h2>💱 Currency &amp; Rates</h2><p>Exchange rates used by the backend for pricing and deposits. Historical transactions always keep the rate that was in effect at write time.</p></div>
                     </div>
                     <div class="panel-body">
-                        <!-- Boost Services -->
-                        <div class="price-card">
-                            <div class="price-title"><span class="icon">📈</span> Social Boost Services</div>
-                            <div class="price-grid">
-                                <div class="field"><label>Markup (%)</label><input type="number" id="boost_markup_percent" step="0.5" min="0" value="18"></div>
-                                <div class="field"><label>Min Order (USD)</label><input type="number" id="boost_min_order" step="1" min="0" value="100"></div>
-                                <div class="field"><label>Max Order (USD)</label><input type="number" id="boost_max_order" step="1" min="0" value="100000"></div>
-                            </div>
-                            <div class="toggle-wrap" style="padding-top:8px;border-bottom:none;">
-                                <div class="info"><div class="t">Enable Boost Services</div></div>
-                                <label class="toggle"><input type="checkbox" id="boost_enabled" checked><span class="slider"></span></label>
-                            </div>
-                        </div>
-
-                        <!-- Gift Cards -->
-                        <div class="price-card">
-                            <div class="price-title"><span class="icon">🎁</span> Gift Cards</div>
-                            <div class="price-grid">
-                                <div class="field"><label>Markup (%)</label><input type="number" id="giftcard_markup_percent" step="0.5" min="0" value="10"></div>
-                                <div class="field"><label>Min Trade (USD)</label><input type="number" id="giftcard_min_trade_usd" step="1" min="0" value="10"></div>
-                                <div class="field"><label>Max Trade (USD)</label><input type="number" id="giftcard_max_trade_usd" step="1" min="0" value="500"></div>
-                            </div>
-                            <div class="toggle-wrap" style="padding-top:8px;border-bottom:none;">
-                                <div class="info"><div class="t">Enable Gift Cards</div></div>
-                                <label class="toggle"><input type="checkbox" id="giftcard_enabled" checked><span class="slider"></span></label>
+                        <div class="section">
+                            <div class="title"><i class="fas fa-dollar-sign" style="color:var(--success)"></i> Primary rate</div>
+                            <div class="form-grid">
+                                <div class="field">
+                                    <label>USD → NGN <span class="hint">₦ per $1</span></label>
+                                    <input type="number" step="0.01" data-key="usd_to_ngn">
+                                </div>
+                                <div class="field">
+                                    <label>Gift-card settlement currency</label>
+                                    <select data-key="giftcard_wholesale_currency">
+                                        <option value="NGN">NGN</option>
+                                        <option value="USD">USD</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- Virtual SMS -->
-                        <div class="price-card">
-                            <div class="price-title"><span class="icon">📱</span> Virtual SMS</div>
-                            <div class="price-grid">
-                                <div class="field"><label>Markup (%)</label><input type="number" id="virtual_sms_markup_percent" step="0.5" min="0" value="15"></div>
-                                <div class="field"><label>Min Price (USD)</label><input type="number" id="virtual_sms_min_price_usd" step="0.01" min="0" value="0.50"></div>
-                                <div class="field"><label>Max Price (USD)</label><input type="number" id="virtual_sms_max_price_usd" step="0.01" min="0" value="5.00"></div>
-                            </div>
-                            <div class="toggle-wrap" style="padding-top:8px;border-bottom:none;">
-                                <div class="info"><div class="t">Enable Virtual SMS</div></div>
-                                <label class="toggle"><input type="checkbox" id="virtual_sms_enabled" checked><span class="slider"></span></label>
+                        <div class="section">
+                            <div class="title">Other → NGN</div>
+                            <div class="form-grid">
+                                <div class="field"><label>GHS → NGN</label><input type="number" step="0.0001" data-key="ghs_to_ngn"></div>
+                                <div class="field"><label>KES → NGN</label><input type="number" step="0.0001" data-key="kes_to_ngn"></div>
+                                <div class="field"><label>ZAR → NGN</label><input type="number" step="0.0001" data-key="zar_to_ngn"></div>
+                                <div class="field"><label>XOF → NGN</label><input type="number" step="0.000001" data-key="xof_to_ngn"></div>
+                                <div class="field"><label>XAF → NGN</label><input type="number" step="0.000001" data-key="xaf_to_ngn"></div>
+                                <div class="field"><label>TZS → NGN</label><input type="number" step="0.0001" data-key="tzs_to_ngn"></div>
+                                <div class="field"><label>EGP → NGN</label><input type="number" step="0.0001" data-key="egp_to_ngn"></div>
                             </div>
                         </div>
-
-                        <!-- Marketplace -->
-                        <div class="price-card">
-                            <div class="price-title"><span class="icon">🛒</span> Marketplace</div>
-                            <div class="price-grid">
-                                <div class="field"><label>Markup (%)</label><input type="number" id="marketplace_markup_percent" step="0.5" min="0" value="20"></div>
-                                <div class="field"><label>Min Price (USD)</label><input type="number" id="marketplace_min_price_usd" step="0.01" min="0" value="1.00"></div>
-                                <div class="field"><label>Max Price (USD)</label><input type="number" id="marketplace_max_price_usd" step="0.01" min="0" value="1000.00"></div>
-                            </div>
-                            <div class="toggle-wrap" style="padding-top:8px;border-bottom:none;">
-                                <div class="info"><div class="t">Enable Marketplace</div></div>
-                                <label class="toggle"><input type="checkbox" id="marketplace_enabled" checked><span class="slider"></span></label>
-                            </div>
-                        </div>
-
-                        <!-- Cashback -->
-                        <div class="price-card">
-                            <div class="price-title"><span class="icon">🔄</span> Cashback</div>
-                            <div class="price-grid">
-                                <div class="field"><label>Cashback Rate (%)</label><input type="number" id="cashback_rate_percent" step="0.5" min="0" max="100" value="5"></div>
-                                <div class="field"><label>Min Redeem (NGN)</label><input type="number" id="cashback_min_redeem_ngn" step="10" min="0" value="50"></div>
-                                <div class="field"><label>Max Redeem (NGN)</label><input type="number" id="cashback_max_redeem_ngn" step="100" min="0" value="100000"></div>
-                            </div>
-                            <div class="toggle-wrap" style="padding-top:8px;border-bottom:none;">
-                                <div class="info"><div class="t">Enable Cashback</div></div>
-                                <label class="toggle"><input type="checkbox" id="cashback_enabled" checked><span class="slider"></span></label>
-                            </div>
-                        </div>
-
-                        <!-- Crypto -->
-                        <div class="price-card">
-                            <div class="price-title"><span class="icon">₿</span> Cryptocurrency</div>
-                            <div class="price-grid">
-                                <div class="field"><label>Markup (%)</label><input type="number" id="crypto_markup_percent" step="0.5" min="0" value="8"></div>
-                                <div class="field"><label>Min Purchase (USD)</label><input type="number" id="crypto_min_purchase_usd" step="1" min="0" value="10"></div>
-                                <div class="field"><label>Max Purchase (USD)</label><input type="number" id="crypto_max_purchase_usd" step="1" min="0" value="10000"></div>
-                            </div>
-                            <div class="toggle-wrap" style="padding-top:8px;border-bottom:none;">
-                                <div class="info"><div class="t">Enable Crypto</div></div>
-                                <label class="toggle"><input type="checkbox" id="crypto_enabled" checked><span class="slider"></span></label>
-                            </div>
-                        </div>
-
                         <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('prices')"><i class="fas fa-save"></i> Save All Prices</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('prices')"><i class="fas fa-undo"></i> Reset Prices</button>
+                            <button class="btn btn-primary" data-action="save-section" data-section="rates"><i class="fas fa-save"></i> Save rates</button>
+                            <button class="btn btn-ghost" data-action="reset-section" data-section="rates"><i class="fas fa-undo"></i> Reset to defaults</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== EXCHANGE RATES ==================== -->
-                <div class="settings-panel" id="panel-exchange">
-                    <div class="panel-header">
-                        <div><h2>💱 Exchange Rates</h2><p>Configure currency exchange rates</p></div>
+                <!-- ════════ FEES ════════ -->
+                <div class="panel" id="panel-fees">
+                    <div class="panel-head">
+                        <div><h2>💳 Deposit Fees</h2><p>Flat and percentage fees for incoming deposits.</p></div>
                     </div>
                     <div class="panel-body">
                         <div class="form-grid">
-                            <div class="field"><label>USD → NGN</label><input type="number" id="usd_to_ngn" step="0.01" value="1620"></div>
-                            <div class="field"><label>GBP → NGN</label><input type="number" id="gbp_to_ngn" step="0.01" value="2050"></div>
-                            <div class="field"><label>EUR → NGN</label><input type="number" id="eur_to_ngn" step="0.01" value="1750"></div>
+                            <div class="field"><label>Flat fee (₦)</label><input type="number" step="0.01" data-key="deposit_fee_flat_ngn"></div>
+                            <div class="field"><label>Percentage fee (%)</label><input type="number" step="0.01" data-key="deposit_fee_pct" data-percent="true"></div>
+                            <div class="field"><label>Minimum fee (₦)</label><input type="number" step="0.01" data-key="deposit_fee_min_ngn"></div>
+                            <div class="field"><label>Maximum fee (₦)</label><input type="number" step="0.01" data-key="deposit_fee_max_ngn"></div>
                         </div>
                         <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('exchange')"><i class="fas fa-save"></i> Save Rates</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('exchange')"><i class="fas fa-undo"></i> Reset</button>
+                            <button class="btn btn-primary" data-action="save-section" data-section="fees"><i class="fas fa-save"></i> Save fees</button>
+                            <button class="btn btn-ghost" data-action="reset-section" data-section="fees"><i class="fas fa-undo"></i> Reset to defaults</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== FEES ==================== -->
-                <div class="settings-panel" id="panel-fees">
-                    <div class="panel-header">
-                        <div><h2>💳 Payment Gateway Fees</h2><p>Configure payment processing fees</p></div>
+                <!-- ════════ PRICING ════════ -->
+                <div class="panel" id="panel-pricing">
+                    <div class="panel-head">
+                        <div><h2>🏷️ Service Pricing</h2><p>Markup percentages per service. Values are shown as percentages; the backend stores them as decimals.</p></div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="section">
+                            <div class="title">🎁 Gift cards</div>
+                            <div class="form-grid">
+                                <div class="field"><label>USD markup (%)</label><input type="number" step="0.01" data-key="giftcard_markup_pct_usd" data-percent="true"></div>
+                                <div class="field"><label>NGN markup (%)</label><input type="number" step="0.01" data-key="giftcard_markup_pct_ngn" data-percent="true"></div>
+                            </div>
+                        </div>
+                        <div class="section">
+                            <div class="title">📡 eSIM</div>
+                            <div class="form-grid">
+                                <div class="field"><label>USD markup (%)</label><input type="number" step="0.01" data-key="esim_markup_pct_usd" data-percent="true"></div>
+                                <div class="field"><label>NGN markup (%)</label><input type="number" step="0.01" data-key="esim_markup_pct_ngn" data-percent="true"></div>
+                            </div>
+                        </div>
+                        <div class="section">
+                            <div class="title">📱 Airtime</div>
+                            <div class="form-grid">
+                                <div class="field"><label>USD markup (%)</label><input type="number" step="0.01" data-key="airtime_markup_pct_usd" data-percent="true"></div>
+                                <div class="field"><label>NGN markup (%)</label><input type="number" step="0.01" data-key="airtime_markup_pct_ngn" data-percent="true"></div>
+                            </div>
+                        </div>
+                        <div class="section">
+                            <div class="title">Other services</div>
+                            <div class="form-grid">
+                                <div class="field"><label>Boost markup (%)</label><input type="number" step="0.01" data-key="boost_markup_pct" data-percent="true"></div>
+                                <div class="field"><label>Marketplace markup (%)</label><input type="number" step="0.01" data-key="marketplace_markup_pct" data-percent="true"></div>
+                                <div class="field"><label>Virtual SMS markup (%)</label><input type="number" step="0.01" data-key="virtual_sms_markup_pct" data-percent="true"></div>
+                                <div class="field"><label>Crypto markup (%)</label><input type="number" step="0.01" data-key="crypto_markup_pct" data-percent="true"></div>
+                                <div class="field"><label>Cashback rate (%)</label><input type="number" step="0.01" data-key="cashback_rate_pct" data-percent="true"></div>
+                            </div>
+                        </div>
+                        <div class="panel-actions">
+                            <button class="btn btn-primary" data-action="save-section" data-section="pricing"><i class="fas fa-save"></i> Save pricing</button>
+                            <button class="btn btn-ghost" data-action="reset-section" data-section="pricing"><i class="fas fa-undo"></i> Reset to defaults</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════ WALLET ════════ -->
+                <div class="panel" id="panel-wallet">
+                    <div class="panel-head">
+                        <div><h2>🏦 Wallet &amp; Deposits</h2><p>Deposit bounds enforced by the backend.</p></div>
                     </div>
                     <div class="panel-body">
                         <div class="form-grid">
-                            <div class="field"><label>Paystack Fee (%)</label><input type="number" id="paystack_fee_percent" step="0.01" min="0" value="1.5"></div>
-                            <div class="field"><label>Flutterwave Fee (%)</label><input type="number" id="flutterwave_fee_percent" step="0.01" min="0" value="1.4"></div>
-                            <div class="field"><label>Stripe Fee (%)</label><input type="number" id="stripe_fee_percent" step="0.01" min="0" value="2.9"></div>
-                            <div class="field"><label>Bank Transfer Fee (NGN)</label><input type="number" id="bank_transfer_fee_flat" step="1" min="0" value="50"></div>
+                            <div class="field"><label>Minimum deposit (₦)</label><input type="number" step="0.01" data-key="min_deposit_ngn"></div>
+                            <div class="field"><label>Maximum deposit (₦)</label><input type="number" step="0.01" data-key="max_deposit_ngn"></div>
+                            <div class="field full"><label>Daily deposit limit per customer (₦)</label><input type="number" step="0.01" data-key="daily_deposit_limit_ngn"></div>
                         </div>
                         <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('fees')"><i class="fas fa-save"></i> Save Fees</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('fees')"><i class="fas fa-undo"></i> Reset</button>
+                            <button class="btn btn-primary" data-action="save-section" data-section="wallet"><i class="fas fa-save"></i> Save wallet limits</button>
+                            <button class="btn btn-ghost" data-action="reset-section" data-section="wallet"><i class="fas fa-undo"></i> Reset to defaults</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== WALLET ==================== -->
-                <div class="settings-panel" id="panel-wallet">
-                    <div class="panel-header">
-                        <div><h2>🏦 Wallet Settings</h2><p>Configure wallet limits and fees</p></div>
+                <!-- ════════ LIMITS ════════ -->
+                <div class="panel" id="panel-limits">
+                    <div class="panel-head">
+                        <div><h2>📊 Transaction Limits</h2><p>Per-service NGN limits. Enforced before any provider request.</p></div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="section"><div class="title">🎁 Gift cards</div>
+                            <div class="form-grid">
+                                <div class="field"><label>Minimum (₦)</label><input type="number" step="1" data-key="giftcard_min_trade_ngn"></div>
+                                <div class="field"><label>Maximum (₦)</label><input type="number" step="1" data-key="giftcard_max_trade_ngn"></div>
+                            </div>
+                        </div>
+                        <div class="section"><div class="title">📱 Airtime</div>
+                            <div class="form-grid">
+                                <div class="field"><label>Minimum (₦)</label><input type="number" step="1" data-key="airtime_min_ngn"></div>
+                                <div class="field"><label>Maximum (₦)</label><input type="number" step="1" data-key="airtime_max_ngn"></div>
+                            </div>
+                        </div>
+                        <div class="section"><div class="title">📡 eSIM</div>
+                            <div class="form-grid">
+                                <div class="field"><label>Minimum (₦)</label><input type="number" step="1" data-key="esim_min_ngn"></div>
+                                <div class="field"><label>Maximum (₦)</label><input type="number" step="1" data-key="esim_max_ngn"></div>
+                            </div>
+                        </div>
+                        <div class="section"><div class="title">📲 Virtual SMS</div>
+                            <div class="form-grid">
+                                <div class="field"><label>Minimum (₦)</label><input type="number" step="1" data-key="virtual_sms_min_ngn"></div>
+                                <div class="field"><label>Maximum (₦)</label><input type="number" step="1" data-key="virtual_sms_max_ngn"></div>
+                            </div>
+                        </div>
+                        <div class="section"><div class="title">📈 Boost</div>
+                            <div class="form-grid">
+                                <div class="field"><label>Minimum (₦)</label><input type="number" step="1" data-key="boost_min_ngn"></div>
+                                <div class="field"><label>Maximum (₦)</label><input type="number" step="1" data-key="boost_max_ngn"></div>
+                            </div>
+                        </div>
+                        <div class="panel-actions">
+                            <button class="btn btn-primary" data-action="save-section" data-section="limits"><i class="fas fa-save"></i> Save limits</button>
+                            <button class="btn btn-ghost" data-action="reset-section" data-section="limits"><i class="fas fa-undo"></i> Reset to defaults</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════ SERVICES ════════ -->
+                <div class="panel" id="panel-services">
+                    <div class="panel-head">
+                        <div><h2>🎛️ Service Availability</h2><p>Turn services on or off platform-wide. The backend rejects requests for disabled services.</p></div>
+                    </div>
+                    <div class="panel-body">
+                        <div id="servicesList"></div>
+                        <div class="panel-actions">
+                            <button class="btn btn-primary" data-action="save-section" data-section="services"><i class="fas fa-save"></i> Save availability</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════ PROVIDERS ════════ -->
+                <div class="panel" id="panel-providers">
+                    <div class="panel-head">
+                        <div><h2>🔌 Providers</h2><p>Enable, disable, and set maintenance per provider. Secrets remain in environment variables and are never displayed.</p></div>
+                    </div>
+                    <div class="panel-body">
+                        <div id="providersList"></div>
+                        <div class="panel-actions">
+                            <button class="btn btn-primary" data-action="save-section" data-section="providers"><i class="fas fa-save"></i> Save providers</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════ NOTIFICATIONS ════════ -->
+                <div class="panel" id="panel-notifications">
+                    <div class="panel-head">
+                        <div><h2>🔔 Notifications</h2><p>Which emails and alerts MilesSpace sends.</p></div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="section"><div class="title">Customer</div>
+                            <div class="toggle-row"><div class="info"><div class="t">Deposit successful</div></div><label class="toggle"><input type="checkbox" data-key="notify_deposit_success"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Deposit failed</div></div><label class="toggle"><input type="checkbox" data-key="notify_deposit_failed"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Purchase successful</div></div><label class="toggle"><input type="checkbox" data-key="notify_purchase_success"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Purchase failed</div></div><label class="toggle"><input type="checkbox" data-key="notify_purchase_failed"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Refund completed</div></div><label class="toggle"><input type="checkbox" data-key="notify_refund_completed"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Login alert</div></div><label class="toggle"><input type="checkbox" data-key="notify_login_alert"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Password changed</div></div><label class="toggle"><input type="checkbox" data-key="notify_password_changed"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">2FA enabled</div></div><label class="toggle"><input type="checkbox" data-key="notify_2fa_enabled"><span class="slider"></span></label></div>
+                        </div>
+                        <div class="section"><div class="title">Admin</div>
+                            <div class="toggle-row"><div class="info"><div class="t">Webhook failure</div></div><label class="toggle"><input type="checkbox" data-key="notify_admin_webhook_failure"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Provider outage</div></div><label class="toggle"><input type="checkbox" data-key="notify_admin_provider_outage"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Large deposit</div></div><label class="toggle"><input type="checkbox" data-key="notify_admin_large_deposit"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Reconciliation mismatch</div></div><label class="toggle"><input type="checkbox" data-key="notify_admin_reconciliation_mismatch"><span class="slider"></span></label></div>
+                        </div>
+                        <div class="panel-actions">
+                            <button class="btn btn-primary" data-action="save-section" data-section="notifications"><i class="fas fa-save"></i> Save notifications</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════ SECURITY ════════ -->
+                <div class="panel" id="panel-security">
+                    <div class="panel-head">
+                        <div><h2>🔐 Security</h2><p>Session policy and login protection.</p></div>
                     </div>
                     <div class="panel-body">
                         <div class="form-grid">
-                            <div class="field"><label>Min Deposit (NGN)</label><input type="number" id="wallet_min_deposit_ngn" step="100" min="0" value="1000"></div>
-                            <div class="field"><label>Max Deposit (NGN)</label><input type="number" id="wallet_max_deposit_ngn" step="1000" min="0" value="10000000"></div>
-                            <div class="field"><label>Min Withdrawal (NGN)</label><input type="number" id="wallet_min_withdrawal_ngn" step="100" min="0" value="5000"></div>
-                            <div class="field"><label>Max Withdrawal (NGN)</label><input type="number" id="wallet_max_withdrawal_ngn" step="1000" min="0" value="5000000"></div>
-                            <div class="field"><label>Withdrawal Fee (NGN)</label><input type="number" id="wallet_withdrawal_fee_ngn" step="1" min="0" value="50"></div>
+                            <div class="field"><label>Session timeout (hours)</label><input type="number" min="1" max="168" data-key="session_timeout_hours"></div>
+                            <div class="field"><label>Max failed login attempts</label><input type="number" min="3" max="20" data-key="failed_login_attempts"></div>
+                        </div>
+                        <div class="section" style="margin-top:18px">
+                            <div class="toggle-row"><div class="info"><div class="t">Require 2FA for admins</div><div class="d">Enforced at next sign-in.</div></div><label class="toggle"><input type="checkbox" data-key="require_2fa"><span class="slider"></span></label></div>
+                            <div class="toggle-row"><div class="info"><div class="t">Require email verification</div></div><label class="toggle"><input type="checkbox" data-key="email_verification"><span class="slider"></span></label></div>
                         </div>
                         <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('wallet')"><i class="fas fa-save"></i> Save Wallet</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('wallet')"><i class="fas fa-undo"></i> Reset</button>
+                            <button class="btn btn-primary" data-action="save-section" data-section="security"><i class="fas fa-save"></i> Save security</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== SECURITY ==================== -->
-                <div class="settings-panel" id="panel-security">
-                    <div class="panel-header">
-                        <div><h2>🔐 Security Settings</h2><p>Configure security policies</p></div>
+                <!-- ════════ TWO-FACTOR ════════ -->
+                <div class="panel" id="panel-mfa">
+                    <div class="panel-head">
+                        <div>
+                            <h2>🔑 Two-Factor Authentication</h2>
+                            <p>Protect sensitive admin actions with a 6-digit code from Google Authenticator, Authy, or any TOTP app.</p>
+                        </div>
+                        <span id="mfaStatusPill" class="status-pill off">Loading…</span>
                     </div>
                     <div class="panel-body">
-                        <div class="toggle-wrap">
-                            <div class="info"><div class="t">Two-Factor Authentication</div><div class="d">Require 2FA for admin accounts</div></div>
-                            <label class="toggle"><input type="checkbox" id="two_factor_auth" checked><span class="slider"></span></label>
+
+                        <div class="mfa-state" id="mfaState">
+                            <div class="icon"><i class="fas fa-shield-halved"></i></div>
+                            <div class="meta">
+                                <strong id="mfaStateTitle">Loading MFA status…</strong>
+                                <span id="mfaStateMeta">—</span>
+                            </div>
                         </div>
-                        <div class="form-grid">
-                            <div class="field"><label>Session Timeout (hours)</label><input type="number" id="session_timeout_hours" min="1" max="72" value="4"></div>
-                            <div class="field"><label>Failed Login Attempts</label><input type="number" id="failed_login_attempts" min="3" max="20" value="5"></div>
+
+                        <!-- Enroll flow -->
+                        <div id="mfaEnrollBlock" style="display:none">
+                            <div id="mfaEnrollIntro" class="section">
+                                <div class="title"><i class="fas fa-circle-info" style="color:var(--info)"></i> Set up two-factor authentication</div>
+                                <ol class="mfa-steps">
+                                    <li>Install <strong>Google Authenticator</strong> or <strong>Authy</strong> on your phone.</li>
+                                    <li>Scan the QR code below.</li>
+                                    <li>Enter the 6-digit code to confirm.</li>
+                                    <li>Save your recovery codes — they are shown only once.</li>
+                                </ol>
+                                <button class="btn btn-primary" id="mfaStartEnrollBtn"><i class="fas fa-qrcode"></i> Start enrollment</button>
+                            </div>
+
+                            <div id="mfaEnrollQr" style="display:none">
+                                <div class="mfa-qr-box">
+                                    <img id="mfaQrImg" alt="QR code">
+                                    <div class="qr-meta">
+                                        <h4>Scan with your authenticator app</h4>
+                                        <p>Can't scan? Enter this secret manually:</p>
+                                        <div class="mfa-secret" id="mfaSecretText">—</div>
+                                        <p style="margin-top:12px">Then enter the 6-digit code below to finish.</p>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+                                    <div class="field" style="flex:0 0 auto">
+                                        <label>Verification code</label>
+                                        <input type="text" id="mfaVerifyCode" class="mfa-code-input"
+                                               inputmode="numeric" maxlength="6"
+                                               placeholder="••••••" autocomplete="one-time-code">
+                                    </div>
+                                    <button class="btn btn-primary" id="mfaConfirmEnrollBtn"><i class="fas fa-check"></i> Confirm &amp; enable</button>
+                                    <button class="btn btn-ghost" id="mfaCancelEnrollBtn">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Enabled actions -->
+                        <div id="mfaEnabledBlock" style="display:none">
+                            <div class="section">
+                                <div class="title"><i class="fas fa-gear" style="color:var(--text-dim)"></i> Actions</div>
+                                <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px">
+                                    <button class="btn btn-ghost" id="mfaRegenRecoveryBtn"><i class="fas fa-rotate"></i> Regenerate recovery codes</button>
+                                    <button class="btn btn-ghost" id="mfaDisableBtn" style="color:var(--danger);border-color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> Disable 2FA</button>
+                                </div>
+                                <div class="emergency-note" style="margin-top:12px">
+                                    Disabling 2FA reduces account security. A 6-digit code is required.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recovery codes display -->
+                        <div id="mfaRecoveryBlock" style="display:none">
+                            <div class="section" style="background:var(--warn-bg);border-color:#f0c26c">
+                                <div class="title" style="color:#7a3517"><i class="fas fa-key"></i> Save these recovery codes now</div>
+                                <p style="font-size:12.5px;color:#7a3517;margin:0 0 4px">Each code can be used once if you lose access to your authenticator. Store them somewhere safe.</p>
+                                <div class="recovery-codes" id="recoveryCodesList"></div>
+                                <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+                                    <button class="btn btn-ghost btn-sm" id="mfaCopyRecoveryBtn"><i class="fas fa-copy"></i> Copy all</button>
+                                    <button class="btn btn-ghost btn-sm" id="mfaDoneRecoveryBtn">I've saved them</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ════════ EMERGENCY ════════ -->
+                <div class="panel" id="panel-emergency">
+                    <div class="panel-head">
+                        <div><h2 style="color:var(--danger)">🚨 Emergency Controls</h2><p>Dangerous platform-wide switches. Every change requires a reason and is audited.</p></div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="emergency-box">
+                            <div class="title"><i class="fas fa-triangle-exclamation"></i> Global kills</div>
+                            <div class="toggle-row" style="border-bottom-color:rgba(220,38,38,.2)">
+                                <div class="info"><div class="t">Stop all deposits</div><div class="d">Blocks every deposit initiator.</div></div>
+                                <label class="toggle danger"><input type="checkbox" data-key="emergency_stop_deposits" data-dangerous="true"><span class="slider"></span></label>
+                            </div>
+                            <div class="toggle-row" style="border-bottom-color:rgba(220,38,38,.2)">
+                                <div class="info"><div class="t">Stop all purchases</div><div class="d">Blocks airtime, data, gift cards, eSIM, SMS, boost, marketplace.</div></div>
+                                <label class="toggle danger"><input type="checkbox" data-key="emergency_stop_purchases" data-dangerous="true"><span class="slider"></span></label>
+                            </div>
+                            <div class="toggle-row" style="border-bottom-color:rgba(220,38,38,.2)">
+                                <div class="info"><div class="t">Stop all provider requests</div><div class="d">No outbound calls to Kora, NowPayments, VTpass, DT One.</div></div>
+                                <label class="toggle danger"><input type="checkbox" data-key="emergency_stop_provider_requests" data-dangerous="true"><span class="slider"></span></label>
+                            </div>
+                            <div class="toggle-row">
+                                <div class="info"><div class="t">Stop wallet mutations</div><div class="d">Blocks ledger credits and debits.</div></div>
+                                <label class="toggle danger"><input type="checkbox" data-key="emergency_stop_wallet_mutations" data-dangerous="true"><span class="slider"></span></label>
+                            </div>
+                        </div>
+                        <div class="emergency-note">
+                            These flags are checked by the backend before the operation runs. Re-enable a flag by toggling it off. Every toggle requires a reason.
                         </div>
                         <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('security')"><i class="fas fa-save"></i> Save Security</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('security')"><i class="fas fa-undo"></i> Reset</button>
+                            <button class="btn btn-danger" data-action="save-section" data-section="emergency"><i class="fas fa-save"></i> Apply emergency changes</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- ==================== NOTIFICATIONS ==================== -->
-                <div class="settings-panel" id="panel-notifications">
-                    <div class="panel-header">
-                        <div><h2>🔔 Notification Settings</h2><p>Configure what notifications to send</p></div>
+                <!-- ════════ RATE HISTORY ════════ -->
+                <div class="panel" id="panel-history">
+                    <div class="panel-head">
+                        <div><h2>🕓 Rate History</h2><p>Every rate and markup change. Read-only.</p></div>
+                        <button class="btn btn-ghost" data-action="reload-history"><i class="fas fa-rotate-right"></i> Reload</button>
                     </div>
                     <div class="panel-body">
-                        <div class="toggle-wrap"><div class="info"><div class="t">New User Registration</div><div class="d">Notify when a new user signs up</div></div><label class="toggle"><input type="checkbox" id="notify_new_user" checked><span class="slider"></span></label></div>
-                        <div class="toggle-wrap"><div class="info"><div class="t">New Deposit</div><div class="d">Notify when a user deposits funds</div></div><label class="toggle"><input type="checkbox" id="notify_deposit" checked><span class="slider"></span></label></div>
-                        <div class="toggle-wrap"><div class="info"><div class="t">Withdrawal Request</div><div class="d">Notify when a user requests withdrawal</div></div><label class="toggle"><input type="checkbox" id="notify_withdrawal" checked><span class="slider"></span></label></div>
-                        <div class="toggle-wrap"><div class="info"><div class="t">New Purchase</div><div class="d">Notify when a user makes a purchase</div></div><label class="toggle"><input type="checkbox" id="notify_purchase" checked><span class="slider"></span></label></div>
-                        <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('notifications')"><i class="fas fa-save"></i> Save Notifications</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('notifications')"><i class="fas fa-undo"></i> Reset</button>
-                        </div>
+                        <div id="rateHistoryContainer"><div class="empty-box"><span class="ic">⏳</span>Loading…</div></div>
                     </div>
                 </div>
 
-                <!-- ==================== EMAIL ==================== -->
-                <div class="settings-panel" id="panel-email">
-                    <div class="panel-header">
-                        <div><h2>📧 Email Settings</h2><p>Configure SMTP for sending emails</p></div>
+                <!-- ════════ AUDIT ════════ -->
+                <div class="panel" id="panel-audit">
+                    <div class="panel-head">
+                        <div><h2>📋 Audit Log</h2><p>Recent settings changes. Read-only.</p></div>
+                        <button class="btn btn-ghost" data-action="reload-audit"><i class="fas fa-rotate-right"></i> Reload</button>
                     </div>
                     <div class="panel-body">
-                        <div class="form-grid">
-                            <div class="field"><label>SMTP Host</label><input type="text" id="smtp_host" value="smtp.gmail.com"></div>
-                            <div class="field"><label>SMTP Port</label><input type="number" id="smtp_port" value="587"></div>
-                            <div class="field"><label>SMTP Username</label><input type="text" id="smtp_username" placeholder="admin@milesspace.com"></div>
-                            <div class="field"><label>SMTP Password</label><input type="password" id="smtp_password" placeholder="Enter password"></div>
-                            <div class="field"><label>Sender Name</label><input type="text" id="smtp_sender_name" value="MilesSpace"></div>
-                            <div class="field"><label>Sender Email</label><input type="email" id="smtp_sender_email" value="noreply@milesspace.com"></div>
-                        </div>
-                        <div class="panel-actions">
-                            <button class="btn btn-primary" onclick="saveSettings('email')"><i class="fas fa-save"></i> Save Email</button>
-                            <button class="btn btn-success" onclick="testEmail()"><i class="fas fa-paper-plane"></i> Send Test Email</button>
-                            <button class="btn btn-ghost" onclick="resetSettings('email')"><i class="fas fa-undo"></i> Reset</button>
-                        </div>
+                        <div id="auditContainer"><div class="empty-box"><span class="ic">⏳</span>Loading…</div></div>
                     </div>
-    </div>
+                </div>
 
-    <!-- ==================== SYSTEM ==================== -->
-    <div class="settings-panel" id="panel-system">
-        <div class="panel-header">
-            <div><h2>🖥️ System Settings</h2><p>Configure system behavior</p></div>
-        </div>
-        <div class="panel-body">
-            <div class="toggle-wrap">
-                <div class="info"><div class="t">Maintenance Mode</div><div class="d">Take the platform offline for maintenance</div></div>
-                <label class="toggle"><input type="checkbox" id="maintenance_mode"><span class="slider"></span></label>
-            </div>
-            <div class="field"><label>Maintenance Message</label><textarea id="maintenance_message" rows="3">We're currently performing scheduled maintenance. Please check back soon.</textarea></div>
-            <div class="toggle-wrap" style="border-bottom:none;">
-                <div class="info"><div class="t">Debug Mode</div><div class="d">Enable detailed error logging</div></div>
-                <label class="toggle"><input type="checkbox" id="debug_mode"><span class="slider"></span></label>
-            </div>
-            <div class="panel-actions">
-                <button class="btn btn-primary" onclick="saveSettings('system')"><i class="fas fa-save"></i> Save System</button>
-                <button class="btn btn-ghost" onclick="resetSettings('system')"><i class="fas fa-undo"></i> Reset</button>
-            </div>
-        </div>
-    </div>
-    <div class="settings-card" style="background:#fff;border-radius:16px;padding:20px;margin-bottom:20px;border:1px solid #e4e8ec;">
-  <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;">💱 Deposit FX Rates</h3>
-  <p style="font-size:12px;color:#92a8b4;margin-bottom:16px;">These rates are used to convert incoming multi-currency deposits to NGN. You control them directly — no external provider.</p>
+                <!-- ════════ HEALTH ════════ -->
+                <div class="panel" id="panel-health">
+                    <div class="panel-head">
+                        <div><h2>❤️ Configuration Health</h2><p>Whether required configuration is present and usable.</p></div>
+                        <button class="btn btn-ghost" data-action="reload-health"><i class="fas fa-rotate-right"></i> Reload</button>
+                    </div>
+                    <div class="panel-body">
+                        <div id="healthContainer"><div class="empty-box"><span class="ic">⏳</span>Loading…</div></div>
+                    </div>
+                </div>
 
-  <div id="fxRatesList" style="display:grid;gap:10px;">
-    <!-- filled by JS -->
-  </div>
-
-  <div style="margin-top:16px;display:flex;gap:8px;">
-    <button id="fxSaveBtn" class="btn btn-primary">Save rates</button>
-    <button id="fxResetBtn" class="btn" style="background:#f8f9fa;">Reset defaults</button>
-  </div>
-
-  <div id="fxStatus" style="margin-top:10px;font-size:12px;"></div>
+            </div><!-- /panels -->
+        </div><!-- /layout -->
+    </div><!-- /content -->
+</div><!-- /main -->
 </div>
 
-
-</div><!-- /settings-content -->
-</div><!-- /settings-layout -->
-</div><!-- /content -->
-</div><!-- /main -->
-
-<!-- Toast Stack -->
-<div class="toast-stack" id="toastStack"></div>
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
 <script>
-/* =====================================================================
-   COMPLETE SETTINGS JAVASCRIPT WITH ADMIN SESSION
-===================================================================== */
+'use strict';
 
-// ─── STATE ──────────────────────────────────────────────────────────────
-let allSettings = {};
-let currentAdmin = null;
+/* ════════════════════════════════════════════════════════════════════
+   MilesSpace Settings — frontend
+   ────────────────────────────────────────────────────────────────────
+   • Every value comes from GET /api/admin/settings.
+   • Every write goes to PATCH /api/admin/settings.
+   • Percent fields: UI shows a percent (15.7). The backend stores a
+     decimal (0.1570) and normalizes on write.
+   • No financial math on the frontend.
+   • AdminSession.fetch handles auth.
+   ════════════════════════════════════════════════════════════════════ */
 
-// ─── GET ADMIN TOKEN FROM SESSION ─────────────────────────────────────
-async function loadDepositFx() {
-  const token = localStorage.getItem('admin_token'); // or wherever you store it
-  const resp = await fetch('/api/admin/deposit-fx', {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  const data = await resp.json();
-  if (!data.success) return;
+const ENDPOINTS = {
+    all:          '/api/admin/settings',
+    section:      name => `/api/admin/settings/section/${encodeURIComponent(name)}`,
+    resetSection: name => `/api/admin/settings/reset/${encodeURIComponent(name)}`,
+    resetAll:     '/api/admin/settings/reset-all',
+    rateHistory:  '/api/admin/settings/rates/history',
+    audit:        '/api/admin/settings/audit',
+    health:       '/api/admin/settings/health',
+    me:           '/api/admin/me',
+    mfaStatus:    '/api/admin/mfa/status',
+    mfaEnroll:    '/api/admin/mfa/enroll',
+    mfaVerify:    '/api/admin/mfa/verify-enrollment',
+    mfaDisable:   '/api/admin/mfa/disable',
+    mfaRegen:     '/api/admin/mfa/recovery-codes/regenerate'
+};
 
-  const list = document.getElementById('fxRatesList');
-  list.innerHTML = Object.entries(data.rates).map(([key, value]) => `
-    <div style="display:flex;align-items:center;gap:12px;">
-      <label style="flex:1;font-size:13px;font-weight:600;">${key}</label>
-      <input type="number" step="any" min="0" data-key="${key}" value="${value}"
-             style="width:140px;padding:8px 10px;border:1px solid #e4e8ec;border-radius:8px;">
-    </div>
-  `).join('');
+const State = {
+    flat: {},
+    dirty: new Set(),
+    version: null,
+    saving: false,
+    historyLoaded: false,
+    auditLoaded: false,
+    healthLoaded: false,
+    providersStatus: {},
+    servicesStatus: {},
+    isSuperAdmin: false
+};
+
+/* ─── helpers ─── */
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
-
-document.getElementById('fxSaveBtn')?.addEventListener('click', async () => {
-  const token = localStorage.getItem('admin_token');
-  const patch = {};
-  document.querySelectorAll('#fxRatesList input[data-key]').forEach(inp => {
-    patch[inp.dataset.key] = inp.value;
-  });
-
-  const resp = await fetch('/api/admin/deposit-fx', {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(patch)
-  });
-  const data = await resp.json();
-  const status = document.getElementById('fxStatus');
-  status.style.color = data.success ? '#10b981' : '#ef4444';
-  status.textContent = data.success ? '✅ Rates saved' : ('❌ ' + (data.error || 'Failed'));
-  if (data.success) fxStatus && setTimeout(() => status.textContent = '', 3000);
-});
-
-document.getElementById('fxResetBtn')?.addEventListener('click', async () => {
-  const token = localStorage.getItem('admin_token');
-  await fetch('/api/admin/deposit-fx/reset', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-  loadDepositFx();
-});
-
-loadDepositFx();
-
-function getAdminSession() {
-    try {
-        // Use AdminSession from admin-session.js
-        if (window.AdminSession) {
-            const session = window.AdminSession.getSession();
-            if (session && session.token) {
-                return session;
-            }
-        }
-        // Fallback to localStorage
-        const raw = localStorage.getItem('admin_sess');
-        if (raw) {
-            return JSON.parse(raw);
-        }
-        return null;
-    } catch (e) {
-        console.warn('Failed to get admin session:', e);
-        return null;
-    }
-}
-
-function getAdminToken() {
-    const session = getAdminSession();
-    return session?.token || '';
-}
-
-function getAdminUser() {
-    const session = getAdminSession();
-    return session?.user || null;
-}
-
-// ─── LOAD ADMIN USER ───────────────────────────────────────────────────
-
-function loadAdminUser() {
-    try {
-        const user = getAdminUser();
-        currentAdmin = user;
-
-        if (user) {
-            const name = user.username || user.email?.split('@')[0] || 'Admin';
-            const role = user.role || 'Super Admin';
-            const initial = name.charAt(0).toUpperCase();
-
-            // Update sidebar
-            document.getElementById('adminName').textContent = name;
-            document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-            document.getElementById('adminAvatar').textContent = initial;
-            document.getElementById('adminAvatarMini').textContent = initial;
-
-            console.log('✅ Admin user loaded:', name, 'Role:', role);
-        } else {
-            console.warn('⚠️ No admin user found in session');
-        }
-    } catch (error) {
-        console.error('❌ Failed to load admin user:', error);
-    }
-}
-
-// ─── HELPERS ────────────────────────────────────────────────────────────
-
 function showToast(msg, type = 'info') {
     const stack = document.getElementById('toastStack');
+    if (!stack) return;
     const el = document.createElement('div');
     el.className = 'toast ' + type;
-    el.textContent = msg;
+    const icons = { success: '✓ ', error: '✕ ', info: 'ℹ️ ' };
+    el.textContent = (icons[type] || '') + msg;
     stack.appendChild(el);
-    setTimeout(() => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateX(30px)';
-        el.style.transition = 'all .3s ease';
-        setTimeout(() => el.remove(), 300);
-    }, 3500);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 3600);
+}
+function formatDateTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function getElementValue(id) {
-    const el = document.getElementById(id);
-    if (!el) return '';
-    if (el.type === 'checkbox') return el.checked;
-    return el.value;
+async function api(url, opts = {}) {
+    try {
+        const res = await AdminSession.fetch(url, opts);
+        if (res.status === 401) {
+            let body = null; try { body = await res.json(); } catch {}
+            return { ok: false, reason: 'unauthorized', status: 401, error: body?.message || body?.error, code: body?.code };
+        }
+        if (res.status === 403) {
+            let body = null; try { body = await res.json(); } catch {}
+            return { ok: false, reason: 'forbidden', status: 403, error: body?.message || body?.error, code: body?.code };
+        }
+        if (res.status === 404) {
+            let body = null; try { body = await res.json(); } catch {}
+            return { ok: false, reason: 'not_found', status: 404, error: body?.message, code: body?.code };
+        }
+        let json;
+        try { json = await res.json(); } catch { return { ok: false, reason: 'invalid_response' }; }
+        if (!res.ok || json.success === false) {
+            return { ok: false, reason: 'api_error', status: res.status, error: json?.message || json?.error, code: json?.code, extra: json };
+        }
+        return { ok: true, data: json.data !== undefined ? json.data : json };
+    } catch (e) {
+        console.error('[settings] request failed:', url, e.message);
+        return { ok: false, reason: 'network_error', error: e.message };
+    }
 }
 
-function setElementValue(id, value) {
-    const el = document.getElementById(id);
+/* ─── Load / render ─── */
+async function loadAll() {
+    const { ok, data, reason, error } = await api(ENDPOINTS.all);
+    if (!ok) { showToast('Failed to load settings: ' + (error || reason), 'error'); return false; }
+    State.flat = {};
+    const sections = data.sections || {};
+    for (const sec of Object.keys(sections)) Object.assign(State.flat, sections[sec] || {});
+    State.version = data.version;
+    State.dirty.clear();
+    renderAllForms();
+    renderServices();
+    renderProviders();
+    updateDirtyIndicator();
+    updateVersionBadge();
+    loadProvidersStatus();
+    loadServicesStatus();
+    return true;
+}
+
+function renderAllForms() {
+    document.querySelectorAll('[data-key]').forEach(el => {
+        const key = el.dataset.key;
+        if (!(key in State.flat)) return;
+        const raw = State.flat[key];
+        if (el.type === 'checkbox') el.checked = !!raw;
+        else if (el.dataset.percent === 'true') {
+            const n = Number(raw);
+            el.value = Number.isFinite(n) ? (n * 100).toFixed(2) : '';
+        } else {
+            el.value = raw == null ? '' : raw;
+        }
+        const field = el.closest('.field');
+        if (field) field.classList.remove('has-error');
+    });
+}
+
+async function loadServicesStatus() {
+    const { ok, data } = await api(ENDPOINTS.section('services'));
+    if (!ok) return;
+    State.servicesStatus = data.values || {};
+    document.querySelectorAll('#servicesList [data-service-enabled]').forEach(el => {
+        const key = el.dataset.serviceEnabled;
+        if (key in State.servicesStatus) el.checked = !!State.servicesStatus[key];
+    });
+}
+
+function renderServices() {
+    const list = document.getElementById('servicesList');
+    if (!list) return;
+    const services = [
+        ['giftcards', 'Gift Cards'],
+        ['airtime', 'Airtime & Data'],
+        ['bills', 'Bills & Utilities'],
+        ['esim', 'eSIM'],
+        ['virtual_sms', 'Virtual SMS'],
+        ['boost', 'Boost'],
+        ['marketplace', 'Marketplace'],
+        ['crypto', 'Crypto'],
+        ['virtual_cards', 'Virtual Cards', 'Not launched'],
+        ['withdrawals', 'Withdrawals', 'Feature removed — must stay off'],
+        ['kyc', 'KYC', 'Not launched']
+    ];
+    list.innerHTML = services.map(([key, label, note]) => {
+        const flagKey = `service_${key}_enabled`;
+        return `<div class="toggle-row">
+            <div class="info">
+                <div class="t">${escapeHtml(label)}</div>
+                ${note ? `<div class="d">${escapeHtml(note)}</div>` : ''}
+            </div>
+            <label class="toggle"><input type="checkbox" data-key="${flagKey}" data-service-enabled="${flagKey}"><span class="slider"></span></label>
+        </div>`;
+    }).join('');
+}
+
+async function loadProvidersStatus() {
+    const { ok, data } = await api(ENDPOINTS.section('providers'));
+    if (!ok) return;
+    State.providersStatus = data.values || {};
+    document.querySelectorAll('#providersList [data-provider-key]').forEach(el => {
+        const key = el.dataset.providerKey;
+        if (key in State.providersStatus) el.checked = !!State.providersStatus[key];
+    });
+}
+
+function renderProviders() {
+    const list = document.getElementById('providersList');
+    if (!list) return;
+    const providers = [
+        ['kora', 'KoraPay'],
+        ['nowpayments', 'NowPayments'],
+        ['vtpass', 'VTpass'],
+        ['dtone', 'DT One']
+    ];
+    list.innerHTML = providers.map(([key, label]) => `
+        <div class="section">
+            <div class="title">${escapeHtml(label)}</div>
+            <div class="toggle-row">
+                <div class="info">
+                    <div class="t">Enabled</div>
+                    <div class="d">Backend rejects outbound requests when disabled.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" data-key="provider_${key}_enabled" data-provider-key="provider_${key}_enabled"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <div class="info">
+                    <div class="t">Maintenance</div>
+                    <div class="d">Softer than disabled.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" data-key="provider_${key}_maintenance" data-provider-key="provider_${key}_maintenance"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <div class="info">
+                    <div class="t">Timeout (ms)</div>
+                    <div class="d">Per-request timeout.</div>
+                </div>
+                <input type="number" style="width:120px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13px" data-key="provider_${key}_timeout_ms">
+            </div>
+        </div>
+    `).join('');
+}
+
+/* ─── Dirty tracking ─── */
+function markDirty(el) {
+    const key = el.dataset.key;
+    if (!key) return;
+    State.dirty.add(key);
+    updateDirtyIndicator();
+}
+function updateDirtyIndicator() {
+    const btn = document.getElementById('saveAllBtn');
+    if (!btn) return;
+    const n = State.dirty.size;
+    btn.disabled = n === 0 || State.saving;
+    btn.innerHTML = n > 0
+        ? `<i class="fas fa-save"></i> Save ${n} change${n === 1 ? '' : 's'}`
+        : '<i class="fas fa-save"></i> Save all changes';
+}
+function updateVersionBadge() {
+    const el = document.getElementById('versionBadge');
     if (!el) return;
-    if (el.type === 'checkbox') {
-        el.checked = value === true || value === 'true' || value === 1 || value === '1';
-    } else {
-        el.value = value || '';
-    }
+    el.textContent = 'v' + (State.version != null ? State.version : '—');
+    el.className = 'status-pill ' + (State.version != null ? 'ok' : 'off');
 }
 
-// ─── LOAD SETTINGS ─────────────────────────────────────────────────────
-
-async function loadSettings() {
-    try {
-        const token = getAdminToken();
-        if (!token) {
-            showToast('No admin token found. Redirecting to login...', 'danger');
-            setTimeout(() => {
-                window.location.href = '/admin/index.html';
-            }, 1500);
-            return;
-        }
-
-        const response = await fetch('/api/admin/settings', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.status === 401) {
-            showToast('Session expired. Redirecting to login...', 'danger');
-            setTimeout(() => {
-                window.location.href = '/admin/index.html';
-            }, 1500);
-            return;
-        }
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error);
-
-        allSettings = data.settings;
-
-        // Populate all fields
-        Object.keys(allSettings).forEach(key => {
-            setElementValue(key, allSettings[key]);
-        });
-
-        console.log('✅ Settings loaded:', Object.keys(allSettings).length, 'keys');
-        showToast('Settings loaded successfully', 'success');
-
-    } catch (error) {
-        console.error('❌ Load settings error:', error);
-        showToast('Failed to load settings: ' + error.message, 'danger');
-    }
-}
-
-// ─── SAVE SETTINGS ─────────────────────────────────────────────────────
-
-async function saveSettings(section) {
-    try {
-        const token = getAdminToken();
-        if (!token) {
-            showToast('No admin token. Please login again.', 'danger');
-            return;
-        }
-
-        const sectionMap = {
-            general: ['platform_name', 'company_name', 'support_email', 'support_phone', 'timezone', 'default_currency'],
-            prices: ['boost_markup_percent', 'boost_min_order', 'boost_max_order', 'boost_enabled',
-                     'giftcard_markup_percent', 'giftcard_min_trade_usd', 'giftcard_max_trade_usd', 'giftcard_enabled',
-                     'virtual_sms_markup_percent', 'virtual_sms_min_price_usd', 'virtual_sms_max_price_usd', 'virtual_sms_enabled',
-                     'marketplace_markup_percent', 'marketplace_min_price_usd', 'marketplace_max_price_usd', 'marketplace_enabled',
-                     'cashback_rate_percent', 'cashback_min_redeem_ngn', 'cashback_max_redeem_ngn', 'cashback_enabled',
-                     'crypto_markup_percent', 'crypto_min_purchase_usd', 'crypto_max_purchase_usd', 'crypto_enabled'],
-            exchange: ['usd_to_ngn', 'gbp_to_ngn', 'eur_to_ngn'],
-            fees: ['paystack_fee_percent', 'flutterwave_fee_percent', 'stripe_fee_percent', 'bank_transfer_fee_flat'],
-            wallet: ['wallet_min_deposit_ngn', 'wallet_max_deposit_ngn', 'wallet_min_withdrawal_ngn', 'wallet_max_withdrawal_ngn', 'wallet_withdrawal_fee_ngn'],
-            security: ['two_factor_auth', 'session_timeout_hours', 'failed_login_attempts'],
-            notifications: ['notify_new_user', 'notify_deposit', 'notify_withdrawal', 'notify_purchase'],
-            email: ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_sender_name', 'smtp_sender_email'],
-            system: ['maintenance_mode', 'maintenance_message', 'debug_mode']
-        };
-
-        const keys = sectionMap[section] || [];
-        const settings = {};
-
-        keys.forEach(key => {
-            settings[key] = getElementValue(key);
-        });
-
-        const response = await fetch('/api/admin/settings', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ settings })
-        });
-
-        if (response.status === 401) {
-            showToast('Session expired. Please login again.', 'danger');
-            setTimeout(() => {
-                window.location.href = '/admin/index.html';
-            }, 1500);
-            return;
-        }
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.success) {
-            showToast(`✅ ${section} settings saved! (${data.updated?.length || 0} settings)`, 'success');
-            keys.forEach(key => {
-                allSettings[key] = settings[key];
-            });
-        } else {
-            throw new Error(data.error || 'Failed to save');
-        }
-
-    } catch (error) {
-        console.error('❌ Save error:', error);
-        showToast('Failed to save: ' + error.message, 'danger');
-    }
-}
-
-// ─── SAVE ALL SETTINGS ─────────────────────────────────────────────────
-
-async function saveAllSettings() {
-    try {
-        const token = getAdminToken();
-        if (!token) {
-            showToast('No admin token. Please login again.', 'danger');
-            return;
-        }
-
-        const settings = {};
-        document.querySelectorAll('input:not([type="file"]), select, textarea').forEach(el => {
-            if (el.id) {
-                if (el.type === 'checkbox') {
-                    settings[el.id] = el.checked;
-                } else if (el.type === 'password' && !el.value) {
-                    // Skip empty password fields
-                } else {
-                    settings[el.id] = el.value;
-                }
-            }
-        });
-
-        const response = await fetch('/api/admin/settings', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ settings })
-        });
-
-        if (response.status === 401) {
-            showToast('Session expired. Please login again.', 'danger');
-            setTimeout(() => {
-                window.location.href = '/admin/index.html';
-            }, 1500);
-            return;
-        }
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.success) {
-            showToast(`✅ All settings saved! (${data.updated?.length || 0} settings)`, 'success');
-            Object.keys(settings).forEach(key => {
-                allSettings[key] = settings[key];
-            });
-        } else {
-            throw new Error(data.error || 'Failed to save');
-        }
-
-    } catch (error) {
-        console.error('❌ Save all error:', error);
-        showToast('Failed to save: ' + error.message, 'danger');
-    }
-}
-
-// ─── RESET SETTINGS ────────────────────────────────────────────────────
-
-async function resetSettings(section) {
-    if (!confirm(`Reset ${section} settings to defaults? This cannot be undone.`)) return;
-
-    try {
-        const token = getAdminToken();
-        if (!token) {
-            showToast('No admin token. Please login again.', 'danger');
-            return;
-        }
-
-        const response = await fetch('/api/admin/settings/reset', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ section })
-        });
-
-        if (response.status === 401) {
-            showToast('Session expired. Please login again.', 'danger');
-            setTimeout(() => {
-                window.location.href = '/admin/index.html';
-            }, 1500);
-            return;
-        }
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.success) {
-            showToast(`✅ ${section} reset! (${data.reset?.length || 0} settings)`, 'success');
-            await loadSettings();
-        } else {
-            throw new Error(data.error || 'Failed to reset');
-        }
-
-    } catch (error) {
-        console.error('❌ Reset error:', error);
-        showToast('Failed to reset: ' + error.message, 'danger');
-    }
-}
-
-// ─── TEST EMAIL ────────────────────────────────────────────────────────
-
-async function testEmail() {
-    try {
-        const token = getAdminToken();
-        if (!token) {
-            showToast('No admin token. Please login again.', 'danger');
-            return;
-        }
-
-        const email = prompt('Enter email address to send test to:', 'admin@milesspace.com');
-        if (!email) return;
-
-        const response = await fetch('/api/admin/settings/test-email', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ email })
-        });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const data = await response.json();
-        if (data.success) {
-            showToast('✅ Test email sent to ' + email, 'success');
-        } else {
-            throw new Error(data.error || 'Failed to send');
-        }
-
-    } catch (error) {
-        console.error('❌ Test email error:', error);
-        showToast('Failed to send test email: ' + error.message, 'danger');
-    }
-}
-
-// ─── TEST SMS ──────────────────────────────────────────────────────────
-
-async function testSms() {
-    try {
-        const token = getAdminToken();
-        if (!token) {
-            showToast('No admin token. Please login again.', 'danger');
-            return;
-        }
-
-        const phone = prompt('Enter phone number to send test SMS to:', '+234 803 456 7890');
-        if (!phone) return;
-
-        const response = await fetch('/api/admin/settings/test-sms', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ phone })
-        });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const data = await response.json();
-        if (data.success) {
-            showToast('✅ Test SMS sent to ' + phone, 'success');
-        } else {
-            throw new Error(data.error || 'Failed to send');
-        }
-
-    } catch (error) {
-        console.error('❌ Test SMS error:', error);
-        showToast('Failed to send test SMS: ' + error.message, 'danger');
-    }
-}
-
-// ─── NAVIGATION ────────────────────────────────────────────────────────
-
-document.querySelectorAll('.settings-sidebar .nav-item').forEach(item => {
-    item.addEventListener('click', function() {
-        document.querySelectorAll('.settings-sidebar .nav-item').forEach(s => s.classList.remove('active'));
-        this.classList.add('active');
-        
-        const section = this.dataset.section;
-        document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
-        const panel = document.getElementById('panel-' + section);
-        if (panel) panel.classList.add('active');
-        
-        document.getElementById('crumbActive').textContent = this.textContent.trim();
-        
-        if (window.innerWidth <= 768) {
-            document.getElementById('sidebar').classList.remove('open');
-            document.getElementById('sidebarBackdrop').classList.remove('show');
-        }
+function collectSectionValues(section) {
+    const out = {};
+    document.querySelectorAll(`#panel-${CSS.escape(section)} [data-key]`).forEach(el => {
+        const key = el.dataset.key;
+        if (!key) return;
+        if (el.type === 'checkbox') out[key] = el.checked;
+        else if (el.dataset.percent === 'true') {
+            const n = Number(el.value); if (Number.isFinite(n)) out[key] = n;
+        } else if (el.type === 'number') {
+            const n = Number(el.value); if (Number.isFinite(n)) out[key] = n;
+        } else out[key] = el.value;
     });
-});
+    return out;
+}
 
-// ─── SIDEBAR TOGGLE ───────────────────────────────────────────────────
+function collectDirtyValues() {
+    const out = {};
+    for (const key of State.dirty) {
+        const el = document.querySelector(`[data-key="${CSS.escape(key)}"]`);
+        if (!el) continue;
+        if (el.type === 'checkbox') out[key] = el.checked;
+        else if (el.dataset.percent === 'true') {
+            const n = Number(el.value); if (Number.isFinite(n)) out[key] = n;
+        } else if (el.type === 'number') {
+            const n = Number(el.value); if (Number.isFinite(n)) out[key] = n;
+        } else out[key] = el.value;
+    }
+    return out;
+}
 
-document.getElementById('menuToggle').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('open');
-    document.getElementById('sidebarBackdrop').classList.toggle('show');
-});
+const FINANCIAL_KEYS = new Set([
+    'usd_to_ngn','ghs_to_ngn','kes_to_ngn','zar_to_ngn','xof_to_ngn','xaf_to_ngn','tzs_to_ngn','egp_to_ngn',
+    'deposit_fee_flat_ngn','deposit_fee_pct','deposit_fee_min_ngn','deposit_fee_max_ngn',
+    'giftcard_markup_pct_usd','giftcard_markup_pct_ngn',
+    'esim_markup_pct_usd','esim_markup_pct_ngn',
+    'airtime_markup_pct_usd','airtime_markup_pct_ngn',
+    'boost_markup_pct','marketplace_markup_pct','virtual_sms_markup_pct','crypto_markup_pct','cashback_rate_pct',
+    'min_deposit_ngn','max_deposit_ngn','daily_deposit_limit_ngn'
+]);
+const DANGEROUS_KEYS = new Set([
+    'emergency_stop_deposits','emergency_stop_purchases',
+    'emergency_stop_provider_requests','emergency_stop_wallet_mutations'
+]);
+function requiresReason(keys) {
+    return keys.some(k => FINANCIAL_KEYS.has(k) || DANGEROUS_KEYS.has(k));
+}
 
-document.getElementById('sidebarBackdrop').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebarBackdrop').classList.remove('show');
-});
+async function savePatch(patch, { label = 'settings' } = {}) {
+    if (State.saving) return false;
+    const keys = Object.keys(patch);
+    if (!keys.length) { showToast('Nothing to save', 'info'); return true; }
 
-// ─── SEARCH ────────────────────────────────────────────────────────────
+    let reason = null;
+    if (requiresReason(keys)) {
+        reason = window.prompt('Reason for this change (recorded in audit log):');
+        if (!reason || reason.trim().length < 3) {
+            showToast('Change cancelled — a reason is required.', 'info');
+            return false;
+        }
+    }
 
-document.getElementById('settingsSearch').addEventListener('input', function() {
-    const q = this.value.toLowerCase().trim();
-    document.querySelectorAll('.settings-sidebar .nav-item').forEach(item => {
-        const text = item.textContent.toLowerCase();
-        item.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+    State.saving = true;
+    updateDirtyIndicator();
+
+    const { ok, data, error, code } = await api(ENDPOINTS.all, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: patch, reason })
     });
-});
 
-// ─── REFRESH ──────────────────────────────────────────────────────────
+    State.saving = false;
 
-document.getElementById('refreshBtn').addEventListener('click', function() {
-    this.style.transform = 'rotate(360deg)';
-    this.style.transition = 'transform .5s';
-    setTimeout(() => {
-        this.style.transform = 'rotate(0deg)';
-    }, 500);
-    loadSettings();
-    loadAdminUser();
-    showToast('🔄 Settings refreshed', 'info');
-});
+    if (!ok) {
+        showToast(`Save failed: ${error || code || 'unknown'}`, 'error');
+        updateDirtyIndicator();
+        return false;
+    }
 
-// ─── EXPOSE FUNCTIONS TO GLOBAL ──────────────────────────────────────
+    if (data.version != null) State.version = data.version;
+    for (const k of (data.updated || [])) State.dirty.delete(k);
+    updateDirtyIndicator();
+    updateVersionBadge();
+    showToast(`${label}: saved ${(data.updated || []).length} setting(s)`, 'success');
 
-window.saveSettings = saveSettings;
-window.saveAllSettings = saveAllSettings;
-window.resetSettings = resetSettings;
-window.testEmail = testEmail;
-window.testSms = testSms;
+    if (keys.some(k => FINANCIAL_KEYS.has(k))) State.historyLoaded = false;
+    return true;
+}
 
-// ─── INIT ─────────────────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Load admin user first
-    loadAdminUser();
-    
-    // If no admin session, redirect to login
-    const token = getAdminToken();
-    if (!token) {
-        showToast('No admin session found. Redirecting...', 'danger');
-        setTimeout(() => {
-            window.location.href = '/admin/index.html';
-        }, 1500);
+/* ─── Rate history / audit / health ─── */
+async function loadRateHistory() {
+    const c = document.getElementById('rateHistoryContainer');
+    if (!c) return;
+    c.innerHTML = '<div class="empty-box"><span class="ic">⏳</span>Loading…</div>';
+    const { ok, data, error } = await api(ENDPOINTS.rateHistory + '?limit=100');
+    if (!ok) {
+        c.innerHTML = `<div class="empty-box"><span class="ic">⚠️</span>Unable to load (${escapeHtml(error || 'error')})</div>`;
         return;
     }
-    
-    // Load settings
-    loadSettings();
-    
-    console.log('⚙️ Settings page loaded successfully');
-    console.log('👤 Admin:', currentAdmin);
+    const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) {
+        c.innerHTML = '<div class="empty-box"><span class="ic">📭</span>No rate changes yet.</div>';
+        return;
+    }
+    c.innerHTML = `<div class="table-wrap"><table class="history-table">
+        <thead><tr><th>When</th><th>Key</th><th>From</th><th>To</th><th>By</th><th>Reason</th></tr></thead>
+        <tbody>${rows.map(r => `
+            <tr>
+                <td>${escapeHtml(formatDateTime(r.changed_at))}</td>
+                <td><span class="mono" style="font-size:11.5px">${escapeHtml(r.key)}</span></td>
+                <td>${escapeHtml(r.previous_value ?? '—')}</td>
+                <td style="font-weight:700">${escapeHtml(r.new_value ?? '—')}</td>
+                <td>${escapeHtml(r.changed_by_display || 'Unknown')}</td>
+                <td style="color:var(--text-dim)">${escapeHtml(r.reason || '—')}</td>
+            </tr>`).join('')}</tbody>
+    </table></div>`;
+    State.historyLoaded = true;
+}
+
+async function loadAudit() {
+    const c = document.getElementById('auditContainer');
+    if (!c) return;
+    c.innerHTML = '<div class="empty-box"><span class="ic">⏳</span>Loading…</div>';
+    const { ok, data, error } = await api(ENDPOINTS.audit + '?limit=100');
+    if (!ok) {
+        c.innerHTML = `<div class="empty-box"><span class="ic">⚠️</span>Unable to load (${escapeHtml(error || 'error')})</div>`;
+        return;
+    }
+    const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) {
+        c.innerHTML = '<div class="empty-box"><span class="ic">📭</span>No audit entries yet.</div>';
+        return;
+    }
+    c.innerHTML = `<div class="table-wrap"><table class="history-table">
+        <thead><tr><th>When</th><th>Key</th><th>Before</th><th>After</th><th>Admin</th></tr></thead>
+        <tbody>${rows.map(r => `
+            <tr>
+                <td>${escapeHtml(formatDateTime(r.created_at))}</td>
+                <td><span class="mono" style="font-size:11.5px">${escapeHtml(r.target_id || '—')}</span></td>
+                <td>${escapeHtml(JSON.stringify(r.before?.value ?? '—'))}</td>
+                <td style="font-weight:700">${escapeHtml(JSON.stringify(r.after?.value ?? '—'))}</td>
+                <td>${escapeHtml(r.admin_email || r.admin_id || '—')}</td>
+            </tr>`).join('')}</tbody>
+    </table></div>`;
+    State.auditLoaded = true;
+}
+
+async function loadHealth() {
+    const c = document.getElementById('healthContainer');
+    if (!c) return;
+    c.innerHTML = '<div class="empty-box"><span class="ic">⏳</span>Loading…</div>';
+    const { ok, data, error } = await api(ENDPOINTS.health);
+    if (!ok) {
+        c.innerHTML = `<div class="empty-box"><span class="ic">⚠️</span>Unable to load (${escapeHtml(error || 'error')})</div>`;
+        return;
+    }
+    const cfg = data?.configuration || {};
+    const pill = (v) => {
+        if (v === 'ok' || v === 'configured') return 'ok';
+        if (v === 'missing' || v === 'unavailable' || v === 'none-configured') return 'err';
+        if (v === 'partial' || v === 'invalid' || v === 'all-disabled') return 'warn';
+        return 'off';
+    };
+    c.innerHTML = `<div class="table-wrap"><table class="history-table">
+        <thead><tr><th>Area</th><th>Status</th></tr></thead>
+        <tbody>${['database','rates','fees','services','providers'].map(k => `
+            <tr><td>${escapeHtml(k)}</td>
+                <td><span class="status-pill ${pill(cfg[k])}">${escapeHtml(cfg[k] || 'unknown')}</span></td></tr>
+        `).join('')}</tbody>
+    </table></div>`;
+    State.healthLoaded = true;
+}
+
+/* ─── MFA panel ─── */
+async function loadMfaStatus() {
+    const { ok, data, error } = await api(ENDPOINTS.mfaStatus);
+    const pillEl = document.getElementById('mfaStatusPill');
+    const stateEl = document.getElementById('mfaState');
+    const titleEl = document.getElementById('mfaStateTitle');
+    const metaEl = document.getElementById('mfaStateMeta');
+    const enrollBlock = document.getElementById('mfaEnrollBlock');
+    const enabledBlock = document.getElementById('mfaEnabledBlock');
+
+    if (!ok) {
+        if (pillEl) { pillEl.textContent = 'Unavailable'; pillEl.className = 'status-pill err'; }
+        if (titleEl) titleEl.textContent = 'Unable to load MFA status';
+        if (metaEl) metaEl.textContent = error || 'Try refreshing.';
+        return;
+    }
+    const mfa = data.mfa || {};
+    const on = !!mfa.enabled;
+    if (pillEl) { pillEl.textContent = on ? 'Enabled' : 'Not enabled'; pillEl.className = 'status-pill ' + (on ? 'ok' : 'off'); }
+    if (stateEl) stateEl.classList.toggle('on', on);
+    if (titleEl) titleEl.textContent = on ? 'Two-factor authentication is ON' : 'Two-factor authentication is OFF';
+    if (metaEl) {
+        metaEl.textContent = on
+            ? `Enabled ${formatDateTime(mfa.enabled_at)} · ${mfa.recovery_codes_remaining || 0} recovery codes remaining`
+            : 'Enable 2FA to protect sensitive admin actions (wallet adjust, refund, permission changes).';
+    }
+    if (enrollBlock) enrollBlock.style.display = on ? 'none' : '';
+    if (enabledBlock) enabledBlock.style.display = on ? '' : 'none';
+}
+
+function showRecoveryCodes(codes) {
+    const block = document.getElementById('mfaRecoveryBlock');
+    const list = document.getElementById('recoveryCodesList');
+    if (!block || !list) return;
+    list.innerHTML = codes.map(c => `<code>${escapeHtml(c)}</code>`).join('');
+    block.style.display = '';
+    block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('mfaDoneRecoveryBtn')?.addEventListener('click', () => { block.style.display = 'none'; }, { once: true });
+    document.getElementById('mfaCopyRecoveryBtn')?.addEventListener('click', () => {
+        try { navigator.clipboard?.writeText(codes.join('\n')); showToast('Recovery codes copied.', 'success'); }
+        catch { showToast('Copy failed. Write them down manually.', 'error'); }
+    }, { once: true });
+}
+
+/* ─── Navigation ─── */
+function showSection(section) {
+    document.querySelectorAll('#settingsMenu .nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.section === section);
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById('panel-' + section);
+    if (panel) panel.classList.add('active');
+
+    // Close drawer on mobile
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('scrim')?.classList.remove('show');
+
+    if (section === 'history' && !State.historyLoaded) loadRateHistory();
+    if (section === 'audit'   && !State.auditLoaded)   loadAudit();
+    if (section === 'health'  && !State.healthLoaded)  loadHealth();
+    if (section === 'mfa')                              loadMfaStatus();
+}
+
+/* ─── Admin profile ─── */
+async function loadAdminProfile() {
+    const { ok, data } = await api(ENDPOINTS.me);
+    if (!ok) return;
+    const u = data.user || data.admin;
+    if (!u) return;
+    const name = u.username || u.email?.split('@')[0] || 'Admin';
+    const role = u.role || 'admin';
+    State.isSuperAdmin = !!data.isSuperAdmin || !!u.isSuperAdmin;
+    document.getElementById('adminName').textContent = name;
+    document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    document.getElementById('adminAvatar').textContent = name.slice(0, 1).toUpperCase();
+}
+
+/* ─── Wire-up ─── */
+document.addEventListener('DOMContentLoaded', () => {
+    if (!AdminSession.getToken()) { AdminSession.redirectToLogin(); return; }
+
+    // Hamburger / scrim
+    document.getElementById('hamburger')?.addEventListener('click', () => {
+        document.getElementById('sidebar')?.classList.add('open');
+        document.getElementById('scrim')?.classList.add('show');
+    });
+    document.getElementById('scrim')?.addEventListener('click', () => {
+        document.getElementById('sidebar')?.classList.remove('open');
+        document.getElementById('scrim')?.classList.remove('show');
+    });
+
+    renderServices();
+    renderProviders();
+
+    // Attach dirty tracking to dynamically-rendered inputs too
+    setTimeout(() => {
+        document.querySelectorAll('[data-key]').forEach(el => {
+            el.addEventListener('input', () => markDirty(el));
+            el.addEventListener('change', () => markDirty(el));
+        });
+    }, 50);
+
+    document.querySelectorAll('#settingsMenu .nav-item').forEach(el => {
+        el.addEventListener('click', () => showSection(el.dataset.section));
+    });
+
+    document.querySelectorAll('[data-action="save-section"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const section = btn.dataset.section;
+            const patch = collectSectionValues(section);
+            btn.disabled = true;
+            const ok = await savePatch(patch, { label: section });
+            btn.disabled = false;
+            if (ok && section === 'rates') { State.historyLoaded = false; loadRateHistory(); }
+        });
+    });
+
+    document.querySelectorAll('[data-action="reset-section"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const section = btn.dataset.section;
+            if (!confirm(`Reset ${section} to defaults? This will overwrite any unsaved changes.`)) return;
+            btn.disabled = true;
+            const { ok, data, error } = await api(ENDPOINTS.resetSection(section), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: `Reset ${section}` })
+            });
+            btn.disabled = false;
+            if (!ok) { showToast('Reset failed: ' + (error || ''), 'error'); return; }
+            showToast(`${section}: reset ${(data.reset || []).length} setting(s)`, 'success');
+            State.dirty.clear();
+            await loadAll();
+        });
+    });
+
+    document.getElementById('saveAllBtn')?.addEventListener('click', async () => {
+        const patch = collectDirtyValues();
+        if (!Object.keys(patch).length) { showToast('No changes to save', 'info'); return; }
+        await savePatch(patch, { label: 'All settings' });
+    });
+
+    document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+        if (State.dirty.size > 0 && !confirm('You have unsaved changes. Discard and refresh?')) return;
+        await loadAll();
+        showToast('Settings reloaded', 'info');
+    });
+
+    document.querySelectorAll('[data-action="reload-history"]').forEach(b => b.addEventListener('click', () => { State.historyLoaded = false; loadRateHistory(); }));
+    document.querySelectorAll('[data-action="reload-audit"]').forEach(b => b.addEventListener('click', () => { State.auditLoaded = false; loadAudit(); }));
+    document.querySelectorAll('[data-action="reload-health"]').forEach(b => b.addEventListener('click', () => { State.healthLoaded = false; loadHealth(); }));
+
+    // ─── MFA wiring ───
+    document.getElementById('mfaStartEnrollBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('mfaStartEnrollBtn');
+        btn.disabled = true;
+        const { ok, data, error } = await api(ENDPOINTS.mfaEnroll, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+        });
+        btn.disabled = false;
+        if (!ok) { showToast('Could not start enrollment: ' + (error || 'unknown'), 'error'); return; }
+        const e = data.enrollment || {};
+        document.getElementById('mfaQrImg').src = e.qr_data_url;
+        document.getElementById('mfaSecretText').textContent = e.secret;
+        document.getElementById('mfaEnrollIntro').style.display = 'none';
+        document.getElementById('mfaEnrollQr').style.display = '';
+    });
+
+    document.getElementById('mfaCancelEnrollBtn')?.addEventListener('click', () => {
+        document.getElementById('mfaEnrollIntro').style.display = '';
+        document.getElementById('mfaEnrollQr').style.display = 'none';
+        document.getElementById('mfaVerifyCode').value = '';
+    });
+
+    document.getElementById('mfaConfirmEnrollBtn')?.addEventListener('click', async () => {
+        const code = (document.getElementById('mfaVerifyCode').value || '').trim();
+        if (!/^\d{6}$/.test(code)) { showToast('Enter the 6-digit code.', 'error'); return; }
+        const btn = document.getElementById('mfaConfirmEnrollBtn');
+        btn.disabled = true;
+        const { ok, data, error } = await api(ENDPOINTS.mfaVerify, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code })
+        });
+        btn.disabled = false;
+        if (!ok) { showToast('Verification failed: ' + (error || 'unknown'), 'error'); return; }
+        showToast('Two-factor authentication enabled.', 'success');
+        document.getElementById('mfaEnrollIntro').style.display = '';
+        document.getElementById('mfaEnrollQr').style.display = 'none';
+        document.getElementById('mfaVerifyCode').value = '';
+        if (Array.isArray(data.recovery_codes)) showRecoveryCodes(data.recovery_codes);
+        await loadMfaStatus();
+    });
+
+    document.getElementById('mfaRegenRecoveryBtn')?.addEventListener('click', async () => {
+        const code = window.prompt('Enter your current 6-digit code:');
+        if (!/^\d{6}$/.test(code || '')) return;
+        const { ok, data, error } = await api(ENDPOINTS.mfaRegen, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, reason: 'Regenerated recovery codes' })
+        });
+        if (!ok) { showToast('Failed: ' + (error || 'unknown'), 'error'); return; }
+        showRecoveryCodes(data.recovery_codes || []);
+        await loadMfaStatus();
+    });
+
+    document.getElementById('mfaDisableBtn')?.addEventListener('click', async () => {
+        const code = window.prompt('Enter your current 6-digit code to disable MFA:');
+        if (!/^\d{6}$/.test(code || '')) return;
+        const reason = window.prompt('Reason for disabling MFA:');
+        if (!reason || reason.trim().length < 4) { showToast('Reason required.', 'error'); return; }
+        const { ok, error } = await api(ENDPOINTS.mfaDisable, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, reason })
+        });
+        if (!ok) { showToast('Failed: ' + (error || 'unknown'), 'error'); return; }
+        showToast('MFA disabled.', 'success');
+        await loadMfaStatus();
+    });
+
+    // Initial load
+    loadAdminProfile();
+    loadAll();
 });
 </script>
 </body>

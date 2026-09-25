@@ -1,5 +1,22 @@
-// middleware/auth.js - COMPLETE FIXED VERSION
-// Adds retry-on-network-failure so brief Supabase outages don't return 503s.
+// middleware/auth.js
+// ─────────────────────────────────────────────────────────────────
+// User authentication middleware.
+//
+// Responsibilities:
+//   - Verify the Bearer JWT (signature + expiry)
+//   - Load the profile from Supabase (with retry on transient
+//     network errors — so brief outages don't return 503s)
+//   - Enforce deleted_at / suspended / session rules
+//   - Populate req.user / req.userId / req.sessionId
+//
+// Resilience:
+//   - Every response is written via a defensive helper that checks
+//     `res.status` exists and `res.headersSent` is false. This
+//     prevents the "res.status is not a function" crash when a
+//     caller (e.g. middleware/adminAuth.js) passes a shim res.
+//   - The final catch block falls back to next(err) if it can't
+//     write a response at all, and never throws.
+// ─────────────────────────────────────────────────────────────────
 
 const jwt = require('jsonwebtoken');
 const { supabaseAdmin } = require('../db/supabase');
@@ -57,26 +74,46 @@ async function withRetry(fn, retries = 3, delayMs = 400) {
     throw lastError;
 }
 
+// ─── Defensive response writer ───────────────────────────────────
+// Writes to `res` only if it looks like a real Express response.
+// Returns true if the write succeeded, false if we had to skip it
+// (which happens when a caller passed a shim res, or res was already
+// used). Never throws.
+function trySendJson(res, status, body) {
+    try {
+        if (!res) return false;
+        if (typeof res.status !== 'function') return false;
+        if (res.headersSent) return false;
+        res.status(status).json(body);
+        return true;
+    } catch (e) {
+        console.error('[AUTH] trySendJson failed (non-fatal):', e.message);
+        return false;
+    }
+}
+
 // ─── Main Authentication Middleware ──────────────────────────────
 async function authMiddleware(req, res, next) {
     try {
-        const authHeader = req.headers.authorization;
+        const authHeader = req.headers?.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({
+            trySendJson(res, 401, {
                 success: false,
                 code: AUTH_CODES.NO_TOKEN,
                 message: 'Authentication required.'
             });
+            return;
         }
 
         const token = authHeader.substring(7);
         if (!token || token.length < 10) {
-            return res.status(401).json({
+            trySendJson(res, 401, {
                 success: false,
                 code: AUTH_CODES.INVALID_TOKEN,
                 message: 'Invalid authentication token.'
             });
+            return;
         }
 
         // ─── Verify JWT ────────────────────────────────────────────
@@ -85,99 +122,115 @@ async function authMiddleware(req, res, next) {
             decoded = jwt.verify(token, ACTIVE_JWT_SECRET);
         } catch (jwtError) {
             if (jwtError.name === 'TokenExpiredError') {
-                return res.status(401).json({
+                trySendJson(res, 401, {
                     success: false,
                     code: AUTH_CODES.SESSION_EXPIRED,
                     message: 'Your session has expired. Please sign in again.'
                 });
+                return;
             }
             console.error('JWT verification error:', jwtError.message);
-            return res.status(401).json({
+            trySendJson(res, 401, {
                 success: false,
                 code: AUTH_CODES.INVALID_TOKEN,
                 message: 'Invalid or expired token.'
             });
+            return;
         }
 
         // ─── Validate session ID exists in JWT ──────────────────────
         if (!decoded.sid) {
-            return res.status(401).json({
+            trySendJson(res, 401, {
                 success: false,
                 code: AUTH_CODES.INVALID_SESSION,
                 message: 'Invalid session. Please sign in again.'
             });
+            return;
         }
 
-        // ─── Get profile from database (with retry) ──────────────────
-        const profileResult = await withRetry(() =>
-            supabaseAdmin
-                .from('profiles')
-                .select(`
-                    id,
-                    email,
-                    username,
-                    role,
-                    status,
-                    deleted_at,
-                    wallet_ngn,
-                    wallet_usd,
-                    referral_code,
-                    is_verified,
-                    transaction_pin_hash,
-                    current_session_id,
-                    session_created_at,
-                    session_expires_at,
-                    avatar_url,
-                    phone
-                `)
-                .eq('id', decoded.id)
-                .single()
-        );
-
-        const profile = profileResult?.data;
-        const profileError = profileResult?.error;
-
-        // ─── Handle database errors ─────────────────────────────────
-        if (profileError) {
-            console.error('❌ [AUTH] Profile query failed:', profileError.message || profileError);
-            return res.status(503).json({
+        // ─── Get profile from database (with retry) ─────────────────
+        let profileResult;
+        try {
+            profileResult = await withRetry(() =>
+                supabaseAdmin
+                    .from('profiles')
+                    .select(`
+                        id,
+                        email,
+                        username,
+                        role,
+                        status,
+                        deleted_at,
+                        wallet_ngn,
+                        wallet_usd,
+                        referral_code,
+                        is_verified,
+                        transaction_pin_hash,
+                        current_session_id,
+                        session_created_at,
+                        session_expires_at,
+                        avatar_url,
+                        phone
+                    `)
+                    .eq('id', decoded.id)
+                    .single()
+            );
+        } catch (dbError) {
+            // Network exhaustion after retries — 503, never crash.
+            console.error('❌ [AUTH] Profile query failed:', dbError.message || dbError);
+            trySendJson(res, 503, {
                 success: false,
                 code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
                 message: 'Authentication service temporarily unavailable.'
             });
+            return;
+        }
+
+        const profile = profileResult?.data;
+        const profileError = profileResult?.error;
+
+        if (profileError) {
+            console.error('❌ [AUTH] Profile query error:', profileError.message || profileError);
+            trySendJson(res, 503, {
+                success: false,
+                code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
+                message: 'Authentication service temporarily unavailable.'
+            });
+            return;
         }
 
         if (!profile) {
             console.error('❌ [AUTH] Profile not found for user:', decoded.id);
-            return res.status(404).json({
+            trySendJson(res, 404, {
                 success: false,
                 code: AUTH_CODES.USER_NOT_FOUND,
                 message: 'User profile not found.'
             });
+            return;
         }
 
-        // ─── Check if account is deleted ─────────────────────────────
+        // ─── Account state checks ──────────────────────────────────
         if (profile.deleted_at) {
-            return res.status(403).json({
+            trySendJson(res, 403, {
                 success: false,
                 code: AUTH_CODES.ACCOUNT_DELETED,
                 message: 'This account has been deleted.'
             });
+            return;
         }
 
-        // ─── Check if account is suspended ───────────────────────────
         if (profile.status === 'suspended') {
-            return res.status(403).json({
+            trySendJson(res, 403, {
                 success: false,
                 code: AUTH_CODES.ACCOUNT_SUSPENDED,
                 message: 'Your account has been suspended.'
             });
+            return;
         }
 
-        // ─── Session validation with graceful fallback ──────────────
+        // ─── Session validation with graceful fallback ─────────────
         if (!profile.current_session_id) {
             console.log(`⚠️ [AUTH] User ${decoded.id} has no current_session_id, fixing…`);
-
             try {
                 await withRetry(() =>
                     supabaseAdmin
@@ -201,7 +254,7 @@ async function authMiddleware(req, res, next) {
             return next();
         }
 
-        // Session ID mismatch — check user_sessions table
+        // ─── Session ID mismatch ───────────────────────────────────
         if (profile.current_session_id !== decoded.sid) {
             console.log(
                 `🔐 [SESSION] Session mismatch for user ${decoded.id}: JWT=${decoded.sid}, DB=${profile.current_session_id}`
@@ -249,24 +302,26 @@ async function authMiddleware(req, res, next) {
                 return next();
             }
 
-            return res.status(401).json({
+            trySendJson(res, 401, {
                 success: false,
                 code: AUTH_CODES.SESSION_REVOKED,
                 message:
                     'Your session has been ended because your account was signed in on another device.'
             });
+            return;
         }
 
-        // Session expiry check
+        // ─── Session expiry check ──────────────────────────────────
         if (profile.session_expires_at) {
             const expiryDate = new Date(profile.session_expires_at);
             if (expiryDate < new Date()) {
-                return res.status(401).json({
+                trySendJson(res, 401, {
                     success: false,
                     code: AUTH_CODES.SESSION_EXPIRED,
                     message: 'Your session has expired. Please sign in again.',
                     canRefresh: true
                 });
+                return;
             }
         } else {
             console.log(`⚠️ [AUTH] User ${decoded.id} has no session_expires_at, setting default…`);
@@ -283,19 +338,28 @@ async function authMiddleware(req, res, next) {
             }
         }
 
-        // ─── Attach user to request ──────────────────────────────────
+        // ─── Attach user to request ────────────────────────────────
         req.user = buildUserObject(profile, decoded);
         req.userId = profile.id;
         req.sessionId = decoded.sid;
 
-        next();
+        return next();
     } catch (error) {
+        // Last-resort catch. Never throws.
         console.error('❌ [AUTH] Authentication error:', error.message || error);
-        return res.status(503).json({
+
+        const wrote = trySendJson(res, 503, {
             success: false,
             code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
             message: 'Authentication service temporarily unavailable.'
         });
+
+        if (!wrote && typeof next === 'function') {
+            // Couldn't write to res — let Express' error handler
+            // take over. This is the case where a shim res was passed.
+            return next(error);
+        }
+        return;
     }
 }
 
@@ -321,30 +385,28 @@ function buildUserObject(profile, decoded) {
 }
 
 // ─── Admin Authentication Middleware ─────────────────────────────
+// Legacy helper kept for backwards compatibility. New code should
+// use `adminAuth` / `requirePermission` from ./adminAuth.js.
 function adminAuthMiddleware(req, res, next) {
     try {
         authMiddleware(req, res, (err) => {
             if (err) {
                 console.error('❌ [ADMIN AUTH] Error:', err);
-                if (!res.headersSent) {
-                    return res.status(503).json({
-                        success: false,
-                        code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
-                        message: 'Authentication service temporarily unavailable.'
-                    });
-                }
+                trySendJson(res, 503, {
+                    success: false,
+                    code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
+                    message: 'Authentication service temporarily unavailable.'
+                });
                 return;
             }
 
             if (!req.user || !req.user.isAdmin) {
-                if (!res.headersSent) {
-                    return res.status(403).json({
-                        success: false,
-                        code: AUTH_CODES.ADMIN_REQUIRED,
-                        message:
-                            'Admin access required. You do not have permission to access this resource.'
-                    });
-                }
+                trySendJson(res, 403, {
+                    success: false,
+                    code: AUTH_CODES.ADMIN_REQUIRED,
+                    message:
+                        'Admin access required. You do not have permission to access this resource.'
+                });
                 return;
             }
 
@@ -352,40 +414,36 @@ function adminAuthMiddleware(req, res, next) {
         });
     } catch (error) {
         console.error('❌ [ADMIN AUTH] Exception:', error);
-        if (!res.headersSent) {
-            return res.status(500).json({
-                success: false,
-                code: 'SERVER_ERROR',
-                message: 'Authentication error occurred.'
-            });
-        }
+        const wrote = trySendJson(res, 500, {
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Authentication error occurred.'
+        });
+        if (!wrote && typeof next === 'function') return next(error);
     }
 }
 
 // ─── Super Admin Authentication Middleware ───────────────────────
+// Legacy helper kept for backwards compatibility.
 function superAdminAuthMiddleware(req, res, next) {
     try {
         authMiddleware(req, res, (err) => {
             if (err) {
                 console.error('❌ [SUPER ADMIN AUTH] Error:', err);
-                if (!res.headersSent) {
-                    return res.status(503).json({
-                        success: false,
-                        code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
-                        message: 'Authentication service temporarily unavailable.'
-                    });
-                }
+                trySendJson(res, 503, {
+                    success: false,
+                    code: AUTH_CODES.AUTH_SERVICE_UNAVAILABLE,
+                    message: 'Authentication service temporarily unavailable.'
+                });
                 return;
             }
 
             if (!req.user || !req.user.isSuperAdmin) {
-                if (!res.headersSent) {
-                    return res.status(403).json({
-                        success: false,
-                        code: AUTH_CODES.SUPER_ADMIN_REQUIRED,
-                        message: 'Super admin privileges required.'
-                    });
-                }
+                trySendJson(res, 403, {
+                    success: false,
+                    code: AUTH_CODES.SUPER_ADMIN_REQUIRED,
+                    message: 'Super admin privileges required.'
+                });
                 return;
             }
 
@@ -393,56 +451,22 @@ function superAdminAuthMiddleware(req, res, next) {
         });
     } catch (error) {
         console.error('❌ [SUPER ADMIN AUTH] Exception:', error);
-        if (!res.headersSent) {
-            return res.status(500).json({
-                success: false,
-                code: 'SERVER_ERROR',
-                message: 'Authentication error occurred.'
-            });
-        }
+        const wrote = trySendJson(res, 500, {
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Authentication error occurred.'
+        });
+        if (!wrote && typeof next === 'function') return next(error);
     }
 }
 
 // ─── Permission-based authorization ──────────────────────────────
+// Delegates to adminAuth.js so permission resolution is identical.
+// Kept here for backwards compatibility with routes that still
+// import requirePermission from this file.
 function requirePermission(permission) {
-    return async (req, res, next) => {
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                code: AUTH_CODES.NO_TOKEN,
-                message: 'Authentication required.'
-            });
-        }
-
-        if (req.user.isSuperAdmin) return next();
-        if (req.user.isAdmin) return next();
-
-        try {
-            const { data: permissionData } = await withRetry(() =>
-                supabaseAdmin
-                    .from('user_permissions')
-                    .select('permission')
-                    .eq('user_id', req.userId)
-                    .eq('permission', permission)
-                    .maybeSingle()
-            );
-
-            if (permissionData) return next();
-
-            return res.status(403).json({
-                success: false,
-                code: 'PERMISSION_DENIED',
-                message: `Insufficient permissions for this action. Required: ${permission}`
-            });
-        } catch (error) {
-            if (req.user.isAdmin || req.user.isSuperAdmin) return next();
-            return res.status(403).json({
-                success: false,
-                code: 'PERMISSION_DENIED',
-                message: 'Insufficient permissions for this action.'
-            });
-        }
-    };
+    const { requirePermission: realRequire } = require('./adminAuth');
+    return realRequire(permission);
 }
 
 module.exports = {
@@ -450,5 +474,8 @@ module.exports = {
     adminAuthMiddleware,
     superAdminAuthMiddleware,
     requirePermission,
-    AUTH_CODES
+    AUTH_CODES,
+    withRetry,
+    buildUserObject,
+    trySendJson
 };

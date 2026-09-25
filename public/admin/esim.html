@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>MilesSpace — eSIM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2025-admin-dash-v4"></script>
+<style>
+:root{--brand-primary:#0f4c5c;--brand-primary-deep:#0a3542;--brand-primary-light:#14607a;--brand-accent:#f5a623;--brand-accent-soft:#fde3ad;--navy:var(--brand-primary);--navy-light:var(--brand-primary-light);--navy-deep:var(--brand-primary-deep);--gold:var(--brand-accent);--gold-soft:var(--brand-accent-soft);--white:#ffffff;--bg:#f4f7fb;--bg-card:rgba(255,255,255,.72);--border:rgba(15,76,92,.09);--text:#0c1f26;--text-dim:#5b7480;--text-faint:#8fa3ab;--success:#16a34a;--success-bg:#e9f9ef;--danger:#dc2626;--danger-bg:#fdecec;--warn:#f59e0b;--warn-bg:#fef3d9;--info:#2563a8;--info-bg:#e8f1fb;--purple:#8b5cf6;--purple-bg:#ede9fe;--usd:#0891b2;--usd-bg:#e0f6fa;--radius-sm:8px;--radius-md:14px;--radius-lg:20px;--shadow-sm:0 1px 2px rgba(8,42,51,.06);--shadow-md:0 8px 24px -8px rgba(8,42,51,.16);--shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);--sidebar-w:264px;--sidebar-w-collapsed:78px;--topbar-h:68px;--transition:180ms cubic-bezier(.4,0,.2,1)}
+html.dark{--bg:#08151a;--bg-card:rgba(18,38,44,.75);--border:rgba(255,255,255,.08);--text:#eaf3f5;--text-dim:#9db4bb;--text-faint:#5b7480;--success-bg:rgba(22,163,74,.15);--danger-bg:rgba(220,38,38,.15);--warn-bg:rgba(245,158,11,.15);--info-bg:rgba(37,99,168,.18);--purple-bg:rgba(139,92,246,.18);--usd-bg:rgba(8,145,178,.18);--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 8px 24px -8px rgba(0,0,0,.5);--shadow-lg:0 16px 48px -12px rgba(0,0,0,.6)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}html{overflow-x:hidden}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;transition:background var(--transition),color var(--transition);overflow-x:hidden;width:100%}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+.mono{font-family:'JetBrains Mono',monospace}
+:focus-visible{outline:2.5px solid var(--brand-accent);outline-offset:2px;border-radius:6px}
+
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
+.app.sb-collapsed{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;transition:transform var(--transition),width var(--transition);overflow-y:auto;overflow-x:hidden;width:var(--sidebar-w)}
+.app.sb-collapsed .sidebar{width:var(--sidebar-w-collapsed)}
+.app.sb-collapsed .sidebar .brand-text,.app.sb-collapsed .sidebar .nav-label,.app.sb-collapsed .sidebar .nav-item span:not(.ic),.app.sb-collapsed .sidebar .who,.app.sb-collapsed .sidebar .chev{display:none}
+.app.sb-collapsed .nav-item{justify-content:center}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand-text{display:flex;flex-direction:column;line-height:1.15}
+.brand-text strong{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+.nav-scroll{flex:1;overflow-y:auto;padding-right:2px}
+.nav-group{margin-bottom:2px}
+.nav-group-head{display:flex;align-items:center;justify-content:space-between;padding:12px 10px 5px;cursor:pointer;user-select:none;border:none;background:none;width:100%;color:inherit}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:background var(--transition),color var(--transition);white-space:nowrap;text-decoration:none}
+.nav-item .ic{width:17px;text-align:center;font-size:13.5px;flex-shrink:0}
+.nav-item:hover,.nav-item:focus-visible{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px;flex-shrink:0}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
+.sidebar-foot .who{display:flex;flex-direction:column;line-height:1.2}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+.sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
+html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
+.page-title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.page-title h1{margin:0;font-size:clamp(16px,2.4vw,19px);font-weight:800;letter-spacing:-.01em}
+.breadcrumb{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.breadcrumb a{color:var(--text-faint);text-decoration:none}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px;transition:transform var(--transition),background var(--transition);margin-left:auto}
+html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.icon-btn:hover{transform:translateY(-1px);background:var(--gold-soft);color:var(--navy-deep)}
+.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
+@media(min-width:1920px){.content{max-width:1800px;margin:0 auto}}
+
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.page-header h2{font-size:clamp(18px,2.6vw,23px);font-weight:800;letter-spacing:-.01em}
+.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:640px}
+.page-header .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.card + .card{margin-top:16px}
+.card h3{margin:0 0 12px;font-size:14px;font-weight:800}
+.card .hint{font-size:11.5px;color:var(--text-faint);margin-bottom:12px}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.kpi-grid{grid-template-columns:1fr}}
+.kpi{padding:14px 16px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.kpi .lbl{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.kpi .val{font-size:20px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:11px;color:var(--text-faint);margin-top:4px}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.filters input,.filters select{border:1px solid var(--border);background:var(--white);border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--text);font-family:inherit;outline:none}
+html.dark .filters input,html.dark .filters select{background:rgba(255,255,255,.04);color:var(--text)}
+.filters input[type="search"]{flex:1 1 260px;min-width:220px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);font-family:inherit;transition:background var(--transition)}
+html.dark .btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.btn:hover:not(:disabled){background:var(--gold-soft);color:var(--navy-deep)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn-primary:hover:not(:disabled){background:var(--navy-light);color:#fff}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-danger:hover:not(:disabled){background:#b91c1c;color:#fff}
+
+.table-scroll{overflow-x:auto;overflow-y:auto;max-height:640px;border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1100px}
+thead th{text-align:left;padding:11px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{cursor:pointer;transition:background var(--transition)}
+tbody tr:hover{background:rgba(245,166,35,.05)}
+tbody tr:last-child td{border-bottom:none}
+
+.badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;text-transform:capitalize}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.purple{background:var(--purple-bg);color:var(--purple)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+
+.empty-state{text-align:center;padding:52px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:28px;margin-bottom:8px;display:block}
+.unavailable-box{text-align:center;padding:24px 14px;color:var(--text-faint)}
+.unavailable-box .ic{font-size:20px;margin-bottom:6px;display:block}
+.unavailable-box button{margin-top:10px;border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer}
+html.dark .unavailable-box button{background:rgba(255,255,255,.04);color:#dff0f2}
+
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.pagination{display:flex;justify-content:space-between;align-items:center;padding:14px 4px 0;font-size:12.5px;color:var(--text-dim);flex-wrap:wrap;gap:8px}
+.pagination button{border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px}
+html.dark .pagination button{background:rgba(255,255,255,.04);color:#dff0f2}
+.pagination button:disabled{opacity:.45;cursor:not-allowed}
+
+.provider-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.provider-grid{grid-template-columns:1fr}}
+.provider-card{padding:18px;border-radius:var(--radius-lg);background:var(--bg-card);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.provider-card .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.provider-card h4{margin:0;font-size:15px;font-weight:800}
+.provider-card .sub{font-size:11.5px;color:var(--text-dim);margin-top:2px}
+.status-dot-lg{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+.status-dot-lg.operational{background:var(--success);box-shadow:0 0 0 3px rgba(22,163,74,.18)}
+.status-dot-lg.degraded{background:var(--warn);box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+.status-dot-lg.unreachable{background:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.18)}
+.status-dot-lg.not_configured{background:var(--text-faint)}
+.provider-card .metric{display:flex;justify-content:space-between;padding:6px 0;font-size:12.5px;border-bottom:1px dashed var(--border)}
+.provider-card .metric:last-child{border-bottom:none}
+.provider-card .metric .k{color:var(--text-dim);font-weight:600}
+.provider-card .metric .v{font-weight:700}
+.provider-card .btn-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+
+.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms ease}
+.drawer-scrim.show{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(720px,96vw);background:var(--bg);z-index:301;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform 260ms cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.drawer.open{transform:translateX(0)}
+.dd-head{display:flex;align-items:center;gap:14px;padding:20px 22px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;flex-shrink:0}
+.dd-head .dd-ic{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dd-head .dd-titles{flex:1;min-width:0}
+.dd-head h2{margin:0;font-size:16.5px;font-weight:800}
+.dd-head .dd-sub{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px;flex-shrink:0}
+.dd-body{flex:1;overflow-y:auto;padding:20px 22px 40px}
+.dd-hero{padding:16px 18px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dd-hero .amt{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.dd-hero .meta{font-size:11px;color:var(--text-faint);margin-top:2px}
+.dd-section{margin-bottom:18px}
+.dd-section h4{margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);padding-bottom:6px;border-bottom:1px solid var(--border)}
+.dd-field{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:12.5px;border-bottom:1px dashed var(--border)}
+.dd-field:last-child{border-bottom:none}
+.dd-field .k{color:var(--text-dim);font-weight:600;min-width:140px}
+.dd-field .v{font-weight:700;text-align:right;word-break:break-word;overflow-wrap:anywhere}
+.dd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding:12px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border)}
+.timeline{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.timeline .t-item{padding:10px 12px;border-left:2px solid var(--gold);background:var(--bg-card);border-radius:0 8px 8px 0}
+.timeline .t-item .label{font-weight:600}
+.timeline .t-item .when{font-size:10.5px;color:var(--text-faint);margin-top:2px}
+.dd-empty{text-align:center;color:var(--text-faint);padding:24px 10px;font-size:12px}
+
+.qr-box{padding:16px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);text-align:center}
+.qr-box img{max-width:260px;width:100%;image-rendering:pixelated;border-radius:8px}
+.copy-field{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--border);margin-bottom:6px;gap:10px}
+.copy-field .val{font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all;flex:1}
+.copy-field .btn{padding:4px 8px;font-size:11px}
+.copy-field .btn.done{background:var(--success-bg);color:var(--success)}
+
+.modal-scrim{position:fixed;inset:0;background:rgba(5,15,20,.6);backdrop-filter:blur(3px);z-index:400;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-scrim.show{display:flex}
+.modal{background:var(--white);border-radius:16px;max-width:520px;width:100%;box-shadow:var(--shadow-lg);overflow:hidden}
+html.dark .modal{background:#12262c;color:var(--text)}
+.modal h3{margin:0;padding:18px 22px;font-size:16px;font-weight:800;border-bottom:1px solid var(--border)}
+.modal .body{padding:18px 22px;max-height:60vh;overflow-y:auto}
+.modal .body p.note{font-size:12.5px;color:var(--text-dim);margin-bottom:12px;line-height:1.5}
+.modal .body label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px}
+.modal .body textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:13px;background:var(--white);color:var(--text);outline:none;resize:vertical}
+html.dark .modal .body textarea{background:rgba(255,255,255,.04);color:var(--text)}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border);flex-wrap:wrap}
+
+.modal-error{display:none;margin:14px 0 4px;padding:12px 14px;border-radius:10px;background:var(--danger-bg);border:1px solid rgba(220,38,38,.25);font-size:12.5px;line-height:1.5;color:var(--text)}
+.modal-error.show{display:block}
+.modal-error .head{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--danger);margin-bottom:6px}
+.modal-error .code{font-family:'JetBrains Mono',monospace;font-size:11.5px;background:rgba(220,38,38,.12);color:var(--danger);padding:2px 6px;border-radius:6px;display:inline-block;margin-bottom:6px}
+.modal-error .message{color:var(--text);margin-bottom:6px;font-weight:600}
+.modal-error .rid{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);word-break:break-all}
+.modal-error .hint{font-size:11.5px;color:var(--text-dim);margin-top:8px;padding-top:8px;border-top:1px dashed rgba(220,38,38,.25)}
+
+.debug-panel{display:none;margin-top:12px;padding:12px;border-radius:10px;background:#0c1f26;color:#d6e5ea;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.5;max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.debug-panel.show{display:block}
+.debug-toggle{font-size:11px;color:var(--text-faint);cursor:pointer;background:none;border:none;text-decoration:underline;padding:4px 0}
+
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:500;max-width:380px}
+.toast{background:#0c1f26;color:#fff;padding:12px 16px;border-radius:11px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-md);border-left:3px solid var(--gold);animation:toastIn .25s ease}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
+.scrim.show{display:block}
+
+@media(max-width:768px){
+    .app{grid-template-columns:1fr!important}
+    .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;box-shadow:var(--shadow-lg);z-index:50;height:100vh}
+    .sidebar.open{transform:translateX(0)}
+    .hamburger{display:flex}
+    .sb-toggle-desktop{display:none}
+    .topbar{padding:0 14px;height:60px}
+    .content{padding:12px 10px 60px}
+    .page-header{flex-direction:column;align-items:stretch}
+}
+</style>
+</head>
+<body>
+<div class="app" id="appRoot">
+
+<aside class="sidebar" id="sidebar">
+    <div class="brand">
+        <img src="../images/miles.png" alt="" onerror="this.style.display='none'">
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+        <button class="sb-collapse-btn" id="sbCollapseBtn"><i class="fas fa-angles-left"></i></button>
+    </div>
+    <nav class="nav-scroll">
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Overview</span></div>
+            <div class="nav-items"><a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span><span>Dashboard</span></a></div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Customers</span></div>
+            <div class="nav-items">
+                <a href="/admin/users" class="nav-item"><span class="ic">👥</span><span>Users</span></a>
+                <a href="/admin/support" class="nav-item"><span class="ic">💬</span><span>Support</span></a>
+            </div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Money</span></div>
+            <div class="nav-items">
+                <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span><span>Transactions</span></a>
+                <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span><span>Deposits</span></a>
+                <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span><span>Ledger</span></a>
+                <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span><span>Reconciliation</span></a>
+            </div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Services</span></div>
+            <div class="nav-items">
+                <a href="/admin/sellgift" class="nav-item"><span class="ic">🎁</span><span>Gift Cards</span></a>
+                <a href="/admin/airtime-data" class="nav-item"><span class="ic">📶</span><span>Airtime &amp; Data</span></a>
+                <a href="/admin/bills" class="nav-item"><span class="ic">🧾</span><span>Bills &amp; Utilities</span></a>
+                <a href="/admin/esim" class="nav-item active"><span class="ic">📡</span><span>eSIM</span></a>
+                <a href="/admin/virtual-sms" class="nav-item"><span class="ic">📱</span><span>Virtual SMS</span></a>
+                <a href="/admin/boost" class="nav-item"><span class="ic">📈</span><span>Boost</span></a>
+                <a href="/admin/marketplace-products" class="nav-item"><span class="ic">📦</span><span>Marketplace</span></a>
+            </div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">System</span></div>
+            <div class="nav-items"><a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span><span>Settings</span></a></div></div>
+    </nav>
+    <div class="sidebar-foot">
+        <div class="av" id="adminAvatar">DA</div>
+        <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
+    </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<div class="main">
+    <header class="topbar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <button class="sb-toggle-desktop" id="sbToggleDesktop"><i class="fas fa-bars"></i></button>
+        <div class="page-title">
+            <nav class="breadcrumb"><a href="/admin/dashboard">Home</a><span>/</span><span>Services</span><span>/</span><span>eSIM</span></nav>
+            <h1>📡 eSIM</h1>
+        </div>
+        <button class="icon-btn" id="darkToggle" title="Toggle dark mode">🌙</button>
+    </header>
+
+    <div class="content">
+        <div class="page-header">
+            <div>
+                <h2>eSIM Management</h2>
+                <div class="sub">DT One-powered eSIM orders. Plans and countries are served live from the provider catalog.</div>
+            </div>
+            <div class="actions">
+                <button class="btn" id="refreshBtn"><i class="fas fa-rotate-right"></i> Refresh</button>
+            </div>
+        </div>
+
+        <!-- KPI cards -->
+        <div class="kpi-grid">
+            <div class="kpi"><div class="lbl">Total</div><div class="val" id="kpi-total">—</div></div>
+            <div class="kpi"><div class="lbl">Completed</div><div class="val" id="kpi-completed" style="color:var(--success)">—</div></div>
+            <div class="kpi"><div class="lbl">Processing</div><div class="val" id="kpi-processing" style="color:#b3720a">—</div></div>
+            <div class="kpi"><div class="lbl">Failed</div><div class="val" id="kpi-failed" style="color:var(--danger)">—</div></div>
+            <div class="kpi"><div class="lbl">Manual review</div><div class="val" id="kpi-review" style="color:var(--purple)">—</div></div>
+            <div class="kpi"><div class="lbl">Today's orders</div><div class="val" id="kpi-today">—</div></div>
+            <div class="kpi"><div class="lbl">Today's revenue</div><div class="val" id="kpi-today-rev">—</div></div>
+            <div class="kpi"><div class="lbl">Today's profit</div><div class="val" id="kpi-today-profit">—</div></div>
+            <div class="kpi"><div class="lbl">Delivery pending</div><div class="val" id="kpi-delivery-pending" style="color:#b3720a">—</div></div>
+            <div class="kpi"><div class="lbl">Refunded</div><div class="val" id="kpi-refunded" style="color:var(--info)">—</div></div>
+        </div>
+
+        <!-- Provider card -->
+        <div class="card">
+            <h3>Provider</h3>
+            <div class="provider-grid" id="providerGrid">
+                <div class="provider-card"><div class="empty-state"><span class="ic">⏳</span>Loading…</div></div>
+            </div>
+        </div>
+
+        <!-- Orders -->
+        <div class="card">
+            <h3>eSIM orders</h3>
+            <div class="filters">
+                <input type="search" id="fSearch" placeholder="Search reference, ICCID, provider ref, plan, customer…">
+                <select id="fStatus">
+                    <option value="all">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="manual_review">Manual review</option>
+                    <option value="refunded">Refunded</option>
+                </select>
+                <select id="fDelivery">
+                    <option value="all">All delivery states</option>
+                    <option value="pending">Delivery pending</option>
+                    <option value="ready">Delivery ready</option>
+                </select>
+                <input type="date" id="fFrom">
+                <input type="date" id="fTo">
+                <button class="btn btn-primary" id="fApply"><i class="fas fa-filter"></i> Apply</button>
+                <button class="btn" id="fClear">Clear</button>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Customer</th>
+                            <th>Country</th>
+                            <th>Plan</th>
+                            <th>Total</th>
+                            <th>Debit</th>
+                            <th>Status</th>
+                            <th>Delivery</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <div id="ordersPageInfo">—</div>
+                <div>
+                    <button id="ordersPrev" disabled>Previous</button>
+                    <button id="ordersNext" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true">
+    <div class="dd-head">
+        <div class="dd-ic" id="dIcon">📡</div>
+        <div class="dd-titles"><h2 id="dTitle">eSIM Order</h2><div class="dd-sub" id="dSub"></div></div>
+        <button class="dd-close" id="dClose">✕</button>
+    </div>
+    <div class="dd-body" id="dBody"></div>
+</aside>
+
+<div class="modal-scrim" id="modalScrim">
+    <div class="modal" role="dialog" aria-modal="true">
+        <h3 id="mTitle">Action</h3>
+        <div class="body" id="mBody"></div>
+        <div class="foot">
+            <button class="btn" id="mCancel">Cancel</button>
+            <button class="btn btn-primary" id="mConfirm">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+const API = {
+    stats:          '/api/admin/esim/stats',
+    orders:         '/api/admin/esim/orders',
+    order:          id => `/api/admin/esim/orders/${encodeURIComponent(id)}`,
+    sync:           id => `/api/admin/esim/orders/${encodeURIComponent(id)}/sync`,
+    refund:         id => `/api/admin/esim/orders/${encodeURIComponent(id)}/refund`,
+    review:         id => `/api/admin/esim/orders/${encodeURIComponent(id)}/review`,
+    reveal:         id => `/api/admin/esim/orders/${encodeURIComponent(id)}/reveal`,
+    providerHealth: '/api/admin/esim/provider/health',
+    providerTest:   '/api/admin/esim/provider/health-check',
+    me:             '/api/admin/me'
+};
+
+const CURRENCY_SYMBOLS = { NGN: '₦', USD: '$' };
+
+const State = {
+    page: 1, limit: 25, totalPages: 1,
+    filters: {},
+    currentOrder: null
+};
+
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+function formatMoney(amount, currency) {
+    if (amount === null || amount === undefined || amount === '') return null;
+    const ccy = String(currency || '').toUpperCase();
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return null;
+    const s = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (CURRENCY_SYMBOLS[ccy] || (ccy ? ccy + ' ' : '')) + s;
+}
+function formatNumber(n) {
+    if (n === null || n === undefined || n === '') return null;
+    const num = Number(n);
+    return Number.isFinite(num) ? num.toLocaleString('en-US') : null;
+}
+function timeAgo(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+    return new Date(iso).toLocaleDateString();
+}
+function formatDateTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function statusBadge(status) {
+    const s = String(status || '').toLowerCase();
+    if (s === 'completed') return 'success';
+    if (['failed','cancelled','reversed'].includes(s)) return 'danger';
+    if (s === 'refunded') return 'info';
+    if (s === 'manual_review') return 'purple';
+    if (['pending','processing','delivery_pending'].includes(s)) return 'warn';
+    return 'neutral';
+}
+function showToast(msg, type = 'info') {
+    const stack = document.getElementById('toastStack');
+    if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 3400);
+}
+
+async function api(url, opts = {}) {
+    const startedAt = Date.now();
+    let res;
+    try { res = await AdminSession.fetch(url, opts); }
+    catch (e) { return { ok: false, status: 0, code: 'NETWORK_ERROR', error: 'Network error: ' + e.message, request_id: null, _debug: { url } }; }
+
+    let json = null, text = null;
+    try { text = await res.text(); } catch {}
+    try { json = text ? JSON.parse(text) : null; } catch {}
+
+    if (!res.ok || json?.success === false) {
+        return {
+            ok: false,
+            status: res.status,
+            code: json?.code || `HTTP_${res.status}`,
+            error: json?.message || json?.error || text || 'Request failed',
+            request_id: json?.request_id || res.headers.get('X-Request-ID') || null,
+            extra: json,
+            _debug: { url, status: res.status, durationMs: Date.now() - startedAt, body: json }
+        };
+    }
+    return { ok: true, data: json, _debug: { url, status: res.status, durationMs: Date.now() - startedAt } };
+}
+
+// ─── Overview ────────────────────────────────────────────────────
+async function loadOverview() {
+    const { ok, data } = await api(API.stats);
+    if (!ok) {
+        ['kpi-total','kpi-completed','kpi-processing','kpi-failed','kpi-review',
+         'kpi-today','kpi-today-rev','kpi-today-profit','kpi-delivery-pending','kpi-refunded']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+        return;
+    }
+    const s = data.stats || {};
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+
+    setText('kpi-total',      formatNumber(s.total));
+    setText('kpi-completed',  formatNumber(s.completed));
+    setText('kpi-processing', formatNumber(s.processing));
+    setText('kpi-failed',     formatNumber(s.failed));
+    setText('kpi-review',     formatNumber(s.manual_review));
+    setText('kpi-today',      formatNumber(s.today_orders));
+    setText('kpi-today-rev',  formatMoney(s.today_revenue_usd, 'USD'));
+    setText('kpi-today-profit', formatMoney(s.today_profit_usd, 'USD'));
+    setText('kpi-delivery-pending', formatNumber(s.delivery_pending));
+    setText('kpi-refunded',   formatNumber(s.refunded));
+}
+
+// ─── Provider ────────────────────────────────────────────────────
+async function loadProvider() {
+    const grid = document.getElementById('providerGrid');
+    grid.innerHTML = `<div class="provider-card"><div class="empty-state"><span class="ic">⏳</span>Loading…</div></div>`;
+    const { ok, data, error } = await api(API.providerHealth);
+    if (!ok) {
+        grid.innerHTML = `<div class="provider-card"><div class="unavailable-box">${escapeHtml(error)}</div></div>`;
+        return;
+    }
+    const h = data.health || {};
+    const cls = ['operational','degraded','unreachable','not_configured'].includes(h.status) ? h.status : '';
+    const statusText = {
+        operational: 'Operational', degraded: 'Degraded',
+        unreachable: 'Unreachable', not_configured: 'Not configured'
+    }[h.status] || 'Unknown';
+
+    grid.innerHTML = `
+        <div class="provider-card">
+            <div class="head">
+                <div>
+                    <h4>${escapeHtml(h.label || 'DT One')}</h4>
+                    <div class="sub">Global eSIM</div>
+                </div>
+                <div><span class="status-dot-lg ${cls}"></span><strong>${escapeHtml(statusText)}</strong></div>
+            </div>
+            <div class="metric"><span class="k">Configured</span><span class="v">${h.configured ? '✓ Yes' : '✗ No'}</span></div>
+            <div class="metric"><span class="k">Reachable</span><span class="v">${h.reachable ? '✓ Yes' : '✗ No'}</span></div>
+            <div class="metric"><span class="k">Environment</span><span class="v">${escapeHtml(h.environment || '—')}</span></div>
+            <div class="metric"><span class="k">Latency</span><span class="v">${h.latencyMs != null ? escapeHtml(h.latencyMs + 'ms') : '—'}</span></div>
+            <div class="metric"><span class="k">Last success</span><span class="v">${h.lastSuccess ? escapeHtml(timeAgo(h.lastSuccess)) : '—'}</span></div>
+            <div class="metric"><span class="k">Last failure</span><span class="v">${h.lastFailure?.at ? escapeHtml(timeAgo(h.lastFailure.at)) : '—'}</span></div>
+            <div class="metric"><span class="k">Orders (24h)</span><span class="v">${formatNumber(h.recentCount) ?? '0'}</span></div>
+            ${h.lastError ? `<div class="metric"><span class="k">Last error</span><span class="v" style="color:var(--danger)">${escapeHtml(h.lastError)}</span></div>` : ''}
+            <div class="btn-row">
+                <button class="btn" id="testProviderBtn"><i class="fas fa-heart-pulse"></i> Test health</button>
+            </div>
+        </div>`;
+    document.getElementById('testProviderBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('testProviderBtn');
+        btn.disabled = true;
+        const res = await api(API.providerTest, { method: 'POST' });
+        btn.disabled = false;
+        if (!res.ok) { showToast(res.error || 'Health check failed', 'error'); return; }
+        showToast(res.data.reachable ? 'Reachable' : 'Unreachable', res.data.reachable ? 'success' : 'error');
+        loadProvider();
+    });
+}
+
+// ─── Orders ──────────────────────────────────────────────────────
+function buildOrdersQuery() {
+    const q = new URLSearchParams();
+    q.set('page', State.page);
+    q.set('limit', State.limit);
+    const f = State.filters;
+    if (f.search) q.set('search', f.search);
+    if (f.status && f.status !== 'all') q.set('status', f.status);
+    if (f.delivery_status && f.delivery_status !== 'all') q.set('delivery_status', f.delivery_status);
+    if (f.from) q.set('from', f.from);
+    if (f.to) q.set('to', f.to);
+    return q.toString();
+}
+
+async function loadOrders() {
+    const tb = document.getElementById('ordersBody');
+    tb.innerHTML = `<tr><td colspan="9"><span class="skel" style="width:60%;display:inline-block"></span></td></tr>`;
+    const { ok, data, error } = await api(API.orders + '?' + buildOrdersQuery());
+    if (!ok) {
+        tb.innerHTML = `<tr><td colspan="9"><div class="unavailable-box">${escapeHtml(error)}<button onclick="loadOrders()">Retry</button></div></td></tr>`;
+        return;
+    }
+    const rows = data.orders || [];
+    State.totalPages = data.totalPages || 1;
+    if (!rows.length) {
+        tb.innerHTML = `<tr><td colspan="9"><div class="empty-state"><span class="ic">📭</span>No eSIM orders match your filters</div></td></tr>`;
+        document.getElementById('ordersPageInfo').textContent = 'No results';
+        document.getElementById('ordersPrev').disabled = true;
+        document.getElementById('ordersNext').disabled = true;
+        return;
+    }
+    tb.innerHTML = rows.map(o => `
+        <tr data-id="${escapeHtml(o.id)}">
+            <td><span class="mono" style="font-size:11px">${escapeHtml(o.reference)}</span></td>
+            <td>${escapeHtml(o.user?.username || '—')}</td>
+            <td>${escapeHtml(o.country_flag ? o.country_flag + ' ' : '')}${escapeHtml(o.country_name || '—')}</td>
+            <td>${escapeHtml(o.plan_name || '—')}</td>
+            <td>${formatMoney(o.total_usd, 'USD') || '—'}</td>
+            <td>${formatMoney(o.debit_amount, o.debit_currency) || '—'}</td>
+            <td><span class="badge ${statusBadge(o.status)}">${escapeHtml(o.status)}</span></td>
+            <td>${o.delivery_status ? `<span class="badge ${o.delivery_status === 'ready' ? 'success' : 'warn'}">${escapeHtml(o.delivery_status)}</span>` : '—'}</td>
+            <td title="${escapeHtml(formatDateTime(o.created_at))}">${escapeHtml(timeAgo(o.created_at))}</td>
+        </tr>
+    `).join('');
+    tb.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openOrder(tr.dataset.id)));
+    document.getElementById('ordersPageInfo').textContent =
+        `Showing ${(State.page - 1) * State.limit + 1}–${Math.min(State.page * State.limit, data.count)} of ${data.count}`;
+    document.getElementById('ordersPrev').disabled = State.page <= 1;
+    document.getElementById('ordersNext').disabled = State.page >= State.totalPages;
+}
+
+// ─── Drawer ──────────────────────────────────────────────────────
+function openDrawer() {
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawerScrim').classList.add('show');
+}
+function closeDrawer() {
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawerScrim').classList.remove('show');
+    State.currentOrder = null;
+}
+
+async function openOrder(id) {
+    document.getElementById('dIcon').textContent = '📡';
+    document.getElementById('dTitle').textContent = 'Loading…';
+    document.getElementById('dSub').textContent = '';
+    document.getElementById('dBody').innerHTML = '<div class="dd-empty">Loading…</div>';
+    openDrawer();
+    const res = await api(API.order(id));
+    if (!res.ok) {
+        document.getElementById('dBody').innerHTML = `
+            <div class="modal-error show" style="margin:0">
+                <div class="head"><i class="fas fa-circle-exclamation"></i> Failed to load</div>
+                <div class="code">${escapeHtml(res.code || 'UNKNOWN')}</div>
+                <div class="message">${escapeHtml(res.error || '—')}</div>
+                ${res.request_id ? `<div class="rid">request_id: ${escapeHtml(res.request_id)}</div>` : ''}
+            </div>`;
+        return;
+    }
+    State.currentOrder = res.data.order;
+    renderOrder(res.data);
+}
+
+function renderOrder(payload) {
+    const o = payload.order;
+    const u = payload.user;
+    const tx = payload.transaction;
+    const refund = payload.refund_transaction;
+    const led = payload.ledger_entries || [];
+    const timeline = payload.timeline || [];
+
+    document.getElementById('dTitle').textContent = o.reference;
+    document.getElementById('dSub').textContent = `${o.country_name || o.country_iso3 || ''} · ${o.plan_name || ''}`;
+
+    const hero = `
+        <div class="dd-hero">
+            <div>
+                <div class="amt">${escapeHtml(formatMoney(o.total_usd, 'USD') || '—')}</div>
+                <div class="meta">${escapeHtml(o.plan_name || '')} · ${escapeHtml(o.country_name || '')}</div>
+            </div>
+            <div style="text-align:right">
+                <span class="badge ${statusBadge(o.status)}" style="font-size:11.5px;padding:4px 12px">${escapeHtml(o.status)}</span>
+                <div class="meta" style="margin-top:6px">${escapeHtml(formatDateTime(o.created_at))}</div>
+            </div>
+        </div>`;
+
+    const actions = buildActions(o);
+
+    const customer = `
+        <div class="dd-section">
+            <h4>Customer</h4>
+            <div class="dd-field"><span class="k">Username</span><span class="v">${escapeHtml(u?.username || '—')}</span></div>
+            <div class="dd-field"><span class="k">Email</span><span class="v">${escapeHtml(u?.email || '—')}</span></div>
+        </div>`;
+
+    const purchase = `
+        <div class="dd-section">
+            <h4>Purchase</h4>
+            <div class="dd-field"><span class="k">Country</span><span class="v">${escapeHtml((o.country_flag ? o.country_flag + ' ' : '') + (o.country_name || o.country_iso3 || '—'))}</span></div>
+            <div class="dd-field"><span class="k">Plan</span><span class="v">${escapeHtml(o.plan_name || '—')}</span></div>
+            <div class="dd-field"><span class="k">Data</span><span class="v">${escapeHtml(o.data_display || '—')}</span></div>
+            <div class="dd-field"><span class="k">Validity</span><span class="v">${o.validity_days ? escapeHtml(o.validity_days + ' days') : '—'}</span></div>
+        </div>`;
+
+    const provider = `
+        <div class="dd-section">
+            <h4>Provider</h4>
+            <div class="dd-field"><span class="k">Provider</span><span class="v">${escapeHtml(o.provider || '—')}</span></div>
+            <div class="dd-field"><span class="k">Transaction ID</span><span class="v mono">${escapeHtml(o.provider_transaction_id || '—')}</span></div>
+            <div class="dd-field"><span class="k">External ID</span><span class="v mono">${escapeHtml(o.dtone_external_id || '—')}</span></div>
+            <div class="dd-field"><span class="k">Status</span><span class="v">${escapeHtml(o.provider_status || '—')}</span></div>
+            ${o.failure_reason ? `<div class="dd-field"><span class="k">Failure</span><span class="v" style="color:var(--danger)">${escapeHtml(o.failure_reason)}</span></div>` : ''}
+        </div>`;
+
+    const financial = `
+        <div class="dd-section">
+            <h4>Financial</h4>
+            <div class="dd-field"><span class="k">Wholesale</span><span class="v">${formatMoney(o.wholesale_usd, 'USD') || '—'}</span></div>
+            <div class="dd-field"><span class="k">Selling price</span><span class="v">${formatMoney(o.price_usd, 'USD') || '—'}</span></div>
+            <div class="dd-field"><span class="k">Fee</span><span class="v">${formatMoney(o.fee_usd, 'USD') || '—'}</span></div>
+            <div class="dd-field"><span class="k">Total charged</span><span class="v">${formatMoney(o.total_usd, 'USD') || '—'}</span></div>
+            <div class="dd-field"><span class="k">Debit</span><span class="v">${formatMoney(o.debit_amount, o.debit_currency) || '—'}</span></div>
+            ${tx ? `<div class="dd-field"><span class="k">Ledger tx</span><span class="v mono">${escapeHtml(tx.id)}</span></div>` : ''}
+            ${refund ? `<div class="dd-field"><span class="k">Refund</span><span class="v">${formatMoney(refund.amount, refund.currency) || '—'}</span></div>` : ''}
+        </div>`;
+
+    const delivery = `
+        <div class="dd-section">
+            <h4>Delivery</h4>
+            <div class="dd-field"><span class="k">Delivery status</span><span class="v">${escapeHtml(o.delivery_status || '—')}</span></div>
+            <div class="dd-field"><span class="k">Email status</span><span class="v">${escapeHtml(o.email_status || '—')}</span></div>
+            <div class="dd-field"><span class="k">ICCID</span><span class="v mono">${escapeHtml(o.iccid_masked || '—')}</span></div>
+            <div class="dd-field"><span class="k">Has QR</span><span class="v">${o.has_qr ? '✓' : '✗'}</span></div>
+            <div class="dd-field"><span class="k">Has activation</span><span class="v">${o.has_activation ? '✓' : '✗'}</span></div>
+            ${o.status === 'completed'
+                ? `<button class="btn" id="btnReveal" style="margin-top:8px"><i class="fas fa-eye"></i> Reveal activation details</button>
+                   <div id="activationBox" style="margin-top:12px"></div>`
+                : ''}
+        </div>`;
+
+    const ledger = led.length ? `
+        <div class="dd-section">
+            <h4>Ledger</h4>
+            ${led.map(e => `
+                <div class="dd-field">
+                    <span class="k">${escapeHtml(e.entry_type || '')} ${escapeHtml(e.currency || '')}</span>
+                    <span class="v">${formatMoney(e.amount, e.currency) || '—'} · after ${formatMoney(e.balance_after, e.currency) || '—'}</span>
+                </div>
+            `).join('')}
+        </div>` : '';
+
+    const timelineSection = timeline.length ? `
+        <div class="dd-section">
+            <h4>Timeline</h4>
+            <div class="timeline">
+                ${timeline.map(t => `
+                    <div class="t-item">
+                        <div class="label">${escapeHtml(t.label)}</div>
+                        <div class="when">${escapeHtml(formatDateTime(t.at))}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>` : '';
+
+    const debugSection = `
+        <div class="dd-section">
+            <button class="debug-toggle" id="debugToggle"><i class="fas fa-code"></i> Show raw response</button>
+            <pre class="debug-panel" id="debugPanel"></pre>
+        </div>`;
+
+    document.getElementById('dBody').innerHTML =
+        hero + actions + customer + purchase + provider + financial + delivery + ledger + timelineSection + debugSection;
+
+    document.getElementById('debugToggle')?.addEventListener('click', () => {
+        const dp = document.getElementById('debugPanel');
+        dp.classList.toggle('show');
+        if (dp.classList.contains('show')) dp.textContent = JSON.stringify(payload, null, 2);
+    });
+
+    document.getElementById('btnSync')?.addEventListener('click', () => runSync(o));
+    document.getElementById('btnRefund')?.addEventListener('click', () => openRefundModal(o));
+    document.getElementById('btnReview')?.addEventListener('click', () => openReviewModal(o));
+    document.getElementById('btnReveal')?.addEventListener('click', () => revealActivation(o));
+}
+
+function buildActions(o) {
+    const buttons = [];
+    const status = String(o.status || '').toLowerCase();
+
+    if (status !== 'completed' && status !== 'refunded') {
+        buttons.push(`<button class="btn" id="btnSync"><i class="fas fa-sync"></i> Sync provider status</button>`);
+    }
+    if (['failed','cancelled','manual_review'].includes(status)) {
+        buttons.push(`<button class="btn btn-danger" id="btnRefund"><i class="fas fa-rotate-left"></i> Refund customer</button>`);
+    }
+    if (['processing','pending','delivery_pending'].includes(status)) {
+        buttons.push(`<button class="btn" id="btnReview"><i class="fas fa-clipboard-check"></i> Mark for manual review</button>`);
+    }
+    if (!buttons.length) return '';
+    return `<div class="dd-actions">${buttons.join('')}</div>`;
+}
+
+async function runSync(o) {
+    const btn = document.getElementById('btnSync');
+    if (btn) btn.disabled = true;
+    const res = await api(API.sync(o.id), { method: 'POST' });
+    if (btn) btn.disabled = false;
+    if (!res.ok) { showToast(`${res.code}: ${res.error}`, 'error'); return; }
+    showToast(`Synced: ${res.data.resolved || 'unknown'}`, 'success');
+    openOrder(o.id);
+}
+
+async function revealActivation(o) {
+    const btn = document.getElementById('btnReveal');
+    if (btn) btn.disabled = true;
+    const res = await api(API.reveal(o.id), { method: 'POST' });
+    if (btn) btn.disabled = false;
+    if (!res.ok) { showToast(res.error || 'Unable to reveal', 'error'); return; }
+    const d = res.data;
+
+    const box = document.getElementById('activationBox');
+    const row = (label, value) => {
+        if (!value) return '';
+        const id = 'copy-' + Math.random().toString(36).slice(2, 8);
+        return `<div class="copy-field"><span class="k" style="color:var(--text-dim);font-weight:600;min-width:100px">${escapeHtml(label)}</span><span class="val">${escapeHtml(value)}</span><button class="btn" data-copy="${escapeHtml(value)}" data-target="${id}"><i class="fas fa-copy"></i> Copy</button></div>`;
+    };
+
+    box.innerHTML = `
+        ${d.qr_code_url ? `<div class="qr-box"><img src="${escapeHtml(d.qr_code_url)}" alt="eSIM QR"/><div class="meta" style="margin-top:8px">Scan to install</div></div>` : ''}
+        ${row('ICCID', d.iccid)}
+        ${row('SM-DP+', d.smdp_address)}
+        ${row('Activation', d.activation_code)}
+        ${row('Matching ID', d.matching_id)}
+        ${row('LPA', d.lpa_string)}
+        ${row('Serial', d.serial_number)}
+        ${d.instructions ? `<div style="font-size:12px;color:var(--text-dim);margin-top:8px">${escapeHtml(d.instructions)}</div>` : ''}
+    `;
+    box.querySelectorAll('[data-copy]').forEach(b => {
+        b.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(b.dataset.copy);
+                b.classList.add('done');
+                b.innerHTML = '<i class="fas fa-check"></i> Copied';
+                setTimeout(() => { b.classList.remove('done'); b.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 1600);
+            } catch { showToast('Copy failed', 'error'); }
+        });
+    });
+}
+
+// ─── Modal ───────────────────────────────────────────────────────
+function openModal({ title, bodyHtml, confirmLabel = 'Confirm', onConfirm }) {
+    const scrim = document.getElementById('modalScrim');
+    document.getElementById('mTitle').textContent = title;
+    document.getElementById('mBody').innerHTML =
+        bodyHtml +
+        `<div class="modal-error" id="modalError">
+            <div class="head"><i class="fas fa-circle-exclamation"></i> <span id="modalErrorHead">Request failed</span></div>
+            <div class="code" id="modalErrorCode"></div>
+            <div class="message" id="modalErrorMessage"></div>
+            <div class="rid" id="modalErrorRid"></div>
+            <div class="hint" id="modalErrorHint" style="display:none"></div>
+        </div>`;
+    document.getElementById('mConfirm').textContent = confirmLabel;
+    document.getElementById('mConfirm').disabled = false;
+
+    const cancel = () => {
+        scrim.classList.remove('show');
+        document.getElementById('mConfirm').onclick = null;
+    };
+    document.getElementById('mCancel').onclick = cancel;
+    document.getElementById('mConfirm').onclick = async () => {
+        const btn = document.getElementById('mConfirm');
+        btn.disabled = true;
+        try { const ok = await onConfirm(); if (ok) cancel(); }
+        finally { btn.disabled = false; }
+    };
+    scrim.classList.add('show');
+}
+
+function clearModalError() {
+    const el = document.getElementById('modalError');
+    if (el) el.classList.remove('show');
+}
+
+function showModalError(res) {
+    const errEl = document.getElementById('modalError');
+    if (!errEl) return;
+    errEl.classList.add('show');
+    document.getElementById('modalErrorHead').textContent = 'Server rejected this action';
+    document.getElementById('modalErrorCode').textContent = res.code || 'UNKNOWN';
+    document.getElementById('modalErrorMessage').textContent = res.error || 'Request failed';
+    const rid = document.getElementById('modalErrorRid');
+    if (res.request_id) { rid.textContent = 'request_id: ' + res.request_id; rid.style.display = 'block'; }
+    else { rid.textContent = ''; rid.style.display = 'none'; }
+
+    let hint = '';
+    if (res.code === 'REASON_REQUIRED') hint = 'Type a reason of at least 4 characters.';
+    else if (res.code === 'NOT_REFUNDABLE') hint = 'Only failed, cancelled, or manual-review orders can be refunded.';
+    else if (res.code === 'ALREADY_REFUNDED') hint = 'This order has already been refunded.';
+    else if (res.code === 'NOT_COMPLETED') hint = 'Activation details are only available for completed orders.';
+    else if (res.code === 'ORDER_STATE_CHANGED') hint = 'Another admin changed this order. Reload before retrying.';
+    else if (res.code === 'AUDIT_WRITE_FAILED') hint = 'Audit log failed; the action was aborted. Try again.';
+    else if (res.code === 'LEDGER_REFUND_FAILED') hint = 'Wallet credit failed. Check the Ledger page.';
+    else if (res.status >= 500) hint = 'Server error. Include the request_id when contacting support.';
+
+    const hintEl = document.getElementById('modalErrorHint');
+    if (hint) { hintEl.textContent = hint; hintEl.style.display = 'block'; }
+    else hintEl.style.display = 'none';
+}
+
+function openRefundModal(o) {
+    const status = String(o.status || '').toLowerCase();
+    const eligible = ['failed','cancelled','manual_review'].includes(status);
+    openModal({
+        title: 'Refund eSIM order',
+        confirmLabel: 'Refund',
+        bodyHtml: `
+            <p class="note">Credits the customer's wallet and marks the order refunded. The original debit is left unchanged.</p>
+            ${!eligible
+                ? `<div class="modal-error show">
+                       <div class="head"><i class="fas fa-circle-info"></i> Not available</div>
+                       <div class="message">Refund is only allowed for failed, cancelled, or manual-review orders. Current status: <strong>${escapeHtml(o.status)}</strong>.</div>
+                       <div class="hint">If the order is processing, click Sync provider status first.</div>
+                   </div>`
+                : `<label for="refundReason">Reason (required)</label>
+                   <textarea id="refundReason" rows="3"></textarea>`}
+        `,
+        onConfirm: async () => {
+            if (!eligible) return false;
+            const reason = document.getElementById('refundReason').value.trim();
+            if (reason.length < 4) { showModalError({ code: 'REASON_REQUIRED', error: 'Reason must be at least 4 characters.' }); return false; }
+            clearModalError();
+            const res = await api(API.refund(o.id), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+            });
+            if (!res.ok) { showModalError(res); return false; }
+            showToast(res.data?.refund?.already_refunded ? 'Already refunded' : 'Refund applied', 'success');
+            openOrder(o.id); loadOrders();
+            return true;
+        }
+    });
+}
+
+function openReviewModal(o) {
+    const status = String(o.status || '').toLowerCase();
+    const eligible = ['processing','pending','delivery_pending'].includes(status);
+    openModal({
+        title: 'Mark for manual review',
+        confirmLabel: 'Mark',
+        bodyHtml: `
+            <p class="note">Moves the order to <strong>manual_review</strong> for a human to resolve.</p>
+            ${!eligible
+                ? `<div class="modal-error show">
+                       <div class="head"><i class="fas fa-circle-info"></i> Not available</div>
+                       <div class="message">Only processing, pending, or delivery-pending orders can be marked. Current status: <strong>${escapeHtml(o.status)}</strong>.</div>
+                   </div>`
+                : `<label for="reviewReason">Reason (required)</label>
+                   <textarea id="reviewReason" rows="3"></textarea>`}
+        `,
+        onConfirm: async () => {
+            if (!eligible) return false;
+            const reason = document.getElementById('reviewReason').value.trim();
+            if (reason.length < 4) { showModalError({ code: 'REASON_REQUIRED', error: 'Reason must be at least 4 characters.' }); return false; }
+            clearModalError();
+            const res = await api(API.review(o.id), {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+            });
+            if (!res.ok) { showModalError(res); return false; }
+            showToast('Marked for review', 'success');
+            openOrder(o.id); loadOrders();
+            return true;
+        }
+    });
+}
+
+// ─── Admin profile ───────────────────────────────────────────────
+async function loadAdminProfile() {
+    const { ok, data } = await api(API.me);
+    if (!ok || !data?.data?.user) return;
+    const user = data.data.user;
+    const name = user.username || user.email?.split('@')[0] || 'Admin';
+    const role = user.role || 'admin';
+    document.getElementById('adminName').textContent = name;
+    document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    document.getElementById('adminAvatar').textContent = name.slice(0, 1).toUpperCase();
+}
+
+// ─── Init ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    if (!AdminSession.getToken()) return AdminSession.redirectToLogin();
+
+    document.getElementById('hamburger')?.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('scrim').classList.toggle('show');
+    });
+    document.getElementById('scrim')?.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('scrim').classList.remove('show');
+    });
+    document.getElementById('sbToggleDesktop')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
+    document.getElementById('sbCollapseBtn')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
+
+    document.getElementById('darkToggle')?.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    });
+
+    document.getElementById('fApply')?.addEventListener('click', () => {
+        State.filters = {
+            search: document.getElementById('fSearch').value.trim(),
+            status: document.getElementById('fStatus').value,
+            delivery_status: document.getElementById('fDelivery').value,
+            from: document.getElementById('fFrom').value,
+            to: document.getElementById('fTo').value
+        };
+        State.page = 1;
+        loadOrders();
+    });
+    document.getElementById('fClear')?.addEventListener('click', () => {
+        ['fSearch','fFrom','fTo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        ['fStatus','fDelivery'].forEach(id => { const el = document.getElementById(id); if (el) el.value = 'all'; });
+        State.filters = {};
+        State.page = 1;
+        loadOrders();
+    });
+    document.getElementById('fSearch')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('fApply').click();
+    });
+
+    document.getElementById('ordersPrev')?.addEventListener('click', () => { if (State.page > 1) { State.page--; loadOrders(); } });
+    document.getElementById('ordersNext')?.addEventListener('click', () => { if (State.page < State.totalPages) { State.page++; loadOrders(); } });
+
+    document.getElementById('refreshBtn')?.addEventListener('click', () => {
+        loadOverview(); loadProvider(); loadOrders();
+        showToast('Refreshed', 'success');
+    });
+
+    document.getElementById('dClose')?.addEventListener('click', closeDrawer);
+    document.getElementById('drawerScrim')?.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            closeDrawer();
+            document.getElementById('modalScrim').classList.remove('show');
+        }
+    });
+    document.getElementById('modalScrim')?.addEventListener('click', e => {
+        if (e.target.id === 'modalScrim') document.getElementById('modalScrim').classList.remove('show');
+    });
+
+    loadAdminProfile();
+    loadOverview();
+    loadProvider();
+    loadOrders();
+});
+
+window.loadOrders = loadOrders;
+</script>
+</body>
+</html>

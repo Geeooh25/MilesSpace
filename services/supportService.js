@@ -1,396 +1,432 @@
-// // services/supportService.js (Updated with AI integration)
+// services/supportService.js
+//
+// Authoritative support service. Every admin support route goes
+// through here. Customer routes do NOT touch this — they live in
+// routes/messages.js and only ever read/write their own rows.
+//
+// Responsibilities:
+//   - list tickets (paginated, filtered)
+//   - get one ticket + its messages (with is_internal visible)
+//   - create a message (reply or internal note)
+//   - change status (with allowed transitions)
+//   - assign (validated against assignable admin roles)
+//   - close / reopen
+//   - stats
+//   - audit-write on every mutation via admin_audit_logs
+//   - notification to the customer (or not, for internal notes)
+//
+// No JWT, no req, no res. Pure service.
 
-// const { supabaseAdmin } = require('../db/supabase');
-// const contextService = require('./contextService');
-// const faqService = require('./faqService');
+'use strict';
 
-// class SupportService {
-//     constructor() {
-//         this.FAQ_CACHE_TTL = 3600;
-//     }
+const { supabaseAdmin } = require('../db/supabase');
+const emailSvc = require('./emailService');
 
-//     // ─── PROCESS SUPPORT REQUEST (UPDATED WITH AI) ───
-//     async processSupportRequest(userId, message, conversationId = null) {
-//         try {
-//             // 1. Get user context
-//             const context = await contextService.buildContext(userId, message);
+const ASSIGNABLE_ROLES = ['super_admin', 'admin', 'finance', 'operations', 'support'];
 
-//             // 2. Check FAQ first
-//             const faqResults = await faqService.searchFAQ(message);
-//             if (faqResults && faqResults.length > 0) {
-//                 const faq = faqResults[0];
-//                 const response = {
-//                     type: 'faq',
-//                     message: `📚 **${faq.question}**\n\n${faq.answer}`,
-//                     sender_type: 'system',
-//                     confidence: 0.9
-//                 };
+const TICKET_STATUSES = ['open','assigned','in_progress','waiting_user','waiting_support','resolved','closed'];
+const ALLOWED_TRANSITIONS = {
+    open:            ['assigned','in_progress','waiting_user','waiting_support','resolved','closed'],
+    assigned:        ['in_progress','waiting_user','waiting_support','resolved','closed'],
+    in_progress:     ['waiting_user','waiting_support','resolved','closed'],
+    waiting_user:    ['in_progress','waiting_support','resolved','closed'],
+    waiting_support: ['in_progress','waiting_user','resolved','closed'],
+    resolved:        ['closed','in_progress'],
+    closed:          ['in_progress']
+};
 
-//                 await this.saveConversation(userId, message, response, conversationId);
-//                 return {
-//                     success: true,
-//                     conversation_id: conversationId,
-//                     response: response.message,
-//                     response_type: 'faq',
-//                     escalation_needed: false,
-//                     confidence: response.confidence
-//                 };
-//             }
+const PRIORITIES = ['low','medium','high','urgent'];
 
-//             // 3. Check if it's a data query (wallet, transactions, etc.)
-//             const dataResponse = await this.handleDataQuery(userId, message, context);
-//             if (dataResponse) {
-//                 await this.saveConversation(userId, message, dataResponse, conversationId);
-//                 return {
-//                     success: true,
-//                     conversation_id: conversationId,
-//                     response: dataResponse.message,
-//                     response_type: 'database',
-//                     escalation_needed: false,
-//                     confidence: 0.95
-//                 };
-//             }
+// ─── Helpers ────────────────────────────────────────────────────
+function serviceError(code, message, status = 400, extra = {}) {
+    const e = new Error(message);
+    e.code = code; e.status = status;
+    Object.assign(e, extra);
+    return e;
+}
 
-//             // 4. Use AI
-//             const conversationHistory = conversationId ? 
-//                 await this.getConversationHistory(conversationId) : [];
+function escapeLike(input) {
+    return String(input || '').replace(/[%_]/g, m => '\\' + m).slice(0, 100);
+}
 
-//             const aiResponse = await aiService.getAIResponse(
-//                 userId,
-//                 message,
-//                 context,
-//                 conversationHistory
-//             );
+async function writeAudit({ adminId, adminEmail, action, resourceType, resourceId, before = null, after = null, reason = null, req }) {
+    try {
+        await supabaseAdmin.from('admin_audit_logs').insert({
+            admin_id: adminId,
+            admin_email: adminEmail || null,
+            action: String(action).slice(0, 120),
+            target_type: resourceType || null,
+            target_id: resourceId ? String(resourceId) : null,
+            before: before || null,
+            after: after || null,
+            reason: reason ? String(reason).slice(0, 500) : null,
+            ip_address: req?.ip || req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || null,
+            user_agent: req?.headers?.['user-agent'] || null,
+            created_at: new Date().toISOString()
+        });
+    } catch (e) {
+        console.warn('[SUPPORT AUDIT] insert failed:', e.message);
+    }
+}
 
-//             if (!aiResponse.success) {
-//                 // AI failed, escalate
-//                 return {
-//                     success: false,
-//                     error: aiResponse.error,
-//                     escalation_needed: true,
-//                     response: "I'm having trouble processing your request. I'll connect you with support."
-//                 };
-//             }
+async function notifyCustomer(userId, title, message, link = '/messages', type = 'info') {
+    try {
+        await supabaseAdmin.from('notifications').insert({
+            user_id: userId,
+            title, message, type, link,
+            is_read: false,
+            created_at: new Date().toISOString()
+        });
+    } catch (e) {
+        console.warn('[SUPPORT NOTIFY] insert failed:', e.message);
+    }
+}
 
-//             // 5. Save conversation
-//             await this.saveConversation(userId, message, {
-//                 type: 'ai',
-//                 message: aiResponse.message,
-//                 sender_type: 'ai',
-//                 confidence: aiResponse.confidence
-//             }, conversationId);
+async function emailCustomer(userId, subject, html) {
+    try {
+        const { data: profile } = await supabaseAdmin
+            .from('profiles').select('email, username').eq('id', userId).maybeSingle();
+        if (profile?.email) await emailSvc.sendEmail(profile.email, subject, html);
+    } catch (e) {
+        console.warn('[SUPPORT EMAIL] failed:', e.message);
+    }
+}
 
-//             // 6. Check if escalation needed
-//             const escalationNeeded = aiResponse.shouldEscalate || 
-//                                     (aiResponse.confidence < 0.6);
+// ─── LIST TICKETS ───────────────────────────────────────────────
+async function listTickets({ page = 1, limit = 50, status, priority, category, assigned, search, sort = 'recent' } = {}) {
+    limit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    page = Math.max(Number(page) || 1, 1);
+    const offset = (page - 1) * limit;
 
-//             if (escalationNeeded) {
-//                 await this.createEscalation(userId, conversationId, 
-//                     aiResponse.escalationReason || 'Low confidence response');
-//             }
+    let q = supabaseAdmin
+        .from('support_tickets')
+        .select(`
+            id, ticket_number, subject, description, status, priority, category,
+            assigned_to, created_at, updated_at, sla_breached, sla_at_risk,
+            user:profiles!user_id ( id, username, email, avatar_url ),
+            assigned:profiles!assigned_to ( id, username, email )
+        `, { count: 'exact' });
 
-//             return {
-//                 success: true,
-//                 conversation_id: conversationId,
-//                 response: aiResponse.message,
-//                 response_type: 'ai',
-//                 escalation_needed: escalationNeeded,
-//                 confidence: aiResponse.confidence,
-//                 tokens_used: aiResponse.tokensUsed
-//             };
+    if (status && TICKET_STATUSES.includes(status)) q = q.eq('status', status);
+    if (priority && PRIORITIES.includes(priority)) q = q.eq('priority', priority);
+    if (category) q = q.eq('category', category);
+    if (assigned === 'unassigned') q = q.is('assigned_to', null);
+    else if (assigned && assigned !== 'all' && assigned !== 'me') q = q.eq('assigned_to', assigned);
 
-//         } catch (error) {
-//             console.error('Process support request error:', error);
-//             return {
-//                 success: false,
-//                 error: error.message,
-//                 escalation_needed: true
-//             };
-//         }
-//     }
+    if (search) {
+        const s = escapeLike(search);
+        q = q.or(`subject.ilike.%${s}%,ticket_number.ilike.%${s}%,description.ilike.%${s}%`);
+    }
 
-//     // ─── HANDLE DATA QUERY ───
-//     async handleDataQuery(userId, message, context) {
-//         const msg = message.toLowerCase();
+    if (sort === 'oldest') q = q.order('created_at', { ascending: true });
+    else if (sort === 'priority') q = q.order('priority', { ascending: false }).order('created_at', { ascending: false });
+    else q = q.order('updated_at', { ascending: false, nullsFirst: false });
 
-//         // Wallet balance
-//         if (msg.includes('balance') || msg.includes('wallet') && msg.includes('how much')) {
-//             return this.formatWalletBalance(context);
-//         }
+    q = q.range(offset, offset + limit - 1);
+    const { data, count, error } = await q;
+    if (error) throw serviceError('LIST_FAILED', error.message, 500);
 
-//         // Transaction history
-//         if (msg.includes('transaction') || msg.includes('history')) {
-//             return this.formatTransactions(context);
-//         }
+    // Unread count per ticket (from ticket_messages, not embedded).
+    const ids = (data || []).map(t => t.id);
+    let unreadMap = {};
+    if (ids.length) {
+        const { data: rows } = await supabaseAdmin
+            .from('ticket_messages')
+            .select('ticket_id, is_read, sender_type, is_internal')
+            .in('ticket_id', ids);
+        for (const r of rows || []) {
+            if (r.is_internal) continue;
+            if (r.sender_type === 'admin') continue;
+            if (r.is_read) continue;
+            unreadMap[r.ticket_id] = (unreadMap[r.ticket_id] || 0) + 1;
+        }
+    }
 
-//         // Withdrawal status
-//         if (msg.includes('withdrawal') || msg.includes('withdraw')) {
-//             return this.formatWithdrawals(context);
-//         }
+    const tickets = (data || []).map(t => ({
+        ...t,
+        unread_count: unreadMap[t.id] || 0,
+        last_message: null // filled below
+    }));
 
-//         // Crypto orders
-//         if (msg.includes('crypto') || msg.includes('btc') || msg.includes('usdt')) {
-//             return this.formatCryptoOrders(context);
-//         }
+    // Latest public message per ticket.
+    if (ids.length) {
+        const { data: latest } = await supabaseAdmin
+            .from('ticket_messages')
+            .select('ticket_id, message, created_at, sender_type, is_internal')
+            .in('ticket_id', ids)
+            .eq('is_internal', false)
+            .order('created_at', { ascending: false });
+        const seen = new Set();
+        for (const m of latest || []) {
+            if (seen.has(m.ticket_id)) continue;
+            seen.add(m.ticket_id);
+            const t = tickets.find(x => x.id === m.ticket_id);
+            if (t) t.last_message = m;
+        }
+    }
 
-//         // Gift orders
-//         if (msg.includes('gift') || msg.includes('send') || msg.includes('recipient')) {
-//             return this.formatGiftOrders(context);
-//         }
+    return {
+        tickets,
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+        hasNextPage: (count || 0) > offset + limit,
+        hasPreviousPage: page > 1
+    };
+}
 
-//         return null;
-//     }
+// ─── GET ONE TICKET ─────────────────────────────────────────────
+async function getTicket({ id, viewerId }) {
+    const { data: ticket, error } = await supabaseAdmin
+        .from('support_tickets')
+        .select(`
+            id, user_id, ticket_number, subject, description, status, priority, category,
+            assigned_to, created_at, updated_at, sla_breached, sla_at_risk,
+            user:profiles!user_id ( id, username, email, avatar_url, wallet_ngn, wallet_usd, status, created_at ),
+            assigned:profiles!assigned_to ( id, username, email )
+        `)
+        .eq('id', id)
+        .maybeSingle();
+    if (error) throw serviceError('GET_FAILED', error.message, 500);
+    if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
 
-//     // ─── FORMAT HELPERS ───
-//     formatWalletBalance(context) {
-//         const wallets = context?.wallet || [];
-//         if (!wallets.length) {
-//             return {
-//                 type: 'database',
-//                 message: "I couldn't find your wallet information.",
-//                 sender_type: 'system',
-//                 confidence: 0.95
-//             };
-//         }
+    const { data: messages, error: mErr } = await supabaseAdmin
+        .from('ticket_messages')
+        .select(`
+            id, message, created_at, read_at, sender_id, sender_type, is_internal, attachments,
+            sender:profiles!sender_id ( id, username, email, avatar_url, role )
+        `)
+        .eq('ticket_id', id)
+        .order('created_at', { ascending: true });
+    if (mErr) throw serviceError('MESSAGES_FAILED', mErr.message, 500);
 
-//         const summary = wallets.map(w => {
-//             const symbol = w.currency === 'USD' ? '$' : '₦';
-//             const balance = w.balance || 0;
-//             const available = balance - (w.locked_balance || 0);
-//             return `• ${w.currency} Wallet: ${symbol}${balance.toLocaleString()} (Available: ${symbol}${available.toLocaleString()})`;
-//         }).join('\n');
+    // Mark customer messages as read for the admin (best-effort).
+    try {
+        const unread = (messages || []).filter(m => !m.is_read && m.sender_type === 'user').map(m => m.id);
+        if (unread.length) {
+            await supabaseAdmin.from('ticket_messages')
+                .update({ is_read: true, read_at: new Date().toISOString() })
+                .in('id', unread);
+        }
+    } catch (_) {}
 
-//         return {
-//             type: 'database',
-//             message: `Your current wallet balances:\n\n${summary}`,
-//             sender_type: 'system',
-//             confidence: 0.95
-//         };
-//     }
+    return { ticket, messages: messages || [], viewerId: viewerId || null };
+}
 
-//     formatTransactions(context) {
-//         const transactions = context?.transactions || [];
-//         if (!transactions.length) {
-//             return {
-//                 type: 'database',
-//                 message: "You don't have any recent transactions.",
-//                 sender_type: 'system',
-//                 confidence: 0.95
-//             };
-//         }
+// ─── CREATE REPLY OR INTERNAL NOTE ──────────────────────────────
+async function createMessage({ ticketId, adminId, adminEmail, message, isInternal = false, attachments = [], req }) {
+    const body = String(message || '').trim().slice(0, 10000);
+    if (!body && (!attachments || !attachments.length)) {
+        throw serviceError('EMPTY_MESSAGE', 'Message or attachment required', 422);
+    }
 
-//         const summary = transactions.slice(0, 5).map(t => {
-//             const symbol = t.currency === 'USD' ? '$' : '₦';
-//             const emoji = t.status === 'completed' ? '✅' : 
-//                          t.status === 'pending' ? '⏳' : '❌';
-//             return `${emoji} ${t.type}: ${symbol}${(t.amount || 0).toLocaleString()} (${t.status}) - ${new Date(t.created_at).toLocaleDateString()}`;
-//         }).join('\n');
+    const { data: ticket, error: tErr } = await supabaseAdmin
+        .from('support_tickets')
+        .select('id, user_id, ticket_number, subject, status')
+        .eq('id', ticketId)
+        .maybeSingle();
+    if (tErr) throw serviceError('LOAD_FAILED', tErr.message, 500);
+    if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
+    if (ticket.status === 'closed') throw serviceError('CLOSED', 'Ticket is closed', 409);
 
-//         return {
-//             type: 'database',
-//             message: `Your recent transactions:\n\n${summary}`,
-//             sender_type: 'system',
-//             confidence: 0.95
-//         };
-//     }
+    const senderType = 'admin';
 
-//     formatWithdrawals(context) {
-//         const transactions = context?.transactions || [];
-//         const pending = transactions.filter(t => 
-//             t.type === 'withdrawal' && (t.status === 'pending' || t.status === 'processing')
-//         );
+    const { data: msg, error } = await supabaseAdmin
+        .from('ticket_messages')
+        .insert({
+            ticket_id: ticket.id,
+            sender_id: adminId,
+            sender_type: senderType,
+            message: body || '📎 Attachment',
+            attachments: attachments.length ? attachments : null,
+            is_internal: !!isInternal,
+            is_read: false,
+            created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+    if (error) throw serviceError('INSERT_FAILED', error.message, 500);
 
-//         if (!pending.length) {
-//             return {
-//                 type: 'database',
-//                 message: "You don't have any pending withdrawals.",
-//                 sender_type: 'system',
-//                 confidence: 0.95
-//             };
-//         }
+    // Update the ticket: status + timestamp.
+    const nextStatus = isInternal
+        ? (ticket.status === 'closed' ? 'in_progress' : ticket.status)
+        : 'waiting_user';
+    await supabaseAdmin
+        .from('support_tickets')
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq('id', ticket.id);
 
-//         const summary = pending.map(w => {
-//             const symbol = w.currency === 'USD' ? '$' : '₦';
-//             return `• ${symbol}${(w.amount || 0).toLocaleString()} - ${w.status === 'processing' ? 'Processing' : 'Pending'}`;
-//         }).join('\n');
+    // Notify + email the customer, but NOT for internal notes.
+    if (!isInternal) {
+        await notifyCustomer(
+            ticket.user_id,
+            `📩 Reply on ${ticket.ticket_number}`,
+            body.slice(0, 180) || '📎 Attachment',
+            `/tickets/${ticket.ticket_number}`
+        );
+        try {
+            await emailCustomer(
+                ticket.user_id,
+                `MilesSpace — Reply on ticket ${ticket.ticket_number}`,
+                `<p>Hi,</p><p>You have a new reply on <strong>${ticket.ticket_number}</strong>.</p>
+                 <p style="background:#f4f7fb;padding:12px;border-radius:8px">${body.replace(/</g,'&lt;') || '📎 Attachment'}</p>
+                 <p>Sign in to view and respond.</p>`
+            );
+        } catch (_) {}
+    }
 
-//         return {
-//             type: 'database',
-//             message: `Your pending withdrawals:\n\n${summary}\n\nWithdrawals typically complete within 1-24 hours.`,
-//             sender_type: 'system',
-//             confidence: 0.95
-//         };
-//     }
+    // Emit to authorized rooms only.
+    if (global.io) {
+        if (!isInternal) {
+            global.io.to(`user:${ticket.user_id}`).emit('support:reply', { ticket_id: ticket.id, message: msg });
+        }
+        global.io.to('admins').emit('support:updated', { ticket_id: ticket.id, status: nextStatus, is_internal: !!isInternal });
+    }
 
-//     formatCryptoOrders(context) {
-//         const orders = context?.orders || [];
-//         if (!orders.length) {
-//             return {
-//                 type: 'database',
-//                 message: "You don't have any pending crypto orders.",
-//                 sender_type: 'system',
-//                 confidence: 0.95
-//             };
-//         }
+    await writeAudit({
+        adminId, adminEmail,
+        action: isInternal ? 'SUPPORT_INTERNAL_NOTE' : 'SUPPORT_TICKET_REPLY',
+        resourceType: 'support_ticket', resourceId: ticket.id,
+        after: { message: body.slice(0, 400), is_internal: !!isInternal, status: nextStatus },
+        req
+    });
 
-//         const summary = orders.map(o => {
-//             return `• ${o.coin}: ₦${(o.amount_ngn || 0).toLocaleString()} - ${o.status}`;
-//         }).join('\n');
+    return msg;
+}
 
-//         return {
-//             type: 'database',
-//             message: `Your crypto orders:\n\n${summary}`,
-//             sender_type: 'system',
-//             confidence: 0.95
-//         };
-//     }
+// ─── CHANGE STATUS ──────────────────────────────────────────────
+async function changeStatus({ ticketId, nextStatus, adminId, adminEmail, reason = null, req }) {
+    if (!TICKET_STATUSES.includes(nextStatus)) {
+        throw serviceError('INVALID_STATUS', `Invalid status: ${nextStatus}`, 422, { allowed: TICKET_STATUSES });
+    }
+    const { data: ticket } = await supabaseAdmin
+        .from('support_tickets').select('id, user_id, ticket_number, status').eq('id', ticketId).maybeSingle();
+    if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
 
-//     formatGiftOrders(context) {
-//         const gifts = context?.gifts || [];
-//         if (!gifts.length) {
-//             return {
-//                 type: 'database',
-//                 message: "You haven't sent any gifts yet. Browse the store to send a gift!",
-//                 sender_type: 'system',
-//                 confidence: 0.95
-//             };
-//         }
+    const allowed = ALLOWED_TRANSITIONS[ticket.status] || [];
+    if (!allowed.includes(nextStatus)) {
+        throw serviceError('INVALID_TRANSITION', `Cannot move from ${ticket.status} to ${nextStatus}`, 409, { allowed });
+    }
 
-//         const summary = gifts.map(g => {
-//             const emoji = g.status === 'delivered' ? '✅' :
-//                          g.status === 'pending' ? '⏳' : '📦';
-//             return `${emoji} ${g.product_name} → ${g.recipient_name} (${g.status})`;
-//         }).join('\n');
+    const { error } = await supabaseAdmin
+        .from('support_tickets')
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq('id', ticket.id);
+    if (error) throw serviceError('UPDATE_FAILED', error.message, 500);
 
-//         return {
-//             type: 'database',
-//             message: `Your gift orders:\n\n${summary}`,
-//             sender_type: 'system',
-//             confidence: 0.95
-//         };
-//     }
+    await notifyCustomer(
+        ticket.user_id,
+        `Ticket ${ticket.ticket_number} — ${nextStatus}`,
+        `Your ticket status changed to ${nextStatus}.`,
+        `/tickets/${ticket.ticket_number}`
+    );
 
-//     // ─── CONVERSATION FUNCTIONS ───
-//     async saveConversation(userId, userMessage, response, conversationId) {
-//         try {
-//             if (conversationId) {
-//                 // Save to existing conversation
-//                 await supabaseAdmin
-//                     .from('support_messages')
-//                     .insert([
-//                         {
-//                             conversation_id: conversationId,
-//                             sender_type: 'user',
-//                             sender_id: userId,
-//                             message: userMessage,
-//                             created_at: new Date().toISOString()
-//                         },
-//                         {
-//                             conversation_id: conversationId,
-//                             sender_type: response.sender_type || 'system',
-//                             message: response.message,
-//                             metadata: { 
-//                                 confidence: response.confidence || 0,
-//                                 type: response.type || 'ai'
-//                             },
-//                             created_at: new Date().toISOString()
-//                         }
-//                     ]);
+    if (global.io) {
+        global.io.to(`user:${ticket.user_id}`).emit('support:status', { ticket_id: ticket.id, status: nextStatus });
+        global.io.to('admins').emit('support:updated', { ticket_id: ticket.id, status: nextStatus });
+    }
 
-//                 await supabaseAdmin
-//                     .from('support_conversations')
-//                     .update({
-//                         last_message_at: new Date().toISOString(),
-//                         message_count: supabaseAdmin.rpc('increment', { row_id: conversationId })
-//                     })
-//                     .eq('id', conversationId);
+    await writeAudit({
+        adminId, adminEmail,
+        action: 'SUPPORT_STATUS_CHANGED',
+        resourceType: 'support_ticket', resourceId: ticket.id,
+        before: { status: ticket.status }, after: { status: nextStatus },
+        reason, req
+    });
 
-//             } else {
-//                 // Create new conversation
-//                 const { data: conv } = await supabaseAdmin
-//                     .from('support_conversations')
-//                     .insert({
-//                         user_id: userId,
-//                         status: 'active',
-//                         category: 'general',
-//                         subject: userMessage.substring(0, 100),
-//                         created_at: new Date().toISOString(),
-//                         last_message_at: new Date().toISOString(),
-//                         message_count: 2
-//                     })
-//                     .select()
-//                     .single();
+    return { status: nextStatus };
+}
 
-//                 if (conv) {
-//                     await supabaseAdmin
-//                         .from('support_messages')
-//                         .insert([
-//                             {
-//                                 conversation_id: conv.id,
-//                                 sender_type: 'user',
-//                                 sender_id: userId,
-//                                 message: userMessage,
-//                                 created_at: new Date().toISOString()
-//                             },
-//                             {
-//                                 conversation_id: conv.id,
-//                                 sender_type: response.sender_type || 'system',
-//                                 message: response.message,
-//                                 metadata: { 
-//                                     confidence: response.confidence || 0,
-//                                     type: response.type || 'ai'
-//                                 },
-//                                 created_at: new Date().toISOString()
-//                             }
-//                         ]);
-//                 }
-//             }
-//         } catch (error) {
-//             console.error('Save conversation error:', error);
-//         }
-//     }
+// ─── ASSIGN ─────────────────────────────────────────────────────
+async function assignTicket({ ticketId, adminId, adminEmail, assignTo, reason = null, req }) {
+    const { data: target } = await supabaseAdmin
+        .from('profiles').select('id, role, status, deleted_at').eq('id', assignTo).maybeSingle();
+    if (!target) throw serviceError('AGENT_NOT_FOUND', 'Agent not found', 404);
+    if (target.deleted_at || target.status === 'suspended') {
+        throw serviceError('AGENT_INACTIVE', 'Agent is not active', 409);
+    }
+    if (!ASSIGNABLE_ROLES.includes(target.role)) {
+        throw serviceError('NOT_ASSIGNABLE', 'User cannot be assigned tickets', 422);
+    }
 
-//     async getConversationHistory(conversationId) {
-//         try {
-//             const { data, error } = await supabaseAdmin
-//                 .from('support_messages')
-//                 .select('sender_type, message, created_at')
-//                 .eq('conversation_id', conversationId)
-//                 .order('created_at', { ascending: true })
-//                 .limit(10);
+    const { data: ticket } = await supabaseAdmin
+        .from('support_tickets').select('id, user_id, ticket_number, assigned_to, status')
+        .eq('id', ticketId).maybeSingle();
+    if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
 
-//             if (error) throw error;
-//             return data || [];
-//         } catch (error) {
-//             console.error('Get conversation history error:', error);
-//             return [];
-//         }
-//     }
+    const nextStatus = ticket.status === 'open' ? 'assigned' : ticket.status;
 
-//     async createEscalation(userId, conversationId, reason) {
-//         try {
-//             await supabaseAdmin
-//                 .from('support_escalations')
-//                 .insert({
-//                     conversation_id: conversationId,
-//                     user_id: userId,
-//                     reason: reason || 'AI escalation',
-//                     escalated_by: 'ai',
-//                     escalated_at: new Date().toISOString()
-//                 });
+    const { error } = await supabaseAdmin
+        .from('support_tickets')
+        .update({ assigned_to: assignTo, status: nextStatus, updated_at: new Date().toISOString() })
+        .eq('id', ticket.id);
+    if (error) throw serviceError('UPDATE_FAILED', error.message, 500);
 
-//             // Update conversation status
-//             await supabaseAdmin
-//                 .from('support_conversations')
-//                 .update({
-//                     status: 'waiting_admin',
-//                     updated_at: new Date().toISOString()
-//                 })
-//                 .eq('id', conversationId);
-//         } catch (error) {
-//             console.error('Create escalation error:', error);
-//         }
-//     }
-// }
+    await writeAudit({
+        adminId, adminEmail,
+        action: 'SUPPORT_TICKET_ASSIGNED',
+        resourceType: 'support_ticket', resourceId: ticket.id,
+        before: { assigned_to: ticket.assigned_to },
+        after: { assigned_to: assignTo },
+        reason, req
+    });
 
-// module.exports = new SupportService();
+    if (global.io) global.io.to('admins').emit('support:updated', { ticket_id: ticket.id });
+
+    return { assigned_to: assignTo, status: nextStatus };
+}
+
+// ─── STATS ──────────────────────────────────────────────────────
+async function getStats() {
+    const counts = {};
+    for (const status of TICKET_STATUSES) counts[status] = 0;
+    try {
+        const { data, error } = await supabaseAdmin.from('support_tickets').select('status');
+        if (error) throw error;
+        let total = 0;
+        for (const row of data || []) {
+            counts[row.status] = (counts[row.status] || 0) + 1;
+            total += 1;
+        }
+        return {
+            total,
+            open: counts.open || 0,
+            assigned: counts.assigned || 0,
+            in_progress: counts.in_progress || 0,
+            waiting_user: counts.waiting_user || 0,
+            waiting_support: counts.waiting_support || 0,
+            resolved: counts.resolved || 0,
+            closed: counts.closed || 0,
+            urgent: 0, high_priority: 0, sla_breached: 0, unassigned: 0
+        };
+    } catch (e) {
+        console.error('[SUPPORT STATS] failed:', e.message);
+        return { total: 0, open: 0, assigned: 0, in_progress: 0, waiting_user: 0, waiting_support: 0, resolved: 0, closed: 0, urgent: 0, high_priority: 0, sla_breached: 0, unassigned: 0 };
+    }
+}
+
+// ─── ADMINS (assignable agents) ─────────────────────────────────
+async function listAssignableAdmins() {
+    const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('id, username, email, role, status')
+        .in('role', ASSIGNABLE_ROLES)
+        .is('deleted_at', null)
+        .neq('status', 'suspended')
+        .order('username', { ascending: true });
+    return data || [];
+}
+
+module.exports = {
+    listTickets,
+    getTicket,
+    createMessage,
+    changeStatus,
+    assignTicket,
+    getStats,
+    listAssignableAdmins,
+    TICKET_STATUSES,
+    PRIORITIES,
+    ASSIGNABLE_ROLES
+};

@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Orders · MilesSpace Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2025-admin-dash-v4"></script>
+<style>
+:root{
+  --brand-primary:#0f4c5c; --brand-primary-deep:#0a3542; --brand-primary-light:#14607a;
+  --brand-accent:#f5a623; --brand-accent-soft:#fde3ad;
+  --navy:var(--brand-primary); --navy-light:var(--brand-primary-light); --navy-deep:var(--brand-primary-deep);
+  --gold:var(--brand-accent); --gold-soft:var(--brand-accent-soft);
+  --white:#ffffff; --bg:#f4f7fb; --bg-card:rgba(255,255,255,.72);
+  --border:rgba(15,76,92,.09); --text:#0c1f26; --text-dim:#5b7480; --text-faint:#8fa3ab;
+  --success:#16a34a; --success-bg:#e9f9ef;
+  --danger:#dc2626; --danger-bg:#fdecec;
+  --warn:#f59e0b; --warn-bg:#fef3d9;
+  --info:#2563a8; --info-bg:#e8f1fb;
+  --purple:#8b5cf6; --purple-bg:#ede9fe;
+  --radius-sm:8px; --radius-md:14px; --radius-lg:20px;
+  --shadow-sm:0 1px 2px rgba(8,42,51,.06);
+  --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
+  --shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);
+  --sidebar-w:264px; --sidebar-w-collapsed:78px; --topbar-h:68px;
+  --transition:180ms cubic-bezier(.4,0,.2,1);
+}
+html.dark{
+  --bg:#08151a; --bg-card:rgba(18,38,44,.75);
+  --border:rgba(255,255,255,.08); --text:#eaf3f5;
+  --text-dim:#9db4bb; --text-faint:#5b7480;
+  --success-bg:rgba(22,163,74,.15); --danger-bg:rgba(220,38,38,.15);
+  --warn-bg:rgba(245,158,11,.15); --info-bg:rgba(37,99,168,.18); --purple-bg:rgba(139,92,246,.18);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 8px 24px -8px rgba(0,0,0,.5);
+  --shadow-lg:0 16px 48px -12px rgba(0,0,0,.6);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%} html{overflow-x:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;transition:background var(--transition),color var(--transition);overflow-x:hidden;width:100%}
+img,svg{max-width:100%}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+.mono{font-family:'JetBrains Mono',monospace}
+:focus-visible{outline:2.5px solid var(--brand-accent);outline-offset:2px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ─── Layout ─── */
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
+.app.sb-collapsed{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;transition:transform var(--transition),width var(--transition);overflow-y:auto;overflow-x:hidden;width:var(--sidebar-w)}
+.app.sb-collapsed .sidebar{width:var(--sidebar-w-collapsed)}
+.app.sb-collapsed .sidebar .brand-text,
+.app.sb-collapsed .sidebar .nav-label,
+.app.sb-collapsed .sidebar .nav-item span:not(.ic),
+.app.sb-collapsed .sidebar .who,
+.app.sb-collapsed .sidebar .chev,
+.app.sb-collapsed .sidebar .badge-count{display:none}
+.app.sb-collapsed .nav-item{justify-content:center}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand-text{display:flex;flex-direction:column;line-height:1.15}
+.brand-text strong{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+.nav-scroll{flex:1;overflow-y:auto;padding-right:2px}
+.nav-group{margin-bottom:2px}
+.nav-group-head{display:flex;align-items:center;justify-content:space-between;padding:12px 10px 5px;cursor:pointer;user-select:none;border:none;background:none;width:100%;color:inherit;font-family:inherit}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700}
+.nav-group-head .chev{font-size:9px;color:#6fa2ad;transition:transform var(--transition)}
+.nav-group.collapsed .chev{transform:rotate(-90deg)}
+.nav-group.collapsed .nav-items{display:none}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:background var(--transition),color var(--transition);white-space:nowrap;text-decoration:none}
+.nav-item .ic{width:17px;text-align:center;font-size:13.5px;flex-shrink:0}
+.nav-item:hover,.nav-item:focus-visible{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
+.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10px;font-weight:800;padding:1.5px 6px;border-radius:99px}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px;flex-shrink:0}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
+.sidebar-foot .who{display:flex;flex-direction:column;line-height:1.2}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+.sb-collapse-btn:hover{background:rgba(255,255,255,.14)}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+html.dark .hamburger{background:rgba(255,255,255,.05)}
+.sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
+html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
+@media(max-width:768px){.sb-toggle-desktop{display:none}}
+.topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:nowrap}
+.page-title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.page-title h1{margin:0;font-size:clamp(16px,2.4vw,19px);font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.breadcrumb{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.breadcrumb a{color:var(--text-faint);text-decoration:none}
+.breadcrumb a:hover{color:var(--gold)}
+.crumb{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse-dot 1.8s infinite}
+.crumb .live-dot.off{background:var(--danger);animation:none}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;color:var(--navy);font-size:15px;transition:transform var(--transition),background var(--transition)}
+html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.icon-btn:hover{transform:translateY(-1px);background:var(--gold-soft);color:var(--navy-deep)}
+.admin-chip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:99px;border:1px solid var(--border);background:var(--white);cursor:pointer}
+html.dark .admin-chip{background:rgba(255,255,255,.04)}
+.admin-chip .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-deep)}
+.admin-chip .info{display:flex;flex-direction:column;line-height:1.15}
+.admin-chip .info strong{font-size:12.3px}
+.admin-chip .info span{font-size:10.5px;color:var(--text-dim)}
+
+.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
+@media(min-width:1920px){.content{max-width:1800px;margin:0 auto}}
+
+/* ─── Header ─── */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.page-header h2{font-size:clamp(18px,2.6vw,23px);font-weight:800;letter-spacing:-.01em}
+.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:600px}
+.page-header .header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ─── Buttons ─── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);transition:background var(--transition);font-family:inherit;min-height:38px;white-space:nowrap;text-decoration:none}
+html.dark .btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.btn:hover:not(:disabled){background:var(--gold-soft);color:var(--navy-deep)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn-primary:hover:not(:disabled){background:var(--navy-light);color:#fff}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-danger:hover:not(:disabled){background:#b91c1c;color:#fff}
+.btn-sm{padding:6px 10px;font-size:11.5px;min-height:32px}
+
+/* ─── KPI grid ─── */
+.kpi-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{padding:14px 16px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);box-shadow:var(--shadow-sm);min-width:0;backdrop-filter:blur(14px)}
+.kpi .lbl{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .val{font-size:17px;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums;word-break:break-word}
+.kpi .sub{font-size:11px;color:var(--text-faint);margin-top:4px}
+
+/* ─── Filter bar ─── */
+.filters{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.filter-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.filter-row + .filter-row{margin-top:10px}
+.filter-row input,.filter-row select{border:1px solid var(--border);background:var(--white);border-radius:9px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;min-height:38px;max-width:100%}
+html.dark .filter-row input,html.dark .filter-row select{background:rgba(255,255,255,.04);color:var(--text)}
+.filter-row input[type="search"]{flex:1 1 260px;min-width:0}
+.filter-row input[type="date"]{width:auto}
+.filter-label{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}
+.active-filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--info-bg);color:var(--info);font-size:11.5px;font-weight:600}
+.chip button{border:none;background:none;color:inherit;cursor:pointer;font-size:11px;line-height:1}
+
+/* ─── Table ─── */
+.table-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;backdrop-filter:blur(10px)}
+.table-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.table-head h2{margin:0;font-size:14px;font-weight:800}
+.table-head .meta{font-size:12px;color:var(--text-dim)}
+.table-scroll{overflow-x:auto;overflow-y:auto;max-height:640px;-webkit-overflow-scrolling:touch}
+.table-hint{display:none;font-size:11px;color:var(--text-faint);padding:8px 18px 12px;text-align:center}
+table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1180px}
+thead th{text-align:left;padding:11px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;white-space:nowrap}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+tbody td.wrap{white-space:normal;max-width:240px}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover{background:rgba(245,166,35,.05)}
+tbody tr:last-child td{border-bottom:none}
+.cell-mono{font-family:'JetBrains Mono',monospace;font-size:11.5px}
+.cell-user{display:flex;flex-direction:column;line-height:1.3}
+.cell-user strong{font-size:12.5px}
+.cell-user span{font-size:11px;color:var(--text-dim)}
+.cell-provider{display:flex;flex-direction:column;line-height:1.3}
+.cell-provider .p-name{font-weight:600;text-transform:capitalize}
+.cell-provider .p-ref{font-size:10.5px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
+
+/* ─── Badges ─── */
+.badge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;text-transform:capitalize}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.purple{background:var(--purple-bg);color:var(--purple)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+
+/* ─── States ─── */
+.empty-state{text-align:center;padding:52px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:28px;margin-bottom:8px;display:block}
+.unavailable-box{text-align:center;padding:24px 14px;color:var(--text-faint)}
+.unavailable-box .ic{font-size:22px;display:block;margin-bottom:6px}
+.unavailable-box button{margin-top:10px;border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer}
+html.dark .unavailable-box button{background:rgba(255,255,255,.04);color:#dff0f2}
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ─── Pagination ─── */
+.pagination{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;font-size:12.5px;color:var(--text-dim);flex-wrap:wrap;gap:10px;border-top:1px solid var(--border)}
+.pagination .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pagination button{border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;min-height:34px}
+html.dark .pagination button{background:rgba(255,255,255,.04);color:#dff0f2}
+.pagination button:disabled{opacity:.45;cursor:not-allowed}
+.pagination select{border:1px solid var(--border);background:var(--white);color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;min-height:34px}
+html.dark .pagination select{background:rgba(255,255,255,.04);color:var(--text)}
+
+/* ─── Drawer ─── */
+.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms}
+.drawer-scrim.show{opacity:1;pointer-events:auto}
+.detail-drawer{position:fixed;top:0;right:0;height:100vh;width:min(780px,100vw);background:var(--bg);z-index:301;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform 260ms cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.detail-drawer.open{transform:translateX(0)}
+.dh{display:flex;align-items:center;gap:12px;padding:18px 20px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;flex-shrink:0}
+.dh .ic{width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dh .titles{flex:1;min-width:0}
+.dh h2{margin:0;font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dh .sub{font-size:11.5px;color:rgba(255,255,255,.75);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dh .close{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;flex-shrink:0}
+.db{flex:1;overflow-y:auto;padding:18px 20px 60px}
+.dtabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.dtab{padding:10px 14px;font-size:12.5px;font-weight:600;color:var(--text-dim);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;font-family:inherit}
+.dtab.active{color:var(--navy);border-bottom-color:var(--gold)}
+html.dark .dtab.active{color:#dff0f2}
+.dtab-panel{display:none}
+.dtab-panel.active{display:block}
+.hero{padding:16px 18px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;backdrop-filter:blur(10px)}
+.hero .amt{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.hero .lbl{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.hero .meta{font-size:11.5px;color:var(--text-faint);margin-top:3px}
+.dd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding:12px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border)}
+.dd-actions .btn{flex:1 1 auto;min-width:120px}
+.dd-section{margin-bottom:20px}
+.dd-section h4{margin:0 0 10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);padding-bottom:6px;border-bottom:1px solid var(--border)}
+.dd-field{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:12.5px;border-bottom:1px dashed var(--border)}
+.dd-field:last-child{border-bottom:none}
+.dd-field .k{color:var(--text-dim);font-weight:600;flex-shrink:0;min-width:130px}
+.dd-field .v{font-weight:700;text-align:right;word-break:break-word;overflow-wrap:anywhere;min-width:0}
+.dd-field .v.mono{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500}
+
+/* Timeline */
+.timeline{position:relative;padding-left:22px}
+.timeline::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.tl-item{position:relative;padding:10px 0}
+.tl-item::before{content:"";position:absolute;left:-22px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--gold);border:2px solid var(--bg-card)}
+.tl-item.event-failed::before{background:var(--danger)}
+.tl-item.event-completed::before{background:var(--success)}
+.tl-item.event-refund::before{background:var(--info)}
+.tl-item .what{font-size:12.5px;font-weight:700}
+.tl-item .when{font-size:11px;color:var(--text-faint);margin-top:2px}
+.tl-item .who{font-size:11px;color:var(--text-dim);margin-top:2px;font-style:italic}
+
+/* Webhook list */
+.wh-list{display:flex;flex-direction:column;gap:8px}
+.wh-item{padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)}
+.wh-item .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.wh-item .pid{font-family:'JetBrains Mono',monospace;font-size:11px}
+.wh-item .meta{font-size:11px;color:var(--text-faint);margin-top:4px;line-height:1.5}
+.wh-item .payload{margin-top:8px;padding:8px;background:var(--bg);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-dim);max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+
+/* ─── Modal ─── */
+.modal-scrim{position:fixed;inset:0;background:rgba(5,15,20,.6);backdrop-filter:blur(3px);z-index:400;display:none;align-items:center;justify-content:center;padding:14px}
+.modal-scrim.show{display:flex}
+.modal{background:var(--white);border-radius:16px;max-width:520px;width:100%;max-height:92vh;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column}
+html.dark .modal{background:#12262c;color:var(--text)}
+.modal h3{margin:0;padding:16px 20px;font-size:15px;font-weight:800;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal .body{padding:16px 20px;overflow-y:auto;flex:1}
+.modal .body .note{font-size:12.5px;color:var(--text-dim);line-height:1.55;margin-bottom:12px;padding:10px 12px;border-radius:8px;background:var(--bg)}
+.modal .body label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;margin-top:12px}
+.modal .body label:first-child{margin-top:0}
+.modal .body input,.modal .body select,.modal .body textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:14px;background:var(--white);color:var(--text);outline:none;min-height:40px}
+html.dark .modal .body input,html.dark .modal .body select,html.dark .modal .body textarea{background:rgba(255,255,255,.04);color:var(--text)}
+.modal .body textarea{min-height:80px;resize:vertical}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0}
+.modal .foot .btn{flex:1}
+@media(min-width:500px){.modal .foot .btn{flex:0 1 auto;min-width:110px}}
+
+/* ─── Toasts ─── */
+.toast-stack{position:fixed;bottom:22px;right:14px;left:14px;display:flex;flex-direction:column;gap:10px;z-index:500;pointer-events:none;align-items:flex-end}
+@media(min-width:640px){.toast-stack{left:auto;max-width:380px}}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:11px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);border-left:3px solid var(--gold);pointer-events:auto;max-width:100%;animation:tin .22s ease both}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+@keyframes tin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* ─── Mobile bottom nav ─── */
+.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:420px;height:54px;background:rgba(255,255,255,.92);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:17px;box-shadow:0 6px 22px rgba(12,61,74,.12);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
+html.dark .mnav{background:rgba(18,38,44,.92);border-color:rgba(255,255,255,.1)}
+.mni{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;font-weight:600;color:var(--text-faint);text-decoration:none;flex:1;padding:4px 0}
+.mni i{font-size:16px;padding:2px 4px;border-radius:8px}
+.mni.active{color:var(--navy)}
+html.dark .mni.active{color:#dff0f2}
+
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
+.scrim.show{display:block}
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════ */
+
+@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+@media(max-width:1100px){
+  .kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+@media(max-width:900px){
+  .app{grid-template-columns:1fr!important}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;box-shadow:var(--shadow-lg);z-index:50;height:100vh}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:flex}
+  .sb-toggle-desktop{display:none}
+  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(max-width:768px){
+  :root{--topbar-h:60px}
+  .topbar{padding:0 14px;height:60px;gap:8px}
+  .admin-chip .info{display:none}
+  .content{padding:14px 12px 80px}
+  .mnav{display:flex!important}
+  .page-header{flex-direction:column;align-items:stretch}
+  .page-header .header-actions{justify-content:flex-start}
+}
+
+@media(max-width:640px){
+  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi{padding:12px 14px}
+  .kpi .val{font-size:15px}
+  .filter-row{flex-direction:column;align-items:stretch}
+  .filter-row input,.filter-row select,.filter-row .btn{width:100%}
+  .filter-row input[type="search"]{flex:none}
+  .table-hint{display:block}
+  .pagination{flex-direction:column;align-items:stretch}
+  .pagination .controls{justify-content:space-between}
+  .pagination button{flex:1}
+  .detail-drawer{width:100vw}
+  .detail-drawer .db{padding:14px 16px 60px}
+  .detail-drawer .dh{padding:14px 16px}
+  .dd-field{flex-direction:column;gap:3px}
+  .dd-field .k{min-width:0;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+  .dd-field .v{text-align:left}
+  .modal .foot{flex-direction:column}
+  .modal .foot .btn{width:100%}
+  .dd-actions .btn{flex:1 1 100%}
+}
+
+@media(max-width:380px){
+  .kpi-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app" id="appRoot">
+
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<aside class="sidebar" id="sidebar" aria-label="Admin navigation">
+    <div class="brand">
+        <img src="../images/miles.png" alt="" onerror="this.style.display='none'">
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+        <button class="sb-collapse-btn" id="sbCollapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar"><i class="fas fa-angles-left"></i></button>
+    </div>
+    <nav class="nav-scroll" id="navScroll">
+        <div class="nav-group">
+            <div class="nav-group-head"><span class="nav-label">Overview</span></div>
+            <div class="nav-items"><a href="/admin/dashboard" class="nav-item"><span class="ic" aria-hidden="true">📊</span><span>Dashboard</span></a></div>
+        </div>
+        <div class="nav-group" data-group="customers">
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Customers</span><span class="chev" aria-hidden="true">▾</span></button>
+            <div class="nav-items">
+                <a href="/admin/users" class="nav-item"><span class="ic" aria-hidden="true">👥</span><span>Users</span><span class="badge-count" id="usersBadge">0</span></a>
+                <a href="/admin/support" class="nav-item"><span class="ic" aria-hidden="true">💬</span><span>Support</span><span class="badge-count" id="supportBadge">0</span></a>
+            </div>
+        </div>
+        <div class="nav-group" data-group="money">
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Money</span><span class="chev" aria-hidden="true">▾</span></button>
+            <div class="nav-items">
+                <a href="/admin/transactions" class="nav-item"><span class="ic" aria-hidden="true">💳</span><span>Transactions</span></a>
+                <a href="/admin/deposits" class="nav-item"><span class="ic" aria-hidden="true">📥</span><span>Deposits</span></a>
+                <a href="/admin/ledger" class="nav-item"><span class="ic" aria-hidden="true">📒</span><span>Ledger</span></a>
+                <a href="/admin/reconciliation" class="nav-item"><span class="ic" aria-hidden="true">🔄</span><span>Reconciliation</span></a>
+            </div>
+        </div>
+        <div class="nav-group" data-group="services">
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Services</span><span class="chev" aria-hidden="true">▾</span></button>
+            <div class="nav-items">
+                <a href="/admin/sellgift" class="nav-item"><span class="ic" aria-hidden="true">🎁</span><span>Gift Cards</span></a>
+                <a href="/admin/airtime-data" class="nav-item"><span class="ic" aria-hidden="true">📶</span><span>Airtime &amp; Data</span></a>
+                <a href="/admin/bills" class="nav-item"><span class="ic" aria-hidden="true">🧾</span><span>Bills &amp; Utilities</span></a>
+                <a href="/admin/esim" class="nav-item"><span class="ic" aria-hidden="true">📡</span><span>eSIM</span></a>
+                <a href="/admin/virtual-sms" class="nav-item"><span class="ic" aria-hidden="true">📱</span><span>Virtual SMS</span></a>
+                <a href="/admin/boost" class="nav-item"><span class="ic" aria-hidden="true">📈</span><span>Boost</span></a>
+                <a href="/admin/marketplace-products" class="nav-item"><span class="ic" aria-hidden="true">📦</span><span>Marketplace</span></a>
+            </div>
+        </div>
+        <div class="nav-group" data-group="operations">
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Operations</span><span class="chev" aria-hidden="true">▾</span></button>
+            <div class="nav-items">
+                <a href="/admin/orders" class="nav-item active" aria-current="page"><span class="ic" aria-hidden="true">🧮</span><span>Orders</span></a>
+                <a href="/admin/orders?status=failed" class="nav-item"><span class="ic" aria-hidden="true">⚠️</span><span>Failed Orders</span></a>
+                <a href="/admin/providers" class="nav-item"><span class="ic" aria-hidden="true">🔌</span><span>Providers</span></a>
+                <a href="/admin/webhooks" class="nav-item"><span class="ic" aria-hidden="true">🪝</span><span>Webhooks</span></a>
+            </div>
+        </div>
+        <div class="nav-group collapsed" data-group="analytics">
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">Analytics</span><span class="chev" aria-hidden="true">▾</span></button>
+            <div class="nav-items">
+                <a href="/admin/revenue" class="nav-item"><span class="ic" aria-hidden="true">💹</span><span>Revenue</span></a>
+                <a href="/admin/reports" class="nav-item"><span class="ic" aria-hidden="true">📄</span><span>Reports</span></a>
+            </div>
+        </div>
+        <div class="nav-group collapsed" data-group="system">
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">System</span><span class="chev" aria-hidden="true">▾</span></button>
+            <div class="nav-items">
+                <a href="/admin/notifications" class="nav-item"><span class="ic" aria-hidden="true">🔔</span><span>Notifications</span><span class="badge-count" id="notifSidebarBadge">0</span></a>
+                <a href="/admin/settings" class="nav-item"><span class="ic" aria-hidden="true">⚙️</span><span>Settings</span></a>
+            </div>
+        </div>
+    </nav>
+    <div class="sidebar-foot">
+        <div class="av" id="adminAvatar">DA</div>
+        <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
+    </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<!-- ═══════════════════════ MAIN ═══════════════════════ -->
+<div class="main">
+    <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <button class="sb-toggle-desktop" id="sbToggleDesktop" aria-label="Toggle sidebar width"><i class="fas fa-bars"></i></button>
+        <div class="topbar-left">
+            <div class="page-title">
+                <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/admin/dashboard">Home</a><span aria-hidden="true">/</span><span>Operations</span><span aria-hidden="true">/</span><span aria-current="page">Orders</span></nav>
+                <h1>Orders</h1>
+                <div class="crumb"><span class="live-dot" id="liveDot"></span><span id="liveDotLabel">Checking…</span> · <span id="lastUpdated">never</span></div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <button class="icon-btn" title="Notifications" aria-label="Notifications" onclick="window.location.href='/admin/notifications'">🔔<span class="badge-count" id="notifCount" style="position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;min-width:18px;text-align:center">0</span></button>
+            <button class="icon-btn" id="darkToggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+            <div class="admin-chip" id="adminChip" role="button" tabindex="0" aria-label="Admin menu, sign out">
+                <div class="av" id="chipAvatar">DA</div>
+                <div class="info"><strong id="chipName">Admin</strong><span id="chipRole">Admin</span></div>
+                <span aria-hidden="true" style="font-size:10px;color:var(--text-faint);">▾</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="content">
+
+        <div class="page-header">
+            <div>
+                <h2>Orders</h2>
+                <div class="sub">Central order control. Trace any order from wallet debit to provider, webhook, completion, and refund.</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn" id="refreshBtn"><i class="fas fa-rotate-right"></i> Refresh</button>
+                <button class="btn" id="exportBtn"><i class="fas fa-download"></i> Export CSV</button>
+                <button class="btn btn-primary" id="syncPendingBtn"><i class="fas fa-arrows-rotate"></i> Sync pending</button>
+            </div>
+        </div>
+
+        <!-- ═══ KPI grid ═══ -->
+        <div class="kpi-grid" id="kpiGrid">
+            <div class="kpi"><div class="lbl">Total Orders</div><div class="val" id="kpi-total"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+            <div class="kpi"><div class="lbl">Pending</div><div class="val" id="kpi-pending"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+            <div class="kpi"><div class="lbl">Processing</div><div class="val" id="kpi-processing"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+            <div class="kpi"><div class="lbl">Completed</div><div class="val" id="kpi-completed"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+            <div class="kpi"><div class="lbl">Failed</div><div class="val" id="kpi-failed"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+            <div class="kpi"><div class="lbl">Refunded</div><div class="val" id="kpi-refunded"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+            <div class="kpi"><div class="lbl">Revenue</div><div class="val" id="kpi-revenue"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+            <div class="kpi"><div class="lbl">Refunds</div><div class="val" id="kpi-refunds"><span class="skel" style="width:60%;display:inline-block;height:20px"></span></div></div>
+        </div>
+
+        <!-- ═══ Filters ═══ -->
+        <div class="filters">
+            <div class="filter-row">
+                <input type="search" id="fSearch" placeholder="Search order ref, provider ID, customer email, username…">
+                <select id="fStatus">
+                    <option value="all">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="processing">Processing</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="partial">Partial</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="refunding">Refunding</option>
+                    <option value="refunded">Refunded</option>
+                    <option value="expired">Expired</option>
+                    <option value="manual_review">Manual review</option>
+                    <option value="provider_unknown">Provider unknown</option>
+                </select>
+                <select id="fPayment">
+                    <option value="all">All payment states</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="failed">Failed</option>
+                    <option value="refunded">Refunded</option>
+                    <option value="partially_refunded">Partially refunded</option>
+                </select>
+                <select id="fProduct">
+                    <option value="all">All products</option>
+                    <option value="airtime">Airtime</option>
+                    <option value="data">Data</option>
+                    <option value="electricity">Electricity</option>
+                    <option value="tv">Cable TV</option>
+                    <option value="esim">eSIM</option>
+                    <option value="virtual_sms">Virtual SMS</option>
+                    <option value="gift_card">Gift Card</option>
+                    <option value="boost">Boost</option>
+                    <option value="crypto">Crypto</option>
+                    <option value="marketplace">Marketplace</option>
+                </select>
+                <select id="fProvider">
+                    <option value="all">All providers</option>
+                    <option value="smmwiz">SMMWiz</option>
+                    <option value="dtone">DT One</option>
+                    <option value="vtpass">VTpass</option>
+                    <option value="korapay">KoraPay</option>
+                    <option value="nowpayments">NowPayments</option>
+                </select>
+                <select id="fCurrency">
+                    <option value="all">All currencies</option>
+                    <option value="NGN">NGN</option>
+                    <option value="USD">USD</option>
+                </select>
+                <input type="date" id="fFrom" aria-label="From date">
+                <input type="date" id="fTo" aria-label="To date">
+            </div>
+            <div class="filter-row">
+                <span class="filter-label">Quick</span>
+                <button class="btn btn-sm" data-quick="failed_only">Failed only</button>
+                <button class="btn btn-sm" data-quick="provider_failed">Provider failed</button>
+                <button class="btn btn-sm" data-quick="webhook_failed">Webhook failed</button>
+                <button class="btn btn-sm" data-quick="manual_review">Manual review</button>
+                <button class="btn btn-sm" data-quick="today">Today</button>
+                <button class="btn btn-sm" data-quick="7d">7d</button>
+                <button class="btn btn-sm" data-quick="30d">30d</button>
+                <button class="btn btn-sm" data-quick="clear" style="margin-left:auto">Clear all</button>
+            </div>
+            <div class="active-filters" id="activeFilters"></div>
+        </div>
+
+        <!-- ═══ Table ═══ -->
+        <div class="table-card">
+            <div class="table-head">
+                <h2>Orders</h2>
+                <div class="meta" id="tableMeta">—</div>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Customer</th>
+                            <th>Product</th>
+                            <th>Provider</th>
+                            <th>Amount</th>
+                            <th>Payment</th>
+                            <th>Status</th>
+                            <th>Provider status</th>
+                            <th>Webhook</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersBody"></tbody>
+                </table>
+            </div>
+            <div class="table-hint">↔ Swipe to see more columns</div>
+            <div class="pagination">
+                <div id="pageInfo">—</div>
+                <div class="controls">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+                        Rows
+                        <select id="pageSize">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                    <button id="prevBtn" disabled>← Previous</button>
+                    <button id="nextBtn" disabled>Next →</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+</div>
+
+<!-- ═══ Drawer ═══ -->
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="detail-drawer" id="drawer" role="dialog" aria-modal="true">
+    <div class="dh">
+        <div class="ic" id="dIcon">🧾</div>
+        <div class="titles"><h2 id="dTitle">Order</h2><div class="sub" id="dSub"></div></div>
+        <button class="close" id="dClose" aria-label="Close">✕</button>
+    </div>
+    <div class="db" id="dBody"></div>
+</aside>
+
+<!-- ═══ Modal ═══ -->
+<div class="modal-scrim" id="modalScrim">
+    <div class="modal" role="dialog" aria-modal="true">
+        <h3 id="mTitle">Action</h3>
+        <div class="body" id="mBody"></div>
+        <div class="foot">
+            <button class="btn" id="mCancel">Cancel</button>
+            <button class="btn btn-primary" id="mConfirm">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+<nav class="mnav" aria-label="Mobile navigation">
+    <a href="/admin/dashboard" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
+    <a href="/admin/orders" class="mni active"><i class="fas fa-receipt"></i><span>Orders</span></a>
+    <a href="/admin/users" class="mni"><i class="fas fa-users"></i><span>Users</span></a>
+    <a href="/admin/deposits" class="mni"><i class="fas fa-wallet"></i><span>Money</span></a>
+    <a href="/admin/settings" class="mni"><i class="fas fa-cog"></i><span>Settings</span></a>
+</nav>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════
+   MilesSpace Admin — Central Orders
+   ════════════════════════════════════════════════════════════════ */
+
+const API = {
+    orders:         '/api/admin/orders',
+    order:          id => `/api/admin/orders/${encodeURIComponent(id)}`,
+    orderStats:     '/api/admin/orders/stats',
+    orderSync:      id => `/api/admin/orders/${encodeURIComponent(id)}/sync`,
+    orderStatus:    id => `/api/admin/orders/${encodeURIComponent(id)}/status`,
+    orderRefund:    id => `/api/admin/orders/${encodeURIComponent(id)}/refund`,
+    orderRetry:     id => `/api/admin/orders/${encodeURIComponent(id)}/retry`,
+    orderCancel:    id => `/api/admin/orders/${encodeURIComponent(id)}/cancel`,
+    orderNote:      id => `/api/admin/orders/${encodeURIComponent(id)}/note`,
+    orderProvider:  id => `/api/admin/orders/${encodeURIComponent(id)}/provider-status`,
+    syncPending:    '/api/admin/orders/sync-pending',
+    exportCsv:      '/api/admin/orders/export',
+    me:             '/api/admin/me'
+};
+
+const CURRENCY_SYMBOLS = { NGN: '₦', USD: '$', GHS: 'GH₵', KES: 'KSh', ZAR: 'R' };
+
+const State = {
+    page: 1,
+    limit: 25,
+    totalPages: 1,
+    count: 0,
+    filters: {},
+    currentOrder: null
+};
+
+/* ─── helpers ─── */
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+function formatMoney(v, ccy) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    const c = String(ccy || '').toUpperCase();
+    return (CURRENCY_SYMBOLS[c] || (c ? c + ' ' : '')) + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function formatNumber(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toLocaleString('en-US') : null;
+}
+function timeAgo(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+    return new Date(iso).toLocaleDateString();
+}
+function formatDateTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function statusBadge(status) {
+    const s = String(status || '').toLowerCase();
+    if (s === 'completed') return 'success';
+    if (['failed','cancelled','expired'].includes(s)) return 'danger';
+    if (s === 'refunded') return 'info';
+    if (['manual_review','provider_unknown'].includes(s)) return 'purple';
+    if (['pending','paid','processing','in_progress','partial','refunding'].includes(s)) return 'warn';
+    return 'neutral';
+}
+function paymentBadge(p) {
+    const s = String(p || '').toLowerCase();
+    if (s === 'paid') return 'success';
+    if (['failed','unpaid'].includes(s)) return 'danger';
+    if (p === 'refunded' || p === 'partially_refunded') return 'info';
+    if (s === 'pending') return 'warn';
+    return 'neutral';
+}
+function webhookBadge(w) {
+    const s = String(w || '').toLowerCase();
+    if (s === 'processed') return 'success';
+    if (s === 'failed') return 'danger';
+    if (s === 'received' || s === 'processing') return 'warn';
+    return 'neutral';
+}
+function showToast(msg, type = 'info') {
+    const stack = document.getElementById('toastStack');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 3400);
+}
+function toggleNavGroup(head) {
+    const g = head.closest('.nav-group');
+    g.classList.toggle('collapsed');
+    head.setAttribute('aria-expanded', String(!g.classList.contains('collapsed')));
+    try { localStorage.setItem('navgroup:' + g.dataset.group, g.classList.contains('collapsed') ? 'collapsed' : 'open'); } catch (e) {}
+}
+function updateLiveStatus(state) {
+    const dot = document.getElementById('liveDot');
+    const lbl = document.getElementById('liveDotLabel');
+    const upd = document.getElementById('lastUpdated');
+    if (!dot || !lbl || !upd) return;
+    if (state === 'live') {
+        dot.classList.remove('off');
+        lbl.textContent = 'Live data';
+        upd.textContent = formatDateTime(new Date().toISOString());
+    } else {
+        dot.classList.add('off');
+        lbl.textContent = 'Unable to update';
+    }
+}
+
+async function api(url, opts = {}) {
+    try {
+        const res = await AdminSession.fetch(url, opts);
+        let json = null;
+        try { json = await res.json(); } catch {}
+        if (!res.ok || json?.success === false) {
+            return { ok: false, status: res.status, code: json?.code, error: json?.error || json?.message || 'Request failed' };
+        }
+        return { ok: true, data: json };
+    } catch (e) {
+        return { ok: false, status: 0, code: 'NETWORK_ERROR', error: 'Network error' };
+    }
+}
+
+/* ─── Sidebar (mobile) ─── */
+function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('scrim').classList.add('show');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('scrim').classList.remove('show');
+}
+
+/* ─── Read URL query params on load (so /admin/orders?status=failed works) ─── */
+function readUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const payment = params.get('payment_status');
+    const provider = params.get('provider');
+    const product = params.get('product_type') || params.get('product');
+    const currency = params.get('currency');
+    const from = params.get('from');
+    const to = params.get('to');
+    const search = params.get('search');
+
+    if (status) { State.filters.status = status; document.getElementById('fStatus').value = status; }
+    if (payment) { State.filters.payment_status = payment; document.getElementById('fPayment').value = payment; }
+    if (provider) { State.filters.provider = provider; document.getElementById('fProvider').value = provider; }
+    if (product) { State.filters.product_type = product; document.getElementById('fProduct').value = product; }
+    if (currency) { State.filters.currency = currency; document.getElementById('fCurrency').value = currency; }
+    if (from) { State.filters.from = from; document.getElementById('fFrom').value = from; }
+    if (to) { State.filters.to = to; document.getElementById('fTo').value = to; }
+    if (search) { State.filters.search = search; document.getElementById('fSearch').value = search; }
+}
+
+/* ─── Query ─── */
+function buildQuery() {
+    const q = new URLSearchParams();
+    q.set('page', State.page);
+    q.set('limit', State.limit);
+    const f = State.filters;
+    if (f.search) q.set('search', f.search);
+    if (f.status && f.status !== 'all') q.set('status', f.status);
+    if (f.payment_status && f.payment_status !== 'all') q.set('payment_status', f.payment_status);
+    if (f.product_type && f.product_type !== 'all') q.set('product_type', f.product_type);
+    if (f.provider && f.provider !== 'all') q.set('provider', f.provider);
+    if (f.currency && f.currency !== 'all') q.set('currency', f.currency);
+    if (f.from) q.set('from', f.from);
+    if (f.to) q.set('to', f.to);
+    if (f.failed_only) q.set('failed_only', 'true');
+    if (f.provider_failed) q.set('provider_failed', 'true');
+    if (f.webhook_failed) q.set('webhook_failed', 'true');
+    if (f.manual_review) q.set('manual_review', 'true');
+    return q.toString();
+}
+
+/* ─── KPI / Stats ─── */
+async function loadStats() {
+    const qs = new URLSearchParams();
+    if (State.filters.from) qs.set('from', State.filters.from);
+    if (State.filters.to) qs.set('to', State.filters.to);
+    const { ok, data } = await api(API.orderStats + (qs.toString() ? '?' + qs.toString() : ''));
+    if (!ok) {
+        ['kpi-total','kpi-pending','kpi-processing','kpi-completed','kpi-failed','kpi-refunded','kpi-revenue','kpi-refunds']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = 'Unavailable'; });
+        return;
+    }
+    const s = data.stats || {};
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('kpi-total', formatNumber(s.totalOrders) ?? '0');
+    set('kpi-pending', formatNumber(s.pending) ?? '0');
+    set('kpi-processing', formatNumber(Number(s.processing || 0) + Number(s.paid || 0)) ?? '0');
+    set('kpi-completed', formatNumber(s.completed) ?? '0');
+    set('kpi-failed', formatNumber(s.failed) ?? '0');
+    set('kpi-refunded', formatNumber(s.refunded) ?? '0');
+    const revEl = document.getElementById('kpi-revenue');
+    if (revEl) {
+        if (!s.available) revEl.textContent = 'Unavailable';
+        else {
+            const parts = [];
+            const ngn = formatMoney(s.totalRevenueNgn, 'NGN');
+            const usd = formatMoney(s.totalRevenueUsd, 'USD');
+            if (ngn && Number(s.totalRevenueNgn) > 0) parts.push(ngn);
+            if (usd && Number(s.totalRevenueUsd) > 0) parts.push(usd);
+            revEl.textContent = parts.length ? parts.join(' · ') : '—';
+        }
+    }
+    const refEl = document.getElementById('kpi-refunds');
+    if (refEl) {
+        if (!s.available) refEl.textContent = 'Unavailable';
+        else {
+            const parts = [];
+            const ngn = formatMoney(s.totalRefundedNgn, 'NGN');
+            const usd = formatMoney(s.totalRefundedUsd, 'USD');
+            if (ngn && Number(s.totalRefundedNgn) > 0) parts.push(ngn);
+            if (usd && Number(s.totalRefundedUsd) > 0) parts.push(usd);
+            refEl.textContent = parts.length ? parts.join(' · ') : '—';
+        }
+    }
+}
+
+/* ─── Orders list ─── */
+function renderSkeleton() {
+    const tb = document.getElementById('ordersBody');
+    tb.innerHTML = Array.from({ length: 8 }).map(() =>
+        `<tr><td colspan="10"><span class="skel" style="width:70%;display:inline-block"></span></td></tr>`
+    ).join('');
+}
+
+function renderOrders(rows) {
+    const tb = document.getElementById('ordersBody');
+    if (!rows.length) {
+        tb.innerHTML = `<tr><td colspan="10"><div class="empty-state"><span class="ic">📭</span>No orders match your filters</div></td></tr>`;
+        return;
+    }
+    tb.innerHTML = rows.map(o => {
+        const amt = formatMoney(o.total_amount, o.currency) || '—';
+        const who = o.user || { username: 'Unknown', email: '' };
+        return `<tr data-id="${escapeHtml(o.id)}">
+            <td>
+                <div class="cell-mono">${escapeHtml(o.order_ref)}</div>
+                <div style="font-size:10.5px;color:var(--text-faint);margin-top:2px">${escapeHtml(o.product_name || o.product_type || '')}</div>
+            </td>
+            <td><div class="cell-user"><strong>${escapeHtml(who.username)}</strong><span>${escapeHtml(who.email || '')}</span></div></td>
+            <td>${escapeHtml(o.product_name || o.product_type || '—')}</td>
+            <td><div class="cell-provider"><span class="p-name">${escapeHtml(o.provider || '—')}</span>${o.provider_order_id ? `<span class="p-ref">${escapeHtml(o.provider_order_id)}</span>` : ''}</div></td>
+            <td style="font-weight:700;font-variant-numeric:tabular-nums">${escapeHtml(amt)}</td>
+            <td><span class="badge ${paymentBadge(o.payment_status)}">${escapeHtml(o.payment_status || '—')}</span></td>
+            <td><span class="badge ${statusBadge(o.status)}">${escapeHtml(o.status)}</span></td>
+            <td>${o.provider_status ? `<span class="badge neutral">${escapeHtml(o.provider_status)}</span>` : '—'}</td>
+            <td>${o.webhook_status ? `<span class="badge ${webhookBadge(o.webhook_status)}">${escapeHtml(o.webhook_status)}</span>` : '<span style="color:var(--text-faint)">—</span>'}</td>
+            <td title="${escapeHtml(formatDateTime(o.created_at))}">${escapeHtml(timeAgo(o.created_at))}</td>
+        </tr>`;
+    }).join('');
+    tb.querySelectorAll('tr[data-id]').forEach(tr => {
+        tr.addEventListener('click', () => openOrder(tr.dataset.id));
+    });
+}
+
+async function loadOrders() {
+    renderSkeleton();
+    const { ok, data, error } = await api(API.orders + '?' + buildQuery());
+    if (!ok) {
+        document.getElementById('ordersBody').innerHTML =
+            `<tr><td colspan="10"><div class="unavailable-box"><span class="ic">⚠️</span>${escapeHtml(error)}<br><button onclick="loadOrders()">Retry</button></div></td></tr>`;
+        updateLiveStatus('down');
+        return;
+    }
+    updateLiveStatus('live');
+    const rows = data.orders || [];
+    State.count = data.count || 0;
+    State.totalPages = data.totalPages || 1;
+    renderOrders(rows);
+    document.getElementById('tableMeta').textContent =
+        State.count ? `${State.count.toLocaleString()} order${State.count === 1 ? '' : 's'} found` : 'No results';
+    document.getElementById('pageInfo').textContent = State.count
+        ? `Showing ${(State.page - 1) * State.limit + 1}–${Math.min(State.page * State.limit, State.count)} of ${State.count}`
+        : '—';
+    document.getElementById('prevBtn').disabled = State.page <= 1;
+    document.getElementById('nextBtn').disabled = State.page >= State.totalPages;
+}
+
+/* ─── Filter bar ─── */
+function renderActiveFilters() {
+    const wrap = document.getElementById('activeFilters');
+    const f = State.filters;
+    const chips = [];
+    if (f.search) chips.push({ k: 'search', label: `Search: ${f.search}` });
+    if (f.status && f.status !== 'all') chips.push({ k: 'status', label: `Status: ${f.status}` });
+    if (f.payment_status && f.payment_status !== 'all') chips.push({ k: 'payment_status', label: `Payment: ${f.payment_status}` });
+    if (f.product_type && f.product_type !== 'all') chips.push({ k: 'product_type', label: `Product: ${f.product_type}` });
+    if (f.provider && f.provider !== 'all') chips.push({ k: 'provider', label: `Provider: ${f.provider}` });
+    if (f.currency && f.currency !== 'all') chips.push({ k: 'currency', label: `Currency: ${f.currency}` });
+    if (f.from) chips.push({ k: 'from', label: `From: ${f.from}` });
+    if (f.to) chips.push({ k: 'to', label: `To: ${f.to}` });
+    if (f.failed_only) chips.push({ k: 'failed_only', label: 'Failed only' });
+    if (f.provider_failed) chips.push({ k: 'provider_failed', label: 'Provider failed' });
+    if (f.webhook_failed) chips.push({ k: 'webhook_failed', label: 'Webhook failed' });
+    if (f.manual_review) chips.push({ k: 'manual_review', label: 'Manual review' });
+
+    if (!chips.length) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = chips.map(c =>
+        `<span class="chip">${escapeHtml(c.label)} <button data-clear="${escapeHtml(c.k)}" aria-label="Remove filter">✕</button></span>`
+    ).join('');
+    wrap.querySelectorAll('[data-clear]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const k = btn.dataset.clear;
+            if (k === 'search') { State.filters.search = ''; document.getElementById('fSearch').value = ''; }
+            else if (k === 'status') { State.filters.status = 'all'; document.getElementById('fStatus').value = 'all'; }
+            else if (k === 'payment_status') { State.filters.payment_status = 'all'; document.getElementById('fPayment').value = 'all'; }
+            else if (k === 'product_type') { State.filters.product_type = 'all'; document.getElementById('fProduct').value = 'all'; }
+            else if (k === 'provider') { State.filters.provider = 'all'; document.getElementById('fProvider').value = 'all'; }
+            else if (k === 'currency') { State.filters.currency = 'all'; document.getElementById('fCurrency').value = 'all'; }
+            else if (k === 'from') { State.filters.from = ''; document.getElementById('fFrom').value = ''; }
+            else if (k === 'to') { State.filters.to = ''; document.getElementById('fTo').value = ''; }
+            else { State.filters[k] = false; }
+            State.page = 1;
+            renderActiveFilters();
+            loadOrders();
+            loadStats();
+        });
+    });
+}
+
+function readFilters() {
+    State.filters = {
+        ...State.filters,
+        search: document.getElementById('fSearch').value.trim(),
+        status: document.getElementById('fStatus').value,
+        payment_status: document.getElementById('fPayment').value,
+        product_type: document.getElementById('fProduct').value,
+        provider: document.getElementById('fProvider').value,
+        currency: document.getElementById('fCurrency').value,
+        from: document.getElementById('fFrom').value,
+        to: document.getElementById('fTo').value
+    };
+    State.page = 1;
+}
+
+/* ─── Drawer ─── */
+function openDrawer() {
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawerScrim').classList.add('show');
+}
+function closeDrawer() {
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawerScrim').classList.remove('show');
+    State.currentOrder = null;
+}
+
+async function openOrder(id) {
+    document.getElementById('dTitle').textContent = 'Loading…';
+    document.getElementById('dSub').textContent = '';
+    document.getElementById('dBody').innerHTML = '<div class="empty-state">Loading order…</div>';
+    openDrawer();
+    const { ok, data, error } = await api(API.order(id));
+    if (!ok) {
+        document.getElementById('dBody').innerHTML = `<div class="unavailable-box"><span class="ic">⚠️</span>${escapeHtml(error)}</div>`;
+        return;
+    }
+    State.currentOrder = data.order;
+    renderDrawer(data);
+}
+
+function renderDrawer(data) {
+    const o = data.order;
+    document.getElementById('dTitle').textContent = o.order_ref;
+    document.getElementById('dSub').textContent = `${o.product_name || o.product_type || ''} · ${o.user?.username || ''}`;
+
+    const amt = formatMoney(o.total_amount, o.currency) || '—';
+    const heroHtml = `
+        <div class="hero">
+            <div>
+                <div class="lbl">Total paid</div>
+                <div class="amt">${escapeHtml(amt)}</div>
+                <div class="meta">${escapeHtml(o.product_name || o.product_type || '')} · Qty ${formatNumber(o.quantity) || '—'}</div>
+            </div>
+            <div style="text-align:right">
+                <span class="badge ${statusBadge(o.status)}" style="font-size:11.5px;padding:5px 12px">${escapeHtml(o.status)}</span>
+                <div class="meta" style="margin-top:6px">${escapeHtml(formatDateTime(o.created_at))}</div>
+            </div>
+        </div>`;
+
+    const actionsHtml = buildActions(o);
+
+    document.getElementById('dBody').innerHTML = `
+        ${heroHtml}
+        ${actionsHtml}
+        <div class="dtabs">
+            <button class="dtab active" data-tab="overview">Overview</button>
+            <button class="dtab" data-tab="payment">Payment</button>
+            <button class="dtab" data-tab="provider">Provider</button>
+            <button class="dtab" data-tab="webhooks">Webhooks (${(data.webhooks || []).length})</button>
+            <button class="dtab" data-tab="timeline">Timeline (${(data.events || []).length})</button>
+            <button class="dtab" data-tab="refund">Refund</button>
+            <button class="dtab" data-tab="admin">Admin</button>
+        </div>
+        <div class="dtab-panel active" data-panel="overview">${renderOverviewTab(data)}</div>
+        <div class="dtab-panel" data-panel="payment">${renderPaymentTab(data)}</div>
+        <div class="dtab-panel" data-panel="provider">${renderProviderTab(data)}</div>
+        <div class="dtab-panel" data-panel="webhooks">${renderWebhooksTab(data)}</div>
+        <div class="dtab-panel" data-panel="timeline">${renderTimelineTab(data)}</div>
+        <div class="dtab-panel" data-panel="refund">${renderRefundTab(data)}</div>
+        <div class="dtab-panel" data-panel="admin">${renderAdminTab(data)}</div>
+    `;
+
+    document.querySelectorAll('.dtab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.dtab-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelector(`.dtab-panel[data-panel="${tab.dataset.tab}"]`)?.classList.add('active');
+        });
+    });
+
+    document.getElementById('actSync')?.addEventListener('click', () => doSync(o));
+    document.getElementById('actStatus')?.addEventListener('click', () => openStatusModal(o));
+    document.getElementById('actRefund')?.addEventListener('click', () => openRefundModal(o));
+    document.getElementById('actRetry')?.addEventListener('click', () => openRetryModal(o));
+    document.getElementById('actCancel')?.addEventListener('click', () => openCancelModal(o));
+    document.getElementById('actNote')?.addEventListener('click', () => openNoteModal(o));
+    document.getElementById('actViewUser')?.addEventListener('click', () => {
+        window.location.href = `/admin/users?id=${encodeURIComponent(o.user_id)}`;
+    });
+    document.getElementById('actProviderStatus')?.addEventListener('click', () => doProviderStatus(o));
+}
+
+function buildActions(o) {
+    const s = String(o.status || '').toLowerCase();
+    const buttons = [];
+    if (!['completed','refunded','expired'].includes(s)) {
+        buttons.push(`<button class="btn" id="actSync"><i class="fas fa-sync"></i> Sync provider</button>`);
+        buttons.push(`<button class="btn" id="actStatus"><i class="fas fa-exchange-alt"></i> Change status</button>`);
+    }
+    if (['failed','cancelled','partial','completed','manual_review'].includes(s) && o.refund_status !== 'refunded') {
+        buttons.push(`<button class="btn btn-danger" id="actRefund"><i class="fas fa-rotate-left"></i> Refund</button>`);
+    }
+    if (['failed','cancelled','expired'].includes(s)) {
+        buttons.push(`<button class="btn" id="actRetry"><i class="fas fa-redo"></i> Retry</button>`);
+    }
+    if (['pending','paid','processing','in_progress'].includes(s)) {
+        buttons.push(`<button class="btn" id="actCancel"><i class="fas fa-ban"></i> Cancel</button>`);
+    }
+    buttons.push(`<button class="btn" id="actNote"><i class="fas fa-sticky-note"></i> Note</button>`);
+    buttons.push(`<button class="btn" id="actViewUser"><i class="fas fa-user"></i> View user</button>`);
+    return `<div class="dd-actions">${buttons.join('')}</div>`;
+}
+
+function renderOverviewTab(data) {
+    const o = data.order;
+    return `
+        <div class="dd-section">
+            <h4>Order</h4>
+            <div class="dd-field"><span class="k">Order ref</span><span class="v mono">${escapeHtml(o.order_ref)}</span></div>
+            <div class="dd-field"><span class="k">Internal ID</span><span class="v mono">${escapeHtml(o.id)}</span></div>
+            <div class="dd-field"><span class="k">Product</span><span class="v">${escapeHtml(o.product_name || '—')}</span></div>
+            <div class="dd-field"><span class="k">Service</span><span class="v">${escapeHtml(o.service_type || '—')}</span></div>
+            <div class="dd-field"><span class="k">Quantity</span><span class="v">${formatNumber(o.quantity) || '—'}</span></div>
+            <div class="dd-field"><span class="k">Amount</span><span class="v">${formatMoney(o.amount, o.currency) || '—'}</span></div>
+            <div class="dd-field"><span class="k">Fee</span><span class="v">${formatMoney(o.fee, o.currency) || '—'}</span></div>
+            <div class="dd-field"><span class="k">Total</span><span class="v">${formatMoney(o.total_amount, o.currency) || '—'}</span></div>
+            <div class="dd-field"><span class="k">Currency</span><span class="v">${escapeHtml(o.currency || '—')}</span></div>
+            <div class="dd-field"><span class="k">Created</span><span class="v">${escapeHtml(formatDateTime(o.created_at))}</span></div>
+            <div class="dd-field"><span class="k">Updated</span><span class="v">${escapeHtml(formatDateTime(o.updated_at))}</span></div>
+            ${o.completed_at ? `<div class="dd-field"><span class="k">Completed</span><span class="v">${escapeHtml(formatDateTime(o.completed_at))}</span></div>` : ''}
+            ${o.failed_at ? `<div class="dd-field"><span class="k">Failed</span><span class="v">${escapeHtml(formatDateTime(o.failed_at))}</span></div>` : ''}
+            ${o.failure_reason ? `<div class="dd-field"><span class="k">Failure reason</span><span class="v" style="color:var(--danger)">${escapeHtml(o.failure_reason)}</span></div>` : ''}
+        </div>
+        <div class="dd-section">
+            <h4>Customer</h4>
+            <div class="dd-field"><span class="k">Username</span><span class="v">${escapeHtml(o.user?.username || '—')}</span></div>
+            <div class="dd-field"><span class="k">Email</span><span class="v">${escapeHtml(o.user?.email || '—')}</span></div>
+            <div class="dd-field"><span class="k">User ID</span><span class="v mono">${escapeHtml(o.user_id || '—')}</span></div>
+        </div>`;
+}
+
+function renderPaymentTab(data) {
+    const o = data.order;
+    const tx = data.transaction;
+    return `
+        <div class="dd-section">
+            <h4>Payment</h4>
+            <div class="dd-field"><span class="k">Payment status</span><span class="v"><span class="badge ${paymentBadge(o.payment_status)}">${escapeHtml(o.payment_status || '—')}</span></span></div>
+            <div class="dd-field"><span class="k">Fulfillment</span><span class="v">${escapeHtml(o.fulfillment_status || '—')}</span></div>
+            <div class="dd-field"><span class="k">Total amount</span><span class="v">${formatMoney(o.total_amount, o.currency) || '—'}</span></div>
+        </div>
+        ${tx ? `
+            <div class="dd-section">
+                <h4>Transaction</h4>
+                <div class="dd-field"><span class="k">Reference</span><span class="v mono">${escapeHtml(tx.reference || tx.ref || '—')}</span></div>
+                <div class="dd-field"><span class="k">Type</span><span class="v">${escapeHtml(tx.type || '—')}</span></div>
+                <div class="dd-field"><span class="k">Status</span><span class="v">${escapeHtml(tx.status || '—')}</span></div>
+                <div class="dd-field"><span class="k">Amount</span><span class="v">${formatMoney(tx.amount, tx.currency) || '—'}</span></div>
+                <div class="dd-field"><span class="k">Created</span><span class="v">${escapeHtml(formatDateTime(tx.created_at))}</span></div>
+            </div>
+        ` : `<div class="empty-state" style="padding:20px">No payment transaction linked to this order</div>`}
+    `;
+}
+
+function renderProviderTab(data) {
+    const o = data.order;
+    return `
+        <div class="dd-section">
+            <h4>Provider</h4>
+            <div class="dd-field"><span class="k">Provider</span><span class="v" style="text-transform:capitalize">${escapeHtml(o.provider || '—')}</span></div>
+            <div class="dd-field"><span class="k">Provider order ID</span><span class="v mono">${escapeHtml(o.provider_order_id || '—')}</span></div>
+            <div class="dd-field"><span class="k">Provider reference</span><span class="v mono">${escapeHtml(o.provider_reference || '—')}</span></div>
+            <div class="dd-field"><span class="k">Provider status</span><span class="v">${escapeHtml(o.provider_status || '—')}</span></div>
+            <div class="dd-field"><span class="k">Last sync</span><span class="v">${escapeHtml(formatDateTime(o.last_provider_sync_at))}</span></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="actProviderStatus"><i class="fas fa-cloud-download-alt"></i> Query provider</button>
+        </div>
+        <div id="providerLiveResult" style="margin-top:16px"></div>
+    `;
+}
+
+function renderWebhooksTab(data) {
+    const list = data.webhooks || [];
+    if (!list.length) return `<div class="empty-state"><span class="ic">🪝</span>No webhook events recorded for this order</div>`;
+    return `<div class="wh-list">${list.map(w => `
+        <div class="wh-item">
+            <div class="head">
+                <span class="badge ${webhookBadge(w.processing_status)}">${escapeHtml(w.processing_status || '—')}</span>
+                <span class="pid">${escapeHtml(w.event_id || w.id || '')}</span>
+            </div>
+            <div class="meta">
+                <div><strong>${escapeHtml(w.provider || '—')}</strong> · ${escapeHtml(w.event_type || '—')}</div>
+                <div>Signature: ${w.signature_valid ? '✓ valid' : '✗ invalid'} · ${escapeHtml(formatDateTime(w.created_at))}</div>
+                ${w.processing_error ? `<div style="color:var(--danger)">Error: ${escapeHtml(w.processing_error)}</div>` : ''}
+            </div>
+            ${w.payload ? `<details><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);margin-top:6px">Show payload</summary><div class="payload">${escapeHtml(JSON.stringify(w.payload, null, 2))}</div></details>` : ''}
+        </div>
+    `).join('')}</div>`;
+}
+
+function renderTimelineTab(data) {
+    const events = data.events || [];
+    if (!events.length) return `<div class="empty-state"><span class="ic">⏱</span>No events recorded</div>`;
+    return `<div class="timeline">${events.map(e => {
+        const cls = e.event_type?.includes('fail') ? 'event-failed'
+            : e.event_type?.includes('complete') ? 'event-completed'
+            : e.event_type?.includes('refund') ? 'event-refund' : '';
+        const label = (e.event_type || '').replace(/[._]/g, ' ');
+        const detail = e.old_status && e.new_status ? `${e.old_status} → ${e.new_status}` : '';
+        return `<div class="tl-item ${cls}">
+            <div class="what">${escapeHtml(label)}</div>
+            ${detail ? `<div class="when">${escapeHtml(detail)}</div>` : ''}
+            <div class="when">${escapeHtml(formatDateTime(e.created_at))}</div>
+            ${e.message ? `<div class="who">${escapeHtml(e.message)}</div>` : ''}
+        </div>`;
+    }).join('')}</div>`;
+}
+
+function renderRefundTab(data) {
+    const o = data.order;
+    const refundTx = data.refund_transaction;
+    return `
+        <div class="dd-section">
+            <h4>Refund</h4>
+            <div class="dd-field"><span class="k">Refund status</span><span class="v">${escapeHtml(o.refund_status || 'none')}</span></div>
+            <div class="dd-field"><span class="k">Refund amount</span><span class="v">${formatMoney(o.refund_amount, o.currency) || '—'}</span></div>
+            <div class="dd-field"><span class="k">Reference</span><span class="v mono">${escapeHtml(o.refund_reference || '—')}</span></div>
+            <div class="dd-field"><span class="k">Refunded at</span><span class="v">${escapeHtml(formatDateTime(o.refunded_at))}</span></div>
+        </div>
+        ${refundTx ? `
+            <div class="dd-section">
+                <h4>Refund transaction</h4>
+                <div class="dd-field"><span class="k">Reference</span><span class="v mono">${escapeHtml(refundTx.reference || '—')}</span></div>
+                <div class="dd-field"><span class="k">Status</span><span class="v">${escapeHtml(refundTx.status || '—')}</span></div>
+                <div class="dd-field"><span class="k">Amount</span><span class="v">${formatMoney(refundTx.amount, refundTx.currency) || '—'}</span></div>
+                <div class="dd-field"><span class="k">Created</span><span class="v">${escapeHtml(formatDateTime(refundTx.created_at))}</span></div>
+            </div>
+        ` : ''}
+    `;
+}
+
+function renderAdminTab(data) {
+    const o = data.order;
+    return `
+        <div class="dd-section">
+            <h4>Admin note</h4>
+            <div class="dd-field"><span class="k">Note</span><span class="v">${escapeHtml(o.admin_note || '—')}</span></div>
+        </div>
+        <div class="dd-section">
+            <h4>Internal</h4>
+            <div class="dd-field"><span class="k">Attempt</span><span class="v">${escapeHtml(String(o.attempt_number || 1))}</span></div>
+            ${o.parent_order_id ? `<div class="dd-field"><span class="k">Retry of</span><span class="v mono">${escapeHtml(o.parent_order_id)}</span></div>` : ''}
+            ${o.retry_reason ? `<div class="dd-field"><span class="k">Retry reason</span><span class="v">${escapeHtml(o.retry_reason)}</span></div>` : ''}
+        </div>`;
+}
+
+/* ─── Actions ─── */
+async function doSync(o) {
+    const { ok, error, data } = await api(API.orderSync(o.id), { method: 'POST' });
+    if (!ok) { showToast(error || 'Sync failed', 'error'); return; }
+    showToast(`Sync: ${data.status || 'no change'}`, 'success');
+    openOrder(o.id);
+    loadOrders();
+}
+
+async function doProviderStatus(o) {
+    const el = document.getElementById('providerLiveResult');
+    if (el) el.innerHTML = '<div class="empty-state" style="padding:14px">Querying provider…</div>';
+    const { ok, data, error } = await api(API.orderProvider(o.id));
+    if (!ok) {
+        if (el) el.innerHTML = `<div class="unavailable-box"><span class="ic">⚠️</span>${escapeHtml(error)}</div>`;
+        return;
+    }
+    const raw = data.raw_response ? JSON.stringify(data.raw_response, null, 2) : null;
+    if (el) el.innerHTML = `
+        <div class="dd-section" style="margin-top:0">
+            <h4>Live provider response</h4>
+            <div class="dd-field"><span class="k">Local status</span><span class="v">${escapeHtml(data.local_status || '—')}</span></div>
+            <div class="dd-field"><span class="k">Provider status</span><span class="v">${escapeHtml(data.provider_status || '—')}</span></div>
+            <div class="dd-field"><span class="k">Provider order ID</span><span class="v mono">${escapeHtml(data.provider_order_id || '—')}</span></div>
+            <div class="dd-field"><span class="k">Last checked</span><span class="v">${escapeHtml(formatDateTime(data.last_checked))}</span></div>
+        </div>
+        ${raw ? `<details><summary style="cursor:pointer;font-size:11px;color:var(--text-dim)">Raw provider response</summary><div class="payload" style="margin-top:6px;padding:10px;background:var(--bg);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:11px;max-height:260px;overflow:auto;white-space:pre-wrap">${escapeHtml(raw)}</div></details>` : ''}
+    `;
+}
+
+function openModal({ title, bodyHtml, confirmLabel = 'Confirm', onConfirm }) {
+    const scrim = document.getElementById('modalScrim');
+    document.getElementById('mTitle').textContent = title;
+    document.getElementById('mBody').innerHTML = bodyHtml;
+    document.getElementById('mConfirm').textContent = confirmLabel;
+    const cancel = () => { scrim.classList.remove('show'); document.getElementById('mConfirm').onclick = null; };
+    document.getElementById('mCancel').onclick = cancel;
+    document.getElementById('mConfirm').onclick = async () => { const r = await onConfirm(); if (r) cancel(); };
+    scrim.classList.add('show');
+    setTimeout(() => document.getElementById('mBody')?.querySelector('input,textarea,select')?.focus(), 50);
+}
+
+function openStatusModal(o) {
+    openModal({
+        title: 'Change status',
+        confirmLabel: 'Apply',
+        bodyHtml: `
+            <div class="note">Current status: <strong>${escapeHtml(o.status)}</strong></div>
+            <label for="stNext">New status</label>
+            <select id="stNext">
+                ${['paid','processing','in_progress','partial','completed','failed','cancelled','expired','manual_review'].map(s =>
+                    `<option value="${s}">${s}</option>`).join('')}
+            </select>
+            <label for="stNote">Reason (required)</label>
+            <textarea id="stNote" rows="3" placeholder="Why is this changing?"></textarea>
+        `,
+        onConfirm: async () => {
+            const status = document.getElementById('stNext').value;
+            const note = document.getElementById('stNote').value.trim();
+            if (note.length < 4) { showToast('Reason is required.', 'error'); return false; }
+            const { ok, error } = await api(API.orderStatus(o.id), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status, note })
+            });
+            if (!ok) { showToast(error || 'Status change failed', 'error'); return false; }
+            showToast('Status updated', 'success');
+            openOrder(o.id);
+            loadOrders();
+            loadStats();
+            return true;
+        }
+    });
+}
+
+function openRefundModal(o) {
+    openModal({
+        title: 'Refund order',
+        confirmLabel: 'Refund',
+        bodyHtml: `
+            <div class="note">This will credit the customer's wallet and mark the order as refunded. Idempotent — a second click will not double-credit.</div>
+            <label for="rfAmount">Amount (leave blank for full refund)</label>
+            <input type="number" id="rfAmount" placeholder="${escapeHtml(String(o.total_amount || ''))}">
+            <label for="rfReason">Reason (required)</label>
+            <textarea id="rfReason" rows="3"></textarea>
+        `,
+        onConfirm: async () => {
+            const reason = document.getElementById('rfReason').value.trim();
+            if (reason.length < 4) { showToast('Reason is required.', 'error'); return false; }
+            const amountRaw = document.getElementById('rfAmount').value.trim();
+            const body = { reason };
+            if (amountRaw) body.amount = Number(amountRaw);
+            const { ok, error } = await api(API.orderRefund(o.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!ok) { showToast(error || 'Refund failed', 'error'); return false; }
+            showToast('Refund applied', 'success');
+            openOrder(o.id);
+            loadOrders();
+            loadStats();
+            return true;
+        }
+    });
+}
+
+function openRetryModal(o) {
+    openModal({
+        title: 'Retry order',
+        confirmLabel: 'Create retry',
+        bodyHtml: `
+            <div class="note">A new order will be created with a fresh provider attempt. The original remains in place.</div>
+            <label for="rtReason">Reason (required)</label>
+            <textarea id="rtReason" rows="3"></textarea>
+        `,
+        onConfirm: async () => {
+            const reason = document.getElementById('rtReason').value.trim();
+            if (reason.length < 4) { showToast('Reason is required.', 'error'); return false; }
+            const { ok, error } = await api(API.orderRetry(o.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+            });
+            if (!ok) { showToast(error || 'Retry failed', 'error'); return false; }
+            showToast('Retry created', 'success');
+            loadOrders();
+            loadStats();
+            return true;
+        }
+    });
+}
+
+function openCancelModal(o) {
+    openModal({
+        title: 'Cancel order',
+        confirmLabel: 'Cancel order',
+        bodyHtml: `
+            <div class="note">Status changes to cancelled. Refund separately if money needs to be returned.</div>
+            <label for="cnReason">Reason (required)</label>
+            <textarea id="cnReason" rows="3"></textarea>
+        `,
+        onConfirm: async () => {
+            const reason = document.getElementById('cnReason').value.trim();
+            if (reason.length < 4) { showToast('Reason is required.', 'error'); return false; }
+            const { ok, error } = await api(API.orderCancel(o.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+            });
+            if (!ok) { showToast(error || 'Cancel failed', 'error'); return false; }
+            showToast('Order cancelled', 'success');
+            openOrder(o.id);
+            loadOrders();
+            loadStats();
+            return true;
+        }
+    });
+}
+
+function openNoteModal(o) {
+    openModal({
+        title: 'Add internal note',
+        confirmLabel: 'Save',
+        bodyHtml: `<label for="ntText">Note</label><textarea id="ntText" rows="4">${escapeHtml(o.admin_note || '')}</textarea>`,
+        onConfirm: async () => {
+            const note = document.getElementById('ntText').value.trim();
+            if (note.length < 2) { showToast('Note is required.', 'error'); return false; }
+            const { ok, error } = await api(API.orderNote(o.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ note })
+            });
+            if (!ok) { showToast(error || 'Save failed', 'error'); return false; }
+            showToast('Note saved', 'success');
+            openOrder(o.id);
+            return true;
+        }
+    });
+}
+
+/* ─── Admin profile ─── */
+async function loadAdminProfile() {
+    const { ok, data } = await api(API.me);
+    if (!ok || !data?.data?.user) return;
+    const user = data.data.user;
+    const name = user.username || user.email?.split('@')[0] || 'Admin';
+    const role = user.role || 'admin';
+    const initials = name.slice(0, 1).toUpperCase();
+    document.getElementById('adminName').textContent = name;
+    document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    document.getElementById('adminAvatar').textContent = initials;
+    document.getElementById('chipName').textContent = name;
+    document.getElementById('chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    document.getElementById('chipAvatar').textContent = initials;
+}
+
+/* ─── Init ─── */
+document.addEventListener('DOMContentLoaded', () => {
+    if (!AdminSession.getToken()) return AdminSession.redirectToLogin();
+
+    // Sidebar
+    document.getElementById('hamburger')?.addEventListener('click', openSidebar);
+    document.getElementById('scrim')?.addEventListener('click', closeSidebar);
+    document.getElementById('sbToggleDesktop')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
+    document.getElementById('sbCollapseBtn')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
+
+    // Dark mode
+    document.getElementById('darkToggle')?.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    });
+
+    // Logout
+    document.getElementById('adminChip')?.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to logout?')) await AdminSession.logout();
+    });
+
+    // Restore collapsed nav groups
+    try {
+        document.querySelectorAll('.nav-group').forEach(g => {
+            const saved = localStorage.getItem('navgroup:' + g.dataset.group);
+            if (saved === 'collapsed') g.classList.add('collapsed');
+            if (saved === 'open') g.classList.remove('collapsed');
+        });
+    } catch (e) {}
+
+    // Apply URL params BEFORE loading (so ?status=failed pre-filters)
+    readUrlParams();
+
+    // Filter fields
+    ['fSearch','fStatus','fPayment','fProduct','fProvider','fCurrency','fFrom','fTo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const evt = (el.tagName === 'SELECT' || el.type === 'date') ? 'change' : 'input';
+        el.addEventListener(evt, () => {
+            if (el.type === 'search') {
+                clearTimeout(el._t);
+                el._t = setTimeout(() => { readFilters(); renderActiveFilters(); loadOrders(); loadStats(); }, 350);
+            } else {
+                readFilters();
+                renderActiveFilters();
+                loadOrders();
+                loadStats();
+            }
+        });
+    });
+
+    // Quick filters
+    document.querySelectorAll('[data-quick]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const k = btn.dataset.quick;
+            if (k === 'clear') {
+                State.filters = {};
+                ['fSearch','fFrom','fTo'].forEach(id => document.getElementById(id).value = '');
+                ['fStatus','fPayment','fProduct','fProvider','fCurrency'].forEach(id => document.getElementById(id).value = 'all');
+            } else if (k === 'today') {
+                const d = new Date().toISOString().slice(0, 10);
+                State.filters.from = d; State.filters.to = d;
+                document.getElementById('fFrom').value = d;
+                document.getElementById('fTo').value = d;
+            } else if (k === '7d' || k === '30d') {
+                const days = k === '7d' ? 7 : 30;
+                const to = new Date();
+                const from = new Date(Date.now() - days * 86400_000);
+                State.filters.from = from.toISOString().slice(0, 10);
+                State.filters.to = to.toISOString().slice(0, 10);
+                document.getElementById('fFrom').value = State.filters.from;
+                document.getElementById('fTo').value = State.filters.to;
+            } else {
+                State.filters[k] = !State.filters[k];
+            }
+            State.page = 1;
+            renderActiveFilters();
+            loadOrders();
+            loadStats();
+        });
+    });
+
+    // Pagination
+    document.getElementById('prevBtn')?.addEventListener('click', () => {
+        if (State.page > 1) { State.page--; loadOrders(); }
+    });
+    document.getElementById('nextBtn')?.addEventListener('click', () => {
+        if (State.page < State.totalPages) { State.page++; loadOrders(); }
+    });
+    document.getElementById('pageSize')?.addEventListener('change', (e) => {
+        State.limit = parseInt(e.target.value, 10) || 25;
+        State.page = 1;
+        loadOrders();
+    });
+
+    // Top actions
+    document.getElementById('refreshBtn')?.addEventListener('click', () => {
+        loadOrders(); loadStats();
+        showToast('Refreshed', 'success');
+    });
+    document.getElementById('exportBtn')?.addEventListener('click', () => {
+        const url = API.exportCsv + '?' + buildQuery();
+        AdminSession.fetch(url)
+            .then(r => r.blob())
+            .then(blob => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `orders_${Date.now()}.csv`;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(a.href);
+            })
+            .catch(() => showToast('Export failed', 'error'));
+    });
+    document.getElementById('syncPendingBtn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const { ok, data, error } = await api(API.syncPending + '?limit=25', { method: 'POST' });
+        btn.disabled = false;
+        if (!ok) { showToast(error || 'Sync failed', 'error'); return; }
+        showToast(`Sync: ${data.processed || 0} processed, ${data.updated || 0} updated`, 'success');
+        loadOrders();
+        loadStats();
+    });
+
+    // Drawer & modal close
+    document.getElementById('dClose')?.addEventListener('click', closeDrawer);
+    document.getElementById('drawerScrim')?.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeDrawer();
+            document.getElementById('modalScrim').classList.remove('show');
+            closeSidebar();
+        }
+    });
+    document.getElementById('modalScrim')?.addEventListener('click', (e) => {
+        if (e.target.id === 'modalScrim') document.getElementById('modalScrim').classList.remove('show');
+    });
+
+    loadAdminProfile();
+    renderActiveFilters();
+    loadStats();
+    loadOrders();
+});
+
+// Expose for inline handlers
+window.toggleNavGroup = toggleNavGroup;
+window.loadOrders = loadOrders;
+</script>
+</body>
+</html>

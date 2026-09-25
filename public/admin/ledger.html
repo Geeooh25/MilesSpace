@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>MilesSpace — Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2025-admin-dash-v2"></script>
+<style>
+:root{--brand-primary:#0f4c5c;--brand-primary-deep:#0a3542;--brand-primary-light:#14607a;--brand-accent:#f5a623;--brand-accent-soft:#fde3ad;--navy:var(--brand-primary);--navy-deep:var(--brand-primary-deep);--gold:var(--brand-accent);--gold-soft:var(--brand-accent-soft);--white:#ffffff;--bg:#f4f7fb;--bg-card:rgba(255,255,255,.72);--border:rgba(15,76,92,.09);--text:#0c1f26;--text-dim:#5b7480;--text-faint:#8fa3ab;--success:#16a34a;--success-bg:#e9f9ef;--danger:#dc2626;--danger-bg:#fdecec;--warn:#f59e0b;--warn-bg:#fef3d9;--info:#2563a8;--info-bg:#e8f1fb;--purple:#8b5cf6;--purple-bg:#ede9fe;--radius-sm:8px;--radius-md:14px;--radius-lg:20px;--shadow-sm:0 1px 2px rgba(8,42,51,.06);--shadow-md:0 8px 24px -8px rgba(8,42,51,.16);--shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);--sidebar-w:264px;--sidebar-w-collapsed:78px;--topbar-h:68px;--transition:180ms cubic-bezier(.4,0,.2,1)}
+html.dark{--bg:#08151a;--bg-card:rgba(18,38,44,.75);--border:rgba(255,255,255,.08);--text:#eaf3f5;--text-dim:#9db4bb;--text-faint:#5b7480;--success-bg:rgba(22,163,74,.15);--danger-bg:rgba(220,38,38,.15);--warn-bg:rgba(245,158,11,.15);--info-bg:rgba(37,99,168,.18);--purple-bg:rgba(139,92,246,.18);--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 8px 24px -8px rgba(0,0,0,.5);--shadow-lg:0 16px 48px -12px rgba(0,0,0,.6)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}html{overflow-x:hidden}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;transition:background var(--transition),color var(--transition);overflow-x:hidden;width:100%}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+.mono{font-family:'JetBrains Mono',monospace}
+:focus-visible{outline:2.5px solid var(--brand-accent);outline-offset:2px;border-radius:6px}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
+.app.sb-collapsed{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;overflow-y:auto;overflow-x:hidden;width:var(--sidebar-w)}
+.app.sb-collapsed .sidebar{width:var(--sidebar-w-collapsed)}
+.app.sb-collapsed .sidebar .brand-text,.app.sb-collapsed .sidebar .nav-label,.app.sb-collapsed .sidebar .nav-item span:not(.ic),.app.sb-collapsed .sidebar .who{display:none}
+.app.sb-collapsed .nav-item{justify-content:center}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand-text{display:flex;flex-direction:column;line-height:1.15}
+.brand-text strong{font-size:15px;font-weight:800}
+.brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+.nav-scroll{flex:1;overflow-y:auto}
+.nav-group{margin-bottom:2px}
+.nav-group-head{padding:12px 10px 5px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;border:1px solid transparent;white-space:nowrap;text-decoration:none}
+.nav-item .ic{width:17px;text-align:center;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
+.sidebar-foot .who{display:flex;flex-direction:column;line-height:1.2}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+.sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
+html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
+.page-title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.page-title h1{margin:0;font-size:clamp(16px,2.4vw,19px);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.breadcrumb{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.breadcrumb a{color:var(--text-faint);text-decoration:none}
+.breadcrumb a:hover{color:var(--gold)}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px;margin-left:auto;transition:transform var(--transition),background var(--transition)}
+html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.icon-btn:hover{transform:translateY(-1px);background:var(--gold-soft);color:var(--navy-deep)}
+.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
+@media(min-width:1920px){.content{max-width:1800px;margin:0 auto}}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.page-header h2{font-size:clamp(18px,2.6vw,23px);font-weight:800}
+.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:600px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);transition:background var(--transition)}
+html.dark .btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.btn:hover{background:var(--gold-soft);color:var(--navy-deep)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.panel{padding:18px 20px}
+.balance-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px}
+.balance{padding:18px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card)}
+.balance .ccy{font-size:11px;color:var(--text-dim);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.balance .amt{font-size:26px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--navy)}
+html.dark .balance .amt{color:#dff0f2}
+.balance .sub{font-size:11px;color:var(--text-faint);margin-top:4px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.filters input,.filters select{border:1px solid var(--border);background:var(--white);border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--text);font-family:inherit;outline:none;min-width:120px}
+html.dark .filters input,html.dark .filters select{background:rgba(255,255,255,.04);color:var(--text)}
+.filters input[type="search"]{flex:1 1 240px;min-width:200px}
+.tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:640px;border-radius:var(--radius-lg)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:960px}
+thead th{text-align:left;padding:11px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{cursor:pointer;transition:background var(--transition)}
+tbody tr:hover{background:rgba(245,166,35,.05)}
+tbody tr:last-child td{border-bottom:none}
+.badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge.credit{background:var(--success-bg);color:var(--success)}
+.badge.debit{background:var(--danger-bg);color:var(--danger)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.empty-state{text-align:center;padding:52px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:28px;margin-bottom:8px;display:block}
+.unavailable-box{text-align:center;padding:24px 14px;color:var(--text-faint)}
+.unavailable-box .ic{font-size:20px;margin-bottom:6px;display:block}
+.unavailable-box .msg{font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:4px}
+.unavailable-box .sub{font-size:11px;color:var(--text-faint);margin-bottom:8px}
+.unavailable-box button{margin-top:6px;border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer}
+html.dark .unavailable-box button{background:rgba(255,255,255,.04);color:#dff0f2}
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.pagination{display:flex;justify-content:space-between;align-items:center;padding:14px 4px 0;font-size:12.5px;color:var(--text-dim);flex-wrap:wrap;gap:8px}
+.pagination button{border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px}
+html.dark .pagination button{background:rgba(255,255,255,.04);color:#dff0f2}
+.pagination button:disabled{opacity:.45;cursor:not-allowed}
+.notice{padding:12px 16px;border-radius:12px;background:var(--info-bg);border-left:3px solid var(--info);font-size:12.5px;color:var(--text-dim);margin-bottom:16px}
+.notice strong{color:var(--text)}
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:200}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;border-left:3px solid var(--gold)}
+.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms ease}
+.drawer-scrim.show{opacity:1;pointer-events:auto}
+.detail-drawer{position:fixed;top:0;right:0;height:100vh;width:min(620px,96vw);background:var(--bg);z-index:301;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform 260ms cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.detail-drawer.open{transform:translateX(0)}
+.dd-head{display:flex;align-items:center;gap:14px;padding:20px 22px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;flex-shrink:0}
+.dd-head .dd-ic{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dd-head .dd-titles{flex:1;min-width:0}
+.dd-head h2{margin:0;font-size:16.5px;font-weight:800}
+.dd-head .dd-sub{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px;flex-shrink:0}
+.dd-close:hover{background:rgba(255,255,255,.2)}
+.dd-body{flex:1;overflow-y:auto;padding:20px 22px 40px}
+.dd-field{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
+.dd-field .k{color:var(--text-dim);font-weight:600;flex-shrink:0;min-width:140px}
+.dd-field .v{font-weight:700;text-align:right;word-break:break-word;overflow-wrap:anywhere}
+.dd-section{margin-bottom:20px}
+.dd-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.dd-hero{padding:16px 18px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dd-hero .amount{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.dd-hero .amount.credit{color:var(--success)}
+.dd-hero .amount.debit{color:var(--danger)}
+.dd-hero .meta{font-size:11px;color:var(--text-faint)}
+.dd-empty{text-align:center;color:var(--text-faint);padding:24px 10px;font-size:12px}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
+.scrim.show{display:block}
+@media(max-width:768px){
+    .app{grid-template-columns:1fr!important}
+    .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;box-shadow:var(--shadow-lg);z-index:50;height:100vh}
+    .sidebar.open{transform:translateX(0)}
+    .hamburger{display:flex}
+    .sb-toggle-desktop{display:none}
+    .topbar{padding:0 14px;height:60px}
+    .content{padding:12px 10px 60px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="appRoot">
+<aside class="sidebar" id="sidebar" aria-label="Admin navigation">
+    <div class="brand">
+        <img src="../images/miles.png" alt="" onerror="this.style.display='none'">
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+        <button class="sb-collapse-btn" id="sbCollapseBtn" aria-label="Collapse sidebar"><i class="fas fa-angles-left"></i></button>
+    </div>
+    <nav class="nav-scroll">
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Overview</span></div>
+            <div class="nav-items"><a href="/admin/dashboard" class="nav-item"><span class="ic" aria-hidden="true">📊</span><span>Dashboard</span></a></div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Customers</span></div>
+            <div class="nav-items">
+                <a href="/admin/users" class="nav-item"><span class="ic" aria-hidden="true">👥</span><span>Users</span></a>
+                <a href="/admin/support" class="nav-item"><span class="ic" aria-hidden="true">💬</span><span>Support</span></a>
+            </div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Money</span></div>
+            <div class="nav-items">
+                <a href="/admin/transactions" class="nav-item"><span class="ic" aria-hidden="true">💳</span><span>Transactions</span></a>
+                <a href="/admin/deposits" class="nav-item"><span class="ic" aria-hidden="true">📥</span><span>Deposits</span></a>
+                <a href="/admin/ledger" class="nav-item active" aria-current="page"><span class="ic" aria-hidden="true">📒</span><span>Ledger</span></a>
+                <a href="/admin/reconciliation" class="nav-item"><span class="ic" aria-hidden="true">🔄</span><span>Reconciliation</span></a>
+            </div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Services</span></div>
+            <div class="nav-items">
+                <a href="/admin/sellgift" class="nav-item"><span class="ic" aria-hidden="true">🎁</span><span>Gift Cards</span></a>
+                <a href="/admin/airtime-data" class="nav-item"><span class="ic" aria-hidden="true">📶</span><span>Airtime &amp; Data</span></a>
+                <a href="/admin/bills" class="nav-item"><span class="ic" aria-hidden="true">🧾</span><span>Bills &amp; Utilities</span></a>
+                <a href="/admin/esim" class="nav-item"><span class="ic" aria-hidden="true">📡</span><span>eSIM</span></a>
+            </div></div>
+    </nav>
+    <div class="sidebar-foot">
+        <div class="av" id="adminAvatar">DA</div>
+        <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
+    </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+<div class="main">
+    <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <button class="sb-toggle-desktop" id="sbToggleDesktop" aria-label="Toggle sidebar"><i class="fas fa-bars"></i></button>
+        <div class="page-title">
+            <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/admin/dashboard">Home</a><span aria-hidden="true">/</span><span>Money</span><span aria-hidden="true">/</span><span aria-current="page">Ledger</span></nav>
+            <h1>Ledger</h1>
+        </div>
+        <button class="icon-btn" id="darkToggle" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
+    </header>
+    <div class="content">
+        <div class="page-header">
+            <div>
+                <h2>Ledger</h2>
+                <div class="sub">The accounting source of truth. Every entry here is immutable. Corrections are new entries, never edits.</div>
+            </div>
+            <button class="btn" id="exportBtn"><i class="fas fa-download" aria-hidden="true"></i> Export CSV</button>
+        </div>
+        <div class="notice"><strong>Append-only:</strong> Ledger entries cannot be edited or deleted from this page. Corrections are made through controlled adjustments on the user detail page (which themselves write new ledger entries + audit records).</div>
+        <div class="balance-row" id="balanceRow">
+            <div class="balance"><div class="ccy">Loading…</div><div class="amt"><span class="skel" style="width:120px;display:inline-block"></span></div></div>
+        </div>
+        <div class="card panel">
+            <div class="filters">
+                <input type="search" id="fSearch" placeholder="Search entry ID, transaction ID, description…" aria-label="Search ledger">
+                <select id="fCurrency" aria-label="Currency">
+                    <option value="all">All Currencies</option>
+                    <option value="NGN">NGN</option>
+                    <option value="USD">USD</option>
+                </select>
+                <select id="fDirection" aria-label="Direction">
+                    <option value="all">Both</option>
+                    <option value="credit">Credit only</option>
+                    <option value="debit">Debit only</option>
+                </select>
+                <input type="date" id="fFrom" aria-label="From date">
+                <input type="date" id="fTo" aria-label="To date">
+                <button class="btn" id="applyBtn"><i class="fas fa-filter" aria-hidden="true"></i> Apply</button>
+                <button class="btn" id="clearBtn">Clear</button>
+            </div>
+            <div class="tbl-wrap">
+                <table role="table" aria-label="Ledger entries">
+                    <thead>
+                        <tr>
+                            <th scope="col">Entry ID</th>
+                            <th scope="col">User</th>
+                            <th scope="col">Transaction</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Amount</th>
+                            <th scope="col">Balance After</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <div id="pageInfo">—</div>
+                <div>
+                    <button id="prevBtn" disabled aria-label="Previous page">Previous</button>
+                    <button id="nextBtn" disabled aria-label="Next page">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="detail-drawer" id="detailDrawer" role="dialog" aria-modal="true" aria-labelledby="ddTitle">
+    <div class="dd-head">
+        <div class="dd-ic" id="ddIcon" aria-hidden="true">📒</div>
+        <div class="dd-titles"><h2 id="ddTitle">Ledger Entry</h2><div class="dd-sub" id="ddSub"></div></div>
+        <button class="dd-close" id="ddClose" aria-label="Close drawer">✕</button>
+    </div>
+    <div class="dd-body" id="ddBody"></div>
+</aside>
+
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────
+// Ledger page — reads /api/admin/ledger endpoints.
+// Read-only. NGN and USD only. CASHBACK is not used on MilesSpace.
+// ─────────────────────────────────────────────────────────────────
+
+const ENDPOINTS = {
+    list: '/api/admin/ledger',
+    balances: '/api/admin/ledger/balances',
+    export: '/api/admin/ledger/export'
+};
+
+const CURRENCY_SYMBOLS = { NGN: '₦', USD: '$' };
+const LEDGER_CURRENCIES = ['NGN', 'USD'];
+
+const state = {
+    page: 1,
+    limit: 25,
+    totalPages: 1,
+    totalCount: 0,
+    filters: {},
+    entries: []
+};
+
+function formatMoney(amount, currency) {
+    const ccy = String(currency || '').toUpperCase();
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return null;
+    const s = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (CURRENCY_SYMBOLS[ccy] || (ccy ? ccy + ' ' : '')) + s;
+}
+function formatNumber(n) {
+    if (n == null || !Number.isFinite(Number(n))) return null;
+    return Number(n).toLocaleString('en-US');
+}
+function timeAgo(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return new Date(iso).toLocaleDateString();
+}
+function formatDateTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function showToast(message, type = 'info') {
+    const stack = document.getElementById('toastStack');
+    if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'toast';
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    el.innerHTML = `<span aria-hidden="true">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(message)}</span>`;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+}
+
+// Returns { ok: true, data } or { ok: false, reason, status }.
+async function api(url, options) {
+    try {
+        const res = await AdminSession.fetch(url, options);
+
+        if (res.status === 401 || res.status === 403) {
+            return { ok: false, reason: 'unauthorized', status: res.status };
+        }
+        if (res.status === 404) {
+            return { ok: false, reason: 'not_implemented', status: 404 };
+        }
+        if (!res.ok) {
+            return { ok: false, reason: 'http_error', status: res.status };
+        }
+
+        let json;
+        try {
+            json = await res.json();
+        } catch (parseErr) {
+            console.error('[LEDGER] Non-JSON response from', url, parseErr);
+            return { ok: false, reason: 'invalid_response', status: res.status };
+        }
+
+        if (!json || json.success === false) {
+            return { ok: false, reason: 'api_error', status: res.status, error: json?.error };
+        }
+        return { ok: true, data: json.data !== undefined ? json.data : json };
+    } catch (e) {
+        console.error('[LEDGER] Network error for', url, e);
+        return { ok: false, reason: 'network_error', status: 0 };
+    }
+}
+
+// ─── balances ────────────────────────────────────────────────────
+
+function renderBalances(balances) {
+    const el = document.getElementById('balanceRow');
+    if (!el) return;
+
+    // Filter out anything that isn't NGN or USD — defence in depth.
+    const items = Object.entries(balances || {}).filter(([ccy]) =>
+        LEDGER_CURRENCIES.includes(String(ccy).toUpperCase())
+    );
+
+    if (!items.length) {
+        el.innerHTML = `<div class="balance"><div class="ccy">No ledger balances</div><div class="amt">—</div></div>`;
+        return;
+    }
+
+    el.innerHTML = items.map(([ccy, b]) => {
+        const available = formatMoney(b.available, ccy);
+        const held = formatMoney(b.held, ccy);
+        const heldLine = (b.held && b.held !== '0.00' && b.held !== '0') ? `Held: ${held}` : 'Available';
+        return `<div class="balance">
+            <div class="ccy">${escapeHtml(ccy)} — Customer Liability</div>
+            <div class="amt">${available || '—'}</div>
+            <div class="sub">${escapeHtml(heldLine)}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderBalancesError(reason) {
+    const el = document.getElementById('balanceRow');
+    if (!el) return;
+    const msg =
+        reason === 'unauthorized' ? 'Your admin session has expired'
+        : reason === 'network_error' ? 'Network error'
+        : reason === 'not_implemented' ? 'Endpoint not available on server'
+        : 'Unable to load balances';
+    el.innerHTML = `<div class="balance">
+        <div class="ccy">Balances</div>
+        <div class="amt" style="font-size:14px;color:var(--text-faint)">${escapeHtml(msg)}</div>
+        <div class="sub"><button class="btn" style="padding:4px 10px;font-size:11px" onclick="loadBalances()">Retry</button></div>
+    </div>`;
+}
+
+async function loadBalances() {
+    const { ok, data, reason } = await api(ENDPOINTS.balances);
+    if (!ok) return renderBalancesError(reason);
+    renderBalances(data.balances);
+}
+
+// ─── table ───────────────────────────────────────────────────────
+
+function renderTableSkeleton() {
+    const tb = document.getElementById('tableBody');
+    if (!tb) return;
+    let html = '';
+    for (let i = 0; i < 8; i++) {
+        html += `<tr><td colspan="8"><span class="skel" style="width:${50 + Math.random() * 40}%;display:inline-block"></span></td></tr>`;
+    }
+    tb.innerHTML = html;
+}
+
+function renderTable(rows) {
+    const tb = document.getElementById('tableBody');
+    state.entries = rows;
+
+    if (!rows.length) {
+        tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ic" aria-hidden="true">📭</span>No ledger entries match your filters</div></td></tr>`;
+        return;
+    }
+
+    tb.innerHTML = rows.map((e, i) => {
+        const amt = formatMoney(e.amount, e.currency) || '—';
+        const bal = formatMoney(e.balance_after, e.currency) || '—';
+        const dir = e.direction === 'credit' ? 'credit' : 'debit';
+        const sign = dir === 'credit' ? '+' : '−';
+        return `<tr data-idx="${i}" tabindex="0" role="button" aria-label="View entry ${escapeHtml(String(e.id).slice(0, 8))}">
+            <td><span class="mono" style="font-size:11px">${escapeHtml(String(e.id).slice(0, 8))}…</span></td>
+            <td>
+                <div style="display:flex;flex-direction:column;line-height:1.3">
+                    <strong style="font-size:12.5px">${escapeHtml(e.user?.username || 'User')}</strong>
+                    <span style="font-size:10.5px;color:var(--text-dim)">${escapeHtml(e.user?.email || '')}</span>
+                </div>
+            </td>
+            <td>
+                <span class="mono" style="font-size:10.5px">${escapeHtml(e.transaction_reference || '—')}</span><br>
+                <span style="font-size:10.5px;color:var(--text-faint)">${escapeHtml(e.transaction_type || '')}</span>
+            </td>
+            <td><span class="badge ${dir}">${escapeHtml(e.entry_type || dir.toUpperCase())}</span></td>
+            <td style="font-weight:700;color:${dir === 'credit' ? 'var(--success)' : 'var(--danger)'};font-variant-numeric:tabular-nums">${sign} ${amt}</td>
+            <td style="font-variant-numeric:tabular-nums">${bal}</td>
+            <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description || '')}">${escapeHtml(e.description || '—')}</td>
+            <td title="${escapeHtml(formatDateTime(e.created_at))}">${escapeHtml(timeAgo(e.created_at))}</td>
+        </tr>`;
+    }).join('');
+
+    tb.querySelectorAll('tr[data-idx]').forEach(tr => {
+        const idx = parseInt(tr.dataset.idx, 10);
+        tr.addEventListener('click', () => openDetail(state.entries[idx]));
+        tr.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                openDetail(state.entries[idx]);
+            }
+        });
+    });
+}
+
+function renderTableError(reason) {
+    const tb = document.getElementById('tableBody');
+    if (!tb) return;
+    let msg = 'Unable to load ledger entries';
+    if (reason === 'unauthorized') msg = 'Your admin session has expired. Please sign in again.';
+    else if (reason === 'not_implemented') msg = 'The ledger endpoint is not mounted on this server.';
+    else if (reason === 'invalid_response') msg = 'The server returned an unexpected response.';
+    else if (reason === 'network_error') msg = 'Network error — check your connection.';
+    else if (reason === 'http_error') msg = 'Server error. Check the server logs.';
+
+    tb.innerHTML = `<tr><td colspan="8">
+        <div class="unavailable-box">
+            <span class="ic" aria-hidden="true">⚠️</span>
+            <div class="msg">${escapeHtml(msg)}</div>
+            <button onclick="loadList()">Retry</button>
+        </div>
+    </td></tr>`;
+}
+
+function buildQuery() {
+    const q = new URLSearchParams();
+    q.set('page', state.page);
+    q.set('limit', state.limit);
+    const f = state.filters;
+    if (f.search) q.set('search', f.search);
+    if (f.currency && f.currency !== 'all' && LEDGER_CURRENCIES.includes(f.currency)) {
+        q.set('currency', f.currency);
+    }
+    if (f.direction && f.direction !== 'all') q.set('direction', f.direction);
+    if (f.from) q.set('from', new Date(f.from).toISOString());
+    if (f.to) {
+        const d = new Date(f.to);
+        d.setHours(23, 59, 59, 999);
+        q.set('to', d.toISOString());
+    }
+    return q.toString();
+}
+
+async function loadList() {
+    renderTableSkeleton();
+    const { ok, data, reason } = await api(ENDPOINTS.list + '?' + buildQuery());
+    if (!ok) {
+        state.entries = [];
+        renderTableError(reason);
+        document.getElementById('pageInfo').textContent = '—';
+        document.getElementById('prevBtn').disabled = true;
+        document.getElementById('nextBtn').disabled = true;
+        return;
+    }
+
+    const rows = data.entries || data.data || [];
+    state.totalPages = data.totalPages || 1;
+    state.totalCount = data.count || rows.length;
+
+    renderTable(rows);
+
+    if (state.totalCount === 0) {
+        document.getElementById('pageInfo').textContent = 'No results';
+    } else {
+        const from = (state.page - 1) * state.limit + 1;
+        const to = Math.min(state.page * state.limit, state.totalCount);
+        document.getElementById('pageInfo').textContent = `Showing ${from}–${to} of ${state.totalCount}`;
+    }
+
+    document.getElementById('prevBtn').disabled = state.page <= 1;
+    document.getElementById('nextBtn').disabled = state.page >= state.totalPages;
+}
+
+// ─── detail drawer ───────────────────────────────────────────────
+
+function openDetail(e) {
+    if (!e) return;
+
+    const dir = e.direction === 'credit' ? 'credit' : 'debit';
+    const sign = dir === 'credit' ? '+' : '−';
+    const amt = formatMoney(e.amount, e.currency) || '—';
+    const before = formatMoney(e.balance_before, e.currency) || '—';
+    const after = formatMoney(e.balance_after, e.currency) || '—';
+
+    document.getElementById('ddIcon').textContent = dir === 'credit' ? '➕' : '➖';
+    document.getElementById('ddTitle').textContent = (e.entry_type || 'Entry') + ' — ' + (e.currency || '');
+    document.getElementById('ddSub').textContent = (e.user?.username || 'User') + ' · ' + timeAgo(e.created_at);
+
+    const hero = `<div class="dd-hero">
+        <div>
+            <div class="amount ${dir}">${sign} ${escapeHtml(amt)}</div>
+            <div class="meta">${escapeHtml(e.currency || '')} · ${escapeHtml(e.entry_type || '')}</div>
+        </div>
+        <div style="text-align:right">
+            <div style="font-size:11px;color:var(--text-faint)">Entry ID</div>
+            <div class="mono" style="font-size:11px;font-weight:700">${escapeHtml(String(e.id || '').slice(0, 16))}…</div>
+        </div>
+    </div>`;
+
+    const body = `
+        <div class="dd-section">
+            <div class="dd-section-title">Ledger Entry</div>
+            <div class="dd-field"><span class="k">Entry ID</span><span class="v mono" style="font-size:10.5px">${escapeHtml(e.id || '—')}</span></div>
+            <div class="dd-field"><span class="k">Transaction ID</span><span class="v mono" style="font-size:10.5px">${escapeHtml(e.transaction_id || '—')}</span></div>
+            <div class="dd-field"><span class="k">Transaction Ref</span><span class="v mono" style="font-size:11px">${escapeHtml(e.transaction_reference || '—')}</span></div>
+            <div class="dd-field"><span class="k">Transaction Type</span><span class="v">${escapeHtml(e.transaction_type || '—')}</span></div>
+            <div class="dd-field"><span class="k">Entry Type</span><span class="v"><span class="badge ${dir}">${escapeHtml(e.entry_type || '')}</span></span></div>
+            <div class="dd-field"><span class="k">Amount</span><span class="v">${escapeHtml(amt)}</span></div>
+            <div class="dd-field"><span class="k">Currency</span><span class="v">${escapeHtml(e.currency || '—')}</span></div>
+            <div class="dd-field"><span class="k">Description</span><span class="v">${escapeHtml(e.description || '—')}</span></div>
+            <div class="dd-field"><span class="k">Provider</span><span class="v">${escapeHtml(e.provider || '—')}</span></div>
+            <div class="dd-field"><span class="k">Created</span><span class="v">${escapeHtml(formatDateTime(e.created_at))}</span></div>
+        </div>
+        <div class="dd-section">
+            <div class="dd-section-title">Balance Movement</div>
+            <div class="dd-field"><span class="k">Previous Balance</span><span class="v">${escapeHtml(before)}</span></div>
+            <div class="dd-field"><span class="k">Change</span><span class="v" style="color:${dir === 'credit' ? 'var(--success)' : 'var(--danger)'}">${sign} ${escapeHtml(amt)}</span></div>
+            <div class="dd-field"><span class="k">Resulting Balance</span><span class="v">${escapeHtml(after)}</span></div>
+        </div>
+        <div class="dd-section">
+            <div class="dd-section-title">Account Holder</div>
+            <div class="dd-field"><span class="k">User</span><span class="v">${escapeHtml(e.user?.username || '—')}</span></div>
+            <div class="dd-field"><span class="k">Email</span><span class="v">${escapeHtml(e.user?.email || '—')}</span></div>
+            <div class="dd-field"><span class="k">User ID</span><span class="v mono" style="font-size:10.5px">${escapeHtml(e.user?.id || '—')}</span></div>
+        </div>
+        ${e.user?.id ? `<div style="margin-top:16px">
+            <button class="btn" onclick="window.location.href='/admin/users?id=${encodeURIComponent(e.user.id)}'">Open Full User Profile →</button>
+        </div>` : ''}
+    `;
+
+    document.getElementById('ddBody').innerHTML = hero + body;
+    document.getElementById('detailDrawer').classList.add('open');
+    document.getElementById('drawerScrim').classList.add('show');
+}
+
+function closeDrawer() {
+    document.getElementById('detailDrawer').classList.remove('open');
+    document.getElementById('drawerScrim').classList.remove('show');
+}
+
+function readFilters() {
+    state.filters = {
+        search: document.getElementById('fSearch').value.trim(),
+        currency: document.getElementById('fCurrency').value,
+        direction: document.getElementById('fDirection').value,
+        from: document.getElementById('fFrom').value,
+        to: document.getElementById('fTo').value
+    };
+    state.page = 1;
+}
+
+// ─── export ──────────────────────────────────────────────────────
+
+async function handleExport() {
+    const btn = document.getElementById('exportBtn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Exporting…';
+
+    try {
+        const q = new URLSearchParams();
+        if (state.filters.currency && state.filters.currency !== 'all' && LEDGER_CURRENCIES.includes(state.filters.currency)) {
+            q.set('currency', state.filters.currency);
+        }
+        if (state.filters.direction && state.filters.direction !== 'all') q.set('direction', state.filters.direction);
+        if (state.filters.from) q.set('from', new Date(state.filters.from).toISOString());
+        if (state.filters.to) {
+            const d = new Date(state.filters.to);
+            d.setHours(23, 59, 59, 999);
+            q.set('to', d.toISOString());
+        }
+
+        const res = await AdminSession.fetch(ENDPOINTS.export + '?' + q.toString());
+        if (!res.ok) throw new Error('Export failed: HTTP ' + res.status);
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ledger_${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast('Ledger exported', 'success');
+    } catch (err) {
+        console.error('[LEDGER] export error:', err);
+        showToast('Failed to export ledger. Please try again.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+// ─── init ────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!AdminSession.getToken()) {
+        AdminSession.redirectToLogin();
+        return;
+    }
+
+    document.getElementById('hamburger')?.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('scrim').classList.toggle('show');
+    });
+    document.getElementById('scrim')?.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('scrim').classList.remove('show');
+    });
+    document.getElementById('sbToggleDesktop')?.addEventListener('click', () => {
+        document.getElementById('appRoot').classList.toggle('sb-collapsed');
+    });
+    document.getElementById('sbCollapseBtn')?.addEventListener('click', () => {
+        document.getElementById('appRoot').classList.toggle('sb-collapsed');
+    });
+
+    document.getElementById('darkToggle')?.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        document.getElementById('darkToggle').textContent =
+            document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    });
+
+    document.getElementById('applyBtn').addEventListener('click', () => {
+        readFilters();
+        loadList();
+    });
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        ['fSearch', 'fFrom', 'fTo'].forEach(id => { document.getElementById(id).value = ''; });
+        ['fCurrency', 'fDirection'].forEach(id => { document.getElementById(id).value = 'all'; });
+        readFilters();
+        loadList();
+    });
+    document.getElementById('fSearch').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { readFilters(); loadList(); }
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', () => {
+        if (state.page > 1) { state.page--; loadList(); }
+    });
+    document.getElementById('nextBtn').addEventListener('click', () => {
+        if (state.page < state.totalPages) { state.page++; loadList(); }
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', handleExport);
+
+    document.getElementById('ddClose').addEventListener('click', closeDrawer);
+    document.getElementById('drawerScrim').addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const tag = document.activeElement?.tagName || '';
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+        closeDrawer();
+    });
+
+    readFilters();
+    loadBalances();
+    loadList();
+});
+
+window.loadList = loadList;
+window.loadBalances = loadBalances;
+</script>
+</body>
+</html>

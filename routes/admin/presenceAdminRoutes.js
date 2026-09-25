@@ -1,254 +1,229 @@
-// routes/admin/presenceAdminRoutes.js - COMPLETE FAST VERSION
-// Online status = last_seen within 15 seconds
+// routes/admin/presenceAdminRoutes.js
+// ─────────────────────────────────────────────────────────────────
+// Admin presence — read-only.
+//
+//   - Online Now = last_seen within 90s.
+//   - Active Today = last_seen since WAT midnight (separate query).
+//   - Admin/customer classification uses profiles.role.
+//   - No profiles fallback. A successful COUNT of 0 is a real 0.
+//   - No fake active_5min / active_30min — those fields are honest.
+//   - /heartbeat writes presence for admins the same way as users.
+// ─────────────────────────────────────────────────────────────────
 
 const express = require('express');
 const router = express.Router();
 const { supabaseAdmin } = require('../../db/supabase');
 const { adminAuthMiddleware } = require('../../middleware/auth');
 
-// ─── CONSTANTS ──────────────────────────────────────────────────────
-const ONLINE_THRESHOLD_SECONDS = 15; // Matches presenceRoutes.js
-const ADMIN_POLL_INTERVAL_MS = 2000; // 2 second polling for admin
+const ONLINE_THRESHOLD_MS = 90 * 1000;
 
-// ─── TABLE CACHE ────────────────────────────────────────────────────
-
-let tableExistsCache = null;
-let tableExistsTime = 0;
-const CACHE_TTL = 60000;
-
-async function checkTableExists() {
-    const now = Date.now();
-    if (tableExistsCache !== null && (now - tableExistsTime) < CACHE_TTL) {
-        return tableExistsCache;
-    }
-
-    try {
-        const { error } = await supabaseAdmin
-            .from('user_presence')
-            .select('id')
-            .limit(1);
-
-        tableExistsCache = !error;
-        tableExistsTime = now;
-        return tableExistsCache;
-    } catch {
-        tableExistsCache = false;
-        tableExistsTime = now;
-        return false;
-    }
+// ─── Time helpers (WAT = UTC+1) ──────────────────────────────────
+function watDayStartIso() {
+    const OFFSET_MS = 60 * 60 * 1000;
+    const now = new Date();
+    const local = new Date(now.getTime() + OFFSET_MS);
+    const y = local.getUTCFullYear();
+    const m = local.getUTCMonth();
+    const d = local.getUTCDate();
+    return new Date(Date.UTC(y, m, d, 0, 0, 0) - OFFSET_MS).toISOString();
 }
-
-// ─── HELPERS ──────────────────────────────────────────────────────
 
 function formatTimeAgo(date) {
     if (!date) return 'Never';
-    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-    if (seconds < 60) return 'Just now';
-    if (seconds < 120) return '1 minute ago';
-    if (seconds < 3600) return Math.floor(seconds / 60) + ' minutes ago';
-    if (seconds < 7200) return '1 hour ago';
-    if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
-    if (seconds < 172800) return 'Yesterday';
-    return Math.floor(seconds / 86400) + ' days ago';
+    const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (s < 60) return 'Just now';
+    if (s < 120) return '1 minute ago';
+    if (s < 3600) return `${Math.floor(s / 60)} minutes ago`;
+    if (s < 7200) return '1 hour ago';
+    if (s < 86400) return `${Math.floor(s / 3600)} hours ago`;
+    if (s < 172800) return 'Yesterday';
+    return `${Math.floor(s / 86400)} days ago`;
 }
 
-function isOnline(lastSeen) {
-    if (!lastSeen) return false;
-    const age = Date.now() - new Date(lastSeen).getTime();
-    return age <= ONLINE_THRESHOLD_SECONDS * 1000;
-}
+// ─── Admin heartbeat (writes to user_presence) ───────────────────
+// Admin pages post here. Same table as customers; distinguished by
+// the server-derived `is_admin` flag (from the authenticated role).
 
-// ─── GET ONLINE USERS - FAST ──────────────────────────────────────
+router.post('/heartbeat', adminAuthMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const now = new Date().toISOString();
+        const { page, action, tab_id } = req.body || {};
+        const ua = req.headers['user-agent'] || '';
+
+        // Server derives admin role from the authenticated user.
+        const role = String(req.user.role || '').toLowerCase();
+        const isAdmin = role === 'admin' || role === 'super_admin';
+
+        const browser = /Edg/.test(ua) ? 'Edge'
+            : /Firefox/.test(ua) ? 'Firefox'
+            : /Chrome/.test(ua) ? 'Chrome'
+            : /Safari/.test(ua) ? 'Safari'
+            : 'Unknown';
+        const os = /Windows/.test(ua) ? 'Windows'
+            : /Mac OS X/.test(ua) ? 'macOS'
+            : /Android/.test(ua) ? 'Android'
+            : /iPhone|iPad|iPod/.test(ua) ? 'iOS'
+            : /Linux/.test(ua) ? 'Linux'
+            : 'Unknown';
+        const device = /Mobile/.test(ua) ? 'Mobile'
+            : /Tablet|iPad/.test(ua) ? 'Tablet'
+            : 'Desktop';
+
+        const { error } = await supabaseAdmin
+            .from('user_presence')
+            .upsert({
+                user_id: userId,
+                last_seen: now,
+                current_page: page || null,
+                current_action: action || 'viewing admin',
+                tab_id: tab_id || null,
+                is_visible: true,
+                is_admin: isAdmin,
+                browser,
+                os,
+                device,
+                ip_address: req.ip || null,
+                updated_at: now,
+                last_heartbeat: now
+            }, { onConflict: 'user_id' });
+
+        if (error) {
+            console.error('[ADMIN PRESENCE] heartbeat error:', error.message);
+            return res.status(500).json({ success: false, error: 'heartbeat failed', code: 'PRESENCE_UPSERT_FAILED' });
+        }
+
+        return res.json({ success: true, data: { user_id: userId, last_seen: now } });
+    } catch (err) {
+        console.error('[ADMIN PRESENCE] heartbeat exception:', err.message);
+        return res.status(500).json({ success: false, error: 'heartbeat exception', code: 'PRESENCE_HEARTBEAT_EXCEPTION' });
+    }
+});
+
+// ─── GET /api/admin/presence/online ──────────────────────────────
 
 router.get('/online', adminAuthMiddleware, async (req, res) => {
     try {
-        const now = Date.now();
-        const fifteenSecondsAgo = new Date(now - ONLINE_THRESHOLD_SECONDS * 1000).toISOString();
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
+        const onlineThreshold = new Date(Date.now() - ONLINE_THRESHOLD_MS).toISOString();
 
-        let users = [];
-        let source = 'profiles';
+        // ─── 1. Online users (join profiles for role/username) ──
+        const { data, error } = await supabaseAdmin
+            .from('user_presence')
+            .select(`
+                user_id,
+                last_seen,
+                current_page,
+                current_action,
+                browser,
+                os,
+                device,
+                profiles!user_presence_user_id_fkey (id, username, email, avatar_url, role)
+            `)
+            .gte('last_seen', onlineThreshold)
+            .order('last_seen', { ascending: false })
+            .limit(200);
 
-        // ─── Try user_presence first ──────────────────────────────────
-        const tableOk = await checkTableExists();
-        if (tableOk) {
-            try {
-                const { data, error } = await supabaseAdmin
-                    .from('user_presence')
-                    .select(`
-                        user_id,
-                        last_seen,
-                        current_page,
-                        current_action,
-                        browser,
-                        os,
-                        device,
-                        is_admin,
-                        profiles (
-                            id,
-                            username,
-                            email,
-                            avatar_url,
-                            last_login_location
-                        )
-                    `)
-                    .gte('last_seen', fifteenSecondsAgo)
-                    .order('last_seen', { ascending: false })
-                    .limit(200);
-
-                if (!error && data && data.length > 0) {
-                    source = 'user_presence';
-                    users = data.map(p => {
-                        const profile = p.profiles || {};
-                        return {
-                            user_id: p.user_id,
-                            username: profile.username || profile.email?.split('@')[0] || 'Unknown',
-                            email: profile.email || '',
-                            avatar_url: profile.avatar_url || null,
-                            location: profile.last_login_location || 'Not available',
-                            last_seen: p.last_seen,
-                            last_seen_human: formatTimeAgo(new Date(p.last_seen)),
-                            current_page: p.current_page || '/dashboard',
-                            current_action: p.current_action || 'viewing',
-                            browser: p.browser || 'Not available',
-                            os: p.os || 'Not available',
-                            device: p.device || 'Not available',
-                            is_admin: p.is_admin || false,
-                            is_online: true // They're in the query, so they're online
-                        };
-                    });
-                }
-            } catch (e) {
-                console.log('⚠️ user_presence query error, falling back to profiles');
-            }
+        if (error) {
+            console.error('[ADMIN PRESENCE] online query failed:', error.message);
+            return res.status(503).json({ success: false, error: 'presence query failed', code: 'PRESENCE_QUERY_FAILED' });
         }
 
-        // ─── FALLBACK: Use profiles ──────────────────────────────────
-        if (users.length === 0) {
-            const { data, error } = await supabaseAdmin
-                .from('profiles')
-                .select('id, username, email, avatar_url, last_seen, current_page, last_login_location, last_login_browser, last_login_os, last_login_device, role')
-                .gte('last_seen', fifteenSecondsAgo)
-                .order('last_seen', { ascending: false })
-                .limit(200);
+        const rows = (data || []).map(p => {
+            const prof = p.profiles || {};
+            const r = String(prof.role || 'user').toLowerCase();
+            return {
+                user_id: p.user_id,
+                username: prof.username || prof.email?.split('@')[0] || 'Unknown',
+                email: prof.email || '',
+                avatar_url: prof.avatar_url || null,
+                role: r,
+                is_admin: r === 'admin' || r === 'super_admin',
+                last_seen: p.last_seen,
+                last_seen_human: formatTimeAgo(p.last_seen),
+                current_page: p.current_page || '/dashboard',
+                current_action: p.current_action || 'viewing',
+                browser: p.browser || null,
+                os: p.os || null,
+                device: p.device || null
+            };
+        });
 
-            if (!error && data) {
-                users = data.map(p => {
-                    const isAdmin = p.role === 'admin' || p.role === 'super_admin';
-                    return {
-                        user_id: p.id,
-                        username: p.username || p.email?.split('@')[0] || 'Unknown',
-                        email: p.email || '',
-                        avatar_url: p.avatar_url || null,
-                        location: p.last_login_location || 'Not available',
-                        last_seen: p.last_seen,
-                        last_seen_human: p.last_seen ? formatTimeAgo(new Date(p.last_seen)) : 'Never',
-                        current_page: p.current_page || '/dashboard',
-                        current_action: 'viewing',
-                        browser: p.last_login_browser || 'Not available',
-                        os: p.last_login_os || 'Not available',
-                        device: p.last_login_device || 'Not available',
-                        is_admin: isAdmin,
-                        is_online: true
-                    };
-                });
-                source = 'profiles';
+        // Dedupe by user_id (most recent wins).
+        const byUser = new Map();
+        for (const u of rows) {
+            const existing = byUser.get(u.user_id);
+            if (!existing || new Date(u.last_seen) > new Date(existing.last_seen)) {
+                byUser.set(u.user_id, u);
             }
         }
+        const distinct = [...byUser.values()];
+        const customers = distinct.filter(u => !u.is_admin);
+        const admins = distinct.filter(u => u.is_admin);
 
-        // ─── Get total users count ────────────────────────────────────
-        const { count: totalUsers } = await supabaseAdmin
-            .from('profiles')
-            .select('*', { count: 'exact', head: true });
+        // ─── 2. Active today (separate COUNT) ───────────────────
+        const todayStart = watDayStartIso();
+        const { count: activeTodayCount, error: activeErr } = await supabaseAdmin
+            .from('user_presence')
+            .select('user_id', { count: 'exact', head: true })
+            .gte('last_seen', todayStart);
 
-        // ─── Count active today ──────────────────────────────────────
-        const todayStr = todayStart.toISOString();
-        const activeToday = users.filter(u => 
-            u.last_seen && new Date(u.last_seen) >= new Date(todayStr)
-        ).length;
+        if (activeErr) {
+            console.warn('[ADMIN PRESENCE] active-today query failed:', activeErr.message);
+        }
 
-        console.log(`📊 [ONLINE] Total: ${totalUsers || 0}, Online: ${users.length}`);
-
-        res.json({
+        return res.json({
             success: true,
             data: {
-                users: users,
-                online_now: users.length,
-                active_5min: users.length,
-                active_30min: users.length,
-                active_today: activeToday,
-                total_users: totalUsers || 0,
-                threshold_seconds: ONLINE_THRESHOLD_SECONDS,
-                source: source,
-                timestamp: new Date().toISOString()
+                online_now: distinct.length,
+                online_users: customers.length,
+                online_admins: admins.length,
+                active_today: activeErr ? null : (activeTodayCount || 0),
+                threshold_seconds: ONLINE_THRESHOLD_MS / 1000,
+                timestamp: new Date().toISOString(),
+                users: {
+                    online_now: customers,
+                    online_admins: admins,
+                    all_online: distinct
+                }
             }
         });
-
-    } catch (error) {
-        console.error('❌ Online users error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
+    } catch (err) {
+        console.error('[ADMIN PRESENCE] online exception:', err.message);
+        return res.status(500).json({ success: false, error: 'presence exception', code: 'PRESENCE_EXCEPTION' });
     }
 });
 
-// ─── GET ONLINE COUNT (fast endpoint) ─────────────────────────────
+// ─── GET /api/admin/presence/count ───────────────────────────────
+// Cheap: uses COUNT only. For KPI tiles that just need a number.
 
 router.get('/count', adminAuthMiddleware, async (req, res) => {
     try {
-        const fifteenSecondsAgo = new Date(Date.now() - ONLINE_THRESHOLD_SECONDS * 1000).toISOString();
+        const threshold = new Date(Date.now() - ONLINE_THRESHOLD_MS).toISOString();
+        const { count, error } = await supabaseAdmin
+            .from('user_presence')
+            .select('user_id', { count: 'exact', head: true })
+            .gte('last_seen', threshold);
 
-        let count = 0;
-        let source = 'profiles';
-
-        const tableOk = await checkTableExists();
-        if (tableOk) {
-            try {
-                const { count: c, error } = await supabaseAdmin
-                    .from('user_presence')
-                    .select('*', { count: 'exact', head: true })
-                    .gte('last_seen', fifteenSecondsAgo);
-
-                if (!error) {
-                    count = c || 0;
-                    source = 'user_presence';
-                }
-            } catch (e) {
-                // Fallback
-            }
+        if (error) {
+            console.error('[ADMIN PRESENCE] count failed:', error.message);
+            return res.status(503).json({ success: false, error: 'count failed', code: 'PRESENCE_COUNT_FAILED' });
         }
 
-        if (count === 0) {
-            const { count: c, error } = await supabaseAdmin
-                .from('profiles')
-                .select('*', { count: 'exact', head: true })
-                .gte('last_seen', fifteenSecondsAgo);
-
-            if (!error) {
-                count = c || 0;
-                source = 'profiles';
-            }
-        }
-
-        res.json({
+        return res.json({
             success: true,
             data: {
-                online_count: count,
-                threshold_seconds: ONLINE_THRESHOLD_SECONDS,
-                source: source,
+                online_count: count || 0,
+                threshold_seconds: ONLINE_THRESHOLD_MS / 1000,
                 timestamp: new Date().toISOString()
             }
         });
-
-    } catch (error) {
-        console.error('❌ Online count error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get online count'
-        });
+    } catch (err) {
+        console.error('[ADMIN PRESENCE] count exception:', err.message);
+        return res.status(500).json({ success: false, error: 'count exception', code: 'PRESENCE_COUNT_EXCEPTION' });
     }
 });
+
+// NOTE: /offline has been intentionally REMOVED. Offline is decided
+// by server-side aging of last_seen.
 
 module.exports = router;

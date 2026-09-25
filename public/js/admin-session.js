@@ -237,18 +237,20 @@
             });
 
             if (response.ok) {
-                const data = await response.json();
-                const newToken = data.data?.access_token || data.access_token;
-                const newRefresh = data.data?.refresh_token || data.refresh_token || refreshToken;
-                
-                if (newToken) {
-                    const user = getAdminUser();
-                    saveAdminSession(newToken, user, newRefresh);
-                    console.log('[ADMIN SESSION] Token refreshed successfully');
-                    refreshInProgress = false;
-                    return true;
-                }
-            }
+    const data = await response.json();
+    const newToken = data.data?.access_token || data.access_token;
+    const newRefresh = data.data?.refresh_token || data.refresh_token || refreshToken;
+    // Prefer the user object from the refresh response (role may
+    // have changed). Fall back to the cached user.
+    const freshUser = data.data?.user || data.user || getAdminUser();
+
+    if (newToken) {
+        saveAdminSession(newToken, freshUser, newRefresh);
+        console.log('[ADMIN SESSION] Token refreshed successfully');
+        refreshInProgress = false;
+        return true;
+    }
+}
 
             console.warn('[ADMIN SESSION] Refresh failed:', response.status);
             
@@ -384,10 +386,26 @@
         });
 
         // If unauthorized, clear session and redirect
-        if (response.status === 401 || response.status === 403) {
+               // 401 = not authenticated → logout.
+        // 403 = authenticated but not authorized → DO NOT logout.
+        //       Let the caller surface the error. Clearing the session
+        //       on a 403 would silently log out a Finance admin who
+        //       simply lacks wallets.adjust.
+        if (response.status === 401) {
             clearAdminSession();
             redirectToLogin();
             throw new Error('Admin session expired');
+        }
+        if (response.status === 403) {
+            let body = null;
+            try { body = await response.clone().json(); } catch (_) {}
+            const err = new Error(
+                body?.error || 'You do not have permission to perform this action.'
+            );
+            err.code = body?.code || 'PERMISSION_DENIED';
+            err.required = body?.required || null;
+            err.status = 403;
+            throw err;
         }
 
         return response;

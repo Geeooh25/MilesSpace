@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>MilesSpace — Reconciliation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2025-admin-dash-v2"></script>
+<style>
+:root{--brand-primary:#0f4c5c;--brand-primary-deep:#0a3542;--brand-primary-light:#14607a;--brand-accent:#f5a623;--brand-accent-soft:#fde3ad;--navy:var(--brand-primary);--navy-deep:var(--brand-primary-deep);--gold:var(--brand-accent);--gold-soft:var(--brand-accent-soft);--white:#ffffff;--bg:#f4f7fb;--bg-card:rgba(255,255,255,.72);--border:rgba(15,76,92,.09);--text:#0c1f26;--text-dim:#5b7480;--text-faint:#8fa3ab;--success:#16a34a;--success-bg:#e9f9ef;--danger:#dc2626;--danger-bg:#fdecec;--warn:#f59e0b;--warn-bg:#fef3d9;--info:#2563a8;--info-bg:#e8f1fb;--purple:#8b5cf6;--purple-bg:#ede9fe;--radius-sm:8px;--radius-md:14px;--radius-lg:20px;--shadow-sm:0 1px 2px rgba(8,42,51,.06);--shadow-md:0 8px 24px -8px rgba(8,42,51,.16);--shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);--sidebar-w:264px;--sidebar-w-collapsed:78px;--topbar-h:68px;--transition:180ms cubic-bezier(.4,0,.2,1)}
+html.dark{--bg:#08151a;--bg-card:rgba(18,38,44,.75);--border:rgba(255,255,255,.08);--text:#eaf3f5;--text-dim:#9db4bb;--text-faint:#5b7480;--success-bg:rgba(22,163,74,.15);--danger-bg:rgba(220,38,38,.15);--warn-bg:rgba(245,158,11,.15);--info-bg:rgba(37,99,168,.18);--purple-bg:rgba(139,92,246,.18);--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 8px 24px -8px rgba(0,0,0,.5);--shadow-lg:0 16px 48px -12px rgba(0,0,0,.6)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}html{overflow-x:hidden}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;transition:background var(--transition),color var(--transition);overflow-x:hidden;width:100%}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+.mono{font-family:'JetBrains Mono',monospace}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
+.app.sb-collapsed{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;overflow-y:auto;overflow-x:hidden;width:var(--sidebar-w)}
+.app.sb-collapsed .sidebar{width:var(--sidebar-w-collapsed)}
+.app.sb-collapsed .sidebar .brand-text,.app.sb-collapsed .sidebar .nav-label,.app.sb-collapsed .sidebar .nav-item span:not(.ic),.app.sb-collapsed .sidebar .who{display:none}
+.app.sb-collapsed .nav-item{justify-content:center}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand-text{display:flex;flex-direction:column;line-height:1.15}
+.brand-text strong{font-size:15px;font-weight:800}
+.brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+.nav-scroll{flex:1;overflow-y:auto}
+.nav-group{margin-bottom:2px}
+.nav-group-head{padding:12px 10px 5px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;border:1px solid transparent;white-space:nowrap;text-decoration:none}
+.nav-item .ic{width:17px;text-align:center;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
+.sidebar-foot .who{display:flex;flex-direction:column;line-height:1.2}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+.sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
+html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
+.page-title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.page-title h1{margin:0;font-size:clamp(16px,2.4vw,19px);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.breadcrumb{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.breadcrumb a{color:var(--text-faint);text-decoration:none}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px;margin-left:auto}
+html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.page-header h2{font-size:clamp(18px,2.6vw,23px);font-weight:800}
+.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:600px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy)}
+html.dark .btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.btn:hover{background:var(--gold-soft);color:var(--navy-deep)}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.panel{padding:18px 20px}
+.tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.tab{border:1px solid var(--border);background:var(--white);border-radius:9px;padding:7px 14px;font-size:12px;font-weight:600;color:var(--text-dim);cursor:pointer}
+html.dark .tab{background:rgba(255,255,255,.04)}
+.tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.run-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.run-bar input[type="date"]{border:1px solid var(--border);background:var(--white);border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--text);font-family:inherit;outline:none;min-width:150px}
+html.dark .run-bar input[type="date"]{background:rgba(255,255,255,.04);color:var(--text)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.summary-card{padding:16px 18px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card)}
+.summary-card .lbl{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.summary-card .val{font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.summary-card .sub{font-size:10.5px;color:var(--text-faint);margin-top:2px}
+.tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:640px;border-radius:var(--radius-lg)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:900px}
+thead th{text-align:left;padding:11px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{cursor:pointer;transition:background var(--transition)}
+tbody tr:hover{background:rgba(245,166,35,.05)}
+.badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.purple{background:var(--purple-bg);color:var(--purple)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.empty-state{text-align:center;padding:52px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:28px;margin-bottom:8px;display:block}
+.unavailable-box{text-align:center;padding:24px 14px;color:var(--text-faint)}
+.unavailable-box .ic{font-size:20px;margin-bottom:6px;display:block}
+.unavailable-box button{margin-top:10px;border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer}
+html.dark .unavailable-box button{background:rgba(255,255,255,.04);color:#dff0f2}
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.notice{padding:12px 16px;border-radius:12px;background:var(--info-bg);border-left:3px solid var(--info);font-size:12.5px;color:var(--text-dim);margin-bottom:16px}
+.notice strong{color:var(--text)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
+.scrim.show{display:block}
+@media(max-width:768px){
+    .app{grid-template-columns:1fr!important}
+    .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;box-shadow:var(--shadow-lg);z-index:50;height:100vh}
+    .sidebar.open{transform:translateX(0)}
+    .hamburger{display:flex}
+    .sb-toggle-desktop{display:none}
+    .topbar{padding:0 14px;height:60px}
+    .content{padding:12px 10px 60px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="appRoot">
+<aside class="sidebar" id="sidebar">
+    <div class="brand">
+        <img src="../images/miles.png" alt="" onerror="this.style.display='none'">
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+        <button class="sb-collapse-btn" id="sbCollapseBtn"><i class="fas fa-angles-left"></i></button>
+    </div>
+    <nav class="nav-scroll">
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Overview</span></div>
+            <div class="nav-items"><a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span><span>Dashboard</span></a></div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Customers</span></div>
+            <div class="nav-items">
+                <a href="/admin/users" class="nav-item"><span class="ic">👥</span><span>Users</span></a>
+                <a href="/admin/support" class="nav-item"><span class="ic">💬</span><span>Support</span></a>
+            </div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Money</span></div>
+            <div class="nav-items">
+                <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span><span>Transactions</span></a>
+                <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span><span>Deposits</span></a>
+                <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span><span>Ledger</span></a>
+                <a href="/admin/reconciliation" class="nav-item active"><span class="ic">🔄</span><span>Reconciliation</span></a>
+            </div></div>
+        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Services</span></div>
+            <div class="nav-items">
+                <a href="/admin/sellgift" class="nav-item"><span class="ic">🎁</span><span>Gift Cards</span></a>
+                <a href="/admin/airtime-data" class="nav-item"><span class="ic">📶</span><span>Airtime &amp; Data</span></a>
+                <a href="/admin/bills" class="nav-item"><span class="ic">🧾</span><span>Bills &amp; Utilities</span></a>
+                <a href="/admin/esim" class="nav-item"><span class="ic">📡</span><span>eSIM</span></a>
+            </div></div>
+    </nav>
+    <div class="sidebar-foot">
+        <div class="av" id="adminAvatar">DA</div>
+        <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
+    </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+<div class="main">
+    <header class="topbar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <button class="sb-toggle-desktop" id="sbToggleDesktop"><i class="fas fa-bars"></i></button>
+        <div class="page-title">
+            <nav class="breadcrumb"><a href="/admin/dashboard">Home</a><span>/</span><span>Money</span><span>/</span><span>Reconciliation</span></nav>
+            <h1>Reconciliation</h1>
+        </div>
+        <button class="icon-btn" id="darkToggle">🌙</button>
+    </header>
+    <div class="content">
+        <div class="page-header">
+            <div>
+                <h2>Reconciliation</h2>
+                <div class="sub">Does MilesSpace's record match what the payment provider says happened? This page never changes a wallet on its own — resolutions go through controlled ledger adjustments.</div>
+            </div>
+            <button class="btn" id="exportBtn"><i class="fas fa-download"></i> Export CSV</button>
+        </div>
+        <div class="notice"><strong>Principle:</strong> Provider is the source of truth. When a mismatch is found, the exception is surfaced here. Resolving it requires a reason, an admin action, and — for credits — a ledger adjustment that itself is auditable.</div>
+
+        <div class="tabs" id="providerTabs">
+            <button class="tab active" data-provider="kora">Kora</button>
+            <button class="tab" data-provider="nowpayments">NowPayments</button>
+        </div>
+
+        <div class="run-bar">
+            <label style="font-size:12px;color:var(--text-dim);font-weight:600">Range:</label>
+            <input type="date" id="runFrom">
+            <input type="date" id="runTo">
+            <button class="btn" id="runBtn"><i class="fas fa-play"></i> Run Reconciliation</button>
+        </div>
+
+        <div class="summary" id="summaryRow">
+            <div class="summary-card"><div class="lbl">Loading…</div><div class="val">—</div></div>
+        </div>
+
+        <div class="card panel">
+            <div class="panel-head" style="margin-bottom:12px"><h3 style="font-size:14px;font-weight:700;margin:0">Exceptions</h3></div>
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Reference</th>
+                            <th>Provider Ref</th>
+                            <th>Status</th>
+                            <th>Expected</th>
+                            <th>Provider</th>
+                            <th>Reason</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exceptionBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<script>
+'use strict';
+const ENDPOINTS = {
+    summary: '/api/admin/reconciliation/summary',
+    issues: '/api/admin/reconciliation/issues',
+    export: '/api/admin/reconciliation/export'
+};
+const state = { provider: 'kora', from: null, to: null };
+function timeAgo(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return new Date(iso).toLocaleDateString();
+}
+function formatDateTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function formatMoney(amount, currency) {
+    if (amount == null) return '—';
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return '—';
+    const ccy = String(currency || '').toUpperCase();
+    const s = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (ccy === 'NGN' ? '₦' : ccy === 'USD' ? '$' : ccy + ' ') + s;
+}
+function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+function statusBadge(status) {
+    const s = String(status || '').toLowerCase();
+    const m = { completed: 'success', success: 'success', pending: 'warn', processing: 'warn', failed: 'danger', expired: 'danger', manual_review: 'purple', underpaid: 'warn', overpaid: 'info', partially_paid: 'warn' };
+    return m[s] || 'neutral';
+}
+async function api(url) {
+    try {
+        const res = await AdminSession.fetch(url);
+        if (!res.ok) return { ok: false, status: res.status };
+        const json = await res.json();
+        return { ok: json.success !== false, data: json.data || json };
+    } catch (e) { return { ok: false, status: 0 }; }
+}
+function renderSummary(summary) {
+    const el = document.getElementById('summaryRow');
+    if (!el || !summary) { el.innerHTML = `<div class="summary-card"><div class="lbl">Unavailable</div><div class="val">—</div></div>`; return; }
+    const cards = [
+        { lbl: 'Internal Records', val: summary.total_internal ?? '—' },
+        { lbl: 'Provider Events', val: summary.total_provider ?? '—' },
+        { lbl: 'Matched', val: summary.matched ?? '—', color: 'var(--success)' },
+        { lbl: 'Missing Webhook', val: summary.missing_webhook ?? '—', color: '#b3720a' },
+        { lbl: 'Unverified Sig', val: summary.unverified_signature ?? '—', color: '#b3720a' },
+        { lbl: 'Unresolved', val: summary.unresolved ?? '—', color: 'var(--danger)' }
+    ];
+    if (summary.manual_review != null) cards.push({ lbl: 'Manual Review', val: summary.manual_review, color: 'var(--purple)' });
+    el.innerHTML = cards.map(c => `<div class="summary-card"><div class="lbl">${c.lbl}</div><div class="val" style="color:${c.color || 'inherit'}">${escapeHtml(String(c.val))}</div></div>`).join('');
+}
+function renderExceptions(rows) {
+    const tb = document.getElementById('exceptionBody');
+    if (!rows || !rows.length) {
+        tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="ic">✅</span>Nothing to reconcile — all records match</div></td></tr>`;
+        return;
+    }
+    tb.innerHTML = rows.map(e => `
+        <tr>
+            <td><span class="badge warn">${escapeHtml(e.issue_type || 'exception')}</span></td>
+            <td><span class="mono" style="font-size:11px">${escapeHtml(e.reference || '—')}</span></td>
+            <td><span class="mono" style="font-size:11px">${escapeHtml(e.provider_reference || '—')}</span></td>
+            <td><span class="badge ${statusBadge(e.status)}">${escapeHtml(e.status || '—')}</span></td>
+            <td>${formatMoney(e.expected_amount, e.currency) || '—'}</td>
+            <td>${formatMoney(e.provider_amount, e.currency) || '—'}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.reason || '')}">${escapeHtml(e.reason || '—')}</td>
+            <td title="${escapeHtml(formatDateTime(e.created_at))}">${escapeHtml(timeAgo(e.created_at))}</td>
+        </tr>`).join('');
+}
+async function runReconciliation() {
+    const fromInput = document.getElementById('runFrom').value;
+    const toInput = document.getElementById('runTo').value;
+    const q = new URLSearchParams();
+    q.set('provider', state.provider);
+    if (fromInput) q.set('from', new Date(fromInput).toISOString());
+    if (toInput) q.set('to', new Date(new Date(toInput).setHours(23, 59, 59, 999)).toISOString());
+
+    document.getElementById('summaryRow').innerHTML = `<div class="summary-card"><div class="lbl">Running</div><div class="val">…</div></div>`;
+    document.getElementById('exceptionBody').innerHTML = `<tr><td colspan="8"><span class="skel" style="width:60%;display:inline-block"></span></td></tr>`;
+
+    const { ok, data } = await api(ENDPOINTS.summary + '?' + q.toString());
+    if (!ok || !data) {
+        document.getElementById('summaryRow').innerHTML = `<div class="summary-card"><div class="lbl">Error</div><div class="val">—</div></div>`;
+        document.getElementById('exceptionBody').innerHTML = `<tr><td colspan="8"><div class="unavailable-box"><span class="ic">⚠️</span>Unable to run reconciliation<button onclick="runReconciliation()">Retry</button></div></td></tr>`;
+        return;
+    }
+    const summary = data.summary || data;
+    renderSummary(summary);
+    renderExceptions(summary.exceptions || []);
+}
+document.addEventListener('DOMContentLoaded', () => {
+    if (!AdminSession.getToken()) return AdminSession.redirectToLogin();
+    document.getElementById('hamburger')?.addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('scrim').classList.toggle('show'); });
+    document.getElementById('scrim')?.addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('scrim').classList.remove('show'); });
+    document.getElementById('sbToggleDesktop')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
+    document.getElementById('sbCollapseBtn')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
+    document.getElementById('darkToggle')?.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    });
+    // Default range: last 24h
+    const now = new Date();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    document.getElementById('runFrom').value = yesterday.toISOString().slice(0, 10);
+    document.getElementById('runTo').value = now.toISOString().slice(0, 10);
+
+    document.querySelectorAll('#providerTabs .tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#providerTabs .tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            state.provider = tab.dataset.provider;
+            runReconciliation();
+        });
+    });
+    document.getElementById('runBtn').addEventListener('click', runReconciliation);
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        const q = new URLSearchParams();
+        q.set('provider', state.provider);
+        AdminSession.fetch(ENDPOINTS.export + '?' + q.toString()).then(r => r.blob()).then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `reconciliation_${Date.now()}.csv`; a.click();
+            URL.revokeObjectURL(url);
+        });
+    });
+    // Initial run
+    runReconciliation();
+});
+</script>
+</body>
+</html>

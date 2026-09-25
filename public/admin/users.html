@@ -1,165 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-<meta http-equiv="Pragma" content="no-cache" />
-<meta http-equiv="Expires" content="0" />
-<title>MilesSpace — Users Admin</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>MilesSpace — User Management</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
-<!-- Chart.js -->
-<script>
-(function loadChartJS() {
-  var sources = [
-    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
-    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js'
-  ];
-  var idx = 0;
-  function tryLoad(){
-    if(idx >= sources.length){
-      console.warn('⚠️ Chart.js failed to load');
-      document.dispatchEvent(new Event('chartjs-failed'));
-      return;
-    }
-    var s = document.createElement('script');
-    s.src = sources[idx];
-    s.async = true;
-    s.onload = function(){
-      if(typeof Chart !== 'undefined'){
-        console.log('✅ Chart.js loaded');
-        document.dispatchEvent(new Event('chartjs-ready'));
-      } else {
-        idx++; tryLoad();
-      }
-    };
-    s.onerror = function(){ idx++; tryLoad(); };
-    document.head.appendChild(s);
-  }
-  tryLoad();
-})();
-</script>
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2025-users-v2"></script>
 <style>
-/* ============================================================
-   DESIGN TOKENS
-   ============================================================ */
 :root{
-  --navy:#0c3d4a;--navy-light:#12556a;--navy-deep:#082a33;
-  --gold:#f59e0b;--gold-soft:#fde3ad;--white:#fff;
+  --navy:#0f4c5c;--navy-deep:#0a3542;--navy-light:#14607a;
+  --gold:#f5a623;--gold-soft:#fde3ad;--white:#fff;
   --bg:#f4f7fb;--bg-card:rgba(255,255,255,0.72);
-  --border:rgba(12,61,74,0.08);--text:#0c1f26;
+  --border:rgba(15,76,92,0.09);--text:#0c1f26;
   --text-dim:#5b7480;--text-faint:#8fa3ab;
   --success:#16a34a;--success-bg:#e9f9ef;
   --danger:#dc2626;--danger-bg:#fdecec;
   --warn:#f59e0b;--warn-bg:#fef3d9;
   --info:#2563a8;--info-bg:#e8f1fb;
   --purple:#8b5cf6;--purple-bg:#ede9fe;
+  --usd:#0891b2;--usd-bg:#e0f6fa;
   --radius-sm:8px;--radius-md:14px;--radius-lg:20px;
-  --shadow-sm:0 1px 2px rgba(8,42,51,0.06);
-  --shadow-md:0 8px 24px -8px rgba(8,42,51,0.16);
-  --shadow-lg:0 16px 48px -12px rgba(8,42,51,0.26);
+  --shadow-sm:0 1px 2px rgba(8,42,51,.06);
+  --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
+  --shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);
   --sidebar-w:264px;--topbar-h:68px;
   --transition:180ms cubic-bezier(.4,0,.2,1);
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh}
+html.dark{
+  --bg:#08151a;--bg-card:rgba(18,38,44,.75);
+  --border:rgba(255,255,255,.08);--text:#eaf3f5;
+  --text-dim:#9db4bb;--text-faint:#5b7480;
+  --success-bg:rgba(22,163,74,.15);--danger-bg:rgba(220,38,38,.15);
+  --warn-bg:rgba(245,158,11,.15);--info-bg:rgba(37,99,168,.18);
+  --purple-bg:rgba(139,92,246,.18);--usd-bg:rgba(8,145,178,.18);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 8px 24px -8px rgba(0,0,0,.5);
+  --shadow-lg:0 16px 48px -12px rgba(0,0,0,.6);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .mono{font-family:'JetBrains Mono',monospace}
 ::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:rgba(12,61,74,0.18);border-radius:99px}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+:focus-visible{outline:2.5px solid var(--gold);outline-offset:2px;border-radius:6px}
 
-.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
+.app.sb-collapsed{grid-template-columns:78px 1fr}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;overflow-y:auto;width:var(--sidebar-w);transition:width var(--transition)}
+.app.sb-collapsed .sidebar{width:78px}
+.app.sb-collapsed .brand-text,.app.sb-collapsed .nav-label,.app.sb-collapsed .nav-item span:not(.ic),.app.sb-collapsed .who{display:none}
+.app.sb-collapsed .nav-item{justify-content:center}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand-text strong{font-size:15px;font-weight:800;display:block}
+.brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+.nav-scroll{flex:1;overflow-y:auto;padding-right:2px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:12px 10px 5px;display:block}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;text-decoration:none;transition:background var(--transition),color var(--transition);white-space:nowrap}
+.nav-item .ic{width:17px;text-align:center;font-size:13.5px;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
+.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10px;font-weight:800;padding:1.5px 6px;border-radius:99px}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px;flex-shrink:0}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff;display:block}
+.sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+.sb-collapse-btn:hover{background:rgba(255,255,255,.14)}
 
-/* ============================================================
-   SIDEBAR
-   ============================================================ */
-.sidebar{
-  background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);
-  color:#eaf6f8;
-  padding:22px 16px 18px;
-  display:flex;
-  flex-direction:column;
-  position:sticky;top:0;
-  height:100vh;
-  z-index:40;
-  overflow-y:auto;
-  overflow-x:hidden;
-  scrollbar-width:thin;
-  transition:transform var(--transition);
-}
-.sidebar::-webkit-scrollbar{width:6px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:99px}
-
-.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 22px;flex-shrink:0}
-.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:contain;background:rgba(255,255,255,0.05);padding:2px}
-.brand-text strong{font-size:15.5px;font-weight:800;letter-spacing:-0.01em;display:block}
-.brand-text span{font-size:11px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
-
-.nav-scroll{flex:1;overflow-y:auto;padding-right:4px}
-.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 12px 6px}
-.nav-item{
-  display:flex;align-items:center;gap:11px;
-  padding:9.5px 12px;border-radius:10px;
-  color:#cfe7ea;font-size:13.6px;font-weight:500;
-  cursor:pointer;border:1px solid transparent;
-  transition:background var(--transition),color var(--transition);
-  text-decoration:none;
-}
-.nav-item .ic{width:18px;text-align:center;font-size:14.5px;flex-shrink:0}
-.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff}
-.nav-item.active{background:rgba(245,158,11,0.14);color:#ffd899;border-color:rgba(245,158,11,0.28);font-weight:600}
-.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10.5px;font-weight:800;padding:1.5px 6.5px;border-radius:99px}
-.nav-divider{height:1px;background:rgba(255,255,255,0.06);margin:6px 12px}
-.nav-exit{margin-top:4px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px}
-.nav-exit .nav-item{color:#efb3b3}
-.nav-exit .nav-item:hover{background:rgba(239,68,68,0.12);color:#fca5a5}
-
-.sidebar-foot{display:flex;align-items:center;gap:10px;padding:14px 10px 4px;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;flex-shrink:0}
-.sidebar-foot .av{width:32px;height:32px;border-radius:50%;background:var(--gold);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
-.sidebar-foot .who strong{display:block;font-size:12.5px;color:#fff}
-.sidebar-foot .who span{font-size:10.5px;color:#9fd4de}
-
-/* ============================================================
-   MAIN
-   ============================================================ */
 .main{min-width:0;display:flex;flex-direction:column}
-.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
 .hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
-.page-title h1{font-size:19px;font-weight:800;letter-spacing:-0.01em}
-.page-title .crumb{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse-dot 1.8s infinite}
-@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
-.gsearch{flex:1;max-width:360px;position:relative}
-.gsearch input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;background:var(--white);color:var(--text)}
-.gsearch input::placeholder{color:var(--text-faint)}
-.gsearch .gic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:13px}
-.top-right{display:flex;align-items:center;gap:12px;margin-left:auto}
-.clockbox{text-align:right;line-height:1.2} .clockbox .d{font-size:11px;color:var(--text-dim)} .clockbox .t{font-size:13.5px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.icon-btn{position:relative;width:36px;height:36px;border-radius:9px;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:var(--navy)}
-.icon-btn:hover{background:var(--navy);color:#fff}
-.icon-btn .dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:2px solid var(--white)}
-.profile{display:flex;align-items:center;gap:9px;padding-left:12px;border-left:1px solid var(--border);cursor:pointer}
-.profile .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
-.profile .who strong{display:block;font-size:12px} .profile .who span{font-size:10.5px;color:var(--text-dim)}
+html.dark .hamburger{background:rgba(255,255,255,.05)}
+.sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
+html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
+@media(max-width:768px){.sb-toggle-desktop{display:none}}
+.topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.page-title h1{font-size:19px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px}
+.crumb .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px;position:relative}
+html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.icon-btn:hover{background:var(--gold-soft);color:var(--navy-deep)}
+.admin-chip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:99px;border:1px solid var(--border);background:var(--white);cursor:pointer}
+html.dark .admin-chip{background:rgba(255,255,255,.04)}
+.admin-chip .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-deep)}
+.admin-chip .info strong{font-size:12.3px;display:block}
+.admin-chip .info span{font-size:10.5px;color:var(--text-dim)}
 
-.content{padding:22px 26px 60px}
-.view{display:none;animation:fadein .25s ease}
-.view.active{display:block}
-@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-
-.section-head{display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 14px;flex-wrap:wrap;gap:8px}
-.section-head h2{font-size:15.5px;font-weight:800;letter-spacing:-0.01em}
-.section-head .sub{font-size:12px;color:var(--text-dim)}
-
+.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
+.section-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:24px 2px 10px}
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
 .panel{padding:18px 20px}
 .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
 .panel-head h3{font-size:14px;font-weight:700}
 
-.badge{font-size:10.8px;font-weight:700;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:transform var(--transition),background var(--transition);white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep)}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-success{background:var(--success);color:#fff}
+.btn-sm{padding:5px 10px;font-size:11.5px}
+
+.badge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .badge.success{background:var(--success-bg);color:var(--success)}
 .badge.danger{background:var(--danger-bg);color:var(--danger)}
 .badge.warn{background:var(--warn-bg);color:#b3720a}
@@ -167,1284 +118,1299 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webk
 .badge.purple{background:var(--purple-bg);color:var(--purple)}
 .badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
 
-.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;font-size:12.8px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:transform var(--transition),filter var(--transition);white-space:nowrap}
-.btn:active{transform:scale(.97)}
-.btn-primary{background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep);box-shadow:0 6px 16px -6px rgba(245,158,11,0.6)}
-.btn-primary:hover{filter:brightness(1.05)}
-.btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}
-.btn-ghost:hover{background:var(--bg)}
-.btn-sm{padding:6px 10px;font-size:11.5px;border-radius:8px}
-.btn-success{background:var(--success);color:#fff}
-.btn-danger{background:var(--danger);color:#fff}
+.grid{display:grid;gap:14px}
+.grid.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.grid.cols-4{grid-template-columns:1fr}}
+.kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 18px;transition:transform var(--transition),box-shadow var(--transition)}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:10px}
+.kpi-icon.blue{background:var(--info-bg);color:var(--info)}
+.kpi-icon.green{background:var(--success-bg);color:var(--success)}
+.kpi-icon.gold{background:var(--warn-bg);color:#b3720a}
+.kpi-icon.red{background:var(--danger-bg);color:var(--danger)}
+.kpi-icon.purple{background:var(--purple-bg);color:var(--purple)}
+.kpi-value{font-size:22px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi-label{font-size:11.5px;color:var(--text-dim);margin-top:3px}
 
-.table-scroll{overflow-x:auto;overflow-y:visible;max-height:100%;scrollbar-width:thin}
-.table-scroll::-webkit-scrollbar{height:7px}
-.table-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+.table-scroll{overflow-x:auto;max-height:640px}
 table.data-table{width:100%;border-collapse:collapse;font-size:12.6px;min-width:900px}
-table.data-table th{text-align:left;padding:11px 16px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;user-select:none;position:sticky;top:0;z-index:2}
-table.data-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.data-table th{text-align:left;padding:10px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+table.data-table td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
 table.data-table tbody tr{transition:background var(--transition)}
-table.data-table tbody tr:hover{background:rgba(245,158,11,0.06)}
-.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+table.data-table tbody tr.row-clickable{cursor:pointer}
+table.data-table tbody tr:hover{background:rgba(245,166,35,.05)}
+.cell-user{display:flex;align-items:center;gap:10px}
+.cell-user .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--navy-light),var(--navy-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.cell-user .meta strong{font-size:12.5px;display:block}
+.cell-user .meta span{font-size:11px;color:var(--text-dim)}
+.cell-actions{display:flex;gap:5px;flex-wrap:wrap}
 .icon-mini{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--text-dim)}
 .icon-mini:hover{background:var(--bg);color:var(--navy)}
 .icon-mini.danger:hover{background:var(--danger-bg);color:var(--danger)}
 .icon-mini.success:hover{background:var(--success-bg);color:var(--success)}
-.table-foot{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;gap:10px}
-.pg-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;font-size:11.5px;cursor:pointer;color:var(--text-dim)}
-.pg-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
-
-.modal-overlay{position:fixed;inset:0;background:rgba(6,20,24,0.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
-.modal-overlay.open{display:flex}
-.modal{background:var(--bg);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:720px;padding:24px;animation:modalIn .22s ease;max-height:90vh;overflow-y:auto}
-.modal.wide{max-width:960px}
-.modal-scroll{max-height:60vh;overflow-y:auto;padding-right:4px}
-@keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
-.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-shrink:0}
-.modal-head h3{font-size:16px;font-weight:800;color:var(--text)}
-.modal-close{cursor:pointer;color:var(--text-dim);font-size:18px;background:none;border:none}
-.modal-sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px;flex-shrink:0}
-.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-shrink:0}
-
-.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
-.field label{font-size:12px;font-weight:600;color:var(--text-dim)}
-.field input,.field textarea,.field select{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:13px;font-family:'Inter',sans-serif;width:100%}
-.field input:focus,.field select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,158,11,0.15)}
-.field textarea{resize:vertical;min-height:70px}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:12px;font-size:12.8px}
-.info-grid div strong{color:var(--text-dim);font-weight:600;display:block;font-size:10.8px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
-@media(max-width:560px){.info-grid{grid-template-columns:1fr}}
-
-.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:200}
-.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;animation:toastIn .25s ease;border-left:3px solid var(--gold)}
-@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
-
-.grid{display:grid;gap:14px}
-.grid.cols-2{grid-template-columns:repeat(2,1fr)}
-.grid.cols-3{grid-template-columns:repeat(3,1fr)}
-.grid.cols-4{grid-template-columns:repeat(4,1fr)}
-@media(max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}.grid.cols-3{grid-template-columns:repeat(2,1fr)}}
-
-.kpi-card{padding:16px 18px;cursor:pointer;transition:transform var(--transition),box-shadow var(--transition);position:relative;overflow:hidden}
-.kpi-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
-.kpi-card:active{transform:translateY(-1px) scale(.98)}
-.kpi-top{display:flex;justify-content:space-between;align-items:flex-start}
-.kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
-.kpi-icon.gold{background:var(--warn-bg);color:#b3720a}
-.kpi-icon.green{background:var(--success-bg);color:var(--success)}
-.kpi-icon.blue{background:var(--info-bg);color:var(--info)}
-.kpi-icon.purple{background:var(--purple-bg);color:var(--purple)}
-.kpi-icon.red{background:var(--danger-bg);color:var(--danger)}
-.kpi-trend{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:20px}
-.trend-up{color:var(--success);background:var(--success-bg)}
-.trend-down{color:var(--danger);background:var(--danger-bg)}
-.kpi-value{font-size:23px;font-weight:800;letter-spacing:-0.02em;margin-top:10px}
-.kpi-label{font-size:11.5px;color:var(--text-dim);margin-top:2px;font-weight:500}
-
-.chart-card{padding:16px 18px}
-.chart-card h3{font-size:13.5px;font-weight:700;margin-bottom:4px}
-.chart-card .sub{font-size:11px;color:var(--text-dim);margin-bottom:10px}
-.chart-wrap{position:relative;height:230px;min-height:200px}
-.charts-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px}
-.charts-grid.thirds{grid-template-columns:1fr 1fr 1fr}
-@media(max-width:1100px){.charts-grid,.charts-grid.thirds{grid-template-columns:1fr}}
 
 .filters-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
-.filters-bar select,.filters-bar input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--white);color:var(--text)}
-.filters-bar input[type=text]{flex:1;min-width:180px}
-.filters-bar select:focus,.filters-bar input:focus{outline:none;border-color:var(--gold)}
+.filters-bar input,.filters-bar select{padding:8px 12px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;background:var(--white);color:var(--text);font-family:inherit}
+html.dark .filters-bar input,html.dark .filters-bar select{background:rgba(255,255,255,.04);color:var(--text)}
+.filters-bar input[type=text]{flex:1;min-width:200px}
+.filters-bar input:focus,.filters-bar select:focus{outline:none;border-color:var(--gold)}
+.table-foot{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;gap:10px}
+.pg-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;font-size:12px;cursor:pointer;color:var(--text-dim)}
+.pg-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.pg-btn:hover:not(.active){background:var(--bg)}
 
-.activity-item{display:flex;gap:12px;padding:11px 0;border-bottom:1px dashed var(--border)}
-.activity-item .aic{width:34px;height:34px;border-radius:9px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.activity-item .atxt{font-size:12.6px} .activity-item .atxt b{font-weight:700}
-.activity-item .atime{font-size:10.8px;color:var(--text-dim);margin-top:2px}
+.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms}
+.drawer-scrim.show{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(980px,97vw);background:var(--bg);z-index:301;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform 260ms cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.drawer.open{transform:translateX(0)}
+.dd-head{display:flex;align-items:center;gap:14px;padding:20px 24px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;flex-shrink:0}
+.dd-head .dd-ic{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dd-head .dd-titles{flex:1;min-width:0}
+.dd-head h2{margin:0;font-size:17px;font-weight:800}
+.dd-head .dd-sub{font-size:12px;color:rgba(255,255,255,.75);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-close{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px}
+.dd-close:hover{background:rgba(255,255,255,.2)}
 
-.cell-user{display:flex;align-items:center;gap:10px}
-.cell-user .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--navy-light),var(--navy-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.cell-user .meta{display:flex;flex-direction:column;line-height:1.3}
-.cell-user .meta strong{font-size:12.5px;font-weight:700}
-.cell-user .meta span{font-size:11px;color:var(--text-dim)}
+.dd-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 24px;flex-shrink:0;background:var(--bg-card);overflow-x:auto}
+.dd-tab{padding:14px 16px;font-size:12.5px;font-weight:700;color:var(--text-dim);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.dd-tab:hover{color:var(--text)}
+.dd-tab.active{color:var(--navy);border-bottom-color:var(--gold)}
+html.dark .dd-tab.active{color:var(--gold)}
+
+.dd-body{flex:1;overflow-y:auto;padding:22px 24px 60px}
+.dd-section{margin-bottom:22px}
+.dd-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dd-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.dd-stat{padding:12px 14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)}
+.dd-stat .k{font-size:10.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.dd-stat .v{font-size:16px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+.dd-field{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
+.dd-field .k{color:var(--text-dim);font-weight:600;flex-shrink:0;min-width:130px}
+.dd-field .v{font-weight:700;text-align:right;word-break:break-word;overflow-wrap:anywhere}
+.dd-empty{text-align:center;color:var(--text-faint);padding:26px 10px;font-size:12.5px}
+.dd-list-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);margin-bottom:6px;font-size:12.5px}
+.dd-list-item .l{flex:1;min-width:0}
+.dd-list-item .l strong{display:block;font-size:12.5px}
+.dd-list-item .l span{font-size:10.8px;color:var(--text-dim)}
+.dd-list-item .r{text-align:right;font-size:12px;font-weight:700;white-space:nowrap}
+.dd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.restriction-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--danger-bg);color:var(--danger);font-size:11px;font-weight:700;margin:2px 4px 2px 0}
+.restriction-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:11px;padding:0 2px}
+.note-item{padding:10px 12px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:8px}
+.note-item .meta{font-size:10.8px;color:var(--text-dim);margin-bottom:4px;display:flex;justify-content:space-between}
+.note-item .body{font-size:12.5px;line-height:1.4;white-space:pre-wrap}
+.note-item .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.note-item .tags span{font-size:10px;background:var(--info-bg);color:var(--info);padding:1px 7px;border-radius:99px;font-weight:700}
+
+.modal-scrim{position:fixed;inset:0;background:rgba(5,15,20,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:400;padding:16px}
+.modal-scrim.show{display:flex}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:560px;padding:24px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:6px}
+.modal .sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px}
+.modal .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.modal .field label{font-size:12px;font-weight:600;color:var(--text-dim)}
+.modal .field input,.modal .field textarea,.modal .field select{padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--white);color:var(--text);font-family:inherit;font-size:13px;width:100%}
+html.dark .modal .field input,html.dark .modal .field textarea,html.dark .modal .field select{background:rgba(255,255,255,.04);color:var(--text)}
+.modal .field textarea{resize:vertical;min-height:80px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:500}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;border-left:3px solid var(--gold);animation:toastIn .25s ease}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+.toast.error{border-left-color:var(--danger)}
+.toast.success{border-left-color:var(--success)}
 
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
+.scrim.show{display:block}
+
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:900px){
   .app{grid-template-columns:1fr}
-  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:260px;box-shadow:var(--shadow-lg);transition:transform .3s ease;z-index:50}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);z-index:50;transition:transform .3s ease}
   .sidebar.open{transform:translateX(0)}
   .hamburger{display:flex}
-  .content{padding:16px 14px 50px}
-  .grid.cols-2,.grid.cols-4,.grid.cols-3{grid-template-columns:1fr}
-  .gsearch{order:3;max-width:100%;flex-basis:100%}
-}
-@media(max-width:540px){
-  .kpi-value{font-size:20px}
+  .content{padding:14px}
   .topbar{padding:0 14px;gap:8px}
-  .clockbox{display:none}
-  .top-right .profile .who{display:none}
 }
 </style>
-
 </head>
 <body>
-<div class="app">
+<div class="app" id="appRoot">
 
+<!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="brand">
-    <img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
-    <div class="brand-text"><strong>MilesSpace</strong><span>Users Admin</span></div>
+    <img src="/images/miles.png" alt="" onerror="this.style.display='none'">
+    <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+    <button class="sb-collapse-btn" id="sbCollapseBtn" aria-label="Collapse"><i class="fas fa-angles-left"></i></button>
   </div>
-  <div class="nav-scroll">
-    <div class="nav-label">Overview</div>
-    <div class="nav-item active" data-view="dashboard"><span class="ic">📊</span>User Dashboard</div>
-    <div class="nav-item" data-view="analytics"><span class="ic">📈</span>Analytics</div>
+  <nav class="nav-scroll">
+    <span class="nav-label">Overview</span>
+    <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span><span>Dashboard</span></a>
 
-    <div class="nav-label">User Management</div>
-    <div class="nav-item" data-view="users"><span class="ic">👥</span>All Users<span class="badge-count" id="userCount">0</span></div>
-    <div class="nav-item" data-view="users-active"><span class="ic">🟢</span>Active Users</div>
-    <div class="nav-item" data-view="users-inactive"><span class="ic">⏸️</span>Inactive Users</div>
-    <div class="nav-item" data-view="users-suspended"><span class="ic">🚫</span>Suspended Users</div>
-    <div class="nav-item" data-view="users-new"><span class="ic">✨</span>New Users</div>
+    <span class="nav-label">Customers</span>
+    <a href="/admin/users" class="nav-item active"><span class="ic">👥</span><span>Users</span><span class="badge-count" id="userCountBadge">0</span></a>
+    <a href="/admin/support" class="nav-item"><span class="ic">💬</span><span>Support</span></a>
 
-    <div class="nav-label">Authentication</div>
-    <div class="nav-item" data-view="login-history"><span class="ic">🔐</span>Login History</div>
+    <span class="nav-label">Money</span>
+    <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span><span>Transactions</span></a>
+    <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span><span>Deposits</span></a>
+    <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span><span>Ledger</span></a>
+    <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span><span>Reconciliation</span></a>
 
-    <div class="nav-divider"></div>
-    <div class="nav-exit">
-      <a href="/admin/dashboard" class="nav-item" style="text-decoration:none;"><span class="ic">🏠</span>Back to Main Dashboard</a>
-      <div class="nav-item" onclick="logout()"><span class="ic">🚪</span>Logout</div>
-    </div>
-  </div>
+    <span class="nav-label">System</span>
+    <a href="/admin/approvals" class="nav-item"><span class="ic">✅</span><span>Approvals</span><span class="badge-count" id="approvalBadge" style="display:none">0</span></a>
+    <a href="/admin/audit-logs" class="nav-item"><span class="ic">🗂️</span><span>Audit Logs</span></a>
+    <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span><span>Settings</span></a>
+  </nav>
   <div class="sidebar-foot">
-    <div class="av" id="adminAvatar">DA</div>
-    <div class="who"><strong id="adminName">Dara Adisa</strong><span id="adminRole">Super Admin</span></div>
+    <div class="av" id="adminAvatar">AD</div>
+    <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
   </div>
 </aside>
-
 <div class="scrim" id="scrim"></div>
 
+<!-- MAIN -->
 <div class="main">
   <header class="topbar">
     <button class="hamburger" id="hamburger">☰</button>
-    <div class="page-title"><h1 id="pageTitle">User Dashboard</h1><div class="crumb"><span class="live-dot"></span>Live data · <span id="lastUpdated">updating...</span></div></div>
-    <div class="gsearch"><span class="gic">🔎</span><input type="text" id="globalSearch" placeholder="Search users..." oninput="handleGlobalSearch()"></div>
-    <div class="top-right">
-      <div class="clockbox"><div class="d" id="curDate">—</div><div class="t" id="curTime">—</div></div>
-      <button class="icon-btn" title="Refresh" onclick="refreshAll()">🔄</button>
-      <button class="icon-btn" title="Notifications" onclick="openNotif()">🔔<span class="dot"></span></button>
-      <div class="profile"><div class="av" id="chipAvatar">DA</div><div class="who"><strong id="chipName">Dara Adisa</strong><span id="chipRole">Super Admin</span></div></div>
+    <button class="sb-toggle-desktop" id="sbToggleDesktop"><i class="fas fa-bars"></i></button>
+    <div class="topbar-left">
+      <div class="page-title">
+        <h1>User Management</h1>
+        <div class="crumb"><span class="live-dot"></span><span id="lastUpdated">updating…</span></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <input type="text" id="globalSearch" placeholder="Search users…" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--white);font-size:12.5px;width:220px;font-family:inherit" onkeydown="if(event.key==='Enter')applySearch()">
+      <button class="icon-btn" id="darkToggle" title="Theme">🌙</button>
+      <button class="icon-btn" onclick="refreshAll()" title="Refresh">🔄</button>
+      <div class="admin-chip" id="adminChip" role="button" tabindex="0">
+        <div class="av" id="chipAvatar">AD</div>
+        <div class="info"><strong id="chipName">Admin</strong><span id="chipRole">Admin</span></div>
+      </div>
     </div>
   </header>
 
   <div class="content">
 
-    <!-- ================= DASHBOARD ================= -->
-    <section class="view active" id="view-dashboard">
-      <div class="grid cols-4" id="kpiGrid"></div>
-      <div class="charts-grid" style="margin-top:20px;">
-        <div class="card chart-card"><h3>User Growth</h3><div class="sub">Daily new users</div><div class="chart-wrap"><canvas id="userGrowthChart"></canvas></div></div>
-        <div class="card chart-card"><h3>User Distribution</h3><div class="sub">By role</div><div class="chart-wrap"><canvas id="userDistChart"></canvas></div></div>
+    <div class="section-title">Overview</div>
+    <div class="grid cols-4" id="kpiGrid">
+      <div class="kpi-card"><div class="kpi-icon blue">👥</div><div class="kpi-value" id="kpiTotal">—</div><div class="kpi-label">Total Users</div></div>
+      <div class="kpi-card"><div class="kpi-icon green">🟢</div><div class="kpi-value" id="kpiActive">—</div><div class="kpi-label">Active</div></div>
+      <div class="kpi-card"><div class="kpi-icon red">🚫</div><div class="kpi-value" id="kpiSuspended">—</div><div class="kpi-label">Suspended</div></div>
+      <div class="kpi-card"><div class="kpi-icon gold">✅</div><div class="kpi-value" id="kpiVerified">—</div><div class="kpi-label">Verified</div></div>
+    </div>
+
+    <div class="section-title">All Users</div>
+    <div class="card">
+      <div class="filters-bar">
+        <input type="text" id="searchInput" placeholder="🔍 Search username, email or phone…">
+        <select id="statusFilter">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="suspended">Suspended</option>
+          <option value="banned">Banned</option>
+        </select>
+        <select id="roleFilter">
+          <option value="">All Roles</option>
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+          <option value="finance">Finance</option>
+          <option value="operations">Operations</option>
+          <option value="support">Support</option>
+          <option value="auditor">Auditor</option>
+          <option value="read_only">Read Only</option>
+        </select>
       </div>
-      <div class="section-head"><h2>Recent User Activity</h2></div>
-      <div class="card panel" id="recentActivity"><div style="text-align:center;color:var(--text-faint);padding:20px;">Loading activity...</div></div>
-      <div class="section-head"><h2>New Users</h2></div>
-      <div class="card panel" id="newUsersList"><div style="text-align:center;color:var(--text-faint);padding:20px;">Loading new users...</div></div>
-    </section>
-
-    <!-- ================= ANALYTICS ================= -->
-    <section class="view" id="view-analytics">
-      <div class="section-head"><h2>User Analytics</h2><span class="sub">All charts use real data</span></div>
-      <div class="charts-grid">
-        <div class="card chart-card"><h3>Daily Active Users</h3><div class="chart-wrap"><canvas id="dauChart"></canvas></div></div>
-        <div class="card chart-card"><h3>User Retention</h3><div class="chart-wrap"><canvas id="retentionChart"></canvas></div></div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Phone</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Wallet NGN</th>
+              <th>Wallet USD</th>
+              <th>Registered</th>
+              <th>Last Login</th>
+              <th>Restrictions</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTbody">
+            <tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:40px;">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="charts-grid thirds">
-        <div class="card chart-card"><h3>Verification Status</h3><div class="chart-wrap"><canvas id="verificationChart"></canvas></div></div>
-        <div class="card chart-card"><h3>Premium vs Free</h3><div class="chart-wrap"><canvas id="premiumChart"></canvas></div></div>
-        <div class="card chart-card"><h3>Device Breakdown</h3><div class="chart-wrap"><canvas id="deviceChart"></canvas></div></div>
+      <div class="table-foot">
+        <span id="userRange">—</span>
+        <div id="userPager" style="display:flex;gap:4px;"></div>
       </div>
-      <div class="charts-grid">
-        <div class="card chart-card"><h3>User Acquisition</h3><div class="chart-wrap"><canvas id="acquisitionChart"></canvas></div></div>
-        <div class="card chart-card"><h3>Monthly Active Users</h3><div class="chart-wrap"><canvas id="mauChart"></canvas></div></div>
-      </div>
-    </section>
-
-    <!-- ================= ALL USERS ================= -->
-    <section class="view" id="view-users">
-      <div class="section-head"><h2>All Users</h2><span class="sub" id="userCountLabel"></span></div>
-      <div class="card" style="overflow:hidden">
-        <div class="filters-bar">
-          <input type="text" id="userSearch" placeholder="🔍 Search users…"/>
-          <select id="userRoleFilter"><option value="">All Roles</option><option value="super_admin">Super Admin</option><option value="admin">Admin</option><option value="manager">Manager</option><option value="user">User</option></select>
-          <select id="userStatusFilter"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
-          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-ghost btn-sm" onclick="exportUsersCSV()">⬇️ CSV</button>
-            <button class="btn btn-primary btn-sm" onclick="openAddUser()">➕ Add User</button>
-          </div>
-        </div>
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead><tr><th>User</th><th>Location</th><th>Role</th><th>Status</th><th>Joined</th><th>Wallet</th><th>Actions</th></tr></thead>
-            <tbody id="usersTbody"></tbody>
-          </table>
-        </div>
-        <div class="table-foot"><span id="userRange"></span><div class="pager" id="userPager"></div></div>
-      </div>
-    </section>
-
-    <!-- ================= ACTIVE USERS ================= -->
-    <section class="view" id="view-users-active">
-      <div class="section-head"><h2>Active Users</h2><span class="sub">Users with active status</span></div>
-      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>User</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="activeUsersTbody"></tbody></table></div></div>
-    </section>
-
-    <!-- ================= INACTIVE USERS ================= -->
-    <section class="view" id="view-users-inactive">
-      <div class="section-head"><h2>Inactive Users</h2><span class="sub">Users with inactive status</span></div>
-      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>User</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="inactiveUsersTbody"></tbody></table></div></div>
-    </section>
-
-    <!-- ================= SUSPENDED USERS ================= -->
-    <section class="view" id="view-users-suspended">
-      <div class="section-head"><h2>Suspended Users</h2><span class="sub">Suspended accounts</span></div>
-      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>User</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="suspendedUsersTbody"></tbody></table></div></div>
-    </section>
-
-    <!-- ================= NEW USERS ================= -->
-    <section class="view" id="view-users-new">
-      <div class="section-head"><h2>New Users</h2><span class="sub" id="newUserCount"></span></div>
-      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>User</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="newUsersTbody"></tbody></table></div></div>
-    </section>
-
-    <!-- ================= LOGIN HISTORY ================= -->
-    <section class="view" id="view-login-history">
-      <div class="section-head"><h2>Login History</h2></div>
-      <div class="card panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>User</th><th>IP Address</th><th>Location</th><th>Time</th><th>Status</th></tr></thead><tbody id="loginHistoryTbody"></tbody></table></div></div>
-    </section>
+    </div>
 
   </div>
 </div>
 </div>
 
+<!-- USER DETAIL DRAWER -->
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="drawer" id="userDrawer" role="dialog" aria-modal="true">
+  <div class="dd-head">
+    <div class="dd-ic" id="ddIcon">👤</div>
+    <div class="dd-titles">
+      <h2 id="ddTitle">User</h2>
+      <div class="dd-sub" id="ddSub"></div>
+    </div>
+    <button class="dd-close" id="ddClose" aria-label="Close">✕</button>
+  </div>
+
+  <div class="dd-tabs" id="ddTabs">
+    <button class="dd-tab active" data-tab="overview">Overview</button>
+    <button class="dd-tab" data-tab="wallets">Wallets</button>
+    <button class="dd-tab" data-tab="ledger">Ledger</button>
+    <button class="dd-tab" data-tab="transactions">Transactions</button>
+    <button class="dd-tab" data-tab="security">Security</button>
+    <button class="dd-tab" data-tab="support">Support</button>
+    <button class="dd-tab" data-tab="notes">Notes</button>
+  </div>
+
+  <div class="dd-body" id="ddBody">
+    <div class="dd-empty">Select a user…</div>
+  </div>
+</aside>
+
 <!-- MODAL -->
-<div class="modal-overlay" id="modalOverlay">
+<div class="modal-scrim" id="modalScrim">
   <div class="modal" id="modalBox">
-    <div class="modal-head"><h3 id="modalTitle">Title</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <div class="modal-sub" id="modalSub"></div>
-    <div class="modal-body" id="modalBody"></div>
+    <h3 id="modalTitle">Confirm</h3>
+    <div class="sub" id="modalSub"></div>
+    <div id="modalBody"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-ghost" id="modalCancel">Cancel</button>
       <button class="btn btn-primary" id="modalConfirm">Confirm</button>
     </div>
   </div>
 </div>
+
 <div class="toast-stack" id="toastStack"></div>
 
 <script>
 'use strict';
 
-// ─── API CONFIG ───
-const API_BASE = '/api';
-const ADMIN_API = `${API_BASE}/admin`;
-const SESSION_KEY = 'admin_sess';
-
-// ─── SESSION HANDLING ───
-function getAdminSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function getAdminToken() {
-  const sess = getAdminSession();
-  return sess?.token || null;
-}
-
-function clearAdminSession() {
-  localStorage.removeItem(SESSION_KEY);
-  sessionStorage.removeItem(SESSION_KEY);
-}
-
-// ─── CHECK AUTH ON LOAD ───
-(function checkAuth() {
-  const token = getAdminToken();
-  if (!token) {
-    window.location.href = '/admin';
-    return;
-  }
-  
-  fetch(`${ADMIN_API}/verify`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  })
-  .then(res => {
-    if (!res.ok) throw new Error('Invalid token');
-    return res.json();
-  })
-  .then(data => {
-    if (!data.success) {
-      clearAdminSession();
-      window.location.href = '/admin';
-    }
-  })
-  .catch(() => {
-    clearAdminSession();
-    window.location.href = '/admin';
-  });
-})();
-
-// ─── API REQUEST HELPER ───
-let isRedirecting = false;
-
-async function adminFetch(endpoint, options = {}) {
-  const token = getAdminToken();
-  if (!token) {
-    if (!isRedirecting) {
-      isRedirecting = true;
-      window.location.href = '/admin';
-    }
-    throw new Error('Not authenticated');
-  }
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
-    ...options.headers
-  };
-
-  try {
-    const response = await fetch(`${ADMIN_API}${endpoint}`, {
-      ...options,
-      headers
-    });
-
-    if (response.status === 401) {
-      clearAdminSession();
-      if (!isRedirecting) {
-        isRedirecting = true;
-        window.location.href = '/admin';
-      }
-      throw new Error('Session expired');
-    }
-
-    isRedirecting = false;
-    return response;
-    
-  } catch (error) {
-    if (error.message === 'Failed to fetch') {
-      if (!isRedirecting) {
-        isRedirecting = true;
-        window.location.href = '/admin';
-      }
-    }
-    throw error;
-  }
-}
-
-// ─── HELPERS ───
-function formatCurrency(amount, currency = 'NGN') {
-  if (!amount) return '0';
-  const num = typeof amount === 'number' ? amount : parseFloat(amount);
-  if (isNaN(num)) return '0';
-  return currency === 'NGN' ? `₦${num.toLocaleString()}` : `$${num.toLocaleString()}`;
-}
-
-function getInitials(name) {
-  if (!name) return 'U';
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-}
-
-function getStatusBadge(status) {
-  const map = {
-    'active': 'success',
-    'inactive': 'neutral',
-    'suspended': 'danger',
-    'super_admin': 'purple',
-    'admin': 'info',
-    'manager': 'warn',
-    'user': 'neutral',
-    'verified': 'success',
-    'pending': 'warn'
-  };
-  return map[status] || 'neutral';
-}
-
-function timeAgo(date) {
-  if (!date) return 'just now';
-  const now = new Date();
-  const diff = Math.floor((now - new Date(date)) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
-  return Math.floor(diff / 604800) + 'w ago';
-}
-
-function showToast(message, type = 'info') {
-  const stack = document.getElementById('toastStack');
-  const el = document.createElement('div');
-  el.className = 'toast';
-  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-  el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
-  stack.appendChild(el);
-  setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(30px)';
-    el.style.transition = 'all .25s ease';
-    setTimeout(() => el.remove(), 260);
-  }, 3200);
-}
-
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
-}
-
-function openModal(title, sub, body, confirmText, onConfirm, wide) {
-  const modal = document.getElementById('modalBox');
-  modal.classList.toggle('wide', !!wide);
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalSub').textContent = sub || '';
-  document.getElementById('modalBody').innerHTML = body || '';
-  const btn = document.getElementById('modalConfirm');
-  btn.style.display = confirmText === null ? 'none' : 'inline-flex';
-  btn.textContent = confirmText || 'Confirm';
-  btn.onclick = function() {
-    if (onConfirm) onConfirm();
-    closeModal();
-  };
-  document.getElementById('modalOverlay').classList.add('open');
-}
-
-document.getElementById('modalOverlay').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
-
-function logout() {
-  if (confirm('Are you sure you want to logout?')) {
-    clearAdminSession();
-    window.location.href = '/admin';
-  }
-}
-
-// ─── CLOCK ───
-function tickClock() {
-  const n = new Date();
-  document.getElementById('curDate').textContent = n.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  document.getElementById('curTime').textContent = n.toLocaleTimeString();
-}
-tickClock();
-setInterval(tickClock, 1000);
-
-// ─── NAVIGATION ───
-const VIEW_TITLES = {
-  dashboard: 'User Dashboard',
-  analytics: 'User Analytics',
-  users: 'All Users',
-  'users-active': 'Active Users',
-  'users-inactive': 'Inactive Users',
-  'users-suspended': 'Suspended Users',
-  'users-new': 'New Users',
-  'login-history': 'Login History'
+/* ════════════════════════════════════════════════════════════════
+   CONFIG
+   ════════════════════════════════════════════════════════════════ */
+const API = {
+  users:       '/api/admin/users',
+  userById:    (id) => `/api/admin/users/${encodeURIComponent(id)}`,
+  overview:    (id) => `/api/admin/users/${encodeURIComponent(id)}/overview`,
+  wallets:     (id) => `/api/admin/users/${encodeURIComponent(id)}/wallets`,
+  ledger:      (id) => `/api/admin/users/${encodeURIComponent(id)}/ledger`,
+  transactions:(id) => `/api/admin/users/${encodeURIComponent(id)}/transactions`,
+  security:    (id) => `/api/admin/users/${encodeURIComponent(id)}/security`,
+  support:     (id) => `/api/admin/users/${encodeURIComponent(id)}/support`,
+  notes:       (id) => `/api/admin/users/${encodeURIComponent(id)}/notes`,
+  restrictions:(id) => `/api/admin/users/${encodeURIComponent(id)}/restrictions`,
+  restrictOne: (id, r) => `/api/admin/users/${encodeURIComponent(id)}/restrictions/${encodeURIComponent(r)}`,
+  forceLogout: (id) => `/api/admin/users/${encodeURIComponent(id)}/force-logout`,
+  requirePwd:  (id) => `/api/admin/users/${encodeURIComponent(id)}/require-password-reset`,
+  require2FA:  (id) => `/api/admin/users/${encodeURIComponent(id)}/require-2fa`,
+  status:      (id) => `/api/admin/users/${encodeURIComponent(id)}/status`,
+  wallet:      (id) => `/api/admin/users/${encodeURIComponent(id)}/wallet`,
+  stats:       '/api/admin/users/stats',
+  me:          '/api/admin/me',
+  approvals:   '/api/admin/approvals'
 };
 
-document.getElementById('hamburger').addEventListener('click', function() {
-  document.getElementById('sidebar').classList.add('open');
-  document.getElementById('scrim').style.display = 'block';
-});
-
-document.getElementById('scrim').addEventListener('click', function() {
-  document.getElementById('sidebar').classList.remove('open');
-  this.style.display = 'none';
-});
-
-document.querySelectorAll('.nav-item[data-view]').forEach(item => {
-  item.addEventListener('click', function() {
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    this.classList.add('active');
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    const view = this.dataset.view;
-    document.getElementById('view-' + view).classList.add('active');
-    document.getElementById('pageTitle').textContent = VIEW_TITLES[view] || view;
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('scrim').style.display = 'none';
-    renderView(view);
-  });
-});
-
-function renderView(view) {
-  if (view === 'dashboard') renderDashboard();
-  else if (view === 'analytics') renderAnalytics();
-  else if (view === 'users') renderUsers();
-  else if (view === 'users-active') renderActiveUsers();
-  else if (view === 'users-inactive') renderInactiveUsers();
-  else if (view === 'users-suspended') renderSuspendedUsers();
-  else if (view === 'users-new') renderNewUsers();
-  else if (view === 'login-history') renderLoginHistory();
-}
-
-function refreshAll() {
-  const active = document.querySelector('.nav-item.active');
-  if (active) renderView(active.dataset.view);
-  showToast('Refreshed!', 'info');
-}
-
-// ─── GLOBAL SEARCH ───
-function handleGlobalSearch() {
-  const q = document.getElementById('globalSearch').value.trim().toLowerCase();
-  if (!q) return;
-  document.querySelector('[data-view=users]').click();
-  document.getElementById('userSearch').value = q;
-  renderUsers();
-}
-
-// ─── LOAD ADMIN PROFILE ───
-async function loadAdminProfile() {
-  try {
-    const response = await adminFetch('/me');
-    const result = await response.json();
-    if (result.success) {
-      const user = result.data?.user || result.user;
-      if (user) {
-        const name = user.username || user.email || 'Admin';
-        const role = user.role || 'Admin';
-        const initials = getInitials(name);
-        document.getElementById('adminName').textContent = name;
-        document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-        document.getElementById('adminAvatar').textContent = initials;
-        document.getElementById('chipName').textContent = name;
-        document.getElementById('chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-        document.getElementById('chipAvatar').textContent = initials;
-      }
-    }
-  } catch (e) {
-    console.error('Admin profile error:', e);
-  }
-}
-
-// ─── DASHBOARD ───
-const KPI_DEFS = [
-  { key: 'totalUsers', label: 'Total Users', icon: '👥', cls: 'blue' },
-  { key: 'activeUsers', label: 'Active Users', icon: '🟢', cls: 'green' },
-  { key: 'inactiveUsers', label: 'Inactive Users', icon: '⏸️', cls: 'gold' },
-  { key: 'suspendedUsers', label: 'Suspended Users', icon: '🚫', cls: 'red' },
-  { key: 'verifiedUsers', label: 'Verified Users', icon: '✅', cls: 'green' },
-  { key: 'adminUsers', label: 'Admin Users', icon: '🛡️', cls: 'purple' },
-  { key: 'newUsersToday', label: 'New Today', icon: '📅', cls: 'gold' },
-  { key: 'newUsersWeek', label: 'New This Week', icon: '📆', cls: 'blue' },
+const RESTRICTIONS = [
+  { key: 'deposits',      label: 'Deposits',         icon: '📥' },
+  { key: 'withdrawals',   label: 'Withdrawals',      icon: '📤' },
+  { key: 'gift_cards',    label: 'Gift Card Trading',icon: '🎁' },
+  { key: 'virtual_cards', label: 'Virtual Cards',    icon: '💳' },
+  { key: 'transactions',  label: 'All Transactions', icon: '🚫' },
+  { key: 'login',         label: 'Account Login',    icon: '🔒' },
+  { key: 'payouts',       label: 'Payouts',          icon: '💰' },
+  { key: 'trading',       label: 'Trading',          icon: '📈' }
 ];
 
-async function renderDashboard() {
-  try {
-    const response = await adminFetch('/users/stats/dashboard');
-    const result = await response.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to load stats');
-    }
-    
-    const stats = result.stats || result.data || result;
-    document.getElementById('userCount').textContent = stats.totalUsers || 0;
+const State = {
+  users: [],
+  page: 1,
+  limit: 20,
+  total: 0,
+  totalPages: 1,
+  currentUserId: null,
+  currentTab: 'overview',
+  drawerData: {},
+  adminPermissions: {}
+};
 
-    const grid = document.getElementById('kpiGrid');
-    grid.innerHTML = KPI_DEFS.map(k => {
-      const raw = stats[k.key] || 0;
-      return `<div class="card kpi-card" onclick="openKpiDetail('${k.key}')">
-        <div class="kpi-top"><div class="kpi-icon ${k.cls}">${k.icon}</div></div>
-        <div class="kpi-value">${raw.toLocaleString()}</div>
-        <div class="kpi-label">${k.label}</div>
-      </div>`;
-    }).join('');
-
-    // Recent activity
-    try {
-      const actRes = await adminFetch('/activity/recent?limit=10');
-      const actResult = await actRes.json();
-      if (actResult.success) {
-        const activities = actResult.data || [];
-        document.getElementById('recentActivity').innerHTML = activities.slice(0, 8).map(a => `
-          <div class="activity-item">
-            <div class="aic">${getActivityIcon(a.action)}</div>
-            <div>
-              <div class="atxt"><b>${a.profiles?.username || 'Admin'}</b> ${a.action || 'Activity'}</div>
-              <div class="atime">${timeAgo(a.created_at)}</div>
-            </div>
-          </div>
-        `).join('') || '<div style="text-align:center;color:var(--text-faint);padding:20px;">No recent activity</div>';
-      }
-    } catch (e) {}
-
-    // New users
-    try {
-      const userRes = await adminFetch('/users?limit=5');
-      const userResult = await userRes.json();
-      if (userResult.success) {
-        const users = userResult.users || [];
-        document.getElementById('newUsersList').innerHTML = users.slice(0, 5).map(u => `
-          <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--border)">
-            <div><strong>${u.username || u.email}</strong><div style="font-size:11px;color:var(--text-dim)">${u.email}</div></div>
-            <div>${badge(u.status || 'active')}<div style="font-size:11px;text-align:right">${timeAgo(u.created_at)}</div></div>
-          </div>
-        `).join('') || '<div style="text-align:center;color:var(--text-faint);padding:20px;">No new users</div>';
-      }
-    } catch (e) {}
-
-    return stats;
-    
-  } catch (error) {
-    console.error('Dashboard error:', error);
-    showToast('Failed to load dashboard', 'error');
-  }
+/* ════════════════════════════════════════════════════════════════
+   HELPERS
+   ════════════════════════════════════════════════════════════════ */
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 }
-
-function getActivityIcon(action) {
-  const icons = {
-    'login': '🔐',
-    'logout': '🚪',
-    'view_stats': '📊',
-    'user_create': '👤',
-    'user_update': '✏️',
-    'user_delete': '🗑️',
-    'user_suspend': '⏸️',
-    'user_activate': '▶️',
-    'transaction_create': '💰',
-    'transaction_update': '💳'
-  };
-  return icons[action] || '📌';
+function getInitials(name) {
+  if (!name) return 'U';
+  return name.split(/\s+/).map(w => w[0]).filter(Boolean).join('').toUpperCase().slice(0, 2) || 'U';
 }
-
-function badge(status) {
+function fmtMoney(amount, currency) {
+  const ccy = String(currency || '').toUpperCase();
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '—';
+  const sym = { NGN:'₦', USD:'$', GHS:'GH₵', KES:'KSh', ZAR:'R', EUR:'€', GBP:'£' }[ccy] || '';
+  const fmt = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return sym ? `${sym}${fmt}` : `${ccy} ${fmt}`;
+}
+function fmtNum(n) {
+  if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—';
+  return Number(n).toLocaleString('en-US');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-US', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function timeAgo(d) {
+  if (!d) return '—';
+  const diff = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (diff < 0) return 'just now';
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
+  return Math.floor(diff/604800) + 'w ago';
+}
+function statusBadge(s) {
   const m = {
-    'active': 'success',
-    'inactive': 'neutral',
-    'suspended': 'danger',
-    'super_admin': 'purple',
-    'admin': 'info',
-    'manager': 'warn',
-    'user': 'neutral'
+    active:'success', completed:'success', success:'success', delivered:'success',
+    inactive:'neutral', pending:'warn', processing:'warn', confirming:'warn',
+    suspended:'danger', banned:'danger', failed:'danger', cancelled:'danger', reversed:'danger',
+    admin:'info', super_admin:'purple', finance:'purple', operations:'info',
+    support:'warn', auditor:'neutral', read_only:'neutral', user:'neutral',
+    manual_review:'purple'
   };
-  return `<span class="badge ${m[status] || 'neutral'}">${status || 'Active'}</span>`;
+  return m[String(s||'').toLowerCase()] || 'neutral';
 }
-
-function openKpiDetail(key) {
-  const def = KPI_DEFS.find(k => k.key === key);
-  if (!def) return;
-  openModal(def.label, 'Detailed metric', `
-    <div class="info-grid">
-      <div><strong>Metric</strong>${def.label}</div>
-      <div><strong>Icon</strong>${def.icon}</div>
-    </div>
-    <p style="font-size:12px;color:var(--text-dim);">This KPI shows real-time data from your database.</p>
-  `, 'Close', null);
+function toast(msg, type = 'info') {
+  const stack = document.getElementById('toastStack');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+  el.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${escapeHtml(msg)}</span>`;
+  stack.appendChild(el);
+  setTimeout(() => el.remove(), 3600);
 }
-
-// ─── ANALYTICS CHARTS ───
-let chartInstances = {};
-let chartsBuilt = false;
-
-function renderAnalytics() {
-  if (chartsBuilt) return;
-  chartsBuilt = true;
-  
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const days = Array.from({length: 14}, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (13 - i));
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  });
-
-  function buildChart(id, type, data, opts) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (chartInstances[id]) {
-      try { chartInstances[id].destroy(); } catch(e) {}
-    }
-    if (typeof Chart === 'undefined') {
-      el.parentElement.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-faint);">⏳ Loading charts...</div>';
-      return;
-    }
-    try {
-      chartInstances[id] = new Chart(el.getContext('2d'), {
-        type: type,
-        data: data,
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }
-          },
-          scales: type === 'doughnut' ? {} : {
-            y: { beginAtZero: true, grid: { color: '#eef1f7' } },
-            x: { grid: { display: false } }
-          },
-          ...opts
-        }
-      });
-    } catch(e) {}
-  }
-
-  // User Growth
-  buildChart('userGrowthChart', 'line', {
-    labels: days,
-    datasets: [{
-      label: 'New Users',
-      data: days.map(() => Math.floor(Math.random() * 20) + 5),
-      borderColor: '#f59e0b',
-      backgroundColor: 'rgba(245,158,11,.15)',
-      fill: true,
-      tension: 0.4
-    }]
-  }, {});
-
-  // User Distribution
-  const roles = ['super_admin', 'admin', 'manager', 'user'];
-  const colors = ['#8b5cf6', '#dc2626', '#f59e0b', '#16a34a'];
-  buildChart('userDistChart', 'doughnut', {
-    labels: ['Super Admin', 'Admin', 'Manager', 'User'],
-    datasets: [{ data: [1, 2, 3, 10], backgroundColor: colors }]
-  }, { cutout: '60%' });
-
-  // DAU
-  buildChart('dauChart', 'line', {
-    labels: days.slice(0, 7),
-    datasets: [{
-      label: 'Daily Active Users',
-      data: days.slice(0, 7).map(() => Math.floor(Math.random() * 50) + 20),
-      borderColor: '#0c3d4a',
-      backgroundColor: 'rgba(12,61,74,.1)',
-      fill: true,
-      tension: 0.4
-    }]
-  }, {});
-
-  // Retention
-  buildChart('retentionChart', 'line', {
-    labels: ['W1', 'W2', 'W3', 'W4', 'W8', 'W12'],
-    datasets: [
-      { label: 'Cohort A', data: [100, 85, 72, 65, 48, 42], borderColor: '#0c3d4a', tension: 0.4 },
-      { label: 'Cohort B', data: [100, 82, 68, 58, 42, null], borderColor: '#f59e0b', tension: 0.4 }
-    ]
-  }, {});
-
-  // Verification
-  buildChart('verificationChart', 'doughnut', {
-    labels: ['Verified', 'Unverified'],
-    datasets: [{ data: [15, 8], backgroundColor: ['#16a34a', '#f59e0b'] }]
-  }, { cutout: '60%' });
-
-  // Premium
-  buildChart('premiumChart', 'doughnut', {
-    labels: ['Premium', 'Free'],
-    datasets: [{ data: [4, 19], backgroundColor: ['#8b5cf6', '#c9dde2'] }]
-  }, { cutout: '60%' });
-
-  // Device
-  buildChart('deviceChart', 'doughnut', {
-    labels: ['Desktop', 'Mobile', 'Tablet'],
-    datasets: [{ data: [62, 33, 5], backgroundColor: ['#0c3d4a', '#f59e0b', '#2563a8'] }]
-  }, { cutout: '60%' });
-
-  // Acquisition
-  buildChart('acquisitionChart', 'bar', {
-    labels: ['Organic', 'Referral', 'Social', 'Direct'],
-    datasets: [{ data: [45, 25, 18, 8], backgroundColor: ['#0c3d4a', '#f59e0b', '#2563a8', '#8b5cf6'], borderRadius: 5 }]
-  }, {});
-
-  // MAU
-  buildChart('mauChart', 'bar', {
-    labels: months.slice(0, 6),
-    datasets: [{ data: months.slice(0, 6).map(() => Math.floor(Math.random() * 100) + 50), backgroundColor: '#f59e0b', borderRadius: 5 }]
-  }, {});
-}
-
-// ─── USERS TABLE ───
-let userPage = 1;
-let PER_PAGE = 10;
-let totalUsers = 0;
-
-async function renderUsers() {
-  try {
-    const search = document.getElementById('userSearch')?.value || '';
-    const role = document.getElementById('userRoleFilter')?.value || '';
-    const status = document.getElementById('userStatusFilter')?.value || '';
-
-    const query = new URLSearchParams({
-      page: userPage,
-      limit: PER_PAGE,
-      search,
-      role,
-      status
-    });
-
-    const response = await adminFetch(`/users?${query}`);
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to load users');
-    }
-
-    const users = result.users || [];
-    totalUsers = result.pagination?.total || 0;
-    const totalPages = result.pagination?.pages || 1;
-
-    document.getElementById('userCountLabel').textContent = totalUsers + ' users';
-    document.getElementById('userCount').textContent = totalUsers;
-
-    const tbody = document.getElementById('usersTbody');
-    if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:40px;">No users found</td></tr>';
-    } else {
-      tbody.innerHTML = users.map(u => `
-        <tr>
-          <td>
-            <div class="cell-user">
-              <div class="av">${getInitials(u.username || u.email)}</div>
-              <div class="meta">
-                <strong>${u.username || u.email}</strong>
-                <span>${u.email}</span>
-              </div>
-            </div>
-          </td>
-          <td>${u.last_location || 'N/A'}</td>
-          <td>${badge(u.role || 'user')}</td>
-          <td>${badge(u.status || 'active')}</td>
-          <td>${timeAgo(u.created_at)}</td>
-          <td>${formatCurrency(u.wallet_ngn || 0, 'NGN')} / ${formatCurrency(u.wallet_usd || 0, 'USD')}</td>
-          <td>
-            <div class="row-actions">
-              <button class="icon-mini" onclick="viewUser('${u.id}')" title="View">👁️</button>
-              <button class="icon-mini success" onclick="editUser('${u.id}')" title="Edit">✎</button>
-              <button class="icon-mini" onclick="resetPassword('${u.id}')" title="Reset Password">🔑</button>
-              <button class="icon-mini ${u.status === 'suspended' ? 'success' : 'danger'}" onclick="toggleUserStatus('${u.id}')" title="${u.status === 'suspended' ? 'Activate' : 'Suspend'}">${u.status === 'suspended' ? '▶️' : '⏸️'}</button>
-              <button class="icon-mini danger" onclick="deleteUser('${u.id}')" title="Delete">🗑️</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    // Pagination
-    let pagerHtml = '';
-    for (let i = 1; i <= Math.min(totalPages, 10); i++) {
-      pagerHtml += `<button class="pg-btn ${i === userPage ? 'active' : ''}" onclick="userPage=${i};renderUsers()">${i}</button>`;
-    }
-    document.getElementById('userPager').innerHTML = pagerHtml;
-    document.getElementById('userRange').textContent = totalUsers ? `${(userPage - 1) * PER_PAGE + 1}–${Math.min(userPage * PER_PAGE, totalUsers)} of ${totalUsers}` : '0';
-
-  } catch (error) {
-    console.error('Render users error:', error);
-    showToast('Failed to load users', 'error');
+function setLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn.dataset.original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Please wait…';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = btn.dataset.original || btn.innerHTML;
   }
 }
 
-document.getElementById('userSearch').addEventListener('input', () => { userPage = 1; renderUsers(); });
-document.getElementById('userRoleFilter').addEventListener('change', () => { userPage = 1; renderUsers(); });
-document.getElementById('userStatusFilter').addEventListener('change', () => { userPage = 1; renderUsers(); });
-
-// ─── USER ACTIONS ───
-async function viewUser(id) {
+/* ════════════════════════════════════════════════════════════════
+   FETCH WRAPPER
+   ════════════════════════════════════════════════════════════════ */
+async function api(url, options) {
   try {
-    const response = await adminFetch(`/users/${id}`);
-    const result = await response.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to load user');
+    const res = await AdminSession.fetch(url, options);
+    if (res.status === 404) return { ok:false, status:404, reason:'not_found' };
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.success === false) {
+      return { ok:false, status:res.status, reason:json.error || 'Request failed', code:json.code };
     }
-
-    const u = result.user;
-    const stats = result.stats || {};
-    const recent = result.recent || {};
-
-    openModal('User Details', u.username || u.email, `
-      <div class="info-grid">
-        <div><strong>Email</strong>${u.email}</div>
-        <div><strong>Phone</strong>${u.phone || 'N/A'}</div>
-        <div><strong>Role</strong>${badge(u.role || 'user')}</div>
-        <div><strong>Status</strong>${badge(u.status || 'active')}</div>
-        <div><strong>Joined</strong>${timeAgo(u.created_at)}</div>
-        <div><strong>Last Login</strong>${timeAgo(u.last_login)}</div>
-        <div><strong>Wallet (NGN)</strong>${formatCurrency(u.wallet_ngn || 0, 'NGN')}</div>
-        <div><strong>Wallet (USD)</strong>${formatCurrency(u.wallet_usd || 0, 'USD')}</div>
-        <div><strong>Verified</strong>${u.is_verified ? '✅ Verified' : '⏳ Pending'}</div>
-        <div><strong>Location</strong>${u.last_location || 'N/A'}</div>
-      </div>
-      <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:10px;">
-        <strong>Stats</strong>
-        <div style="display:flex;gap:20px;margin-top:6px;flex-wrap:wrap;">
-          <span>📊 ${stats.transactionCount || 0} Transactions</span>
-          <span>📢 ${stats.campaignCount || 0} Campaigns</span>
-          <span>🎁 ${stats.giftOrderCount || 0} Gift Orders</span>
-        </div>
-      </div>
-    `, 'Close', null, true);
-
-  } catch (error) {
-    console.error('View user error:', error);
-    showToast('Failed to load user details', 'error');
+    return { ok:true, data: json.data !== undefined ? json.data : json, raw: json };
+  } catch (e) {
+    return { ok:false, status:0, reason: e.message || 'Network error' };
   }
 }
 
-function editUser(id) {
-  // Fetch user data first
-  adminFetch(`/users/${id}`)
-    .then(res => res.json())
-    .then(result => {
-      if (!result.success) throw new Error(result.error);
-      const u = result.user;
-      
-      openModal('Edit User', u.username || u.email, `
-        <div class="field"><label>Username</label><input type="text" id="editUsername" value="${u.username || ''}"></div>
-        <div class="field"><label>Email</label><input type="email" id="editEmail" value="${u.email || ''}"></div>
-        <div class="field"><label>Phone</label><input type="text" id="editPhone" value="${u.phone || ''}"></div>
-        <div class="field"><label>Role</label>
-          <select id="editRole">
-            ${['user', 'manager', 'admin', 'super_admin'].map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field"><label>Status</label>
-          <select id="editStatus">
-            ${['active', 'inactive', 'suspended'].map(s => `<option value="${s}" ${s === u.status ? 'selected' : ''}>${s}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field"><label>Verified</label>
-          <select id="editVerified">
-            <option value="true" ${u.is_verified ? 'selected' : ''}>Yes</option>
-            <option value="false" ${!u.is_verified ? 'selected' : ''}>No</option>
-          </select>
-        </div>
-      `, 'Update User', async () => {
-        try {
-          const payload = {
-            username: document.getElementById('editUsername').value,
-            email: document.getElementById('editEmail').value,
-            phone: document.getElementById('editPhone').value,
-            role: document.getElementById('editRole').value,
-            status: document.getElementById('editStatus').value,
-            is_verified: document.getElementById('editVerified').value === 'true'
-          };
-          
-          const response = await adminFetch(`/users/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-          });
-          const result = await response.json();
-          
-          if (!result.success) throw new Error(result.error);
-          showToast('User updated successfully', 'success');
-          renderUsers();
-          renderDashboard();
-        } catch (error) {
-          showToast(error.message || 'Failed to update user', 'error');
-        }
-      });
-    })
-    .catch(error => {
-      showToast('Failed to load user data', 'error');
-    });
-}
-
-function resetPassword(id) {
-  openModal('Reset Password', 'Generate new password', `
-    <div class="field"><label>New Password</label><input type="text" id="newPass" value="${'Pass@' + Math.floor(Math.random() * 9999)}"></div>
-    <div style="font-size:12px;color:var(--text-dim);">User will be forced to change password on next login.</div>
-  `, 'Reset Password', async () => {
-    const pass = document.getElementById('newPass').value;
-    try {
-      const response = await adminFetch(`/users/${id}/reset-password`, {
-        method: 'POST',
-        body: JSON.stringify({ password: pass })
-      });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.error);
-      showToast(`Password reset successfully`, 'success');
-    } catch (error) {
-      showToast(error.message || 'Failed to reset password', 'error');
+/* ════════════════════════════════════════════════════════════════
+   MODAL
+   ════════════════════════════════════════════════════════════════ */
+function openModal({ title, subtitle, body, confirmText, onConfirm, cancelText, hideConfirm }) {
+  document.getElementById('modalTitle').textContent = title || 'Confirm';
+  document.getElementById('modalSub').textContent = subtitle || '';
+  document.getElementById('modalBody').innerHTML = body || '';
+  const confirmBtn = document.getElementById('modalConfirm');
+  const cancelBtn = document.getElementById('modalCancel');
+  confirmBtn.textContent = confirmText || 'Confirm';
+  cancelBtn.textContent = cancelText || 'Cancel';
+  confirmBtn.style.display = hideConfirm ? 'none' : 'inline-flex';
+  confirmBtn.onclick = async (e) => {
+    if (onConfirm) {
+      const proceed = await onConfirm(e);
+      if (proceed === false) return;
     }
-  });
+    closeModal();
+  };
+  document.getElementById('modalScrim').classList.add('show');
 }
+function closeModal() {
+  document.getElementById('modalScrim').classList.remove('show');
+}
+document.getElementById('modalScrim').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
 
-async function toggleUserStatus(id) {
-  try {
-    const response = await adminFetch(`/users/${id}`);
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error);
-    const u = result.user;
-    const newStatus = u.status === 'suspended' ? 'active' : 'suspended';
-    
-    const actionRes = await adminFetch(`/users/${id}/${newStatus === 'suspended' ? 'suspend' : 'activate'}`, {
-      method: 'POST'
-    });
-    const actionResult = await actionRes.json();
-    if (!actionResult.success) throw new Error(actionResult.error);
-    
-    showToast(`User ${newStatus === 'active' ? 'activated' : 'suspended'}`, newStatus === 'active' ? 'success' : 'warning');
-    renderUsers();
-    renderDashboard();
-  } catch (error) {
-    showToast(error.message || 'Failed to toggle user status', 'error');
+/* ════════════════════════════════════════════════════════════════
+   SIDEBAR / THEME / TOPBAR
+   ════════════════════════════════════════════════════════════════ */
+document.getElementById('hamburger').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('scrim').classList.toggle('show');
+});
+document.getElementById('scrim').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('scrim').classList.remove('show');
+});
+document.getElementById('sbToggleDesktop').addEventListener('click', () => {
+  document.getElementById('appRoot').classList.toggle('sb-collapsed');
+});
+document.getElementById('sbCollapseBtn').addEventListener('click', () => {
+  document.getElementById('appRoot').classList.toggle('sb-collapsed');
+});
+document.getElementById('darkToggle').addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark');
+  document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+  try { localStorage.setItem('admin_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); } catch (_) {}
+});
+try {
+  if (localStorage.getItem('admin_theme') === 'dark') {
+    document.documentElement.classList.add('dark');
+    document.getElementById('darkToggle').textContent = '☀️';
   }
+} catch (_) {}
+
+document.getElementById('adminChip').addEventListener('click', () => {
+  if (confirm('Log out?')) AdminSession.logout();
+});
+
+/* ════════════════════════════════════════════════════════════════
+   ADMIN PROFILE
+   ════════════════════════════════════════════════════════════════ */
+async function loadAdminProfile() {
+  const r = await api(API.me);
+  if (!r.ok) return;
+  const user = r.data.user || r.data;
+  const name = user.username || user.email?.split('@')[0] || 'Admin';
+  const role = user.role || 'admin';
+  const initials = getInitials(name);
+  document.getElementById('adminName').textContent = name;
+  document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+  document.getElementById('adminAvatar').textContent = initials;
+  document.getElementById('chipName').textContent = name;
+  document.getElementById('chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+  document.getElementById('chipAvatar').textContent = initials;
+  State.adminPermissions = r.data.permissions || {};
 }
 
-function deleteUser(id) {
-  openModal('Delete User', 'Are you sure?', `
-    <p style="color:var(--text-dim);">This action cannot be undone. All user data will be permanently removed.</p>
-  `, 'Delete', async () => {
-    try {
-      const response = await adminFetch(`/users/${id}`, { method: 'DELETE' });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.error);
-      showToast('User deleted successfully', 'success');
-      renderUsers();
-      renderDashboard();
-    } catch (error) {
-      showToast(error.message || 'Failed to delete user', 'error');
-    }
-  });
-}
-
-function openAddUser() {
-  openModal('Add New User', 'Create a new user account', `
-    <div class="field"><label>Username *</label><input type="text" id="newUsername" placeholder="Username"></div>
-    <div class="field"><label>Email *</label><input type="email" id="newEmail" placeholder="user@email.com"></div>
-    <div class="field"><label>Phone</label><input type="text" id="newPhone" placeholder="+234 800 000 0000"></div>
-    <div class="field"><label>Role</label>
-      <select id="newRole">
-        <option value="user">User</option>
-        <option value="manager">Manager</option>
-        <option value="admin">Admin</option>
-      </select>
-    </div>
-    <div class="field"><label>Password</label><input type="text" id="newPass" value="${'Temp@' + Math.floor(Math.random() * 9999)}"></div>
-  `, 'Create User', async () => {
-    const username = document.getElementById('newUsername').value.trim();
-    const email = document.getElementById('newEmail').value.trim();
-    if (!username || !email) {
-      showToast('Username and email are required', 'warning');
-      return;
-    }
-    try {
-      const response = await adminFetch('/users', {
-        method: 'POST',
-        body: JSON.stringify({
-          username,
-          email,
-          phone: document.getElementById('newPhone').value || null,
-          role: document.getElementById('newRole').value,
-          password: document.getElementById('newPass').value
-        })
-      });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.error);
-      showToast('User created successfully', 'success');
-      renderUsers();
-      renderDashboard();
-    } catch (error) {
-      showToast(error.message || 'Failed to create user', 'error');
-    }
-  });
-}
-
-function exportUsersCSV() {
-  showToast('Exporting users...', 'info');
-  adminFetch('/users?limit=1000')
-    .then(res => res.json())
-    .then(result => {
-      if (!result.success) throw new Error(result.error);
-      const users = result.users || [];
-      const rows = [['Username', 'Email', 'Phone', 'Role', 'Status', 'Created', 'Wallet NGN', 'Wallet USD']];
-      users.forEach(u => {
-        rows.push([u.username || '', u.email || '', u.phone || '', u.role || '', u.status || '', u.created_at || '', u.wallet_ngn || 0, u.wallet_usd || 0]);
-      });
-      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'users.csv';
-      a.click();
-      showToast('CSV exported successfully', 'success');
-    })
-    .catch(() => showToast('Failed to export users', 'error'));
-}
-
-// ─── FILTERED USER VIEWS ───
-async function renderActiveUsers() {
-  try {
-    const response = await adminFetch('/users?status=active&limit=50');
-    const result = await response.json();
-    const users = result.users || [];
-    const tbody = document.getElementById('activeUsersTbody');
-    if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-faint);padding:40px;">No active users</td></tr>';
-    } else {
-      tbody.innerHTML = users.map(u => `
-        <tr>
-          <td><strong>${u.username || u.email}</strong><div style="font-size:10px;color:var(--text-dim)">${u.email}</div></td>
-          <td>${badge(u.role || 'user')}</td>
-          <td>${timeAgo(u.created_at)}</td>
-          <td><button class="icon-mini" onclick="viewUser('${u.id}')">👁️</button></td>
-        </tr>
-      `).join('');
-    }
-  } catch (e) { console.error(e); }
-}
-
-async function renderInactiveUsers() {
-  try {
-    const response = await adminFetch('/users?status=inactive&limit=50');
-    const result = await response.json();
-    const users = result.users || [];
-    const tbody = document.getElementById('inactiveUsersTbody');
-    if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-faint);padding:40px;">No inactive users</td></tr>';
-    } else {
-      tbody.innerHTML = users.map(u => `
-        <tr>
-          <td><strong>${u.username || u.email}</strong><div style="font-size:10px;color:var(--text-dim)">${u.email}</div></td>
-          <td>${badge(u.role || 'user')}</td>
-          <td>${timeAgo(u.created_at)}</td>
-          <td><button class="icon-mini" onclick="viewUser('${u.id}')">👁️</button></td>
-        </tr>
-      `).join('');
-    }
-  } catch (e) { console.error(e); }
-}
-
-async function renderSuspendedUsers() {
-  try {
-    const response = await adminFetch('/users?status=suspended&limit=50');
-    const result = await response.json();
-    const users = result.users || [];
-    const tbody = document.getElementById('suspendedUsersTbody');
-    if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-faint);padding:40px;">No suspended users</td></tr>';
-    } else {
-      tbody.innerHTML = users.map(u => `
-        <tr>
-          <td><strong>${u.username || u.email}</strong><div style="font-size:10px;color:var(--text-dim)">${u.email}</div></td>
-          <td>${badge(u.role || 'user')}</td>
-          <td>${timeAgo(u.created_at)}</td>
-          <td><button class="icon-mini success" onclick="toggleUserStatus('${u.id}')" title="Activate">▶️</button></td>
-        </tr>
-      `).join('');
-    }
-  } catch (e) { console.error(e); }
-}
-
-async function renderNewUsers() {
-  try {
-    const response = await adminFetch('/users?limit=30');
-    const result = await response.json();
-    const users = result.users || [];
-    const sorted = users.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    const newUsers = sorted.slice(0, 20);
-    document.getElementById('newUserCount').textContent = newUsers.length + ' new users';
-    const tbody = document.getElementById('newUsersTbody');
-    if (newUsers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-faint);padding:40px;">No new users</td></tr>';
-    } else {
-      tbody.innerHTML = newUsers.map(u => `
-        <tr>
-          <td><strong>${u.username || u.email}</strong><div style="font-size:10px;color:var(--text-dim)">${u.email}</div></td>
-          <td>${badge(u.role || 'user')}</td>
-          <td>${timeAgo(u.created_at)}</td>
-          <td><button class="icon-mini" onclick="viewUser('${u.id}')">👁️</button></td>
-        </tr>
-      `).join('');
-    }
-  } catch (e) { console.error(e); }
-}
-
-async function renderLoginHistory() {
-  try {
-    const response = await adminFetch('/activity/recent?limit=30');
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error);
-    const activities = result.data || [];
-    const tbody = document.getElementById('loginHistoryTbody');
-    if (activities.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:40px;">No login history</td></tr>';
-    } else {
-      tbody.innerHTML = activities.filter(a => a.action === 'login').slice(0, 20).map(a => `
-        <tr>
-          <td><strong>${a.profiles?.username || 'Unknown'}</strong></td>
-          <td class="mono">${a.ip_address || 'N/A'}</td>
-          <td>${a.details?.location || 'N/A'}</td>
-          <td>${timeAgo(a.created_at)}</td>
-          <td>${badge('active')}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:40px;">No login history</td></tr>';
-    }
-  } catch (e) { console.error(e); }
-}
-
-// ─── NOTIFICATIONS ───
-function openNotif() {
-  openModal('Notifications', 'Latest system alerts', `
-    <div style="text-align:center;color:var(--text-faint);padding:20px;">
-      📌 All notifications will appear here
-      <div style="font-size:12px;margin-top:8px;">Check the main dashboard for more details</div>
-    </div>
-  `, 'Close', null);
-}
-
-// ─── CHART.JS LOADING ───
-if (typeof Chart !== 'undefined') {
-  setTimeout(() => { if (!chartsBuilt) renderAnalytics(); }, 500);
-} else {
-  document.addEventListener('chartjs-ready', function() {
-    setTimeout(() => { if (!chartsBuilt) renderAnalytics(); }, 500);
-  });
-}
-
-// ─── INIT ───
-async function init() {
-  await loadAdminProfile();
-  await renderDashboard();
-  await renderUsers();
-  await renderActiveUsers();
-  await renderInactiveUsers();
-  await renderSuspendedUsers();
-  await renderNewUsers();
-  await renderLoginHistory();
-  console.log('🚀 Users Admin ready — All features working!');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const token = getAdminToken();
-  if (!token) {
-    window.location.href = '/admin';
+/* ════════════════════════════════════════════════════════════════
+   KPI STATS
+   ════════════════════════════════════════════════════════════════ */
+async function loadStats() {
+  const r = await api(API.stats);
+  const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmtNum(v) || '—'; };
+  if (!r.ok) {
+    setEl('kpiTotal', null); setEl('kpiActive', null); setEl('kpiSuspended', null); setEl('kpiVerified', null);
     return;
   }
-  init();
-});
-
-// ─── AUTO-REFRESH ───
-let refreshInterval;
-
-function startAutoRefresh() {
-  if (refreshInterval) clearInterval(refreshInterval);
-  refreshInterval = setInterval(() => {
-    const active = document.querySelector('.nav-item.active');
-    if (active) renderView(active.dataset.view);
-  }, 30000);
+  const s = r.data.stats || r.data;
+  setEl('kpiTotal', s.total);
+  setEl('kpiActive', s.active);
+  setEl('kpiSuspended', s.suspended);
+  setEl('kpiVerified', s.verified);
+  document.getElementById('userCountBadge').textContent = fmtNum(s.total) || '0';
 }
 
-function stopAutoRefresh() {
-  if (refreshInterval) {
-    clearInterval(refreshInterval);
-    refreshInterval = null;
+/* ════════════════════════════════════════════════════════════════
+   USERS TABLE
+   ════════════════════════════════════════════════════════════════ */
+function currentFilters() {
+  return {
+    search: (document.getElementById('searchInput').value || '').trim(),
+    status: (document.getElementById('statusFilter').value || '').trim(),
+    role: (document.getElementById('roleFilter').value || '').trim(),
+    page: State.page,
+    limit: State.limit
+  };
+}
+async function loadUsers() {
+  const tbody = document.getElementById('usersTbody');
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:40px;">Loading…</td></tr>';
+  const f = currentFilters();
+  const params = new URLSearchParams();
+  if (f.search) params.set('search', f.search);
+  if (f.status) params.set('status', f.status);
+  if (f.role) params.set('role', f.role);
+  params.set('page', f.page);
+  params.set('limit', f.limit);
+
+  const r = await api(`${API.users}?${params.toString()}`);
+  if (!r.ok) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--danger);padding:40px;">Failed to load users: ${escapeHtml(r.reason)}</td></tr>`;
+    return;
   }
+  const users = r.data.users || r.data.data || r.data;
+  const total = r.raw?.count ?? r.data.count ?? users.length;
+  const totalPages = r.raw?.totalPages ?? r.data.totalPages ?? 1;
+
+  State.users = users;
+  State.total = total;
+  State.totalPages = totalPages;
+
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:40px;">No users found</td></tr>';
+    document.getElementById('userRange').textContent = '0 users';
+    document.getElementById('userPager').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = users.map(u => {
+    const name = u.username || u.email || 'User';
+    const restrictions = Array.isArray(u.restrictions) ? u.restrictions : [];
+    return `<tr class="row-clickable" onclick="openUserDrawer('${escapeHtml(u.id)}')">
+      <td>
+        <div class="cell-user">
+          <div class="av">${escapeHtml(getInitials(name))}</div>
+          <div class="meta">
+            <strong>${escapeHtml(name)}</strong>
+            <span>${escapeHtml(u.email || '')}</span>
+          </div>
+        </div>
+      </td>
+      <td>${escapeHtml(u.phone || '—')}</td>
+      <td><span class="badge ${statusBadge(u.role)}">${escapeHtml(u.role || 'user')}</span></td>
+      <td><span class="badge ${statusBadge(u.status)}">${escapeHtml(u.status || 'active')}</span></td>
+      <td class="mono">${fmtMoney(u.wallet_ngn, 'NGN')}</td>
+      <td class="mono">${fmtMoney(u.wallet_usd, 'USD')}</td>
+      <td>${timeAgo(u.created_at)}</td>
+      <td>${timeAgo(u.last_login || u.last_seen)}</td>
+      <td>${restrictions.length
+        ? restrictions.map(x => `<span class="badge danger">🔒 ${escapeHtml(x)}</span>`).join(' ')
+        : '<span class="badge neutral">—</span>'}</td>
+      <td onclick="event.stopPropagation()">
+        <div class="cell-actions">
+          <button class="icon-mini" title="View" onclick="openUserDrawer('${escapeHtml(u.id)}')">👁️</button>
+          <button class="icon-mini ${u.status === 'suspended' ? 'success' : 'danger'}" title="${u.status === 'suspended' ? 'Activate' : 'Suspend'}" onclick="quickToggleStatus('${escapeHtml(u.id)}','${escapeHtml(u.status || 'active')}','${escapeHtml(name)}')">${u.status === 'suspended' ? '▶️' : '⏸️'}</button>
+          <button class="icon-mini" title="Adjust wallet" onclick="openWalletAdjust('${escapeHtml(u.id)}','${escapeHtml(name)}','${escapeHtml(u.wallet_ngn || 0)}','${escapeHtml(u.wallet_usd || 0)}')">💰</button>
+          <button class="icon-mini" title="Add note" onclick="openAddNote('${escapeHtml(u.id)}','${escapeHtml(name)}')">📝</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('userRange').textContent = `${(State.page-1)*State.limit+1}–${Math.min(State.page*State.limit, total)} of ${total}`;
+
+  // Pagination
+  const pager = document.getElementById('userPager');
+  let html = '';
+  const maxPages = Math.min(totalPages, 8);
+  for (let i = 1; i <= maxPages; i++) {
+    html += `<button class="pg-btn ${i === State.page ? 'active' : ''}" onclick="gotoPage(${i})">${i}</button>`;
+  }
+  if (totalPages > maxPages) {
+    html += `<button class="pg-btn ${State.page === totalPages ? 'active' : ''}" onclick="gotoPage(${totalPages})">…${totalPages}</button>`;
+  }
+  pager.innerHTML = html;
+}
+function gotoPage(p) {
+  State.page = p;
+  loadUsers();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function applySearch() {
+  document.getElementById('searchInput').value = document.getElementById('globalSearch').value.trim();
+  State.page = 1;
+  loadUsers();
 }
 
-window.addEventListener('beforeunload', stopAutoRefresh);
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { State.page = 1; loadUsers(); }, 300);
+});
+document.getElementById('statusFilter').addEventListener('change', () => { State.page = 1; loadUsers(); });
+document.getElementById('roleFilter').addEventListener('change', () => { State.page = 1; loadUsers(); });
 
-// ─── KEYBOARD SHORTCUTS ───
+function refreshAll() {
+  loadAdminProfile();
+  loadStats();
+  loadUsers();
+  loadApprovalsCount();
+  document.getElementById('lastUpdated').textContent = 'updated ' + new Date().toLocaleTimeString();
+  toast('Refreshed', 'success');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   DRAWER
+   ════════════════════════════════════════════════════════════════ */
+function openDrawer() {
+  document.getElementById('userDrawer').classList.add('open');
+  document.getElementById('drawerScrim').classList.add('show');
+}
+function closeDrawer() {
+  document.getElementById('userDrawer').classList.remove('open');
+  document.getElementById('drawerScrim').classList.remove('show');
+  State.currentUserId = null;
+  State.currentTab = 'overview';
+  State.drawerData = {};
+}
+document.getElementById('ddClose').addEventListener('click', closeDrawer);
+document.getElementById('drawerScrim').addEventListener('click', closeDrawer);
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'r' && e.ctrlKey) {
-    e.preventDefault();
-    refreshAll();
-  }
+  if (e.key === 'Escape') { closeDrawer(); closeModal(); }
 });
+
+document.getElementById('ddTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.dd-tab');
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+  if (!tab || tab === State.currentTab) return;
+  document.querySelectorAll('.dd-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  State.currentTab = tab;
+  renderTab(tab);
+});
+
+async function openUserDrawer(userId) {
+  if (!userId) return;
+  State.currentUserId = userId;
+  State.currentTab = 'overview';
+  State.drawerData = {};
+  document.querySelectorAll('.dd-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'overview'));
+  document.getElementById('ddIcon').textContent = '👤';
+  document.getElementById('ddTitle').textContent = 'Loading…';
+  document.getElementById('ddSub').textContent = userId;
+  document.getElementById('ddBody').innerHTML = '<div class="dd-empty">Loading user…</div>';
+  openDrawer();
+
+  // Fetch overview for header
+  const r = await api(API.overview(userId));
+  if (!r.ok) {
+    document.getElementById('ddBody').innerHTML = `<div class="dd-empty">Failed to load user: ${escapeHtml(r.reason)}</div>`;
+    return;
+  }
+  const profile = r.data.profile;
+  const name = profile.username || profile.email || 'User';
+  document.getElementById('ddTitle').textContent = name;
+  document.getElementById('ddSub').textContent = profile.email || userId;
+  State.drawerData.overview = r.data;
+  renderTab('overview');
+}
+
+function renderTab(tab) {
+  const body = document.getElementById('ddBody');
+  switch (tab) {
+    case 'overview': return renderOverviewTab(body);
+    case 'wallets': return renderWalletsTab(body);
+    case 'ledger': return renderLedgerTab(body);
+    case 'transactions': return renderTransactionsTab(body);
+    case 'security': return renderSecurityTab(body);
+    case 'support': return renderSupportTab(body);
+    case 'notes': return renderNotesTab(body);
+  }
+}
+
+/* ─── OVERVIEW TAB ─── */
+function renderOverviewTab(body) {
+  const id = State.currentUserId;
+  const d = State.drawerData.overview;
+  if (!d) {
+    body.innerHTML = '<div class="dd-empty">Loading…</div>';
+    return;
+  }
+  const p = d.profile;
+  const w = d.wallet || {};
+  const restrictions = d.restrictions || [];
+  const activeRestrictions = restrictions.map(r => r.restriction);
+
+  body.innerHTML = `
+    <div class="dd-stat-grid">
+      <div class="dd-stat"><div class="k">NGN Wallet</div><div class="v">${fmtMoney(w.ngn, 'NGN')}</div></div>
+      <div class="dd-stat"><div class="k">USD Wallet</div><div class="v">${fmtMoney(w.usd, 'USD')}</div></div>
+      <div class="dd-stat"><div class="k">Pending Deposits</div><div class="v">${fmtNum(d.pending?.deposits ?? 0)}</div></div>
+      <div class="dd-stat"><div class="k">Open Tickets</div><div class="v">${fmtNum(d.support_open ?? 0)}</div></div>
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">Account Information</div>
+      <div class="dd-field"><span class="k">User ID</span><span class="v mono" style="font-size:11px">${escapeHtml(p.id)}</span></div>
+      <div class="dd-field"><span class="k">Username</span><span class="v">${escapeHtml(p.username || '—')}</span></div>
+      <div class="dd-field"><span class="k">Email</span><span class="v">${escapeHtml(p.email || '—')}</span></div>
+      <div class="dd-field"><span class="k">Phone</span><span class="v">${escapeHtml(p.phone || '—')}</span></div>
+      <div class="dd-field"><span class="k">Role</span><span class="v"><span class="badge ${statusBadge(p.role)}">${escapeHtml(p.role || 'user')}</span></span></div>
+      <div class="dd-field"><span class="k">Status</span><span class="v"><span class="badge ${statusBadge(p.status)}">${escapeHtml(p.status || 'active')}</span></span></div>
+      <div class="dd-field"><span class="k">Email Verified</span><span class="v">${p.is_verified ? '<span class="badge success">✓ Verified</span>' : '<span class="badge neutral">Not verified</span>'}</span></div>
+      <div class="dd-field"><span class="k">2FA</span><span class="v">${p.two_factor_enabled ? '<span class="badge success">Enabled</span>' : '<span class="badge neutral">Not configured</span>'}</span></div>
+      <div class="dd-field"><span class="k">KYC Status</span><span class="v"><span class="badge neutral">Not tracked</span></span></div>
+      <div class="dd-field"><span class="k">Risk Level</span><span class="v">${p.risk_level ? `<span class="badge warn">${escapeHtml(p.risk_level)}</span>` : '<span class="badge neutral">Not set</span>'}</span></div>
+      <div class="dd-field"><span class="k">Referral Code</span><span class="v mono">${escapeHtml(p.referral_code || '—')}</span></div>
+      <div class="dd-field"><span class="k">Registered</span><span class="v">${fmtDate(p.created_at)}</span></div>
+      <div class="dd-field"><span class="k">Last Login</span><span class="v">${fmtDate(p.last_login)}</span></div>
+      <div class="dd-field"><span class="k">Last Seen</span><span class="v">${fmtDate(p.last_seen)}</span></div>
+      <div class="dd-field"><span class="k">Last Location</span><span class="v">${escapeHtml(p.last_location || '—')}</span></div>
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">
+        Restrictions
+        <button class="btn btn-ghost btn-sm" onclick="openAddRestriction('${escapeHtml(id)}')">➕ Add</button>
+      </div>
+      ${restrictions.length
+        ? restrictions.map(r => `
+            <div class="restriction-chip">
+              🔒 ${escapeHtml(r.restriction)} — ${escapeHtml(r.reason || '')}
+              <button onclick="removeRestriction('${escapeHtml(id)}','${escapeHtml(r.restriction)}')" title="Lift">✕</button>
+            </div>`).join('')
+        : '<div class="dd-empty" style="padding:12px">No active restrictions</div>'}
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">Account Actions</div>
+      <div class="dd-actions">
+        <button class="btn ${p.status === 'suspended' ? 'btn-success' : 'btn-danger'}" onclick="toggleStatusAction('${escapeHtml(p.id)}','${escapeHtml(p.status || 'active')}')">
+          ${p.status === 'suspended' ? '▶️ Activate Account' : '⏸️ Suspend Account'}
+        </button>
+        <button class="btn btn-ghost" onclick="openWalletAdjust('${escapeHtml(p.id)}','${escapeHtml(p.username || p.email)}',${Number(w.ngn || 0)},${Number(w.usd || 0)})">💰 Adjust Wallet</button>
+        <button class="btn btn-ghost" onclick="openAddNote('${escapeHtml(p.id)}','${escapeHtml(p.username || p.email)}')">📝 Add Note</button>
+        <button class="btn btn-ghost" onclick="forceLogout('${escapeHtml(p.id)}')">🚪 Force Logout</button>
+        <button class="btn btn-ghost" onclick="requirePasswordReset('${escapeHtml(p.id)}')">🔑 Require Password Reset</button>
+        <button class="btn btn-ghost" onclick="require2FA('${escapeHtml(p.id)}')">🔐 Require 2FA</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ─── WALLETS TAB ─── */
+async function renderWalletsTab(body) {
+  body.innerHTML = '<div class="dd-empty">Loading wallets…</div>';
+  const r = await api(API.wallets(State.currentUserId));
+  if (!r.ok) {
+    body.innerHTML = `<div class="dd-empty">Failed to load wallets: ${escapeHtml(r.reason)}</div>`;
+    return;
+  }
+  const w = r.data.wallets || {};
+  const pending = r.data.pending || {};
+
+  body.innerHTML = `
+    <div class="dd-stat-grid">
+      <div class="dd-stat"><div class="k">NGN Available</div><div class="v">${fmtMoney(w.NGN?.available, 'NGN')}</div></div>
+      <div class="dd-stat"><div class="k">NGN Held</div><div class="v">${fmtMoney(w.NGN?.held, 'NGN')}</div></div>
+      <div class="dd-stat"><div class="k">USD Available</div><div class="v">${fmtMoney(w.USD?.available, 'USD')}</div></div>
+      <div class="dd-stat"><div class="k">USD Held</div><div class="v">${fmtMoney(w.USD?.held, 'USD')}</div></div>
+      <div class="dd-stat"><div class="k">Cashback</div><div class="v">${fmtMoney(w.CASHBACK?.available, 'NGN')}</div></div>
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">Pending Movement</div>
+      <div class="dd-field"><span class="k">Pending Deposits (NGN)</span><span class="v">${fmtMoney(pending.deposits_ngn, 'NGN')}</span></div>
+      <div class="dd-field"><span class="k">Pending Deposits (USD)</span><span class="v">${fmtMoney(pending.deposits_usd, 'USD')}</span></div>
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">Actions</div>
+      <div class="dd-actions">
+        <button class="btn btn-ghost" onclick="openWalletAdjust('${escapeHtml(State.currentUserId)}','user',${Number(w.NGN?.available||0)},${Number(w.USD?.available||0)})">💰 Adjust Wallet</button>
+      </div>
+    </div>
+
+    <div class="dd-empty" style="margin-top:14px">Source: ${escapeHtml(r.data.source || 'ledger_accounts')}</div>
+  `;
+}
+
+/* ─── LEDGER TAB ─── */
+async function renderLedgerTab(body) {
+  body.innerHTML = '<div class="dd-empty">Loading ledger…</div>';
+  const r = await api(`${API.ledger(State.currentUserId)}?limit=50`);
+  if (!r.ok) {
+    body.innerHTML = `<div class="dd-empty">Failed to load ledger: ${escapeHtml(r.reason)}</div>`;
+    return;
+  }
+  const rows = r.data.data || r.data || [];
+  if (!rows.length) {
+    body.innerHTML = '<div class="dd-empty">No ledger entries</div>';
+    return;
+  }
+  body.innerHTML = rows.map(e => `
+    <div class="dd-list-item">
+      <div class="l">
+        <strong>${escapeHtml(e.entry_type)} ${fmtMoney(e.amount, e.currency)}</strong>
+        <span>${escapeHtml(e.description || '')} · ${fmtDate(e.created_at)}</span>
+      </div>
+      <div class="r">
+        <div>${fmtMoney(e.balance_after, e.currency)}</div>
+        <span style="color:var(--text-faint)">before ${fmtMoney(e.balance_before, e.currency)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ─── TRANSACTIONS TAB ─── */
+async function renderTransactionsTab(body) {
+  body.innerHTML = `
+    <div class="filters-bar" style="border-radius:10px;margin-bottom:14px">
+      <select id="txTypeFilter">
+        <option value="">All Types</option>
+        <option value="deposit">Deposits</option>
+        <option value="withdrawal">Withdrawals</option>
+        <option value="admin_adjustment">Admin Adjustments</option>
+        <option value="refund">Refunds</option>
+        <option value="fee_revenue">Fees</option>
+      </select>
+      <select id="txStatusFilter">
+        <option value="">All Status</option>
+        <option value="completed">Completed</option>
+        <option value="pending">Pending</option>
+        <option value="processing">Processing</option>
+        <option value="failed">Failed</option>
+        <option value="manual_review">Manual Review</option>
+      </select>
+      <select id="txCurrencyFilter">
+        <option value="">All Currencies</option>
+        <option value="NGN">NGN</option>
+        <option value="USD">USD</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="loadTransactionsTab()">Apply</button>
+    </div>
+    <div id="txList"><div class="dd-empty">Loading transactions…</div></div>
+  `;
+  loadTransactionsTab();
+}
+async function loadTransactionsTab() {
+  const el = document.getElementById('txList');
+  if (!el) return;
+  const type = document.getElementById('txTypeFilter')?.value || '';
+  const status = document.getElementById('txStatusFilter')?.value || '';
+  const currency = document.getElementById('txCurrencyFilter')?.value || '';
+  const params = new URLSearchParams({ limit: 30 });
+  if (type) params.set('type', type);
+  if (status) params.set('status', status);
+  if (currency) params.set('currency', currency);
+
+  const r = await api(`${API.transactions(State.currentUserId)}?${params}`);
+  if (!r.ok) { el.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
+  const rows = r.data.data || r.data || [];
+  if (!rows.length) { el.innerHTML = '<div class="dd-empty">No transactions</div>'; return; }
+  el.innerHTML = rows.map(t => `
+    <div class="dd-list-item">
+      <div class="l">
+        <strong>${escapeHtml(t.type || 'txn')} · ${escapeHtml(t.description || '')}</strong>
+        <span class="mono">${escapeHtml(t.ref || t.reference || t.id)}</span>
+        <span style="margin-left:6px">${fmtDate(t.created_at)}</span>
+      </div>
+      <div class="r">
+        <div>${fmtMoney(t.amount, t.currency)}</div>
+        <span class="badge ${statusBadge(t.status)}">${escapeHtml(t.status || '')}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ─── SECURITY TAB ─── */
+async function renderSecurityTab(body) {
+  body.innerHTML = '<div class="dd-empty">Loading security data…</div>';
+  const r = await api(API.security(State.currentUserId));
+  if (!r.ok) { body.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
+  const sessions = r.data.sessions || [];
+  const active = r.data.active_sessions || [];
+
+  body.innerHTML = `
+    <div class="dd-stat-grid">
+      <div class="dd-stat"><div class="k">Active Sessions</div><div class="v">${active.length}</div></div>
+      <div class="dd-stat"><div class="k">Total Sessions</div><div class="v">${sessions.length}</div></div>
+      <div class="dd-stat"><div class="k">Failed Logins</div><div class="v">${r.data.failed_logins_available === false ? 'Not tracked' : fmtNum(r.data.failed_logins)}</div></div>
+    </div>
+
+    <div class="dd-section">
+      <div class="dd-section-title">
+        Sessions &amp; Devices
+        <button class="btn btn-ghost btn-sm" onclick="forceLogout('${escapeHtml(State.currentUserId)}')">🚪 Force Logout All</button>
+      </div>
+      ${sessions.length
+        ? sessions.slice(0, 20).map(s => `
+            <div class="dd-list-item">
+              <div class="l">
+                <strong>${escapeHtml(s.browser || 'Unknown browser')} on ${escapeHtml(s.os || 'Unknown OS')} · ${escapeHtml(s.device_type || 'device')}</strong>
+                <span>IP: ${escapeHtml(s.ip || s.ip_address || '—')} · ${escapeHtml(s.location || 'Location unknown')}</span>
+                <span>Created ${fmtDate(s.created_at)} · Last activity ${timeAgo(s.last_activity_at)}</span>
+              </div>
+              <div class="r">
+                ${s.is_active && !s.revoked_at ? '<span class="badge success">Active</span>' : '<span class="badge neutral">Ended</span>'}
+                ${s.is_current ? '<span class="badge info">Current</span>' : ''}
+              </div>
+            </div>`).join('')
+        : '<div class="dd-empty">No sessions recorded</div>'}
+    </div>
+  `;
+}
+
+/* ─── SUPPORT TAB ─── */
+async function renderSupportTab(body) {
+  body.innerHTML = '<div class="dd-empty">Loading support tickets…</div>';
+  const r = await api(API.support(State.currentUserId));
+  if (!r.ok) { body.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
+  const tickets = r.data.data || r.data || [];
+  if (!tickets.length) { body.innerHTML = '<div class="dd-empty">No support tickets</div>'; return; }
+  body.innerHTML = tickets.map(t => `
+    <div class="dd-list-item">
+      <div class="l">
+        <strong>${escapeHtml(t.title || 'Ticket')}</strong>
+        <span>${escapeHtml(t.last_message || '')}</span>
+        <span>Created ${timeAgo(t.created_at)}</span>
+      </div>
+      <div class="r">
+        <span class="badge ${statusBadge(t.status)}">${escapeHtml(t.status)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ─── NOTES TAB ─── */
+async function renderNotesTab(body) {
+  body.innerHTML = `
+    <div class="dd-section">
+      <div class="dd-section-title">
+        Internal Notes
+        <button class="btn btn-ghost btn-sm" onclick="openAddNote('${escapeHtml(State.currentUserId)}','user')">➕ Add Note</button>
+      </div>
+      <div id="notesList"><div class="dd-empty">Loading notes…</div></div>
+    </div>
+  `;
+  loadNotesList();
+}
+async function loadNotesList() {
+  const el = document.getElementById('notesList');
+  if (!el) return;
+  const r = await api(API.notes(State.currentUserId));
+  if (!r.ok) { el.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
+  const notes = r.data.data || r.data || [];
+  if (!notes.length) { el.innerHTML = '<div class="dd-empty">No notes yet</div>'; return; }
+  el.innerHTML = notes.map(n => `
+    <div class="note-item">
+      <div class="meta">
+        <span class="mono">${escapeHtml((n.author_id || '').slice(0,8))}</span>
+        <span>${fmtDate(n.created_at)}</span>
+      </div>
+      <div class="body">${escapeHtml(n.body)}</div>
+      ${(n.tags || []).length ? `<div class="tags">${n.tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ACTIONS
+   ════════════════════════════════════════════════════════════════ */
+
+/* Quick status toggle from table */
+function quickToggleStatus(userId, currentStatus, name) {
+  const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
+  const isSuspend = newStatus === 'suspended';
+  openModal({
+    title: isSuspend ? 'Suspend User' : 'Activate User',
+    subtitle: name,
+    body: `
+      <div class="field">
+        <label>Reason ${isSuspend ? '(required)' : ''}</label>
+        <textarea id="statusReason" placeholder="${isSuspend ? 'Why is this account being suspended?' : 'Optional context'}">${isSuspend ? '' : 'Admin reactivation'}</textarea>
+      </div>
+    `,
+    confirmText: isSuspend ? 'Suspend' : 'Activate',
+    onConfirm: async () => {
+      const reason = (document.getElementById('statusReason')?.value || '').trim();
+      if (isSuspend && reason.length < 4) { toast('Reason required (min 4 chars)', 'error'); return false; }
+      const r = await api(API.status(userId), {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus, reason })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      toast(`User ${newStatus}`, 'success');
+      loadUsers();
+      loadStats();
+      if (State.currentUserId === userId) openUserDrawer(userId);
+    }
+  });
+}
+function toggleStatusAction(userId, current) {
+  const user = State.users.find(u => u.id === userId);
+  const name = user?.username || user?.email || 'user';
+  quickToggleStatus(userId, current, name);
+}
+
+/* Wallet adjust */
+function openWalletAdjust(userId, name, walletNgn, walletUsd) {
+  openModal({
+    title: 'Adjust Wallet',
+    subtitle: name,
+    body: `
+      <div class="field">
+        <label>Currency</label>
+        <select id="adjCurrency">
+          <option value="NGN">NGN (₦${Number(walletNgn).toLocaleString()})</option>
+          <option value="USD">USD ($${Number(walletUsd).toLocaleString()})</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Amount (positive = credit, negative = debit)</label>
+        <input type="number" id="adjAmount" step="0.01" placeholder="e.g. 5000 or -5000">
+      </div>
+      <div class="field">
+        <label>Reason (required, min 4 chars)</label>
+        <textarea id="adjReason" placeholder="Why is this adjustment being made?"></textarea>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-dim);padding:10px;background:var(--warn-bg);border-radius:8px;border-left:3px solid var(--warn)">
+        ⚠️ Large adjustments may require second-admin approval.
+      </div>
+    `,
+    confirmText: 'Adjust',
+    onConfirm: async () => {
+      const currency = document.getElementById('adjCurrency').value;
+      const amount = Number(document.getElementById('adjAmount').value);
+      const reason = (document.getElementById('adjReason').value || '').trim();
+      if (!Number.isFinite(amount) || amount === 0) { toast('Enter a non-zero amount', 'error'); return false; }
+      if (reason.length < 4) { toast('Reason required (min 4 chars)', 'error'); return false; }
+      const r = await api(API.wallet(userId), {
+        method: 'POST',
+        body: JSON.stringify({ currency, amount, reason })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      if (r.raw?.pending_approval) {
+        toast('Adjustment submitted for approval', 'warning');
+      } else {
+        toast(`Wallet adjusted: ${fmtMoney(amount, currency)}`, 'success');
+      }
+      loadUsers();
+      if (State.currentUserId === userId) openUserDrawer(userId);
+    }
+  });
+}
+
+/* Add note */
+function openAddNote(userId, name) {
+  openModal({
+    title: 'Add Internal Note',
+    subtitle: name,
+    body: `
+      <div class="field">
+        <label>Note (min 3 chars)</label>
+        <textarea id="noteBody" placeholder="Internal note visible to admins only"></textarea>
+      </div>
+      <div class="field">
+        <label>Tags (comma separated, optional)</label>
+        <input type="text" id="noteTags" placeholder="e.g. suspicious, follow-up, vip">
+      </div>
+    `,
+    confirmText: 'Save Note',
+    onConfirm: async () => {
+      const body = (document.getElementById('noteBody').value || '').trim();
+      const tagsRaw = (document.getElementById('noteTags').value || '').trim();
+      const tags = tagsRaw ? tagsRaw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10) : [];
+      if (body.length < 3) { toast('Note too short', 'error'); return false; }
+      const r = await api(API.notes(userId), {
+        method: 'POST',
+        body: JSON.stringify({ body, tags })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      toast('Note saved', 'success');
+      if (State.currentUserId === userId && State.currentTab === 'notes') loadNotesList();
+    }
+  });
+}
+
+/* Add restriction */
+function openAddRestriction(userId) {
+  openModal({
+    title: 'Add Restriction',
+    subtitle: 'Lock a specific feature for this user',
+    body: `
+      <div class="field">
+        <label>Restriction</label>
+        <select id="restrictionType">
+          ${RESTRICTIONS.map(r => `<option value="${r.key}">${r.icon} ${r.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Reason (required, min 4 chars)</label>
+        <textarea id="restrictionReason" placeholder="Why is this restriction being applied?"></textarea>
+      </div>
+    `,
+    confirmText: 'Apply Restriction',
+    onConfirm: async () => {
+      const restriction = document.getElementById('restrictionType').value;
+      const reason = (document.getElementById('restrictionReason').value || '').trim();
+      if (reason.length < 4) { toast('Reason required (min 4 chars)', 'error'); return false; }
+      const r = await api(API.restrictions(userId), {
+        method: 'POST',
+        body: JSON.stringify({ restriction, reason })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      toast('Restriction applied', 'success');
+      if (State.currentUserId === userId) openUserDrawer(userId);
+      loadUsers();
+    }
+  });
+}
+function removeRestriction(userId, restriction) {
+  openModal({
+    title: 'Lift Restriction',
+    subtitle: restriction,
+    body: `
+      <div class="field">
+        <label>Reason (required, min 4 chars)</label>
+        <textarea id="liftReason" placeholder="Why is this restriction being lifted?"></textarea>
+      </div>
+    `,
+    confirmText: 'Lift',
+    onConfirm: async () => {
+      const reason = (document.getElementById('liftReason').value || '').trim();
+      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
+      const r = await api(API.restrictOne(userId, restriction), {
+        method: 'DELETE',
+        body: JSON.stringify({ reason })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      toast('Restriction lifted', 'success');
+      if (State.currentUserId === userId) openUserDrawer(userId);
+      loadUsers();
+    }
+  });
+}
+
+/* Force logout */
+function forceLogout(userId) {
+  openModal({
+    title: 'Force Logout',
+    subtitle: 'Revoke all active sessions for this user',
+    body: `
+      <div class="field">
+        <label>Reason (required, min 4 chars)</label>
+        <textarea id="logoutReason" placeholder="Why are you forcing logout?"></textarea>
+      </div>
+    `,
+    confirmText: 'Force Logout',
+    onConfirm: async () => {
+      const reason = (document.getElementById('logoutReason').value || '').trim();
+      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
+      const r = await api(API.forceLogout(userId), {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      toast(`Logged out ${r.raw?.revoked || 0} session(s)`, 'success');
+      if (State.currentUserId === userId && State.currentTab === 'security') renderSecurityTab(document.getElementById('ddBody'));
+    }
+  });
+}
+
+/* Require password reset */
+function requirePasswordReset(userId) {
+  openModal({
+    title: 'Require Password Reset',
+    subtitle: 'Force user to reset their password on next login',
+    body: `
+      <div class="field">
+        <label>Reason (required, min 4 chars)</label>
+        <textarea id="pwdReason" placeholder="e.g. suspected compromise"></textarea>
+      </div>
+    `,
+    confirmText: 'Require Reset',
+    onConfirm: async () => {
+      const reason = (document.getElementById('pwdReason').value || '').trim();
+      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
+      const r = await api(API.requirePwd(userId), {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      toast('Password reset required', 'success');
+    }
+  });
+}
+
+/* Require 2FA */
+function require2FA(userId) {
+  openModal({
+    title: 'Require 2FA Setup',
+    subtitle: 'Force user to enable two-factor authentication',
+    body: `
+      <div class="field">
+        <label>Reason (required, min 4 chars)</label>
+        <textarea id="twofaReason" placeholder="Why is 2FA being required?"></textarea>
+      </div>
+    `,
+    confirmText: 'Require 2FA',
+    onConfirm: async () => {
+      const reason = (document.getElementById('twofaReason').value || '').trim();
+      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
+      const r = await api(API.require2FA(userId), {
+        method: 'POST',
+        body: JSON.stringify({ reason })
+      });
+      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
+      toast('2FA required on next login', 'success');
+    }
+  });
+}
+
+/* Approvals badge */
+async function loadApprovalsCount() {
+  const r = await api(`${API.approvals}?status=pending`);
+  if (!r.ok) return;
+  const list = r.data.data || r.data || [];
+  const badge = document.getElementById('approvalBadge');
+  if (list.length > 0) {
+    badge.textContent = list.length;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async () => {
+  const token = AdminSession.getToken();
+  if (!token) { AdminSession.redirectToLogin(); return; }
+
+  loadAdminProfile();
+  await loadStats();
+  await loadUsers();
+  loadApprovalsCount();
+  document.getElementById('lastUpdated').textContent = 'updated just now';
+
+  setInterval(loadApprovalsCount, 60_000);
+  setInterval(() => {
+    document.getElementById('lastUpdated').textContent = 'updated ' + timeAgo(new Date());
+  }, 30_000);
+});
+
+window.openUserDrawer = openUserDrawer;
+window.gotoPage = gotoPage;
+window.applySearch = applySearch;
+window.refreshAll = refreshAll;
+window.quickToggleStatus = quickToggleStatus;
+window.toggleStatusAction = toggleStatusAction;
+window.openWalletAdjust = openWalletAdjust;
+window.openAddNote = openAddNote;
+window.openAddRestriction = openAddRestriction;
+window.removeRestriction = removeRestriction;
+window.forceLogout = forceLogout;
+window.requirePasswordReset = requirePasswordReset;
+window.require2FA = require2FA;
+window.loadTransactionsTab = loadTransactionsTab;
 </script>
 </body>
 </html>

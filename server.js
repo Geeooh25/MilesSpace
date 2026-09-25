@@ -1,5 +1,17 @@
-// server.js - COMPLETE FIXED VERSION
-// Uses reconciliationService for both cashback and airtime reconciliation
+// server.js — MilesSpace backend entry point
+// ─────────────────────────────────────────────────────────────────
+// Order of routes matters. Reading top to bottom:
+//   1. env, security, cors, parsers
+//   2. auth + admin auth
+//   3. user routes
+//   4. admin API routes (transactions → money → dashboard → misc)
+//   5. admin page routes (static)
+//   6. reconciliation schedulers + background loops
+//   7. Socket.IO presence
+//   8. HTTP listen
+//
+// Do not reorder the admin mounts without checking path overlap.
+// ─────────────────────────────────────────────────────────────────
 
 const express = require('express');
 const cors = require('cors');
@@ -14,7 +26,15 @@ const helmet = require('helmet');
 
 require('dotenv').config();
 
-// ─── ENVIRONMENT CHECK ───
+// ─── SHARED SERVICES (used by background reconciliation loops) ───
+// These three were referenced inside the deposit-reconciliation
+// setInterval before, but were never imported. Importing them here
+// so the loop actually works.
+const { supabaseAdmin } = require('./db/supabase');
+const korapayService    = require('./services/korapayService');
+const depositService    = require('./services/depositService');
+
+// ─── ENVIRONMENT CHECK ───────────────────────────────────────────
 const requiredEnvVars = [
     'SUPABASE_URL',
     'SUPABASE_ANON_KEY',
@@ -37,20 +57,42 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// ─── TRUST PROXY ───
+// ─── TRUST PROXY ─────────────────────────────────────────────────
 app.set('trust proxy', 1);
 
-// ─── SECURITY HEADERS ───
+// ─── SECURITY HEADERS ────────────────────────────────────────────
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            scriptSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                "'unsafe-eval'",
+                "https://cdn.jsdelivr.net",
+                "https://cdnjs.cloudflare.com"
+            ],
             scriptSrcAttr: ["'unsafe-inline'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
-            fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+            styleSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                "https://fonts.googleapis.com",
+                "https://cdnjs.cloudflare.com"
+            ],
+            fontSrc: [
+                "'self'",
+                "https://fonts.gstatic.com",
+                "https://cdnjs.cloudflare.com"
+            ],
             imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "https://*.supabase.co", "wss://*.supabase.co", "ws://localhost:*", "http://localhost:*", "https://cdn.jsdelivr.net"],
+            connectSrc: [
+                "'self'",
+                "https://*.supabase.co",
+                "wss://*.supabase.co",
+                "ws://localhost:*",
+                "http://localhost:*",
+                "https://cdn.jsdelivr.net"
+            ],
             frameAncestors: ["'none'"],
             workerSrc: ["'self'", "blob:"]
         }
@@ -59,11 +101,11 @@ app.use(helmet({
 
 console.log('✅ Security headers enabled');
 
-// ─── COMPRESSION ───
+// ─── COMPRESSION ─────────────────────────────────────────────────
 app.use(compression());
 console.log('✅ Compression enabled');
 
-// ─── CORS ───
+// ─── CORS ────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
     'http://localhost:5000',
@@ -72,7 +114,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
 ];
 
 app.use(cors({
-    origin: function(origin, callback) {
+    origin: function (origin, callback) {
         if (!origin) return callback(null, true);
         if (allowedOrigins.indexOf(origin) !== -1 || !isProduction) {
             callback(null, true);
@@ -82,16 +124,22 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Session-Id', 'Idempotency-Key']
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'X-Session-Id',
+        'Idempotency-Key'
+    ]
 }));
 
 console.log('✅ CORS configured');
 
-// ─── BODY PARSING ───
+// ─── BODY PARSING ────────────────────────────────────────────────
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// ─── RATE LIMITING ─────────────────────────────────────────────────
+// ─── RATE LIMITING ───────────────────────────────────────────────
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -107,24 +155,32 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter);
 console.log('✅ Rate limiting enabled (auth routes only)');
 
-// ─── STATIC FILES ───
+// ─── STATIC FILES ────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ═══════════════════════════════════════════════════════
-// 🔐 AUTHENTICATION ROUTES
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  AUTH ROUTES
+// ═══════════════════════════════════════════════════════════════════
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-// ─── ADMIN AUTH ROUTES ─────────────────────────────────
+// ─── ADMIN AUTH ROUTES ───────────────────────────────────────────
+// Owns POST /api/admin/login, GET /api/admin/session, /me, /verify,
+// POST /api/admin/logout, /refresh.
 const adminAuthRoutes = require('./routes/admin');
 app.use('/api/admin', adminAuthRoutes);
 console.log('✅ Admin auth routes loaded at /api/admin');
 
-// ═══════════════════════════════════════════════════════
-// 🛠️ ROUTE LOADER
-// ═══════════════════════════════════════════════════════
+// ─── ADMIN LOGIN RATE LIMITING ───────────────────────────────────
+const { adminApiLimiter, adminLoginLimiter } = require('./middleware/adminRateLimit');
+app.use('/api/admin/login', adminLoginLimiter);
+app.use('/api/admin', adminApiLimiter);
+console.log('✅ Admin rate limiting enabled');
+
+// ═══════════════════════════════════════════════════════════════════
+//  ROUTE LOADER HELPERS
+// ═══════════════════════════════════════════════════════════════════
 
 console.log('📦 Loading routes...');
 
@@ -140,90 +196,62 @@ function safeRequire(modulePath) {
     }
 }
 
-function safeMount(app, path, route) {
+function safeMount(app, prefix, route) {
     if (route && typeof route === 'function') {
         try {
-            app.use(path, route);
-            console.log(`  ✅ ${path} → loaded`);
+            app.use(prefix, route);
+            console.log(`  ✅ ${prefix} → loaded`);
             return true;
         } catch (error) {
-            console.warn(`  ❌ ${path} → ${error.message}`);
+            console.warn(`  ❌ ${prefix} → ${error.message}`);
             return false;
         }
     }
-    console.log(`  ⚠️ ${path} → skipped (not found)`);
+    console.log(`  ⚠️ ${prefix} → skipped (not found)`);
     return false;
 }
 
-// ─── IMPORT ROUTES ───
-const supportRoutes = require('./routes/support');
-const cashbackRoutes = require('./routes/cashback');
-const transactionRoutes = require('./routes/transactionRoutes');
-const bushaRoutes = require('./routes/busha');
-const tickerRoutes = require('./routes/tickerRoutes');
+// ═══════════════════════════════════════════════════════════════════
+//  USER ROUTES
+// ═══════════════════════════════════════════════════════════════════
 
-// ─── IMPORT RECONCILIATION SERVICE ──────────────────────────────────────
-// ✅ Using reconciliationService for both cashback and airtime
-const reconciliationService = require('./services/reconciliationService');
-const { startQuoteReaper } = require('./services/dtoneQuoteReaper');
-startQuoteReaper();
+const supportRoutes        = require('./routes/support');
+const cashbackRoutes       = require('./routes/cashback');
+const transactionRoutes    = require('./routes/transactionRoutes');
+const bushaRoutes          = require('./routes/busha');
+const tickerRoutes         = require('./routes/tickerRoutes');
 
-// ─── ADMIN DASHBOARD ROUTES ───
-const adminDashboardRoutes = require('./routes/admin/dashboardRoutes');
-const adminPresenceRoutes = require('./routes/admin/presenceAdminRoutes');
-const adminIntelligenceRoutes = require('./routes/admin/intelligenceRoutes');
-const adminGiftRoutes = require('./routes/admin/giftAdminRoutes');
-const adminCryptoRoutes = require('./routes/admin/cryptoRoutes');
+const boostRoutes          = safeRequire('./routes/boostRoutes');
+const smsRoutes            = safeRequire('./routes/smsRoutes');
+const notificationRoutes   = safeRequire('./routes/notificationRoutes');
+const profileRoutes        = safeRequire('./routes/profileRoutes');
+const marketRoutes         = safeRequire('./routes/marketRoutes');
+const giftCardRoutes       = safeRequire('./routes/giftCardRoutes');
+const giftRoutes           = safeRequire('./routes/giftRoutes');
+const presenceRoutes       = safeRequire('./routes/presenceRoutes');
+const walletRoutes         = safeRequire('./routes/wallet/index');
+const bankRoutes           = safeRequire('./routes/bankRoutes');
+const nowPaymentsRoutes    = safeRequire('./routes/wallet/nowpayments');
+const paystackRoutes       = safeRequire('./routes/wallet/paystack');
+const withdrawals          = safeRequire('./routes/wallet/withdrawals');
+const beneficiaryRoutes    = require('./routes/wallet/beneficiaries');
+const userSettingsRoutes   = safeRequire('./routes/userSettingsRoutes');
+const virtualRoutes        = require('./routes/virtual-router');
+const esimRoutes           = require('./routes/esimRoutes');
+const ratesRoutes          = require('./routes/ratesRoutes');
+const koraDepositsRoutes   = require('./routes/wallet/koraDeposits');
+const airtimeRoutes        = require('./routes/airtime');
+const billsRoutes          = require('./routes/billsRoutes');
+const reconciliationRoutes = require('./routes/reconciliationRoutes');
 
-// ─── MARKETPLACE ROUTES ───
-const marketplaceRoutes = safeRequire('./routes/admin/marketplaceRoutes');
-// ─── OTHER ADMIN ROUTES ───
-const messageRoutes = safeRequire('./routes/messages');
-const giftAdminRoutes = safeRequire('./routes/admin/giftAdminRoutes');
-const cryptoRoutes = safeRequire('./routes/admin/cryptoRoutes');
-const giftcardAdminRoutes = safeRequire('./routes/admin/giftcardAdminRoutes');
-const adminUserRoutes = safeRequire('./routes/admin/userRoutes');
-const adminTransactionRoutes = safeRequire('./routes/admin/transactionRoutes');
-const adminAuditRoutes = safeRequire('./routes/admin/auditRoutes');
-const adminSettingsRoutes = require('./routes/admin/adminSettings');
-// ─── USER ROUTES ───
-const boostRoutes = safeRequire('./routes/boostRoutes');
+console.log('\n📦 Mounting user routes:');
 
-const smsRoutes = safeRequire('./routes/smsRoutes');
-const notificationRoutes = safeRequire('./routes/notificationRoutes');
-const profileRoutes = safeRequire('./routes/profileRoutes');
-const marketRoutes = safeRequire('./routes/marketRoutes');
-const giftCardRoutes = safeRequire('./routes/giftCardRoutes');
-const giftRoutes = safeRequire('./routes/giftRoutes');
-const presenceRoutes = safeRequire('./routes/presenceRoutes');
-const walletRoutes = safeRequire('./routes/wallet/index');
-const bankRoutes = safeRequire('./routes/bankRoutes');
-const nowPaymentsRoutes = safeRequire('./routes/wallet/nowpayments');
-const paystackRoutes = safeRequire('./routes/wallet/paystack');
-const withdrawals = safeRequire('./routes/wallet/withdrawals');
-const beneficiaryRoutes = require('./routes/wallet/beneficiaries');
-const userSettingsRoutes = safeRequire('./routes/userSettingsRoutes');
-const virtualRoutes = require('./routes/virtual-router');
-const esimRoutes = require('./routes/esimRoutes');
-console.log('✅ eBills routes loaded at /api/ebills');
-app.use('/api/esim', esimRoutes);
-const ratesRoutes = require('./routes/ratesRoutes');
-app.use('/api/rates', ratesRoutes);
-console.log('✅ Rates routes loaded at /api/rates');
-const koraDepositsRoutes = require('./routes/wallet/koraDeposits');
-app.use('/api/wallet', koraDepositsRoutes);
-console.log('✅ Kora multi-currency deposit routes loaded at /api/wallet');
-
-console.log('\n📦 Mounting routes:');
-
-// ─── CORE ROUTES ───
 safeMount(app, '/api/cashback', cashbackRoutes);
 safeMount(app, '/api/support', supportRoutes);
 safeMount(app, '/api/transactions', transactionRoutes);
 safeMount(app, '/api/busha', bushaRoutes);
 safeMount(app, '/api/crypto', bushaRoutes);
 
-// ─── USER ROUTES ───
 safeMount(app, '/api/boost', boostRoutes);
 safeMount(app, '/api/sms', smsRoutes);
 safeMount(app, '/api/notifications', notificationRoutes);
@@ -240,87 +268,180 @@ safeMount(app, '/api/wallet/nowpayments', nowPaymentsRoutes);
 safeMount(app, '/api/wallet/paystack', paystackRoutes);
 safeMount(app, '/api/user', userSettingsRoutes);
 safeMount(app, '/api/ticker', tickerRoutes);
-app.use('/api/virtual', virtualRoutes);
+safeMount(app, '/api/wallet', koraDepositsRoutes);
 
-// ─── ADMIN DASHBOARD ROUTES ─────────────────────────────────────
+app.use('/api/virtual', virtualRoutes);
+console.log('  ✅ /api/virtual → loaded');
+
+app.use('/api/esim', esimRoutes);
+console.log('  ✅ /api/esim → loaded');
+
+app.use('/api/rates', ratesRoutes);
+console.log('  ✅ /api/rates → loaded');
+
+app.use('/api/airtime', airtimeRoutes);
+console.log('  ✅ /api/airtime → loaded');
+
+app.use('/api/bills', billsRoutes);
+console.log('  ✅ /api/bills → loaded');
+
+app.use('/api/reconciliation', reconciliationRoutes);
+console.log('  ✅ /api/reconciliation → loaded');
+
+// ═══════════════════════════════════════════════════════════════════
+//  ADMIN API ROUTES
+// ───────────────────────────────────────────────────────────────────
+//  Mount order is deliberate:
+//
+//    1. transactionAdminRoutes   — the new comprehensive transaction API
+//                                  owns /transactions, /transactions/summary,
+//                                  /transactions/export, /transactions/:id,
+//                                  and /transactions/:id/* sub-routes.
+//
+//    2. moneyAdminRoutes         — owns /ledger*, /deposits/recent,
+//                                  /deposits/today-summary, /webhooks/recent,
+//                                  /logins/today, /needs-attention,
+//                                  /orders/failed/recent,
+//                                  /providers/health,
+//                                  /reconciliation/exceptions/count,
+//                                  /withdrawals/* (disabled).
+//
+//    3. adminDashboardRoutes     — owns /stats, /charts, /health,
+//                                  /recent-activity, /users/recent,
+//                                  /transactions/recent, /notifications/recent,
+//                                  /services/performance, /me.
+//
+//    4. presenceAdminRoutes      — owns /api/admin/presence/*.
+//
+//    5. Everything else          — admin user routes, audit routes,
+//                                  settings, gift, crypto, marketplace.
+//
+//  Path overlaps between (1) and (3) are limited to /transactions/recent.
+//  transactionAdminRoutes does NOT declare /transactions/recent, so
+//  the dashboard's version wins. Nothing is shadowed.
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\n📦 Mounting admin API routes:');
+
+const transactionAdminRoutes = require('./routes/admin/transactionAdminRoutes');
+const moneyAdminRoutes       = require('./routes/admin/moneyAdminRoutes');
+
+safeMount(app, '/api/admin', transactionAdminRoutes);
+safeMount(app, '/api/admin', moneyAdminRoutes);
+
+const adminDashboardRoutes     = require('./routes/admin/dashboardRoutes');
+const adminPresenceRoutes      = require('./routes/admin/presenceAdminRoutes');
+const adminIntelligenceRoutes  = require('./routes/admin/intelligenceRoutes');
+const adminSettingsRoutes      = require('./routes/admin/adminSettings');
+
 safeMount(app, '/api/admin', adminDashboardRoutes);
 safeMount(app, '/api/admin/presence', adminPresenceRoutes);
 safeMount(app, '/api/admin', adminIntelligenceRoutes);
-safeMount(app, '/api/admin', adminGiftRoutes);
-safeMount(app, '/api/admin', adminCryptoRoutes);
 app.use('/api/admin', adminSettingsRoutes);
+console.log('  ✅ /api/admin (settings) → loaded');
 
-// ─── MARKETPLACE ROUTES ──────────────────────────────────────────
-if (marketplaceRoutes) {
-    safeMount(app, '/api/admin/marketplace', marketplaceRoutes);
-} else {
-    console.log('  ⚠️ /api/admin/marketplace → skipped (not found)');
-}
+// ─── Optional admin routers (loaded only if the file exists) ────
+const marketplaceRoutes      = safeRequire('./routes/admin/marketplaceRoutes');
+const giftAdminRoutes        = safeRequire('./routes/admin/giftAdminRoutes');
+const cryptoRoutes           = safeRequire('./routes/admin/cryptoRoutes');
+const giftcardAdminRoutes    = safeRequire('./routes/admin/giftcardAdminRoutes');
+const adminUserRoutes        = safeRequire('./routes/admin/userRoutes');
+const adminAuditRoutes       = safeRequire('./routes/admin/auditRoutes');
+// ─── Admin support (separate from customer messaging) ────────
+app.use('/api/admin/support', require('./routes/admin/supportRoutes'));
+app.use('/api/admin', require('./routes/admin/boostAdminRoutes'));
+const orderAdminRoutes        = require('./routes/admin/orderRoutes');
 
-// ─── OTHER ADMIN ROUTES ──────────────────────────────────────────
-if (messageRoutes) app.use('/api/messages', messageRoutes);
-if (giftAdminRoutes) app.use('/api/admin', giftAdminRoutes);
-if (cryptoRoutes) app.use('/api/admin/crypto', cryptoRoutes);
+app.use('/api/admin', orderAdminRoutes);
+app.use('/api/webhooks', require('./routes/webhooks'));
+
+
+// ─── Admin webhook operations ────────────────────────────────────
+app.use('/api/admin', require('./routes/admin/webhookAdminRoutes'));
+const messageRoutes          = safeRequire('./routes/messages');
+const billsAdminRoutes = require('./routes/admin/billsAdminRoutes');
+app.use('/api/admin', billsAdminRoutes);
+app.use('/api/admin', require('./routes/admin/revenueAdminRoutes'));
+const vsmsAdminRoutes = require('./routes/admin/vsmsAdminRoutes');
+app.use('/api/admin', vsmsAdminRoutes);
+app.use('/api/admin/notifications', require('./routes/admin/notificationsRoutes'));
+const esimAdminRoutes = require('./routes/admin/esimAdminRoutes');
+app.use('/api/admin', esimAdminRoutes);
+app.use('/api/admin', require('./routes/admin/mfaRoutes'));
+
+const airtimeAdminRoutes = require('./routes/admin/airtimeAdminRoutes');
+app.use('/api/admin', airtimeAdminRoutes);
+app.use('/api/admin/reports', require('./routes/admin/reportsRoutes'));
+app.use('/api/admin', require('./routes/admin/meRoutes'));
+app.use('/api/admin', require('./routes/admin/permissionsRoutes'));
+app.use('/api/admin', require('./routes/admin/stepUpRoutes'));
+console.log('  ✅ /api/admin (me, permissions, step-up) → loaded');
+
+if (marketplaceRoutes)   safeMount(app, '/api/admin', marketplaceRoutes);
+if (giftAdminRoutes)     app.use('/api/admin', giftAdminRoutes);
+if (cryptoRoutes)        app.use('/api/admin/crypto', cryptoRoutes);
 if (giftcardAdminRoutes) app.use('/api/admin', giftcardAdminRoutes);
-if (adminUserRoutes) app.use('/api/admin', adminUserRoutes);
-if (adminTransactionRoutes) app.use('/api/admin', adminTransactionRoutes);
-if (adminAuditRoutes) app.use('/api/admin', adminAuditRoutes);
+if (adminUserRoutes)     app.use('/api/admin', adminUserRoutes);
+if (adminAuditRoutes)    app.use('/api/admin', adminAuditRoutes);
+if (messageRoutes)       app.use('/api/messages', messageRoutes);
 
-// ─── AIRTIME ROUTES ─────────────────────────────────────────────────────
-const airtimeRoutes = require('./routes/airtime');
-app.use('/api/airtime', airtimeRoutes);
-console.log('✅ Airtime routes loaded at /api/airtime');
+console.log('\n✅ All API routes mounted');
 
-// ─── RECONCILIATION ROUTES ─────────────────────────────────────────────
-const reconciliationRoutes = require('./routes/reconciliationRoutes');
-app.use('/api/reconciliation', reconciliationRoutes);
-console.log('✅ Reconciliation routes loaded at /api/reconciliation');
+// ═══════════════════════════════════════════════════════════════════
+//  BACKGROUND RECONCILIATION SCHEDULERS
+// ───────────────────────────────────────────────────────────────────
+//  Each of these starts a setInterval that runs in-process. They
+//  currently run every 5 minutes.
+// ═══════════════════════════════════════════════════════════════════
+
+const reconciliationService = require('./services/reconciliationService');
+const { startQuoteReaper } = require('./services/dtoneQuoteReaper');
+startQuoteReaper();
+console.log('✅ Quote reaper started');
+
 const { startReconciliationScheduler } = require('./services/airtimeReconciliationService');
 startReconciliationScheduler();
-console.log('\n✅ All routes mounted successfully');
+console.log('✅ Airtime reconciliation scheduler started');
 
-// ─── RECONCILIATION SERVICE ──────────────────────────────────────────────
-// ✅ Using reconciliationService for both cashback and airtime
-
-console.log(`📊 Reconciliation service loaded`);
-
-// ─── BILLS ROUTES (Airtime, Data, Electricity, TV, Education) ───
-const billsRoutes = require('./routes/billsRoutes');
-app.use('/api/bills', billsRoutes);
-console.log('✅ Bills routes loaded at /api/bills');
-
-// ─── Start Bills Reconciliation ───
 const { startBillsReconciliationScheduler } = require('./services/billsReconciliationService');
 startBillsReconciliationScheduler();
 console.log('✅ Bills reconciliation scheduler started');
 
-// Run full reconciliation every 5 minutes
+// ─── Full reconciliation sweep: every 5 minutes ─────────────────
 setInterval(async () => {
     try {
         console.log('🔄 Running full reconciliation sweep...');
         const result = await reconciliationService.runFullReconciliation();
         if (result) {
-            console.log(`✅ Reconciliation complete: Cashback: ${result.cashback?.processed || 0}, Airtime: ${result.airtime?.processed || 0}`);
+            console.log(
+                `✅ Reconciliation complete: Cashback: ${result.cashback?.processed || 0}, ` +
+                `Airtime: ${result.airtime?.processed || 0}`
+            );
         }
     } catch (error) {
         console.error('❌ Reconciliation sweep error:', error);
     }
 }, 5 * 60 * 1000);
 
-// Run immediately on startup
+// ─── Initial sweep, 10s after boot ──────────────────────────────
 setTimeout(async () => {
     console.log('🔄 Running initial reconciliation sweep...');
     try {
         const result = await reconciliationService.runFullReconciliation();
         if (result) {
-            console.log(`✅ Initial reconciliation complete: Cashback: ${result.cashback?.processed || 0}, Airtime: ${result.airtime?.processed || 0}`);
+            console.log(
+                `✅ Initial reconciliation complete: Cashback: ${result.cashback?.processed || 0}, ` +
+                `Airtime: ${result.airtime?.processed || 0}`
+            );
         }
     } catch (error) {
         console.error('❌ Initial reconciliation error:', error);
     }
 }, 10000);
 
-// Every 5 min: look for deposits stuck in 'pending'/'processing' and re-verify.
+// ─── Deposit reconciliation: every 5 minutes ────────────────────
+// Finds Kora deposits stuck in pending/processing for >5 minutes
+// and re-verifies them against the provider.
 setInterval(async () => {
     try {
         const { data: stuck } = await supabaseAdmin
@@ -342,7 +463,7 @@ setInterval(async () => {
                     source: 'reconciliation'
                 });
             } catch (e) {
-                // Silently continue
+                // Non-fatal — next sweep will retry.
             }
         }
     } catch (e) {
@@ -350,9 +471,12 @@ setInterval(async () => {
     }
 }, 5 * 60 * 1000);
 
-console.log('🔄 Reconciliation service started (runs every 5 minutes)');
+console.log('🔄 Deposit reconciliation service started (runs every 5 minutes)');
 
-// ─── FALLBACK LOGO ───
+// ═══════════════════════════════════════════════════════════════════
+//  FALLBACK LOGO
+// ═══════════════════════════════════════════════════════════════════
+
 app.get('/images/miles-logo.png', (req, res) => {
     res.setHeader('Content-Type', 'image/svg+xml');
     res.send(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
@@ -361,9 +485,9 @@ app.get('/images/miles-logo.png', (req, res) => {
     </svg>`);
 });
 
-// ═══════════════════════════════════════════════════════
-// 📄 HEALTH CHECK
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  HEALTH CHECK
+// ═══════════════════════════════════════════════════════════════════
 
 app.get('/api/health', (req, res) => {
     res.json({
@@ -374,11 +498,11 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// ═══════════════════════════════════════════════════════
-// 🖥️ FRONTEND ROUTES
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  FRONTEND PAGE ROUTES
+// ═══════════════════════════════════════════════════════════════════
 
-// ─── USER FRONTEND ──────────────────────────────────────────────────
+// ─── USER FRONTEND ──────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/signup', (req, res) => res.sendFile(path.join(__dirname, 'public', 'signup.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
@@ -400,33 +524,73 @@ app.get('/usersettings', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'usersettings.html'));
 });
 
-// ─── AIRTIME FRONTEND ──────────────────────────────────────────────
-app.get('/airtime', (req, res) => res.sendFile(path.join(__dirname, 'public', 'airtime.html')));
-
-// ─── ADMIN FRONTEND ────────────────────────────────────────────────
+// ─── ADMIN FRONTEND ─────────────────────────────────────────────
 app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
 
+// Admin login
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
 app.get('/admin/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
-
+app.get('/admin/airtime-data', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin/airtime-data.html'));
+});
+// Admin dashboard + money area
 app.get('/admin/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
 app.get('/admin/dashboard.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
-app.get('/admin/boost', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'boost.html')));
-app.get('/admin/users', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'users.html')));
 app.get('/admin/transactions', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'transactions.html')));
-app.get('/admin/settings', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'settings.html')));
-app.get('/admin/messages', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'messages.html')));
-app.get('/admin/notifications', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'notifications.html')));
-app.get('/admin/reports', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'reports.html')));
+app.get('/admin/transactions.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'transactions.html')));
+app.get('/admin/deposits', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'deposits.html')));
+app.get('/admin/deposits.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'deposits.html')));
+app.get('/admin/ledger', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'ledger.html')));
+app.get('/admin/ledger.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'ledger.html')));
+app.get('/admin/reconciliation', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'reconciliation.html')));
+app.get('/admin/reconciliation.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'reconciliation.html')));
+app.get('/admin/bills', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin/bills.html'));
+});
+
+app.get('/admin/webhooks', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin/webhooks.html'));
+});
+app.get('/admin/revenue', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin/revenue.html'));
+});
+app.get('/admin/providers', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin/providers.html'));
+});
+// Admin customers
+app.get('/admin/users', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'users.html')));
+app.get('/admin/users.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'users.html')));
 app.get('/admin/support', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'support.html')));
-app.get('/admin/ticker-manager', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'ticker-manager.html')));
+app.get('/admin/messages', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'messages.html')));
+
+// Admin services
 app.get('/admin/sellgift', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'sellgift.html')));
-app.get('/admin/marketplace-products', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'marketplace-products.html')));
-app.get('/admin/wallet-deposits', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'wallet-deposits.html')));
+app.get('/admin/airtime-data', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'airtime-data.html')));
+app.get('/admin/bills', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'bills.html')));
+app.get('/admin/esim', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'esim.html')));
 app.get('/admin/virtual-sms', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'virtual-sms.html')));
+app.get('/admin/boost', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'boost.html')));
+app.get('/admin/marketplace-products', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'marketplace-products.html')));
 app.get('/admin/crypto', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'crypto.html')));
 
+// Admin operations
+app.get('/admin/orders', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'orders.html')));
+app.get('/admin/providers', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'providers.html')));
+app.get('/admin/webhooks', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'webhooks.html')));
+
+// Admin analytics
+app.get('/admin/revenue', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'revenue.html')));
+app.get('/admin/reports', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'reports.html')));
+app.get('/admin/service-performance', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'service-performance.html')));
+
+// Admin system
+app.get('/admin/notifications', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'notifications.html')));
+app.get('/admin/settings', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'settings.html')));
+app.get('/admin/ticker-manager', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'ticker-manager.html')));
+
+// Generic admin fallback: any /admin/<something>.html serves the file,
+// any /admin/<something> without extension falls through to dashboard.
 app.get(/^\/admin\/(.+)$/, (req, res) => {
     const requestedPath = req.params[0] || '';
     if (requestedPath && requestedPath.includes('.')) {
@@ -438,9 +602,9 @@ app.get(/^\/admin\/(.+)$/, (req, res) => {
     res.redirect('/admin/dashboard.html');
 });
 
-// ═══════════════════════════════════════════════════════
-// 🚫 404 HANDLER
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  404 HANDLER
+// ═══════════════════════════════════════════════════════════════════
 
 app.use((req, res) => {
     if (req.path.startsWith('/api')) {
@@ -456,7 +620,7 @@ app.use((req, res) => {
     res.status(404).send('File not found');
 });
 
-// ─── ERROR HANDLER ───
+// ─── ERROR HANDLER ──────────────────────────────────────────────
 app.use((err, req, res, next) => {
     console.error('Server error:', err.stack);
     const message = isProduction ? 'Something went wrong' : err.message;
@@ -467,14 +631,12 @@ app.use((err, req, res, next) => {
     });
 });
 
-// ═══════════════════════════════════════════════════════
-// 🔌 SOCKET.IO SERVER WITH PRESENCE
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  SOCKET.IO SERVER WITH PRESENCE
+// ═══════════════════════════════════════════════════════════════════
 
-// ─── CREATE HTTP SERVER ──────────────────────────────────────────
 const server = http.createServer(app);
 
-// ─── CREATE SOCKET.IO INSTANCE ──────────────────────────────────
 const io = new Server(server, {
     cors: {
         origin: allowedOrigins,
@@ -486,7 +648,6 @@ const io = new Server(server, {
     pingInterval: 25000
 });
 
-// ─── MAKE IO GLOBALLY AVAILABLE ─────────────────────────────────
 global.io = io;
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -504,9 +665,9 @@ const presenceManager = {
         const targetMap = isAdmin ? this.admins : this.users;
 
         if (!targetMap.has(userId)) {
-            targetMap.set(userId, { 
-                sockets: new Set(), 
-                userData: { 
+            targetMap.set(userId, {
+                sockets: new Set(),
+                userData: {
                     username: username || 'User',
                     email: email || '',
                     avatarUrl: avatarUrl || null,
@@ -514,18 +675,15 @@ const presenceManager = {
                     current_page: '/dashboard',
                     current_action: 'viewing',
                     lastSeen: new Date().toISOString()
-                } 
+                }
             });
         }
         const entry = targetMap.get(userId);
         entry.sockets.add(socketId);
         entry.userData.lastSeen = new Date().toISOString();
 
-        if (isAdmin) {
-            this.totalAdmins = this.admins.size;
-        } else {
-            this.totalUsers = this.users.size;
-        }
+        if (isAdmin) this.totalAdmins = this.admins.size;
+        else this.totalUsers = this.users.size;
         this.total = this.users.size + this.admins.size;
     },
 
@@ -541,11 +699,8 @@ const presenceManager = {
             }
         }
 
-        if (isAdmin) {
-            this.totalAdmins = this.admins.size;
-        } else {
-            this.totalUsers = this.users.size;
-        }
+        if (isAdmin) this.totalAdmins = this.admins.size;
+        else this.totalUsers = this.users.size;
         this.total = this.users.size + this.admins.size;
         return this.users.has(userId) || this.admins.has(userId);
     },
@@ -590,8 +745,8 @@ const presenceManager = {
             total: this.total,
             totalUsers: this.totalUsers,
             totalAdmins: this.totalAdmins,
-            users: users,
-            admins: admins
+            users,
+            admins
         };
     },
 
@@ -620,7 +775,7 @@ const presenceManager = {
     }
 };
 
-// ─── Socket.IO Authentication ─────────────────────────
+// ─── Socket.IO authentication ────────────────────────────────────
 io.use(async (socket, next) => {
     try {
         const token = socket.handshake.auth?.token;
@@ -630,12 +785,11 @@ io.use(async (socket, next) => {
         }
 
         const decoded = jwt.verify(token, JWT_SECRET);
-        
+
         if (!decoded.id) {
             return next(new Error('Invalid user ID'));
         }
 
-        const { supabaseAdmin } = require('./db/supabase');
         const { data: profile, error } = await supabaseAdmin
             .from('profiles')
             .select('id, email, username, role, status, avatar_url')
@@ -658,14 +812,13 @@ io.use(async (socket, next) => {
         socket.sessionId = decoded.sid || null;
 
         next();
-
     } catch (error) {
         console.error('❌ Socket auth error:', error.message);
         return next(new Error('Invalid authentication'));
     }
 });
 
-// ─── Socket.IO Connection Handler ─────────────────────
+// ─── Socket.IO connection handler ────────────────────────────────
 io.on('connection', (socket) => {
     const userId = socket.userId;
     const userName = socket.userName;
@@ -674,7 +827,7 @@ io.on('connection', (socket) => {
     console.log(`🔌 User connected: ${userName} (${userId}) [${userRole}]`);
 
     presenceManager.addConnection({
-        userId: userId,
+        userId,
         role: userRole,
         socketId: socket.id,
         username: userName,
@@ -692,15 +845,14 @@ io.on('connection', (socket) => {
     }
 
     socket.on('page:change', (data) => {
-        const { page, action, metadata } = data;
-
+        const { page, action, metadata } = data || {};
         presenceManager.updatePage(userId, page, action);
 
         io.to('admins').emit('user:activity', {
-            userId: userId,
+            userId,
             username: userName,
             role: userRole,
-            page: page,
+            page,
             action: action || 'viewing',
             timestamp: new Date().toISOString(),
             metadata: metadata || {}
@@ -721,7 +873,7 @@ io.on('connection', (socket) => {
         if (!remaining) {
             io.emit('presence:update', presenceManager.getOnlineUsers());
             io.to('admins').emit('user:offline', {
-                userId: userId,
+                userId,
                 username: userName,
                 timestamp: new Date().toISOString()
             });
@@ -737,28 +889,34 @@ io.on('connection', (socket) => {
 
 console.log('✅ Socket.IO configured with presence manager');
 
-// ═══════════════════════════════════════════════════════
-// 🚀 START SERVER
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  START SERVER
+// ═══════════════════════════════════════════════════════════════════
 
 server.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
     console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔌 Socket.IO enabled with real-time presence`);
+
     console.log(`\n📄 Frontend URLs:`);
-    console.log(`   → Landing Page: http://localhost:${PORT}/`);
-    console.log(`   → Signup/Login: http://localhost:${PORT}/signup`);
-    console.log(`   → User Dashboard: http://localhost:${PORT}/dashboard`);
-    console.log(`   → Airtime: http://localhost:${PORT}/airtime`);
+    console.log(`   → Landing Page:    http://localhost:${PORT}/`);
+    console.log(`   → Signup/Login:    http://localhost:${PORT}/signup`);
+    console.log(`   → User Dashboard:  http://localhost:${PORT}/dashboard`);
+    console.log(`   → Airtime:         http://localhost:${PORT}/airtime`);
+
     console.log(`\n🔗 API Base: http://localhost:${PORT}/api`);
-    console.log(`\n🔐 Admin URLs:`);
-    console.log(`   → Admin Login:  http://localhost:${PORT}/admin/index.html`);
-    console.log(`   → Admin Dashboard: http://localhost:${PORT}/admin/dashboard.html`);
-    console.log(`   → Admin Users:   http://localhost:${PORT}/admin/users.html`);
-    console.log(`   → Admin Transactions: http://localhost:${PORT}/admin/transactions.html`);
-    console.log(`   → Admin Settings: http://localhost:${PORT}/admin/settings.html`);
-    console.log(`   → Marketplace Products: http://localhost:${PORT}/admin/marketplace-products.html`);
-    console.log(`\n🔐 Admin API Endpoints:`);
+
+    console.log(`\n🔐 Admin Pages:`);
+    console.log(`   → Login:            http://localhost:${PORT}/admin/index.html`);
+    console.log(`   → Dashboard:        http://localhost:${PORT}/admin/dashboard.html`);
+    console.log(`   → Transactions:     http://localhost:${PORT}/admin/transactions`);
+    console.log(`   → Deposits:         http://localhost:${PORT}/admin/deposits`);
+    console.log(`   → Ledger:           http://localhost:${PORT}/admin/ledger`);
+    console.log(`   → Reconciliation:   http://localhost:${PORT}/admin/reconciliation`);
+    console.log(`   → Users:            http://localhost:${PORT}/admin/users`);
+    console.log(`   → Settings:         http://localhost:${PORT}/admin/settings`);
+
+    console.log(`\n🔐 Admin API endpoints:`);
     console.log(`   → POST   /api/admin/login`);
     console.log(`   → GET    /api/admin/session`);
     console.log(`   → GET    /api/admin/me`);
@@ -766,34 +924,43 @@ server.listen(PORT, () => {
     console.log(`   → POST   /api/admin/refresh`);
     console.log(`   → GET    /api/admin/verify`);
     console.log(`   → GET    /api/admin/stats`);
-    console.log(`   → GET    /api/admin/recent-activity`);
-    console.log(`   → GET    /api/admin/users/recent`);
-    console.log(`   → GET    /api/admin/transactions/recent`);
-    console.log(`   → GET    /api/admin/presence/online`);
     console.log(`   → GET    /api/admin/charts`);
     console.log(`   → GET    /api/admin/health`);
-    console.log(`   → GET    /api/admin/top-customers`);
-    console.log(`   → GET    /api/admin/marketplace/products`);
-    console.log(`   → GET    /api/admin/marketplace/stats`);
-    console.log(`   → GET    /api/admin/marketplace/categories`);
-    console.log(`   → GET    /api/admin/marketplace/orders`);
-    console.log(`\n🔐 Airtime API Endpoints:`);
+    console.log(`   → GET    /api/admin/recent-activity`);
+    console.log(`   → GET    /api/admin/users/recent`);
+    console.log(`   → GET    /api/admin/transactions`);
+    console.log(`   → GET    /api/admin/transactions/summary`);
+    console.log(`   → GET    /api/admin/transactions/export`);
+    console.log(`   → GET    /api/admin/transactions/:id`);
+    console.log(`   → GET    /api/admin/transactions/:id/ledger`);
+    console.log(`   → GET    /api/admin/transactions/:id/audit`);
+    console.log(`   → PUT    /api/admin/transactions/:id/status`);
+    console.log(`   → POST   /api/admin/transactions/:id/refund`);
+    console.log(`   → POST   /api/admin/transactions/:id/note`);
+    console.log(`   → GET    /api/admin/transactions/recent`);
+    console.log(`   → GET    /api/admin/deposits/recent`);
+    console.log(`   → GET    /api/admin/deposits/today-summary`);
+    console.log(`   → GET    /api/admin/ledger`);
+    console.log(`   → GET    /api/admin/ledger/balances`);
+    console.log(`   → GET    /api/admin/logins/today`);
+    console.log(`   → GET    /api/admin/webhooks/recent`);
+    console.log(`   → GET    /api/admin/providers/health`);
+    console.log(`   → GET    /api/admin/needs-attention`);
+    console.log(`   → GET    /api/admin/orders/failed/recent`);
+    console.log(`   → GET    /api/admin/reconciliation/exceptions/count`);
+
+    console.log(`\n🔐 Airtime API endpoints:`);
     console.log(`   → GET    /api/airtime/countries`);
     console.log(`   → GET    /api/airtime/operators`);
-    console.log(`   → POST   /api/airtime/operator-detect`);
-    console.log(`   → POST   /api/airtime/quote`);
     console.log(`   → POST   /api/airtime/purchase`);
     console.log(`   → GET    /api/airtime/history`);
-    console.log(`   → GET    /api/airtime/:reference`);
-    console.log(`   → POST   /api/airtime/webhook`);
-    console.log(`   → POST   /api/airtime/admin/reconcile/:reference`);
-    console.log(`\n🔐 Reconciliation API Endpoints:`);
+
+    console.log(`\n🔐 Reconciliation API endpoints:`);
     console.log(`   → GET    /api/reconciliation/airtime/pending`);
     console.log(`   → POST   /api/reconciliation/airtime/sweep`);
-    console.log(`   → POST   /api/reconciliation/airtime/force/:id`);
     console.log(`   → GET    /api/reconciliation/airtime/stats`);
-    console.log(`   → POST   /api/reconciliation/airtime/bulk`);
-    console.log(`\n`);
+
+    console.log('');
 });
 
 module.exports = { server, io, presenceManager };

@@ -367,6 +367,116 @@ function parseUserAgentForDisplay(ua) {
     return display || 'Unknown Device';
 }
 
+async function sendAdminSecurityAlert({
+    email,
+    username,
+    action,
+    targetType = null,
+    targetId = null,
+    detail = null,
+    ipAddress = null,
+    userAgent = null,
+    when = null
+}) {
+    if (!email) {
+        return { success: false, error: 'No email provided' };
+    }
+
+    const eventTime = when ? new Date(when) : new Date();
+    const dateStr = eventTime.toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+    const timeStr = eventTime.toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: true
+    });
+
+    const safe = (v) => escapeHtml(v == null ? '' : String(v));
+
+    // Human-friendly label per action. Extend as new events appear.
+    const LABELS = {
+        ADMIN_LOGIN_NEW_DEVICE:     'New admin sign-in detected',
+        MFA_ENABLED:                'Two-factor authentication enabled',
+        MFA_DISABLED:               'Two-factor authentication disabled',
+        PERMISSION_GRANTED:         'Admin permission granted',
+        PERMISSION_REVOKED:         'Admin permission revoked',
+        ROLE_CHANGED:               'Admin role changed',
+        WALLET_ADJUSTED:            'Customer wallet adjusted',
+        WALLET_CREDITED:            'Customer wallet credited',
+        WALLET_DEBITED:             'Customer wallet debited',
+        REFUND_CREATED:             'Refund issued',
+        PROVIDER_CREDENTIAL_CHANGED:'Provider credentials changed',
+        ADMIN_CREATED:              'New admin account created',
+        ADMIN_DELETED:              'Admin account deleted',
+        SECURITY_SETTINGS_CHANGED:  'Security settings changed'
+    };
+    const title = LABELS[action] || 'Admin security event';
+
+    const html = `
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f6f8;padding:40px 20px;margin:0;">
+        <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:40px 32px;box-shadow:0 4px 14px rgba(0,0,0,0.06);">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="display:inline-block;width:56px;height:56px;border-radius:50%;background:#fdf3e8;color:#b45309;font-size:24px;line-height:56px;text-align:center;">&#128274;</div>
+            </div>
+            <h2 style="font-size:20px;font-weight:700;color:#0c3d4a;margin:0 0 8px;text-align:center;">${safe(title)}</h2>
+            <p style="color:#4a6070;font-size:14px;margin:0 0 20px;text-align:center;">
+                Hi ${safe(username || 'Admin')}, a security event occurred on your MilesSpace admin account.
+            </p>
+
+            <div style="background:#f8fafb;border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;color:#4a6070;">
+                    <tr><td style="padding:5px 0;">Event</td><td style="padding:5px 0;text-align:right;font-weight:600;color:#0c3d4a;">${safe(action)}</td></tr>
+                    <tr><td style="padding:5px 0;">When</td><td style="padding:5px 0;text-align:right;font-weight:600;color:#0c3d4a;">${safe(dateStr)} · ${safe(timeStr)}</td></tr>
+                    ${targetType ? `<tr><td style="padding:5px 0;">Target type</td><td style="padding:5px 0;text-align:right;font-weight:600;color:#0c3d4a;">${safe(targetType)}</td></tr>` : ''}
+                    ${targetId   ? `<tr><td style="padding:5px 0;">Target</td><td style="padding:5px 0;text-align:right;font-weight:600;color:#0c3d4a;word-break:break-all;">${safe(targetId)}</td></tr>` : ''}
+                    ${ipAddress  ? `<tr><td style="padding:5px 0;">IP address</td><td style="padding:5px 0;text-align:right;font-weight:600;color:#0c3d4a;">${safe(ipAddress)}</td></tr>` : ''}
+                </table>
+            </div>
+
+            ${detail ? `
+                <div style="background:#f8fafb;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+                    <p style="font-size:11px;font-weight:700;color:#6b7d8a;margin:0 0 8px;letter-spacing:.08em;">DETAIL</p>
+                    <pre style="margin:0;font-family:'JetBrains Mono',Consolas,monospace;font-size:12px;color:#0c3d4a;white-space:pre-wrap;word-break:break-all;">${safe(JSON.stringify(detail, null, 2))}</pre>
+                </div>
+            ` : ''}
+
+            ${userAgent ? `
+                <p style="color:#92a8b4;font-size:12px;margin:0 0 12px;">
+                    Device: ${safe(parseUserAgentForDisplay(userAgent))}
+                </p>
+            ` : ''}
+
+            <div style="background:#fdf3e8;border-radius:10px;padding:14px 18px;margin:20px 0;">
+                <p style="margin:0;color:#7a3517;font-size:13px;line-height:1.6;">
+                    If you did not perform this action, sign in immediately and review your
+                    active sessions. Contact a super admin if anything looks wrong.
+                </p>
+            </div>
+
+            <div style="text-align:center;margin-top:22px;">
+                <a href="${SITE_URL}/admin/settings"
+                   style="display:inline-block;background:#0c3d4a;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:12px 22px;border-radius:10px;">
+                   Review security settings
+                </a>
+            </div>
+
+            <div style="border-top:1px solid #e4e8ec;padding-top:16px;margin-top:22px;">
+                <p style="color:#92a8b4;font-size:12px;text-align:center;margin:0;">
+                    © ${new Date().getFullYear()} MilesSpace. All rights reserved.
+                </p>
+            </div>
+        </div>
+        </body></html>
+    `;
+
+    return sendEmail(
+        email,
+        `🔐 ${title} — MilesSpace Admin`,
+        html
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  AUTH EMAILS
 // ═══════════════════════════════════════════════════════════════════
@@ -926,6 +1036,7 @@ module.exports = {
     sendPaymentReceived,
     sendCashbackReward,
     sendDepositConfirmation,
+    sendAdminSecurityAlert,
 
     // eSIM
     sendEsimDeliveryEmail,

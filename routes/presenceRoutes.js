@@ -1,16 +1,22 @@
-// routes/presenceRoutes.js - COMPLETE FAST VERSION
-// Heartbeat every 5 seconds, minimal database operations
+// routes/presenceRoutes.js
+// ─────────────────────────────────────────────────────────────────
+// Customer presence.
+//
+//   - Heartbeat writes ONLY to user_presence. No profiles writes.
+//   - Online Now = last_seen within 90s (heartbeat is 30s → 3× margin).
+//   - Never uses is_online as the online authority.
+//   - No unauthenticated offline-beacon endpoint.
+//   - is_admin comes from req.user.role, never from the body.
+// ─────────────────────────────────────────────────────────────────
 
 const express = require('express');
 const router = express.Router();
 const { supabaseAdmin } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
 
-// ─── CONSTANTS ──────────────────────────────────────────────────────
-const ONLINE_THRESHOLD_SECONDS = 15; // 15 seconds = offline after 3 missed heartbeats
-const HEARTBEAT_INTERVAL_MS = 5000; // 5 seconds
+const ONLINE_THRESHOLD_MS = 90 * 1000;
 
-// ─── HELPERS ──────────────────────────────────────────────────────
+// ─── User-agent parsing (kept, minimal) ──────────────────────────
 
 function parseBrowser(ua) {
     if (!ua) return 'Unknown';
@@ -41,270 +47,100 @@ function parseOS(ua) {
 function parseDevice(ua) {
     if (!ua) return 'Desktop';
     const u = ua.toLowerCase();
-    if (u.includes('mobile') || u.includes('iphone') || (u.includes('android') && !u.includes('tablet'))) {
-        return 'Mobile';
-    }
+    if (u.includes('mobile') || u.includes('iphone') || (u.includes('android') && !u.includes('tablet'))) return 'Mobile';
     if (u.includes('tablet') || u.includes('ipad')) return 'Tablet';
     return 'Desktop';
 }
 
-function getUserAgentInfo(req) {
+function uaInfo(req) {
     const ua = req.headers['user-agent'] || '';
     return {
         browser: parseBrowser(ua),
         os: parseOS(ua),
-        device: parseDevice(ua),
-        raw: ua
+        device: parseDevice(ua)
     };
 }
 
-// ─── CHECK IF TABLE EXISTS (cached) ──────────────────────────────
-
-let tableExistsCache = null;
-let tableExistsTime = 0;
-const CACHE_TTL = 60000; // 1 minute
-
-async function checkTableExists() {
-    const now = Date.now();
-    if (tableExistsCache !== null && (now - tableExistsTime) < CACHE_TTL) {
-        return tableExistsCache;
-    }
-
-    try {
-        const { error } = await supabaseAdmin
-            .from('user_presence')
-            .select('id')
-            .limit(1);
-
-        tableExistsCache = !error;
-        tableExistsTime = now;
-        return tableExistsCache;
-    } catch {
-        tableExistsCache = false;
-        tableExistsTime = now;
-        return false;
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  POST /api/presence/heartbeat - FAST (no extra queries)
-// ═══════════════════════════════════════════════════════════════════
+// ─── Heartbeat ───────────────────────────────────────────────────
 
 router.post('/heartbeat', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
         const now = new Date().toISOString();
-        
-        const { page, action, tabId } = req.body || {};
-        const uaInfo = getUserAgentInfo(req);
+        const { page, action, tab_id } = req.body || {};
+        const info = uaInfo(req);
 
-        // ─── Get admin status from JWT, NOT from browser ────────────
-        const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+        // Derive admin from the authenticated role — never trust body.
+        const role = String(req.user.role || 'user').toLowerCase();
+        const isAdmin = role === 'admin' || role === 'super_admin';
 
-        // ─── Check if user_presence table exists (cached) ───────────
-        const tableOk = await checkTableExists();
-
-        if (tableOk) {
-            // ─── Upsert into user_presence ──────────────────────────
-            await supabaseAdmin
-                .from('user_presence')
-                .upsert({
-                    user_id: userId,
-                    last_seen: now,
-                    current_page: page || null,
-                    current_action: action || null,
-                    tab_id: tabId || null,
-                    is_visible: true,
-                    is_admin: isAdmin,
-                    browser: uaInfo.browser,
-                    os: uaInfo.os,
-                    device: uaInfo.device,
-                    ip_address: req.ip || req.headers['x-forwarded-for'] || null,
-                    is_online: true,
-                    updated_at: now,
-                    last_heartbeat: now
-                }, {
-                    onConflict: 'user_id'
-                });
-        }
-
-        // ─── Always update profiles ──────────────────────────────────
-        await supabaseAdmin
-            .from('profiles')
-            .update({
-                last_seen: now,
-                current_page: page || null,
-                last_login_browser: uaInfo.browser,
-                last_login_os: uaInfo.os,
-                last_login_device: uaInfo.device,
-                updated_at: now
-            })
-            .eq('id', userId);
-
-        // ─── Return minimal response (NO count query) ───────────────
-        res.json({
-            success: true,
-            message: 'Heartbeat received',
-            data: {
+        // Single write.
+        const { error } = await supabaseAdmin
+            .from('user_presence')
+            .upsert({
                 user_id: userId,
                 last_seen: now,
-                is_online: true
-            }
-        });
+                current_page: page || null,
+                current_action: action || 'viewing page',
+                tab_id: tab_id || null,
+                is_visible: true,
+                is_admin: isAdmin,
+                browser: info.browser,
+                os: info.os,
+                device: info.device,
+                ip_address: req.ip || null,
+                updated_at: now,
+                last_heartbeat: now
+            }, { onConflict: 'user_id' });
 
-    } catch (error) {
-        console.error('❌ Heartbeat error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to process heartbeat'
-        });
-    }
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  POST /api/presence/offline - Mark user offline
-// ═══════════════════════════════════════════════════════════════════
-
-router.post('/offline', authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const now = new Date().toISOString();
-
-        const tableOk = await checkTableExists();
-        if (tableOk) {
-            await supabaseAdmin
-                .from('user_presence')
-                .update({
-                    is_online: false,
-                    last_seen: now,
-                    updated_at: now
-                })
-                .eq('user_id', userId);
+        if (error) {
+            console.error('[PRESENCE] heartbeat upsert error:', error.message);
+            return res.status(500).json({ success: false, error: 'heartbeat failed', code: 'PRESENCE_UPSERT_FAILED' });
         }
 
-        await supabaseAdmin
-            .from('profiles')
-            .update({
-                last_seen: now,
-                updated_at: now
-            })
-            .eq('id', userId);
-
-        res.json({
+        return res.json({
             success: true,
-            message: 'User marked offline'
+            data: { user_id: userId, last_seen: now }
         });
-
-    } catch (error) {
-        console.error('❌ Offline error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to mark user offline'
-        });
+    } catch (err) {
+        console.error('[PRESENCE] heartbeat exception:', err.message);
+        return res.status(500).json({ success: false, error: 'heartbeat exception', code: 'PRESENCE_HEARTBEAT_EXCEPTION' });
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════
-//  POST /api/presence/offline-beacon - Beacon for page unload
-// ═══════════════════════════════════════════════════════════════════
-
-router.post('/offline-beacon', async (req, res) => {
-    try {
-        const { userId } = req.body || {};
-
-        if (!userId) {
-            return res.status(400).send('Missing userId');
-        }
-
-        const now = new Date().toISOString();
-
-        const tableOk = await checkTableExists();
-        if (tableOk) {
-            await supabaseAdmin
-                .from('user_presence')
-                .update({
-                    is_online: false,
-                    last_seen: now,
-                    updated_at: now
-                })
-                .eq('user_id', userId);
-        }
-
-        await supabaseAdmin
-            .from('profiles')
-            .update({
-                last_seen: now,
-                updated_at: now
-            })
-            .eq('id', userId);
-
-        res.status(200).send('OK');
-
-    } catch (error) {
-        console.error('❌ Beacon error:', error);
-        res.status(500).send('Error');
-    }
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  GET /api/presence/online-count - Fast count (NO rate limit)
-// ═══════════════════════════════════════════════════════════════════
+// ─── Online count ────────────────────────────────────────────────
 
 router.get('/online-count', authMiddleware, async (req, res) => {
     try {
-        const fifteenSecondsAgo = new Date(Date.now() - ONLINE_THRESHOLD_SECONDS * 1000).toISOString();
+        const threshold = new Date(Date.now() - ONLINE_THRESHOLD_MS).toISOString();
 
-        let count = 0;
-        let source = 'profiles';
+        const { count, error } = await supabaseAdmin
+            .from('user_presence')
+            .select('user_id', { count: 'exact', head: true })
+            .gte('last_seen', threshold);
 
-        // ─── Try user_presence first ──────────────────────────────────
-        try {
-            const tableOk = await checkTableExists();
-            if (tableOk) {
-                const { count: c, error } = await supabaseAdmin
-                    .from('user_presence')
-                    .select('*', { count: 'exact', head: true })
-                    .gte('last_seen', fifteenSecondsAgo);
-
-                if (!error) {
-                    count = c || 0;
-                    source = 'user_presence';
-                }
-            }
-        } catch (e) {
-            // Fallback to profiles
+        if (error) {
+            console.error('[PRESENCE] online-count error:', error.message);
+            return res.status(500).json({ success: false, error: 'count failed', code: 'PRESENCE_COUNT_FAILED' });
         }
 
-        // ─── Fallback: use profiles ──────────────────────────────────
-        if (count === 0) {
-            const { count: c, error } = await supabaseAdmin
-                .from('profiles')
-                .select('*', { count: 'exact', head: true })
-                .gte('last_seen', fifteenSecondsAgo);
-
-            if (!error) {
-                count = c || 0;
-                source = 'profiles';
-            }
-        }
-
-        res.json({
+        return res.json({
             success: true,
             data: {
-                online_count: count,
-                threshold_seconds: ONLINE_THRESHOLD_SECONDS,
-                source: source,
+                online_count: count || 0,
+                threshold_seconds: ONLINE_THRESHOLD_MS / 1000,
                 timestamp: new Date().toISOString()
             }
         });
-
-    } catch (error) {
-        console.error('❌ Online count error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get online count'
-        });
+    } catch (err) {
+        console.error('[PRESENCE] online-count exception:', err.message);
+        return res.status(500).json({ success: false, error: 'count exception', code: 'PRESENCE_COUNT_EXCEPTION' });
     }
 });
+
+// NOTE: /offline and /offline-beacon have been intentionally REMOVED.
+// Offline is now decided by server-side aging of last_seen. The
+// client cannot declare itself offline, and nobody can declare
+// anyone else offline.
 
 module.exports = router;
