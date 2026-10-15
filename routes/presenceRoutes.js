@@ -1,37 +1,82 @@
 // routes/presenceRoutes.js
 // ─────────────────────────────────────────────────────────────────
-// Customer presence.
+// Customer presence — heartbeat + online count.
 //
-//   - Heartbeat writes ONLY to user_presence. No profiles writes.
-//   - Online Now = last_seen within 90s (heartbeat is 30s → 3× margin).
-//   - Never uses is_online as the online authority.
-//   - No unauthenticated offline-beacon endpoint.
-//   - is_admin comes from req.user.role, never from the body.
+// Security & privacy:
+//   • Every heartbeat is authenticated.
+//   • Identity and role are derived server-side only.
+//   • Body is whitelisted to { page, tab_id }.
+//   • All timestamps are UTC ISO-8601.
+//   • Uses service-role client to bypass RLS for the write path
+//     after the server has authenticated the caller. This is the
+//     documented design in the security brief §8.
 // ─────────────────────────────────────────────────────────────────
 
+'use strict';
+
 const express = require('express');
-const router = express.Router();
-const { supabaseAdmin } = require('../db/supabase');
+const router  = express.Router();
+const { supabaseAdmin, withSupabaseRetry } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
+const { classifyRole }  = require('../middleware/roles');
 
 const ONLINE_THRESHOLD_MS = 90 * 1000;
 
-// ─── User-agent parsing (kept, minimal) ──────────────────────────
+// ─── UTC helpers ─────────────────────────────────────────────────
+function nowIso() { return new Date().toISOString(); }
 
+// ─── Input validation ───────────────────────────────────────────
+function safeString(v, maxLen) {
+    if (v == null || typeof v !== 'string') return null;
+    const t = v.trim();
+    if (!t) return null;
+    return t.slice(0, maxLen);
+}
+
+// A minimal page allowlist. The frontend uses these paths; the
+// server enforces them so a malicious client cannot inject
+// arbitrary strings into the presence table.
+const ALLOWED_PAGES = new Set([
+    '/dashboard', '/dashboard.html',
+    '/market', '/market.html',
+    '/profile', '/profile.html',
+    '/fund', '/fund.html',
+    '/airtime', '/airtime.html',
+    '/boost', '/boost.html',
+    '/history', '/history.html',
+    '/notifications', '/notifications.html',
+    '/virtual', '/virtual.html',
+    '/sellgift', '/sellgift.html',
+    '/sendgift', '/sendgift.html',
+    '/cashback', '/cashback.html',
+    '/coin', '/coin.html',
+    '/buy-crypto',
+    '/usersettings', '/usersettings.html'
+]);
+
+function normalisePage(p) {
+    const v = safeString(p, 128);
+    if (!v) return '/dashboard';
+    if (ALLOWED_PAGES.has(v)) return v;
+    // Accept any /path under /dashboard tree; reject anything else.
+    if (v.startsWith('/dashboard')) return '/dashboard';
+    return '/other';
+}
+
+// ─── User-agent parsing ─────────────────────────────────────────
 function parseBrowser(ua) {
     if (!ua) return 'Unknown';
     const u = ua.toLowerCase();
     if (u.includes('edg')) return 'Edge';
     if (u.includes('opr') || u.includes('opera')) return 'Opera';
-    if (u.includes('chrome') && !u.includes('edg') && !u.includes('brave')) return 'Chrome';
-    if (u.includes('firefox')) return 'Firefox';
-    if (u.includes('safari') && !u.includes('chrome')) return 'Safari';
-    if (u.includes('brave')) return 'Brave';
     if (u.includes('samsung')) return 'Samsung Internet';
     if (u.includes('ucbrowser')) return 'UC Browser';
+    if (u.includes('brave')) return 'Brave';
+    if (u.includes('firefox')) return 'Firefox';
+    if (u.includes('chrome')) return 'Chrome';
+    if (u.includes('safari')) return 'Safari';
     return 'Unknown';
 }
-
 function parseOS(ua) {
     if (!ua) return 'Unknown';
     const u = ua.toLowerCase();
@@ -39,63 +84,80 @@ function parseOS(ua) {
     if (u.includes('iphone') || u.includes('ipad') || u.includes('ipod')) return 'iOS';
     if (u.includes('windows')) return 'Windows';
     if (u.includes('mac os x') || u.includes('macintosh')) return 'macOS';
-    if (u.includes('linux')) return 'Linux';
     if (u.includes('chrome os')) return 'Chrome OS';
+    if (u.includes('linux')) return 'Linux';
     return 'Unknown';
 }
-
 function parseDevice(ua) {
     if (!ua) return 'Desktop';
     const u = ua.toLowerCase();
-    if (u.includes('mobile') || u.includes('iphone') || (u.includes('android') && !u.includes('tablet'))) return 'Mobile';
-    if (u.includes('tablet') || u.includes('ipad')) return 'Tablet';
+    if (u.includes('ipad') || u.includes('tablet')) return 'Tablet';
+    if (u.includes('mobile') || u.includes('iphone')) return 'Mobile';
+    if (u.includes('android') && !u.includes('tablet')) return 'Mobile';
     return 'Desktop';
 }
-
-function uaInfo(req) {
-    const ua = req.headers['user-agent'] || '';
-    return {
-        browser: parseBrowser(ua),
-        os: parseOS(ua),
-        device: parseDevice(ua)
-    };
+function parseDeviceType(ua) {
+    const d = parseDevice(ua);
+    return d.toLowerCase();     // 'desktop' | 'mobile' | 'tablet'
 }
 
-// ─── Heartbeat ───────────────────────────────────────────────────
+// ─── Client IP ──────────────────────────────────────────────────
+// Trust proxy is set at app level; req.ip already honours it.
+function clientIp(req) {
+    return req.ip
+        || (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        || (req.socket && req.socket.remoteAddress)
+        || null;
+}
 
+// ═══════════════════════════════════════════════════════════════════
+//  POST /heartbeat
+// ═══════════════════════════════════════════════════════════════════
 router.post('/heartbeat', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const now = new Date().toISOString();
-        const { page, action, tab_id } = req.body || {};
-        const info = uaInfo(req);
+        const now    = nowIso();
 
-        // Derive admin from the authenticated role — never trust body.
-        const role = String(req.user.role || 'user').toLowerCase();
-        const isAdmin = role === 'admin' || role === 'super_admin';
+        const page   = normalisePage(req.body?.page);
+        const tab_id = safeString(req.body?.tab_id, 64);
 
-        // Single write.
-        const { error } = await supabaseAdmin
-            .from('user_presence')
-            .upsert({
-                user_id: userId,
-                last_seen: now,
-                current_page: page || null,
-                current_action: action || 'viewing page',
-                tab_id: tab_id || null,
-                is_visible: true,
-                is_admin: isAdmin,
-                browser: info.browser,
-                os: info.os,
-                device: info.device,
-                ip_address: req.ip || null,
-                updated_at: now,
-                last_heartbeat: now
-            }, { onConflict: 'user_id' });
+        const ua = req.headers['user-agent'] || '';
+        const browser    = parseBrowser(ua);
+        const os         = parseOS(ua);
+        const device     = parseDevice(ua);
+        const deviceType = parseDeviceType(ua);
 
-        if (error) {
-            console.error('[PRESENCE] heartbeat upsert error:', error.message);
-            return res.status(500).json({ success: false, error: 'heartbeat failed', code: 'PRESENCE_UPSERT_FAILED' });
+        const { isAdmin } = classifyRole(req.user.role);
+
+        const result = await withSupabaseRetry(() =>
+            supabaseAdmin
+                .from('user_presence')
+                .upsert({
+                    user_id:        userId,
+                    last_seen:      now,
+                    last_heartbeat: now,
+                    current_page:   page,
+                    current_action: 'viewing',
+                    tab_id,
+                    is_visible:     true,
+                    is_online:      true,
+                    is_admin:       isAdmin,
+                    browser,
+                    os,
+                    device,
+                    device_type:    deviceType,
+                    ip_address:     clientIp(req),
+                    updated_at:     now
+                }, { onConflict: 'user_id' })
+        );
+
+        if (result.error) {
+            console.error('[PRESENCE] heartbeat upsert error:', result.error.message);
+            return res.status(503).json({
+                success: false,
+                error: 'presence write failed',
+                code: 'PRESENCE_UPSERT_FAILED'
+            });
         }
 
         return res.json({
@@ -104,32 +166,39 @@ router.post('/heartbeat', authMiddleware, async (req, res) => {
         });
     } catch (err) {
         console.error('[PRESENCE] heartbeat exception:', err.message);
-        return res.status(500).json({ success: false, error: 'heartbeat exception', code: 'PRESENCE_HEARTBEAT_EXCEPTION' });
+        return res.status(500).json({
+            success: false,
+            error: 'heartbeat exception',
+            code: 'PRESENCE_HEARTBEAT_EXCEPTION'
+        });
     }
 });
 
-// ─── Online count ────────────────────────────────────────────────
-
+// ═══════════════════════════════════════════════════════════════════
+//  GET /online-count
+//
+//  Returns ONLY a number. No user list. Safe for any authenticated
+//  caller. Staff who need the list use /api/admin/presence/online.
+// ═══════════════════════════════════════════════════════════════════
 router.get('/online-count', authMiddleware, async (req, res) => {
     try {
         const threshold = new Date(Date.now() - ONLINE_THRESHOLD_MS).toISOString();
-
-        const { count, error } = await supabaseAdmin
-            .from('user_presence')
-            .select('user_id', { count: 'exact', head: true })
-            .gte('last_seen', threshold);
-
+        const { count, error } = await withSupabaseRetry(() =>
+            supabaseAdmin
+                .from('user_presence')
+                .select('user_id', { count: 'exact', head: true })
+                .gte('last_seen', threshold)
+        );
         if (error) {
             console.error('[PRESENCE] online-count error:', error.message);
-            return res.status(500).json({ success: false, error: 'count failed', code: 'PRESENCE_COUNT_FAILED' });
+            return res.status(503).json({ success: false, error: 'count failed', code: 'PRESENCE_COUNT_FAILED' });
         }
-
         return res.json({
             success: true,
             data: {
                 online_count: count || 0,
                 threshold_seconds: ONLINE_THRESHOLD_MS / 1000,
-                timestamp: new Date().toISOString()
+                timestamp: nowIso()
             }
         });
     } catch (err) {
@@ -138,9 +207,4 @@ router.get('/online-count', authMiddleware, async (req, res) => {
     }
 });
 
-// NOTE: /offline and /offline-beacon have been intentionally REMOVED.
-// Offline is now decided by server-side aging of last_seen. The
-// client cannot declare itself offline, and nobody can declare
-// anyone else offline.
-
-module.exports = router;
+module.exports = { router, ONLINE_THRESHOLD_MS };

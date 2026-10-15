@@ -1,305 +1,407 @@
-// routes/admin/supportRoutes.js
-//
-// Mounted at /api/admin/support in server.js.
-//
-// Every route:
-//   - authenticates the admin via adminAuth (DB role, session, permissions)
-//   - checks a specific support permission
-//   - calls services/supportService
-//   - writes to admin_audit_logs on every mutation
-//
-// No JWT is decoded in this file.
-
 'use strict';
 
 const express = require('express');
-const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const { Readable } = require('stream');
 const router = express.Router();
+const crypto = require('crypto');
+const multer = require('multer');
 
 const support = require('../../services/supportService');
-const { requireSupportPermission, SUPPORT_PERMISSIONS } = require('../../middleware/supportAuth');
+const supportNotifications = require('../../services/supportNotificationService');
+const cloudinarySvc = require('../../services/cloudinaryService');
+const { requirePermission, PERMISSIONS, getClientIp } = require('../../middleware/adminAuth');
+const { validateBatch } = require('../../middleware/supportUpload');
 
-// ─── Cloudinary (attachments) ───────────────────────────────────
-const CLOUDINARY_ENABLED = Boolean(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
-);
-if (CLOUDINARY_ENABLED) {
-    cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET
-    });
-}
-function uploadToCloudinary(buffer, opts = {}) {
-    return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-            { resource_type: 'auto', folder: 'milesspace/support', ...opts },
-            (err, r) => err ? reject(err) : resolve(r)
-        );
-        const readable = new Readable();
-        readable.push(buffer);
-        readable.push(null);
-        readable.pipe(stream);
-    });
+// Fail-closed: if any of these files is missing, the server must
+// not start. Optional UI helpers are fine to skip; security
+// middleware is not.
+if (typeof validateBatch !== 'function') {
+    throw new Error('supportUpload.validateBatch is required');
 }
 
-const ALLOWED_MIME = new Set([
-    'image/jpeg','image/png','image/gif','image/webp',
-    'application/pdf','text/plain','text/csv'
-]);
+const P = {
+    READ:           PERMISSIONS.SUPPORT_READ,
+    REPLY:          PERMISSIONS.SUPPORT_REPLY,
+    INTERNAL_NOTE:  PERMISSIONS.SUPPORT_INTERNAL_NOTE,
+    ASSIGN:         PERMISSIONS.SUPPORT_ASSIGN,
+    CHANGE_STATUS:  PERMISSIONS.SUPPORT_CHANGE_STATUS,
+    CLOSE:          PERMISSIONS.SUPPORT_CLOSE,
+    REOPEN:         PERMISSIONS.SUPPORT_REOPEN,
+    ATTACHMENTS:    PERMISSIONS.SUPPORT_ATTACHMENTS,
+    AUDIT_READ:     PERMISSIONS.SUPPORT_AUDIT_READ
+};
+for (const [name, key] of Object.entries(P)) {
+    if (!key) throw new Error(`Support permission key missing: ${name}`);
+}
+
+function attachRequestId(req, res, next) {
+    req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-Id', req.requestId);
+    next();
+}
+router.use('/support', attachRequestId);
+
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 8 * 1024 * 1024, files: 3 },
-    fileFilter: (req, file, cb) => cb(null, ALLOWED_MIME.has(file.mimetype))
+    limits: { fileSize: 10 * 1024 * 1024, files: 5 }
 });
 
-// ─── Response helpers ───────────────────────────────────────────
-function ok(res, payload) {
-    if (!res.headersSent) res.json({ success: true, ...payload });
-}
-function fail(res, status, code, message, extra = {}) {
-    if (res.headersSent) return;
-    res.status(status).json({ success: false, error: message, code, ...extra });
-}
+function ok(res, payload) { if (!res.headersSent) res.json({ success: true, ...payload }); }
 function sendErr(res, err) {
     if (res.headersSent) return;
     const status = err?.status || 500;
     const code = err?.code || 'SUPPORT_ERROR';
     const message = status >= 500 ? 'Something went wrong. Please try again.' : (err?.message || 'Request failed');
     if (status >= 500) console.error('[ADMIN SUPPORT]', code, err?.message);
-    const body = { success: false, error: message, code };
-    if (err?.allowed) body.allowed = err.allowed;
+    const body = { success: false, code, error: message };
+    if (err?.current_version != null) body.current_version = err.current_version;
+    if (Array.isArray(err?.allowed)) body.allowed = err.allowed;
     res.status(status).json(body);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// STATS
-// ═══════════════════════════════════════════════════════════════
-router.get(
-    '/stats',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_READ),
-    async (req, res) => {
-        try {
-            const stats = await support.getStats();
-            ok(res, { data: stats });
-        } catch (err) { sendErr(res, err); }
-    }
-);
+// ─── STATS ────────────────────────────────────────────────────
+router.get('/support/stats', requirePermission(P.READ), async (req, res) => {
+    try { ok(res, { data: await support.getStats() }); }
+    catch (e) { sendErr(res, e); }
+});
 
-// ═══════════════════════════════════════════════════════════════
-// TICKETS — LIST / DETAIL / MESSAGES / STATUS / ASSIGN / READ
-// ═══════════════════════════════════════════════════════════════
+// ─── LIST ─────────────────────────────────────────────────────
+router.get('/support/tickets', requirePermission(P.READ), async (req, res) => {
+    try {
+        const result = await support.listTickets({
+            page: req.query.page, limit: req.query.limit,
+            status: req.query.status, priority: req.query.priority,
+            category: req.query.category, assigned: req.query.assigned,
+            search: req.query.search, sort: req.query.sort,
+            viewerId: req.adminContext.id
+        });
+        ok(res, result);
+    } catch (e) { sendErr(res, e); }
+});
 
-router.get(
-    '/tickets',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_READ),
-    async (req, res) => {
-        try {
-            const result = await support.listTickets({
-                page: req.query.page,
-                limit: req.query.limit,
-                status: req.query.status,
-                priority: req.query.priority,
-                category: req.query.category,
-                assigned: req.query.assigned,
-                search: req.query.search,
-                sort: req.query.sort
-            });
-            ok(res, result);
-        } catch (err) { sendErr(res, err); }
-    }
-);
+// ─── DETAIL ───────────────────────────────────────────────────
+router.get('/support/tickets/:id', requirePermission(P.READ), async (req, res) => {
+    try {
+        const result = await support.getTicket({
+            id: req.params.id,
+            viewerId: req.adminContext.id,
+            viewerIsAdmin: true
+        });
+        ok(res, { data: { ...result.ticket, messages: result.messages } });
+    } catch (e) { sendErr(res, e); }
+});
 
-router.get(
-    '/tickets/:id',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_READ),
-    async (req, res) => {
-        try {
-            const result = await support.getTicket({ id: req.params.id, viewerId: req.support.adminId });
-            ok(res, { data: { ...result.ticket, messages: result.messages } });
-        } catch (err) { sendErr(res, err); }
-    }
-);
+// ─── MARK READ ────────────────────────────────────────────────
+router.post('/support/tickets/:id/read', requirePermission(P.READ), async (req, res) => {
+    try {
+        const result = await support.markRead({ ticketId: req.params.id });
+        ok(res, result);
+    } catch (e) { sendErr(res, e); }
+});
 
+// ─── MESSAGES ─────────────────────────────────────────────────
 router.post(
-    '/tickets/:id/messages',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_REPLY),
-    upload.array('attachments', 3),
+    '/support/tickets/:id/messages',
+    requirePermission(P.REPLY),
+    upload.array('attachments', 5),
     async (req, res) => {
         try {
+            const message = String(req.body?.message || '').trim().slice(0, 10000);
             const isInternal = req.body?.is_internal === true || req.body?.is_internal === 'true';
-            const message = String(req.body?.message || '').trim();
             const files = req.files || [];
 
-            const attachments = [];
-            if (files.length && CLOUDINARY_ENABLED) {
-                for (const f of files) {
-                    try {
-                        const r = await uploadToCloudinary(f.buffer, { folder: `milesspace/support/${req.params.id}` });
-                        attachments.push({
-                            url: r.secure_url, type: f.mimetype,
-                            name: f.originalname, size: f.size,
-                            public_id: r.public_id, resource_type: r.resource_type
-                        });
-                    } catch (e) {
-                        console.warn('[ADMIN SUPPORT] upload failed:', e.message);
-                    }
-                }
+            // Validate every file BEFORE uploading any of them.
+            const batch = validateBatch(files.map(f => ({
+                buffer: f.buffer,
+                mimetype: f.mimetype,
+                originalname: f.originalname,
+                size: f.size
+            })));
+            if (!batch.ok) {
+                return res.status(400).json({ success: false, code: 'INVALID_FILE', error: batch.error });
             }
 
-            const msg = await support.createMessage({
-                ticketId: req.params.id,
-                adminId: req.support.adminId,
-                adminEmail: req.support.email,
-                message, isInternal, attachments,
-                req
-            });
+            const uploadedIds = [];
+            const attachments = [];
+            try {
+                for (const f of files) {
+                    const result = await cloudinarySvc.uploadSupportFile(f.buffer, {
+                        ticketId: req.params.id,
+                        mimetype: f.mimetype,
+                        originalname: f.originalname
+                    });
+                    uploadedIds.push(result.public_id);
+                    attachments.push({
+                        id: crypto.randomUUID(),
+                        name: String(f.originalname || 'attachment').slice(0, 200),
+                        size: f.size,
+                        mime: f.mimetype,
+                        url: result.secure_url,
+                        public_id: result.public_id,
+                        resource_type: result.resource_type,
+                        bytes: result.bytes,
+                        created_at: result.created_at
+                    });
+                }
+            } catch (uploadErr) {
+                // Roll back: delete whatever was uploaded.
+                if (uploadedIds.length) {
+                    await cloudinarySvc.deleteMultipleFiles(uploadedIds);
+                }
+                console.error('[ADMIN SUPPORT] upload failed:', uploadErr.message);
+                return res.status(500).json({
+                    success: false, code: 'UPLOAD_FAILED',
+                    error: 'Could not upload attachment.'
+                });
+            }
+
+            let msg;
+            try {
+                msg = await support.createMessage({
+                    ticketId: req.params.id,
+                    adminId: req.adminContext.id,
+                    adminEmail: req.adminContext.email,
+                    adminRole: req.adminContext.role,
+                    message, isInternal,
+                    attachments,
+                    req
+                });
+            } catch (dbErr) {
+                // If the DB write fails, clean up the files.
+                if (uploadedIds.length) {
+                    await cloudinarySvc.deleteMultipleFiles(uploadedIds);
+                }
+                throw dbErr;
+            }
+
+            // Fire-and-forget customer notification + email.
+            try {
+                const { data: ticket } = await require('../../db/supabase').supabaseAdmin
+                    .from('support_tickets')
+                    .select('id, user_id, ticket_number, subject, status')
+                    .eq('id', req.params.id).maybeSingle();
+                if (ticket && !isInternal) {
+                    await supportNotifications.notifyCustomer({
+                        event: 'ticket_reply',
+                        ticket,
+                        messageId: msg.id
+                    });
+                    await supportNotifications.queueCustomerEmail({
+                        ticket,
+                        messageBody: message,
+                        event: 'ticket_reply',
+                        adminName: req.adminContext.username,
+                        dedupeExtra: msg.id
+                    });
+                }
+            } catch (e) {
+                console.warn('[ADMIN SUPPORT] notification best-effort failed:', e.message);
+            }
+
             ok(res, { data: msg });
-        } catch (err) { sendErr(res, err); }
+        } catch (e) { sendErr(res, e); }
     }
 );
 
+// ─── INTERNAL NOTE ────────────────────────────────────────────
 router.post(
-    '/tickets/:id/internal-note',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_INTERNAL_NOTE),
-    upload.array('attachments', 3),
+    '/support/tickets/:id/internal-note',
+    requirePermission(P.INTERNAL_NOTE),
+    upload.array('attachments', 5),
     async (req, res) => {
         try {
-            const message = String(req.body?.message || '').trim();
+            const message = String(req.body?.message || '').trim().slice(0, 10000);
             const files = req.files || [];
+
+            const batch = validateBatch(files.map(f => ({
+                buffer: f.buffer,
+                mimetype: f.mimetype,
+                originalname: f.originalname,
+                size: f.size
+            })));
+            if (!batch.ok) {
+                return res.status(400).json({ success: false, code: 'INVALID_FILE', error: batch.error });
+            }
+
+            const uploadedIds = [];
             const attachments = [];
-            if (files.length && CLOUDINARY_ENABLED) {
+            try {
                 for (const f of files) {
-                    try {
-                        const r = await uploadToCloudinary(f.buffer, { folder: `milesspace/support/${req.params.id}/internal` });
-                        attachments.push({ url: r.secure_url, type: f.mimetype, name: f.originalname, size: f.size, public_id: r.public_id, resource_type: r.resource_type });
-                    } catch (_) {}
+                    const result = await cloudinarySvc.uploadSupportFile(f.buffer, {
+                        ticketId: req.params.id,
+                        mimetype: f.mimetype,
+                        originalname: f.originalname
+                    });
+                    uploadedIds.push(result.public_id);
+                    attachments.push({
+                        id: crypto.randomUUID(),
+                        name: String(f.originalname || 'attachment').slice(0, 200),
+                        size: f.size,
+                        mime: f.mimetype,
+                        url: result.secure_url,
+                        public_id: result.public_id,
+                        resource_type: result.resource_type,
+                        bytes: result.bytes,
+                        created_at: result.created_at
+                    });
+                }
+            } catch (uploadErr) {
+                if (uploadedIds.length) await cloudinarySvc.deleteMultipleFiles(uploadedIds);
+                return res.status(500).json({ success: false, code: 'UPLOAD_FAILED' });
+            }
+
+            let msg;
+            try {
+                msg = await support.createMessage({
+                    ticketId: req.params.id,
+                    adminId: req.adminContext.id,
+                    adminEmail: req.adminContext.email,
+                    adminRole: req.adminContext.role,
+                    message,
+                    isInternal: true,
+                    attachments,
+                    req
+                });
+            } catch (dbErr) {
+                if (uploadedIds.length) await cloudinarySvc.deleteMultipleFiles(uploadedIds);
+                throw dbErr;
+            }
+
+            // Never notify the customer for an internal note.
+            ok(res, { data: msg });
+        } catch (e) { sendErr(res, e); }
+    }
+);
+
+// ─── STATUS ───────────────────────────────────────────────────
+const changeStatusHandler = async (req, res) => {
+    try {
+        const expected = Number.isFinite(Number(req.body?.expected_version))
+            ? Number(req.body.expected_version)
+            : null;
+        const result = await support.changeStatus({
+            ticketId: req.params.id,
+            nextStatus: String(req.body?.status || '').toLowerCase(),
+            adminId: req.adminContext.id,
+            reason: req.body?.reason || null,
+            expectedVersion: expected,
+            req
+        });
+        // Notify the customer with the appropriate event.
+        try {
+            const { supabaseAdmin } = require('../../db/supabase');
+            const { data: ticket } = await supabaseAdmin
+                .from('support_tickets')
+                .select('id, user_id, ticket_number, subject, status')
+                .eq('id', req.params.id).maybeSingle();
+            if (ticket) {
+                const event = result.status === 'resolved' ? 'ticket_resolved'
+                            : result.status === 'closed'   ? 'ticket_closed'
+                            : null;
+                if (event) {
+                    await supportNotifications.notifyCustomer({ event, ticket });
+                    await supportNotifications.queueCustomerEmail({ ticket, event });
                 }
             }
-            const msg = await support.createMessage({
-                ticketId: req.params.id,
-                adminId: req.support.adminId,
-                adminEmail: req.support.email,
-                message, isInternal: true, attachments, req
-            });
-            ok(res, { data: msg });
-        } catch (err) { sendErr(res, err); }
-    }
-);
+        } catch (e) {
+            console.warn('[ADMIN SUPPORT] status notify failed:', e.message);
+        }
+        ok(res, result);
+    } catch (e) { sendErr(res, e); }
+};
+router.patch('/support/tickets/:id/status', requirePermission(P.CHANGE_STATUS), changeStatusHandler);
+router.put(  '/support/tickets/:id/status', requirePermission(P.CHANGE_STATUS), changeStatusHandler);
 
-router.patch(
-    '/tickets/:id/status',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_CHANGE_STATUS),
-    async (req, res) => {
+// ─── ASSIGN ───────────────────────────────────────────────────
+const assignHandler = async (req, res) => {
+    try {
+        const expected = Number.isFinite(Number(req.body?.expected_version))
+            ? Number(req.body.expected_version)
+            : null;
+        const result = await support.assignTicket({
+            ticketId: req.params.id,
+            adminId: req.adminContext.id,
+            assignTo: req.body?.assigned_to || req.body?.admin_id,
+            reason: req.body?.reason || null,
+            expectedVersion: expected,
+            req
+        });
         try {
-            const result = await support.changeStatus({
-                ticketId: req.params.id,
-                nextStatus: String(req.body?.status || '').toLowerCase(),
-                adminId: req.support.adminId,
-                adminEmail: req.support.email,
-                reason: req.body?.reason || null,
-                req
-            });
-            ok(res, result);
-        } catch (err) { sendErr(res, err); }
-    }
-);
+            const { supabaseAdmin } = require('../../db/supabase');
+            const { data: ticket } = await supabaseAdmin
+                .from('support_tickets')
+                .select('id, user_id, ticket_number, subject, status')
+                .eq('id', req.params.id).maybeSingle();
+            const { data: agent } = await supabaseAdmin
+                .from('profiles').select('username').eq('id', result.assigned_to).maybeSingle();
+            if (ticket) {
+                await supportNotifications.notifyCustomer({
+                    event: 'ticket_assigned',
+                    ticket,
+                    extra: { agentId: result.assigned_to, agentName: agent?.username }
+                });
+            }
+        } catch (e) {
+            console.warn('[ADMIN SUPPORT] assign notify failed:', e.message);
+        }
+        ok(res, result);
+    } catch (e) { sendErr(res, e); }
+};
+router.post('/support/tickets/:id/assign', requirePermission(P.ASSIGN), assignHandler);
+router.put( '/support/tickets/:id/assign', requirePermission(P.ASSIGN), assignHandler);
 
-router.post(
-    '/tickets/:id/assign',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_ASSIGN),
-    async (req, res) => {
+// ─── CLOSE / REOPEN ───────────────────────────────────────────
+router.post('/support/tickets/:id/close', requirePermission(P.CLOSE), async (req, res) => {
+    try {
+        const result = await support.changeStatus({
+            ticketId: req.params.id,
+            nextStatus: 'closed',
+            adminId: req.adminContext.id,
+            reason: req.body?.reason || 'Closed by admin',
+            req
+        });
         try {
-            const result = await support.assignTicket({
-                ticketId: req.params.id,
-                adminId: req.support.adminId,
-                adminEmail: req.support.email,
-                assignTo: req.body?.assigned_to || req.body?.admin_id,
-                reason: req.body?.reason || null,
-                req
-            });
-            ok(res, result);
-        } catch (err) { sendErr(res, err); }
-    }
-);
+            const { supabaseAdmin } = require('../../db/supabase');
+            const { data: ticket } = await supabaseAdmin
+                .from('support_tickets')
+                .select('id, user_id, ticket_number, subject, status')
+                .eq('id', req.params.id).maybeSingle();
+            if (ticket) {
+                await supportNotifications.notifyCustomer({ event: 'ticket_closed', ticket });
+                await supportNotifications.queueCustomerEmail({ ticket, event: 'ticket_closed' });
+            }
+        } catch (e) { console.warn('[ADMIN SUPPORT] close notify failed:', e.message); }
+        ok(res, result);
+    } catch (e) { sendErr(res, e); }
+});
 
-router.post(
-    '/tickets/:id/close',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_CLOSE),
-    async (req, res) => {
+router.post('/support/tickets/:id/reopen', requirePermission(P.REOPEN), async (req, res) => {
+    try {
+        const result = await support.changeStatus({
+            ticketId: req.params.id,
+            nextStatus: 'in_progress',
+            adminId: req.adminContext.id,
+            reason: req.body?.reason || 'Reopened by admin',
+            req
+        });
         try {
-            const result = await support.changeStatus({
-                ticketId: req.params.id, nextStatus: 'closed',
-                adminId: req.support.adminId, adminEmail: req.support.email,
-                reason: req.body?.reason || 'Closed by admin', req
-            });
-            ok(res, result);
-        } catch (err) { sendErr(res, err); }
-    }
-);
+            const { supabaseAdmin } = require('../../db/supabase');
+            const { data: ticket } = await supabaseAdmin
+                .from('support_tickets')
+                .select('id, user_id, ticket_number, subject, status')
+                .eq('id', req.params.id).maybeSingle();
+            if (ticket) {
+                await supportNotifications.notifyCustomer({ event: 'ticket_reopened', ticket });
+                await supportNotifications.queueCustomerEmail({ ticket, event: 'ticket_reopened' });
+            }
+        } catch (e) { console.warn('[ADMIN SUPPORT] reopen notify failed:', e.message); }
+        ok(res, result);
+    } catch (e) { sendErr(res, e); }
+});
 
-router.post(
-    '/tickets/:id/reopen',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_REOPEN),
-    async (req, res) => {
-        try {
-            const result = await support.changeStatus({
-                ticketId: req.params.id, nextStatus: 'in_progress',
-                adminId: req.support.adminId, adminEmail: req.support.email,
-                reason: req.body?.reason || 'Reopened by admin', req
-            });
-            ok(res, result);
-        } catch (err) { sendErr(res, err); }
-    }
-);
-
-router.post(
-    '/tickets/:id/read',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_READ),
-    async (req, res) => {
-        // Read marking happens inside getTicket; this route exists so the
-        // frontend can call it explicitly without a full reload.
-        try {
-            await support.getTicket({ id: req.params.id, viewerId: req.support.adminId });
-            ok(res, { read: true });
-        } catch (err) { sendErr(res, err); }
-    }
-);
-
-// ═══════════════════════════════════════════════════════════════
-// CONVERSATIONS — thin aliases over tickets for the existing UI
-// ═══════════════════════════════════════════════════════════════
-router.get(
-    '/conversations',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_READ),
-    async (req, res) => {
-        try {
-            const result = await support.listTickets({
-                page: req.query.page, limit: req.query.limit,
-                status: req.query.status, priority: req.query.priority,
-                search: req.query.search, sort: req.query.sort
-            });
-            ok(res, result);
-        } catch (err) { sendErr(res, err); }
-    }
-);
-
-// ═══════════════════════════════════════════════════════════════
-// AGENTS — assignable admins
-// ═══════════════════════════════════════════════════════════════
-router.get(
-    '/admins',
-    requireSupportPermission(SUPPORT_PERMISSIONS.SUPPORT_READ),
-    async (req, res) => {
-        try {
-            const admins = await support.listAssignableAdmins();
-            ok(res, { data: admins });
-        } catch (err) { sendErr(res, err); }
-    }
-);
+// ─── ADMINS ───────────────────────────────────────────────────
+router.get('/support/admins', requirePermission(P.READ), async (req, res) => {
+    try { ok(res, { data: await support.listAssignableAdmins() }); }
+    catch (e) { sendErr(res, e); }
+});
 
 module.exports = router;

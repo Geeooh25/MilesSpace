@@ -1,1285 +1,114 @@
-// public/js/settings.js - COMPLETE FIXED VERSION
-// With correct 2FA enable/disable endpoints
+// public/js/settings.js
+// ─────────────────────────────────────────────────────────────────
+// Customer account settings controller.
+//
+// ENDPOINTS USED (implemented in routes/userSettingsRoutes.js):
+//   GET    /api/user/settings
+//   PUT    /api/user/notifications
+//   PUT    /api/user/phone
+//   PUT    /api/user/password
+//   PUT    /api/user/pin
+//   POST   /api/user/pin/forgot/request|verify|reset
+//   POST   /api/user/email/change-request|change-verify
+//   POST   /api/user/2fa/email/setup|verify|resend
+//   POST   /api/user/2fa/email/disable/request|verify
+//   DELETE /api/user/sessions/:sessionId
+//   POST   /api/user/sessions/logout-others
+//   GET    /api/user/activity
+//   GET    /api/user/security-alerts
+//   POST   /api/user/security-alerts/:id/read
+//   POST   /api/user/deactivate
+//
+// NEW (permanent deletion):
+//   POST   /api/user/delete/request
+//   POST   /api/user/delete/verify
+//   POST   /api/user/delete/confirm
+// ─────────────────────────────────────────────────────────────────
 
 'use strict';
 
-// ─── STATE ───
-const SettingsState = {
+// ─── STATE ────────────────────────────────────────────────────────
+const State = {
     profile: null,
     settings: null,
-    bankAccounts: [],
-    cryptoWallets: [],
     sessions: [],
     activity: [],
+    activityPage: 1,
+    activityHasMore: false,
     securityAlerts: [],
-    loading: {
-        profile: true,
-        settings: true,
-        banks: true,
-        wallets: true,
-        sessions: true,
-        activity: true,
-        alerts: true
-    },
     currentSessionId: null,
-    twofaSetupInProgress: false,
-    pendingRequests: new Map()
+    loaded: { settings: false, activity: false, alerts: false },
+    pinReset: { resetId: null, verified: false },
+    deletion: { requestId: null, verified: false, submitting: false }
 };
 
-// ─── DOM REFS ───
-const DOM = {};
+// ─── CANONICAL NOTIFICATION KEYS ──────────────────────────────────
+const NOTIF_ITEMS = [
+    { key: 'transaction_completed',   label: 'Transaction completed' },
+    { key: 'deposit_received',        label: 'Deposit received' },
+    { key: 'gift_order_update',       label: 'Gift card order update' },
+    { key: 'marketplace_order_update',label: 'Marketplace order update' },
+    { key: 'milesspace_updates',      label: 'Product updates from MilesSpace' },
+    { key: 'security_alerts',         label: 'Security alerts', required: true }
+];
 
-function initDOM() {
-    DOM.emailDisplay = document.getElementById('emailDisplay');
-    DOM.changeEmailBtn = document.getElementById('changeEmailBtn');
-    DOM.phoneDisplay = document.getElementById('phoneDisplay');
-    DOM.changePhoneBtn = document.getElementById('changePhoneBtn');
-    DOM.referralCode = document.getElementById('referralCode');
-    DOM.copyReferralBtn = document.getElementById('copyReferralBtn');
-    DOM.usernameDisplay = document.getElementById('usernameDisplay');
-
-    DOM.currentPassword = document.getElementById('currentPassword');
-    DOM.newPassword = document.getElementById('newPassword');
-    DOM.confirmPassword = document.getElementById('confirmPassword');
-    DOM.changePasswordBtn = document.getElementById('changePasswordBtn');
-
-    DOM.notifToggles = document.getElementById('notifToggles');
-    DOM.saveNotifBtn = document.getElementById('saveNotifBtn');
-
-    DOM.bankList = document.getElementById('bankList');
-    DOM.addBankBtn = document.getElementById('addBankBtn');
-
-    DOM.walletList = document.getElementById('walletList');
-    DOM.addWalletBtn = document.getElementById('addWalletBtn');
-
-    DOM.pinStatus = document.getElementById('pinStatus');
-    DOM.changePinBtn = document.getElementById('changePinBtn');
-    DOM.resetPinBtn = document.getElementById('resetPinBtn');
-
-    DOM.twofaStatus = document.getElementById('twofaStatus');
-    DOM.enable2faBtn = document.getElementById('enable2faBtn');
-    DOM.disable2faBtn = document.getElementById('disable2faBtn');
-
-    DOM.lastLoginInfo = document.getElementById('lastLoginInfo');
-    DOM.sessionsList = document.getElementById('sessionsList');
-    DOM.logoutAllBtn = document.getElementById('logoutAllBtn');
-
-    DOM.activityList = document.getElementById('activityList');
-    DOM.loadMoreActivityBtn = document.getElementById('loadMoreActivityBtn');
-
-    DOM.alertList = document.getElementById('alertList');
-    DOM.statusBadge = document.getElementById('statusBadge');
-    DOM.deactivateBtn = document.getElementById('deactivateBtn');
-
-    // ─── Email 2FA Modal ──────────────────────────────────────
-    DOM.twofaModal = document.getElementById('twofaModal');
-    DOM.twofaEmailDisplay = document.getElementById('twofaEmailDisplay');
-    DOM.twofaSendBtn = document.getElementById('twofaSendBtn');
-    DOM.twofaCodeInput = document.getElementById('twofaCodeInput');
-    DOM.twofaVerifyBtn = document.getElementById('twofaVerifyBtn');
-    DOM.twofaCancelBtn = document.getElementById('twofaCancelBtn');
-    DOM.twofaStatusText = document.getElementById('twofaStatusText');
-    DOM.twofaSetupStep = document.getElementById('twofaSetupStep');
-    DOM.twofaVerifyStep = document.getElementById('twofaVerifyStep');
-    DOM.twofaSuccessStep = document.getElementById('twofaSuccessStep');
-
-    // ─── Disable 2FA Modal ──────────────────────────────────────
-    DOM.disable2faModal = document.getElementById('disable2faModal');
-    DOM.disable2faOtpInput = document.getElementById('disable2faOtpInput');
-    DOM.disable2faConfirmBtn = document.getElementById('disable2faConfirmBtn');
-    DOM.disable2faCancelBtn = document.getElementById('disable2faCancelBtn');
-    DOM.disable2faStatus = document.getElementById('disable2faStatus');
-    
-    // ─── PIN Modal ──────────────────────────────────────────────
-    DOM.pinModal = document.getElementById('pinModal');
-    DOM.currentPinInput = document.getElementById('currentPinInput');
-    DOM.newPinInput = document.getElementById('newPinInput');
-    DOM.confirmPinInput = document.getElementById('confirmPinInput');
-    DOM.savePinBtn = document.getElementById('savePinBtn');
-    
-    // ─── Email Modal ────────────────────────────────────────────
-    DOM.emailModal = document.getElementById('emailModal');
-    DOM.newEmailInput = document.getElementById('newEmailInput');
-    DOM.sendOtpBtn = document.getElementById('sendOtpBtn');
-    DOM.otpInput = document.getElementById('otpInput');
-    DOM.verifyOtpBtn = document.getElementById('verifyOtpBtn');
-    DOM.emailChangeRequestId = document.getElementById('emailChangeRequestId');
-    
-    // ─── Phone Modal ────────────────────────────────────────────
-    DOM.phoneModal = document.getElementById('phoneModal');
-    DOM.newPhoneInput = document.getElementById('newPhoneInput');
-    DOM.savePhoneBtn = document.getElementById('savePhoneBtn');
-    
-    // ─── Bank Modal ─────────────────────────────────────────────
-    DOM.bankModal = document.getElementById('bankModal');
-    DOM.bankNameInput = document.getElementById('bankNameInput');
-    DOM.bankCodeInput = document.getElementById('bankCodeInput');
-    DOM.accountNumberInput = document.getElementById('accountNumberInput');
-    DOM.accountNameInput = document.getElementById('accountNameInput');
-    DOM.saveBankBtn = document.getElementById('saveBankBtn');
-    
-    // ─── Wallet Modal ────────────────────────────────────────────
-    DOM.walletModal = document.getElementById('walletModal');
-    DOM.walletCoinInput = document.getElementById('walletCoinInput');
-    DOM.walletNetworkInput = document.getElementById('walletNetworkInput');
-    DOM.walletAddressInput = document.getElementById('walletAddressInput');
-    DOM.walletLabelInput = document.getElementById('walletLabelInput');
-    DOM.saveWalletBtn = document.getElementById('saveWalletBtn');
+// ─── AUTH HELPERS (delegate to /js/session.js) ────────────────────
+function getCurrentUser() {
+    return (typeof window.getUser === 'function') ? window.getUser() : null;
 }
 
-// ─── GET USER TOKEN ───
-function getUserToken() {
-    try {
-        const session = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
-        if (!session) return null;
-        const data = JSON.parse(session);
-        return data?.token || data?.access_token || null;
-    } catch (e) {
-        return null;
+function redirectToLogin() {
+    if (typeof window.redirectToUserLogin === 'function') {
+        window.redirectToUserLogin();
+    } else {
+        window.location.replace('/login.html');
     }
 }
 
-function getRefreshToken() {
-    try {
-        const session = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
-        if (!session) return null;
-        const data = JSON.parse(session);
-        return data?.refreshToken || null;
-    } catch (e) {
-        return null;
-    }
-}
-
-function getSessionData() {
-    try {
-        const session = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
-        if (!session) return null;
-        return JSON.parse(session);
-    } catch (e) {
-        return null;
-    }
-}
-
-function saveUserSession(token, user, refreshToken, sessionId) {
-    const data = {
-        token: token,
-        access_token: token,
-        refreshToken: refreshToken || null,
-        user: user,
-        sessionId: sessionId || null,
-        loggedAt: Date.now()
-    };
-    localStorage.setItem('mx_sess', JSON.stringify(data));
-    sessionStorage.setItem('mx_sess', JSON.stringify(data));
-}
-
-function clearUserSession() {
-    localStorage.removeItem('mx_sess');
-    sessionStorage.removeItem('mx_sess');
-    localStorage.removeItem('miles_token');
-    localStorage.removeItem('miles_user');
-}
-
-function redirectToUserLogin() {
-    clearUserSession();
-    window.location.href = '/signup';
-}
-
-// ─── API FUNCTIONS WITH DEDUPLICATION ──────────────────────────
-
-async function settingsApiFetch(endpoint, options = {}) {
-    const token = getUserToken();
-    if (!token) {
-        console.error('❌ No user token found, redirecting to login');
-        redirectToUserLogin();
-        throw new Error('Not authenticated');
-    }
-
-    const method = options.method || 'GET';
-    const bodyKey = options.body ? JSON.stringify(options.body) : '';
-    const requestKey = `${method}:${endpoint}:${bodyKey}`;
-    
-    if (SettingsState.pendingRequests.has(requestKey)) {
-        console.log(`⏳ Request already in progress: ${requestKey}`);
-        return SettingsState.pendingRequests.get(requestKey);
-    }
+// ─── API WRAPPER ──────────────────────────────────────────────────
+async function apiFetch(endpoint, options = {}) {
+    const fetcher = (typeof window.userFetch === 'function')
+        ? window.userFetch
+        : (url, o) => fetch(url, { ...o, credentials: 'include' });
 
     const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers
+        ...(options.headers || {})
     };
 
-    const promise = (async () => {
-        try {
-            const response = await fetch(`/api/user${endpoint}`, { ...options, headers });
-
-            if (response.status === 401 || response.status === 403) {
-                const refreshToken = getRefreshToken();
-                if (refreshToken) {
-                    try {
-                        const refreshResponse = await fetch('/api/auth/refresh', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ refresh_token: refreshToken })
-                        });
-                        
-                        if (refreshResponse.ok) {
-                            const refreshData = await refreshResponse.json();
-                            if (refreshData.success && refreshData.data?.access_token) {
-                                const session = getSessionData();
-                                saveUserSession(
-                                    refreshData.data.access_token,
-                                    session?.user,
-                                    refreshData.data.refresh_token,
-                                    session?.sessionId
-                                );
-                                headers['Authorization'] = `Bearer ${refreshData.data.access_token}`;
-                                const retryResponse = await fetch(`/api/user${endpoint}`, { ...options, headers });
-                                if (retryResponse.ok) {
-                                    const retryData = await retryResponse.json();
-                                    return retryData;
-                                }
-                            }
-                        }
-                    } catch (refreshError) {
-                        console.warn('Token refresh failed:', refreshError);
-                    }
-                }
-                const data = await response.json();
-                throw new Error(data.error || 'Session expired');
-            }
-
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.error || 'Request failed');
-            }
-            return data;
-        } finally {
-            SettingsState.pendingRequests.delete(requestKey);
+    let response;
+    try {
+        response = await fetcher(`/api/user${endpoint}`, { ...options, headers });
+    } catch (err) {
+        if (err.name === 'TypeError' || /failed to fetch/i.test(err.message || '')) {
+            const e = new Error('Network error. Please try again.');
+            e.code = 'NETWORK_ERROR';
+            throw e;
         }
-    })();
+        throw err;
+    }
 
-    SettingsState.pendingRequests.set(requestKey, promise);
-    return promise;
+    if (response.status === 401) {
+        redirectToLogin();
+        const e = new Error('Session expired');
+        e.code = 'SESSION_EXPIRED';
+        throw e;
+    }
+
+    let data = {};
+    try { data = await response.json(); } catch { /* non-JSON */ }
+
+    if (!response.ok || data.success === false) {
+        const e = new Error(data.error || data.message || `Request failed (${response.status})`);
+        e.code = data.code || null;
+        e.status = response.status;
+        e.data = data.data || null;
+        throw e;
+    }
+    return data;
 }
 
-// ─── LOAD SETTINGS ──────────────────────────────────────────────
-
-async function loadSettings() {
-    try {
-        console.log('🔄 Loading user settings...');
-        const result = await settingsApiFetch('/settings');
-        const data = result.data;
-
-        SettingsState.profile = data.profile;
-        SettingsState.settings = data.settings;
-        SettingsState.bankAccounts = data.bank_accounts || [];
-        SettingsState.cryptoWallets = data.crypto_wallets || [];
-        SettingsState.sessions = data.sessions || [];
-        SettingsState.activity = data.activity || [];
-        SettingsState.securityAlerts = data.security_alerts || [];
-        SettingsState.currentSessionId = data.current_session_id;
-
-        renderPersonalInfo();
-        renderNotificationPreferences();
-        renderBankAccounts();
-        renderCryptoWallets();
-        renderTransactionPinStatus();
-        renderTwoFAStatus();
-        renderLoginDetails();
-        renderActivity();
-        renderSecurityAlerts();
-        renderAccountStatus();
-
-        showToast('Settings loaded successfully', 'success');
-    } catch (error) {
-        console.error('Load settings error:', error);
-        if (error.message === 'Not authenticated' || error.message === 'Session expired') {
-            redirectToUserLogin();
-        } else {
-            showToast('Failed to load settings: ' + error.message, 'error');
-        }
-    }
-}
-
-// ─── RENDER FUNCTIONS ──────────────────────────────────────────
-
-function renderPersonalInfo() {
-    const profile = SettingsState.profile;
-    if (!profile) return;
-
-    DOM.usernameDisplay.textContent = profile.username || 'Not set';
-    DOM.emailDisplay.textContent = profile.email;
-    DOM.phoneDisplay.textContent = profile.phone || 'Not set';
-    DOM.referralCode.textContent = profile.referral_code || 'N/A';
-}
-
-function renderNotificationPreferences() {
-    const prefs = SettingsState.settings?.notification_preferences || {};
-    const toggles = DOM.notifToggles;
-
-    const items = [
-        { key: 'transaction_completed', label: 'Transaction completed' },
-        { key: 'deposit_received', label: 'Deposit received' },
-        { key: 'withdrawal_completed', label: 'Withdrawal completed' },
-        { key: 'crypto_purchase_completed', label: 'Crypto purchase completed' },
-        { key: 'gift_order_update', label: 'Gift card order update' },
-        { key: 'marketplace_order_update', label: 'Marketplace order update' },
-        { key: 'security_alerts', label: 'Security alerts', required: true },
-        { key: 'milesspace_updates', label: 'MilesSpace updates', required: true }
-    ];
-
-    toggles.innerHTML = items.map(item => {
-        const isOn = prefs[item.key] !== undefined ? prefs[item.key] : true;
-        const disabled = item.required ? 'disabled' : '';
-        return `
-            <div class="notif-item">
-                <span class="notif-label">${escapeHtml(item.label)} ${item.required ? '<span class="required-badge">Required</span>' : ''}</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" class="notif-checkbox" data-key="${escapeHtml(item.key)}" ${isOn ? 'checked' : ''} ${disabled}>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        `;
-    }).join('');
-}
-
-function renderBankAccounts() {
-    const list = DOM.bankList;
-    const accounts = SettingsState.bankAccounts;
-
-    if (!accounts || accounts.length === 0) {
-        list.innerHTML = `<div class="empty-state">No bank accounts saved</div>`;
-        return;
-    }
-
-    list.innerHTML = accounts.map(acc => `
-        <div class="saved-item">
-            <div class="item-icon">🏦</div>
-            <div class="item-info">
-                <div class="item-name">${escapeHtml(acc.bank_name)}</div>
-                <div class="item-detail">Account: ${escapeHtml(acc.account_number)}</div>
-                <div class="item-detail">${escapeHtml(acc.account_name)}</div>
-                <div class="item-status ${acc.verified ? 'verified' : 'unverified'}">
-                    ${acc.verified ? '✅ Verified' : '⏳ Pending'}
-                </div>
-            </div>
-            <button class="remove-btn" data-id="${escapeHtml(acc.id)}" data-type="bank">✕</button>
-        </div>
-    `).join('');
-
-    list.querySelectorAll('.remove-btn[data-type="bank"]').forEach(btn => {
-        btn.addEventListener('click', () => removeBankAccount(btn.dataset.id));
-    });
-}
-
-function renderCryptoWallets() {
-    const list = DOM.walletList;
-    const wallets = SettingsState.cryptoWallets;
-
-    if (!wallets || wallets.length === 0) {
-        list.innerHTML = `<div class="empty-state">No crypto wallets saved</div>`;
-        return;
-    }
-
-    list.innerHTML = wallets.map(w => `
-        <div class="saved-item">
-            <div class="item-icon">₿</div>
-            <div class="item-info">
-                <div class="item-name">${escapeHtml(w.coin)} · ${escapeHtml(w.network || 'N/A')}</div>
-                <div class="item-detail">${escapeHtml(w.address)}</div>
-                ${w.label ? `<div class="item-detail">${escapeHtml(w.label)}</div>` : ''}
-            </div>
-            <button class="remove-btn" data-id="${escapeHtml(w.id)}" data-type="wallet">✕</button>
-        </div>
-    `).join('');
-
-    list.querySelectorAll('.remove-btn[data-type="wallet"]').forEach(btn => {
-        btn.addEventListener('click', () => removeCryptoWallet(btn.dataset.id));
-    });
-}
-
-function renderTransactionPinStatus() {
-    const hasPin = SettingsState.profile?.has_transaction_pin === true;
-    
-    DOM.pinStatus.textContent = hasPin ? '✅ Set' : '❌ Not Set';
-    DOM.pinStatus.className = `status-badge ${hasPin ? 'set' : 'not-set'}`;
-}
-
-function renderTwoFAStatus() {
-    const enabled = SettingsState.settings?.email_2fa_enabled || false;
-    
-    DOM.twofaStatus.textContent = enabled ? '✅ Enabled' : '❌ Disabled';
-    DOM.twofaStatus.className = `status-badge ${enabled ? 'enabled' : 'disabled'}`;
-    DOM.enable2faBtn.style.display = enabled ? 'none' : 'inline-block';
-    DOM.disable2faBtn.style.display = enabled ? 'inline-block' : 'none';
-}
-
-function renderLoginDetails() {
-    const profile = SettingsState.profile;
-    if (profile) {
-        const lastLogin = profile.last_login ? new Date(profile.last_login).toLocaleString() : 'Never';
-        DOM.lastLoginInfo.innerHTML = `
-            <div><strong>Last Login:</strong> ${escapeHtml(lastLogin)}</div>
-            <div><strong>Location:</strong> ${escapeHtml(profile.last_login_location || 'Unknown')}</div>
-            <div><strong>Device:</strong> ${escapeHtml(profile.last_login_device || 'Unknown')} · ${escapeHtml(profile.last_login_browser || 'Unknown')}</div>
-        `;
-    }
-
-    const sessions = SettingsState.sessions;
-    if (!sessions || sessions.length === 0) {
-        DOM.sessionsList.innerHTML = `<div class="empty-state">No active sessions</div>`;
-        return;
-    }
-
-    DOM.sessionsList.innerHTML = sessions.map(s => {
-        const isCurrent = s.session_id === SettingsState.currentSessionId;
-        const parsed = parseUserAgent(s);
-        return `
-            <div class="session-item ${isCurrent ? 'current' : ''}">
-                <div class="session-info">
-                    <div class="session-device">${escapeHtml(parsed.device || 'Unknown')} · ${escapeHtml(parsed.browser || 'Unknown')}</div>
-                    <div class="session-detail">${escapeHtml(s.ip_address || 'Unknown Location')}</div>
-                    <div class="session-detail">Last active: ${s.last_activity_at ? timeAgo(s.last_activity_at) : 'Just now'}</div>
-                </div>
-                <div class="session-status">
-                    ${isCurrent ? '<span class="current-badge">Current</span>' : ''}
-                    ${!isCurrent ? `<button class="revoke-btn" data-id="${escapeHtml(s.session_id)}">Log Out</button>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    DOM.sessionsList.querySelectorAll('.revoke-btn').forEach(btn => {
-        btn.addEventListener('click', () => revokeSession(btn.dataset.id));
-    });
-}
-
-function renderActivity() {
-    const activities = SettingsState.activity;
-    if (!activities || activities.length === 0) {
-        DOM.activityList.innerHTML = `<div class="empty-state">No account activity</div>`;
-        return;
-    }
-
-    DOM.activityList.innerHTML = activities.slice(0, 10).map(a => {
-        const parsed = a.user_agent ? parseUserAgent(a.user_agent) : null;
-        return `
-            <div class="activity-item">
-                <div class="activity-icon">${getActivityIcon(a.activity_type)}</div>
-                <div class="activity-info">
-                    <div class="activity-desc">${escapeHtml(a.description || a.activity_type)}</div>
-                    <div class="activity-meta">
-                        <span>${timeAgo(a.created_at)}</span>
-                        ${a.location ? `<span>· ${escapeHtml(a.location)}</span>` : ''}
-                        ${parsed ? `<span>· ${escapeHtml(parsed.device)} · ${escapeHtml(parsed.browser)}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const hasMore = activities.length > 10;
-    DOM.loadMoreActivityBtn.style.display = hasMore ? 'inline-block' : 'none';
-}
-
-function renderSecurityAlerts() {
-    const alerts = SettingsState.securityAlerts;
-    if (!alerts || alerts.length === 0) {
-        DOM.alertList.innerHTML = `<div class="empty-state">No security alerts</div>`;
-        return;
-    }
-
-    DOM.alertList.innerHTML = alerts.slice(0, 10).map(a => `
-        <div class="alert-item severity-${escapeHtml(a.severity || 'medium')} ${!a.is_read ? 'unread' : ''}">
-            <div class="alert-icon">${getAlertIcon(a.alert_type)}</div>
-            <div class="alert-info">
-                <div class="alert-desc">${escapeHtml(a.description || a.alert_type)}</div>
-                <div class="alert-meta">
-                    <span>${timeAgo(a.created_at)}</span>
-                    <span class="alert-severity ${escapeHtml(a.severity || 'medium')}">${escapeHtml(a.severity || 'medium')}</span>
-                </div>
-            </div>
-            ${!a.is_read ? `<button class="mark-read-btn" data-id="${escapeHtml(a.id)}">✓</button>` : ''}
-        </div>
-    `).join('');
-
-    DOM.alertList.querySelectorAll('.mark-read-btn').forEach(btn => {
-        btn.addEventListener('click', () => markAlertRead(btn.dataset.id));
-    });
-}
-
-function renderAccountStatus() {
-    const status = SettingsState.profile?.status || 'active';
-    const statusMap = {
-        'active': { label: 'Active', class: 'active' },
-        'suspended': { label: 'Suspended', class: 'suspended' },
-        'restricted': { label: 'Restricted', class: 'restricted' },
-        'pending': { label: 'Pending Verification', class: 'pending' }
-    };
-    const info = statusMap[status] || statusMap.active;
-    DOM.statusBadge.textContent = info.label;
-    DOM.statusBadge.className = `status-badge ${info.class}`;
-}
-
-// ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
-//  ─── 2FA FUNCTIONS - CORRECT ENDPOINTS ──────────────────────
-// ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
-
-let enable2faInProgress = false;
-let disable2faInProgress = false;
-
-// ─── ENABLE 2FA - Step 1: Request OTP ────────────────────────────
-async function enableTwoFA() {
-    if (enable2faInProgress) {
-        console.log('⏳ 2FA enable already in progress');
-        return;
-    }
-    enable2faInProgress = true;
-
-    try {
-        DOM.enable2faBtn.disabled = true;
-        DOM.enable2faBtn.textContent = 'Setting up...';
-
-        // ✅ CORRECT endpoint: /2fa/email/setup
-        const result = await settingsApiFetch('/2fa/email/setup', {
-            method: 'POST'
-        });
-
-        DOM.twofaEmailDisplay.textContent = result.data.email || SettingsState.profile?.email || 'your email';
-        DOM.twofaSetupStep.style.display = 'block';
-        DOM.twofaVerifyStep.style.display = 'none';
-        DOM.twofaSuccessStep.style.display = 'none';
-        DOM.twofaCodeInput.value = '';
-        DOM.twofaStatusText.textContent = '';
-        DOM.twofaStatusText.className = '';
-
-        openModal('twofaModal');
-        showToast('Verification code sent to your email', 'success');
-
-    } catch (error) {
-        console.error('2FA setup error:', error);
-        showToast('Failed to setup 2FA: ' + error.message, 'error');
-    } finally {
-        DOM.enable2faBtn.disabled = false;
-        DOM.enable2faBtn.textContent = 'Enable 2FA';
-        enable2faInProgress = false;
-    }
-}
-
-// ─── ENABLE 2FA - Step 2: Verify OTP ──────────────────────────────
-async function verifyTwoFAEnable() {
-    const code = DOM.twofaCodeInput.value.trim();
-
-    if (!code) {
-        showToast('Please enter the verification code', 'warning');
-        return;
-    }
-
-    if (!/^\d{6}$/.test(code)) {
-        showToast('Please enter the 6-digit verification code', 'warning');
-        return;
-    }
-
-    try {
-        DOM.twofaVerifyBtn.disabled = true;
-        DOM.twofaVerifyBtn.textContent = 'Verifying...';
-        DOM.twofaStatusText.textContent = 'Verifying...';
-        DOM.twofaStatusText.className = 'info';
-
-        // ✅ CORRECT endpoint: /2fa/email/verify
-        await settingsApiFetch('/2fa/email/verify', {
-            method: 'POST',
-            body: JSON.stringify({ otp: code })
-        });
-
-        DOM.twofaSetupStep.style.display = 'none';
-        DOM.twofaVerifyStep.style.display = 'none';
-        DOM.twofaSuccessStep.style.display = 'block';
-
-        showToast('2FA enabled successfully!', 'success');
-
-        setTimeout(() => {
-            closeModal('twofaModal');
-            loadSettings();
-        }, 2000);
-
-    } catch (error) {
-        console.error('2FA verify error:', error);
-        DOM.twofaStatusText.textContent = error.message || 'Verification failed. Please try again.';
-        DOM.twofaStatusText.className = 'error';
-        showToast('Verification failed: ' + error.message, 'error');
-    } finally {
-        DOM.twofaVerifyBtn.disabled = false;
-        DOM.twofaVerifyBtn.textContent = 'Verify & Enable';
-    }
-}
-
-// ─── DISABLE 2FA - Step 1: Request OTP ────────────────────────────
-async function disableTwoFA() {
-    if (disable2faInProgress) {
-        console.log('⏳ 2FA disable already in progress');
-        return;
-    }
-    disable2faInProgress = true;
-
-    try {
-        DOM.disable2faBtn.disabled = true;
-        DOM.disable2faBtn.textContent = 'Requesting code...';
-
-        // ✅ CORRECT endpoint: /2fa/email/disable/request
-        const result = await settingsApiFetch('/2fa/email/disable/request', {
-            method: 'POST'
-        });
-
-        // Show disable modal with OTP input
-        DOM.disable2faOtpInput.value = '';
-        DOM.disable2faStatus.textContent = 'A verification code has been sent to your email.';
-        DOM.disable2faStatus.className = 'info';
-        openModal('disable2faModal');
-
-        showToast('Verification code sent to your email', 'success');
-
-    } catch (error) {
-        console.error('2FA disable request error:', error);
-        showToast('Failed to request 2FA disable: ' + error.message, 'error');
-    } finally {
-        DOM.disable2faBtn.disabled = false;
-        DOM.disable2faBtn.textContent = 'Disable 2FA';
-        disable2faInProgress = false;
-    }
-}
-
-// ─── DISABLE 2FA - Step 2: Verify OTP and Disable ─────────────────
-async function verifyTwoFADisable() {
-    const otp = DOM.disable2faOtpInput.value.trim();
-
-    if (!otp) {
-        showToast('Please enter the verification code', 'warning');
-        return;
-    }
-
-    if (!/^\d{6}$/.test(otp)) {
-        showToast('Please enter the 6-digit verification code', 'warning');
-        return;
-    }
-
-    try {
-        DOM.disable2faConfirmBtn.disabled = true;
-        DOM.disable2faConfirmBtn.textContent = 'Disabling...';
-        DOM.disable2faStatus.textContent = 'Verifying...';
-        DOM.disable2faStatus.className = 'info';
-
-        // ✅ CORRECT endpoint: /2fa/email/disable/verify
-        await settingsApiFetch('/2fa/email/disable/verify', {
-            method: 'POST',
-            body: JSON.stringify({ otp })
-        });
-
-        showToast('2FA disabled successfully', 'success');
-        closeModal('disable2faModal');
-        loadSettings();
-
-    } catch (error) {
-        console.error('2FA disable verify error:', error);
-        DOM.disable2faStatus.textContent = error.message || 'Failed to disable 2FA';
-        DOM.disable2faStatus.className = 'error';
-        showToast('Failed to disable 2FA: ' + error.message, 'error');
-    } finally {
-        DOM.disable2faConfirmBtn.disabled = false;
-        DOM.disable2faConfirmBtn.textContent = 'Disable 2FA';
-    }
-}
-
-// ─── RESEND 2FA OTP ────────────────────────────────────────────────
-async function resendTwoFACode() {
-    try {
-        DOM.twofaSendBtn.disabled = true;
-        DOM.twofaSendBtn.textContent = 'Sending...';
-
-        // ✅ CORRECT endpoint: /2fa/email/resend
-        await settingsApiFetch('/2fa/email/resend', {
-            method: 'POST'
-        });
-
-        showToast('A new verification code has been sent to your email', 'success');
-        DOM.twofaStatusText.textContent = 'Code sent! Check your email.';
-        DOM.twofaStatusText.className = 'info';
-
-    } catch (error) {
-        showToast('Failed to send code: ' + error.message, 'error');
-        DOM.twofaStatusText.textContent = 'Failed to send code. Please try again.';
-        DOM.twofaStatusText.className = 'error';
-    } finally {
-        DOM.twofaSendBtn.disabled = false;
-        DOM.twofaSendBtn.textContent = 'Resend Code';
-    }
-}
-
-// ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
-//  ─── OTHER SETTINGS FUNCTIONS ────────────────────────────────
-// ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ───
-
-// ─── TRANSACTION PIN ──────────────────────────────────────────────
-
-async function changeTransactionPin() {
-    const current = DOM.currentPinInput?.value || '';
-    const newPin = DOM.newPinInput?.value || '';
-    const confirm = DOM.confirmPinInput?.value || '';
-
-    if (!current || !newPin || !confirm) {
-        showToast('All PIN fields are required', 'warning');
-        return;
-    }
-
-    if (!/^\d{4}$/.test(newPin)) {
-        showToast('PIN must be 4 digits', 'warning');
-        return;
-    }
-
-    if (newPin !== confirm) {
-        showToast('PINs do not match', 'warning');
-        return;
-    }
-
-    const commonPins = ['0000', '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999', '1234', '4321'];
-    if (commonPins.includes(newPin)) {
-        showToast('PIN is too common. Please choose a different one.', 'warning');
-        return;
-    }
-
-    try {
-        DOM.savePinBtn.disabled = true;
-        DOM.savePinBtn.textContent = 'Changing...';
-
-        await settingsApiFetch('/transaction-pin/change', {
-            method: 'POST',
-            body: JSON.stringify({
-                current_pin: current,
-                new_pin: newPin,
-                confirm_pin: confirm
-            })
-        });
-
-        showToast('Transaction PIN changed successfully!', 'success');
-        closeModal('pinModal');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to change PIN: ' + error.message, 'error');
-    } finally {
-        DOM.savePinBtn.disabled = false;
-        DOM.savePinBtn.textContent = 'Change PIN';
-    }
-}
-
-// ─── FORGOT PIN ────────────────────────────────────────────────────
-
-async function resetTransactionPin() {
-    try {
-        DOM.resetPinBtn.disabled = true;
-        DOM.resetPinBtn.textContent = 'Sending...';
-
-        await settingsApiFetch('/transaction-pin/reset/request', {
-            method: 'POST'
-        });
-
-        showToast('A reset code has been sent to your email', 'success');
-
-        const otp = prompt('Enter the 6-digit reset code sent to your email:');
-        if (!otp) {
-            DOM.resetPinBtn.disabled = false;
-            DOM.resetPinBtn.textContent = 'Forgot PIN?';
-            return;
-        }
-
-        const newPin = prompt('Enter your new 4-digit PIN:');
-        if (!newPin || !/^\d{4}$/.test(newPin)) {
-            showToast('PIN must be 4 digits', 'warning');
-            DOM.resetPinBtn.disabled = false;
-            DOM.resetPinBtn.textContent = 'Forgot PIN?';
-            return;
-        }
-
-        const confirmPin = prompt('Confirm your new 4-digit PIN:');
-        if (newPin !== confirmPin) {
-            showToast('PINs do not match', 'warning');
-            DOM.resetPinBtn.disabled = false;
-            DOM.resetPinBtn.textContent = 'Forgot PIN?';
-            return;
-        }
-
-        await settingsApiFetch('/transaction-pin/reset', {
-            method: 'POST',
-            body: JSON.stringify({
-                otp: otp,
-                new_pin: newPin,
-                confirm_pin: confirmPin
-            })
-        });
-
-        showToast('PIN reset successfully!', 'success');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to reset PIN: ' + error.message, 'error');
-    } finally {
-        DOM.resetPinBtn.disabled = false;
-        DOM.resetPinBtn.textContent = 'Forgot PIN?';
-    }
-}
-
-// ─── DEACTIVATE ACCOUNT ────────────────────────────────────────────
-
-async function deactivateAccount() {
-    const password = prompt('Enter your password to deactivate your account:');
-    if (!password) return;
-
-    const confirm = prompt('Type "DEACTIVATE" to confirm account deactivation:');
-    if (confirm !== 'DEACTIVATE') {
-        showToast('Confirmation failed. Type "DEACTIVATE" to confirm.', 'warning');
-        return;
-    }
-
-    try {
-        DOM.deactivateBtn.disabled = true;
-        DOM.deactivateBtn.textContent = 'Processing...';
-
-        await settingsApiFetch('/deactivate', {
-            method: 'POST',
-            body: JSON.stringify({ password, confirm })
-        });
-
-        showToast('Account deactivated successfully', 'success');
-        clearUserSession();
-        window.location.href = '/';
-
-    } catch (error) {
-        showToast('Failed to deactivate account: ' + error.message, 'error');
-        DOM.deactivateBtn.disabled = false;
-        DOM.deactivateBtn.textContent = 'Deactivate Account';
-    }
-}
-
-// ─── CHANGE EMAIL ──────────────────────────────────────────────────
-
-async function changeEmail() {
-    const newEmail = DOM.newEmailInput?.value?.trim() || '';
-    if (!newEmail) {
-        showToast('Please enter a new email address', 'warning');
-        return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail)) {
-        showToast('Please enter a valid email address', 'warning');
-        return;
-    }
-
-    try {
-        DOM.sendOtpBtn.disabled = true;
-        DOM.sendOtpBtn.textContent = 'Sending...';
-
-        const result = await settingsApiFetch('/email/change/request', {
-            method: 'POST',
-            body: JSON.stringify({ new_email: newEmail })
-        });
-
-        DOM.emailChangeRequestId.value = result.data.request_id;
-        DOM.otpInput.disabled = false;
-        DOM.verifyOtpBtn.disabled = false;
-        DOM.sendOtpBtn.textContent = '✅ Code Sent';
-        showToast('Verification code sent to your current email', 'success');
-
-    } catch (error) {
-        showToast('Failed to send verification code: ' + error.message, 'error');
-        DOM.sendOtpBtn.textContent = 'Resend Code';
-        DOM.sendOtpBtn.disabled = false;
-    }
-}
-
-async function verifyEmailChange() {
-    const requestId = DOM.emailChangeRequestId?.value || '';
-    const otp = DOM.otpInput?.value?.trim() || '';
-
-    if (!requestId || !otp) {
-        showToast('Please enter the verification code', 'warning');
-        return;
-    }
-
-    try {
-        DOM.verifyOtpBtn.disabled = true;
-        DOM.verifyOtpBtn.textContent = 'Verifying...';
-
-        await settingsApiFetch('/email/change/verify', {
-            method: 'POST',
-            body: JSON.stringify({ request_id: requestId, otp })
-        });
-
-        showToast('Email changed successfully!', 'success');
-        closeModal('emailModal');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Verification failed: ' + error.message, 'error');
-        DOM.verifyOtpBtn.disabled = false;
-        DOM.verifyOtpBtn.textContent = 'Verify Code';
-    }
-}
-
-// ─── CHANGE PHONE ──────────────────────────────────────────────────
-
-async function changePhone() {
-    const phone = DOM.newPhoneInput?.value?.trim() || '';
-    if (!phone) {
-        showToast('Please enter a phone number', 'warning');
-        return;
-    }
-
-    try {
-        DOM.savePhoneBtn.disabled = true;
-        DOM.savePhoneBtn.textContent = 'Saving...';
-
-        await settingsApiFetch('/profile/phone', {
-            method: 'PATCH',
-            body: JSON.stringify({ phone })
-        });
-
-        showToast('Phone number updated successfully!', 'success');
-        closeModal('phoneModal');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to update phone: ' + error.message, 'error');
-        DOM.savePhoneBtn.disabled = false;
-        DOM.savePhoneBtn.textContent = 'Save Phone';
-    }
-}
-
-// ─── CHANGE PASSWORD ──────────────────────────────────────────────
-
-async function changePassword() {
-    const current = DOM.currentPassword?.value || '';
-    const newPass = DOM.newPassword?.value || '';
-    const confirm = DOM.confirmPassword?.value || '';
-
-    if (!current || !newPass || !confirm) {
-        showToast('All password fields are required', 'warning');
-        return;
-    }
-
-    if (newPass !== confirm) {
-        showToast('New passwords do not match', 'warning');
-        return;
-    }
-
-    if (newPass.length < 8) {
-        showToast('Password must be at least 8 characters', 'warning');
-        return;
-    }
-
-    try {
-        DOM.changePasswordBtn.disabled = true;
-        DOM.changePasswordBtn.textContent = 'Changing...';
-
-        await settingsApiFetch('/password/change', {
-            method: 'POST',
-            body: JSON.stringify({
-                current_password: current,
-                new_password: newPass,
-                confirm_password: confirm
-            })
-        });
-
-        showToast('Password changed successfully!', 'success');
-        DOM.currentPassword.value = '';
-        DOM.newPassword.value = '';
-        DOM.confirmPassword.value = '';
-
-    } catch (error) {
-        showToast('Failed to change password: ' + error.message, 'error');
-    } finally {
-        DOM.changePasswordBtn.disabled = false;
-        DOM.changePasswordBtn.textContent = 'Change Password';
-    }
-}
-
-// ─── NOTIFICATION PREFERENCES ──────────────────────────────────────
-
-async function saveNotificationPreferences() {
-    const checkboxes = DOM.notifToggles?.querySelectorAll('.notif-checkbox') || [];
-    const preferences = {};
-
-    checkboxes.forEach(cb => {
-        preferences[cb.dataset.key] = cb.checked;
-    });
-
-    try {
-        DOM.saveNotifBtn.disabled = true;
-        DOM.saveNotifBtn.textContent = 'Saving...';
-
-        await settingsApiFetch('/notifications', {
-            method: 'PATCH',
-            body: JSON.stringify(preferences)
-        });
-
-        showToast('Notification preferences saved!', 'success');
-
-    } catch (error) {
-        showToast('Failed to save preferences: ' + error.message, 'error');
-    } finally {
-        DOM.saveNotifBtn.disabled = false;
-        DOM.saveNotifBtn.textContent = 'Save Preferences';
-    }
-}
-
-// ─── BANK ACCOUNTS ─────────────────────────────────────────────────
-
-async function removeBankAccount(id) {
-    if (!confirm('Are you sure you want to remove this bank account?')) return;
-
-    try {
-        await settingsApiFetch(`/withdrawal/bank-accounts/${id}`, {
-            method: 'DELETE'
-        });
-
-        showToast('Bank account removed successfully', 'success');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to remove bank account: ' + error.message, 'error');
-    }
-}
-
-async function addBankAccount() {
-    const bankName = DOM.bankNameInput?.value?.trim() || '';
-    const bankCode = DOM.bankCodeInput?.value?.trim() || '';
-    const accountNumber = DOM.accountNumberInput?.value?.trim() || '';
-    const accountName = DOM.accountNameInput?.value?.trim() || '';
-
-    if (!bankName || !accountNumber || !accountName) {
-        showToast('All bank account fields are required', 'warning');
-        return;
-    }
-
-    if (!/^\d{10}$/.test(accountNumber)) {
-        showToast('Account number must be 10 digits', 'warning');
-        return;
-    }
-
-    try {
-        DOM.saveBankBtn.disabled = true;
-        DOM.saveBankBtn.textContent = 'Adding...';
-
-        await settingsApiFetch('/withdrawal/bank-accounts', {
-            method: 'POST',
-            body: JSON.stringify({
-                bank_name: bankName,
-                bank_code: bankCode || null,
-                account_number: accountNumber,
-                account_name: accountName
-            })
-        });
-
-        showToast('Bank account added successfully!', 'success');
-        closeModal('bankModal');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to add bank account: ' + error.message, 'error');
-    } finally {
-        DOM.saveBankBtn.disabled = false;
-        DOM.saveBankBtn.textContent = 'Add Bank Account';
-    }
-}
-
-// ─── CRYPTO WALLETS ────────────────────────────────────────────────
-
-async function removeCryptoWallet(id) {
-    if (!confirm('Are you sure you want to remove this crypto wallet?')) return;
-
-    try {
-        await settingsApiFetch(`/withdrawal/crypto-wallets/${id}`, {
-            method: 'DELETE'
-        });
-
-        showToast('Crypto wallet removed successfully', 'success');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to remove crypto wallet: ' + error.message, 'error');
-    }
-}
-
-async function addCryptoWallet() {
-    const coin = DOM.walletCoinInput?.value?.trim()?.toUpperCase() || '';
-    const network = DOM.walletNetworkInput?.value?.trim() || '';
-    const address = DOM.walletAddressInput?.value?.trim() || '';
-    const label = DOM.walletLabelInput?.value?.trim() || '';
-
-    if (!coin || !network || !address) {
-        showToast('Coin, network, and address are required', 'warning');
-        return;
-    }
-
-    if (address.length < 10) {
-        showToast('Invalid wallet address', 'warning');
-        return;
-    }
-
-    try {
-        DOM.saveWalletBtn.disabled = true;
-        DOM.saveWalletBtn.textContent = 'Adding...';
-
-        await settingsApiFetch('/withdrawal/crypto-wallets', {
-            method: 'POST',
-            body: JSON.stringify({ coin, network, address, label })
-        });
-
-        showToast('Crypto wallet added successfully!', 'success');
-        closeModal('walletModal');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to add crypto wallet: ' + error.message, 'error');
-    } finally {
-        DOM.saveWalletBtn.disabled = false;
-        DOM.saveWalletBtn.textContent = 'Add Wallet';
-    }
-}
-
-// ─── SESSIONS ──────────────────────────────────────────────────────
-
-async function revokeSession(sessionId) {
-    if (!confirm('Are you sure you want to log out this session?')) return;
-
-    try {
-        await settingsApiFetch(`/sessions/${sessionId}`, {
-            method: 'DELETE'
-        });
-
-        showToast('Session revoked successfully', 'success');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to revoke session: ' + error.message, 'error');
-    }
-}
-
-async function logoutAllSessions() {
-    if (!confirm('Are you sure you want to log out of all other devices? This will keep your current session active.')) return;
-
-    try {
-        DOM.logoutAllBtn.disabled = true;
-        DOM.logoutAllBtn.textContent = 'Logging out...';
-
-        await settingsApiFetch('/sessions/logout-all', {
-            method: 'POST'
-        });
-
-        showToast('All other sessions logged out successfully', 'success');
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to logout sessions: ' + error.message, 'error');
-    } finally {
-        DOM.logoutAllBtn.disabled = false;
-        DOM.logoutAllBtn.textContent = 'Log Out All Other Sessions';
-    }
-}
-
-// ─── SECURITY ALERTS ──────────────────────────────────────────────
-
-async function markAlertRead(alertId) {
-    try {
-        await settingsApiFetch(`/security-alerts/${alertId}/read`, {
-            method: 'PATCH'
-        });
-
-        loadSettings();
-
-    } catch (error) {
-        showToast('Failed to mark alert as read: ' + error.message, 'error');
-    }
-}
-
-// ─── HELPERS ──────────────────────────────────────────────────
-
-function escapeHtml(text) {
-    if (!text) return '';
-    return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-function parseUserAgent(session) {
-    const ua = session?.user_agent || session?.browser || 'Unknown';
-    let browser = 'Unknown', os = 'Unknown', device = 'Desktop';
-    
-    if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
-    else if (ua.includes('Firefox')) browser = 'Firefox';
-    else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
-    else if (ua.includes('Edg')) browser = 'Edge';
-    else if (ua.includes('OPR')) browser = 'Opera';
-    
-    if (ua.includes('Windows')) os = 'Windows';
-    else if (ua.includes('Mac OS X')) os = 'macOS';
-    else if (ua.includes('Linux')) os = 'Linux';
-    else if (ua.includes('Android')) os = 'Android';
-    else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
-    
-    if (ua.includes('Mobile')) device = 'Mobile';
-    else if (ua.includes('Tablet')) device = 'Tablet';
-    
-    return { browser, os, device };
-}
-
-function getActivityIcon(type) {
-    const icons = {
-        'password_changed': '🔐',
-        'email_changed': '📧',
-        'email_change_requested': '📧',
-        'phone_changed': '📱',
-        'transaction_pin_changed': '🔢',
-        'transaction_pin_reset_requested': '🔢',
-        'twofa_enabled': '🔑',
-        'twofa_disabled': '🔑',
-        'bank_account_added': '🏦',
-        'bank_account_removed': '🏦',
-        'crypto_wallet_added': '₿',
-        'crypto_wallet_removed': '₿',
-        'session_revoked': '🚪',
-        'all_sessions_revoked': '🚪',
-        'notification_preferences_updated': '🔔',
-        'login': '🔐',
-        'withdrawal': '📤',
-        'deposit': '📥'
-    };
-    return icons[type] || '📌';
-}
-
-function getAlertIcon(type) {
-    const icons = {
-        'password_changed': '🔐',
-        'email_changed': '📧',
-        'twofa_enabled': '🔑',
-        'twofa_disabled': '🔑',
-        'bank_account_added': '🏦',
-        'bank_account_removed': '🏦',
-        'crypto_wallet_added': '₿',
-        'crypto_wallet_removed': '₿',
-        'all_sessions_revoked': '🚪',
-        'transaction_pin_changed': '🔢',
-        'new_login': '🖥️',
-        'suspicious_activity': '⚠️'
-    };
-    return icons[type] || '⚠️';
-}
-
+// ─── HELPERS ──────────────────────────────────────────────────────
 function timeAgo(date) {
     if (!date) return 'just now';
     const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -1290,13 +119,21 @@ function timeAgo(date) {
     return Math.floor(diff / 604800) + 'w ago';
 }
 
+function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
 function showToast(message, type = 'info') {
     const stack = document.getElementById('toastStack');
     if (!stack) return;
     const el = document.createElement('div');
     el.className = `toast ${type}`;
     const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${escapeHtml(message)}</span>`;
+    el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span></span>`;
+    el.querySelector('span:last-child').textContent = message;
     stack.appendChild(el);
     setTimeout(() => {
         el.style.opacity = '0';
@@ -1306,141 +143,1204 @@ function showToast(message, type = 'info') {
     }, 3200);
 }
 
+function setLoading(btn, loading, loadingText = 'Working…') {
+    if (!btn) return;
+    if (loading) {
+        if (!btn.dataset._original) btn.dataset._original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> ' + loadingText;
+    } else {
+        btn.disabled = false;
+        if (btn.dataset._original) {
+            btn.innerHTML = btn.dataset._original;
+            delete btn.dataset._original;
+        }
+    }
+}
+
 function openModal(id) {
     const modal = document.getElementById(id);
-    if (modal) modal.classList.add('open');
+    if (!modal) return;
+    modal.classList.add('open');
     document.body.style.overflow = 'hidden';
 }
 
 function closeModal(id) {
     const modal = document.getElementById(id);
-    if (modal) modal.classList.remove('open');
+    if (!modal) return;
+    modal.classList.remove('open');
     document.body.style.overflow = '';
-    const inputs = modal.querySelectorAll('input');
-    inputs.forEach(input => {
-        if (input.type !== 'hidden') input.value = '';
+
+    modal.querySelectorAll('input').forEach(inp => {
+        if (inp.type !== 'hidden') inp.value = '';
+        inp.classList.remove('error');
     });
+
     if (id === 'twofaModal') {
-        DOM.twofaSetupStep.style.display = 'block';
-        DOM.twofaVerifyStep.style.display = 'none';
-        DOM.twofaSuccessStep.style.display = 'none';
-        DOM.twofaStatusText.textContent = '';
-        DOM.twofaStatusText.className = '';
-        DOM.twofaCodeInput.value = '';
-        DOM.twofaSendBtn.textContent = 'Send Code';
-        DOM.twofaSendBtn.disabled = false;
-        DOM.twofaVerifyBtn.textContent = 'Verify & Enable';
-        DOM.twofaVerifyBtn.disabled = false;
+        document.getElementById('twofaSetupStep').style.display = 'block';
+        document.getElementById('twofaVerifyStep').style.display = 'none';
+        document.getElementById('twofaSuccessStep').style.display = 'none';
+        const st = document.getElementById('twofaStatusText');
+        if (st) { st.style.display = 'none'; st.textContent = ''; st.className = 'twofa-status-text'; }
     }
     if (id === 'disable2faModal') {
-        DOM.disable2faOtpInput.value = '';
-        DOM.disable2faStatus.textContent = '';
-        DOM.disable2faStatus.className = '';
-        DOM.disable2faConfirmBtn.textContent = 'Disable 2FA';
-        DOM.disable2faConfirmBtn.disabled = false;
+        const st = document.getElementById('disable2faStatus');
+        if (st) { st.style.display = 'none'; st.textContent = ''; st.className = 'twofa-status-text'; }
+    }
+    if (id === 'pinModal') {
+        const hint = document.getElementById('pinIntroHint');
+        if (hint) hint.textContent = '';
+        const err = document.getElementById('pinErrorText');
+        if (err) { err.style.display = 'none'; err.textContent = ''; }
+    }
+    if (id === 'forgotPinModal') {
+        State.pinReset.resetId = null;
+        State.pinReset.verified = false;
+        ['forgotPinStep1', 'forgotPinStep2', 'forgotPinStep3'].forEach((sid, idx) => {
+            const el = document.getElementById(sid);
+            if (el) el.style.display = idx === 0 ? 'block' : 'none';
+        });
+        const status = document.getElementById('forgotPinStatus');
+        if (status) { status.style.display = 'none'; status.textContent = ''; status.className = 'twofa-status-text'; }
+    }
+    if (id === 'deleteAccountModal') {
+        State.deletion.requestId = null;
+        State.deletion.verified = false;
+        State.deletion.submitting = false;
+        ['delStep1', 'delStep2', 'delStep3'].forEach((sid, idx) => {
+            const el = document.getElementById(sid);
+            if (el) el.style.display = idx === 0 ? 'block' : 'none';
+        });
+        const st = document.getElementById('deleteStatus');
+        if (st) { st.style.display = 'none'; st.textContent = ''; st.className = 'twofa-status-text'; }
+        const confirmInput = document.getElementById('deleteConfirmInput');
+        if (confirmInput) confirmInput.value = '';
     }
 }
 
-// ─── INIT ──────────────────────────────────────────────────────
+// ─── THEME ────────────────────────────────────────────────────────
+function initTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem('mx_theme'); } catch {}
+    if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    updateThemeIcon();
+}
+function updateThemeIcon() {
+    const btn = document.getElementById('darkToggle');
+    if (!btn) return;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    btn.textContent = isDark ? '☀️' : '🌙';
+}
+function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        try { localStorage.setItem('mx_theme', 'light'); } catch {}
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        try { localStorage.setItem('mx_theme', 'dark'); } catch {}
+    }
+    updateThemeIcon();
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🔧 Settings page initializing (user mode)...');
+// ─── SECTION TOGGLE ───────────────────────────────────────────────
+function toggleSection(header) {
+    const body = header.nextElementSibling;
+    const chevron = header.querySelector('.chevron');
+    if (body) body.classList.toggle('open');
+    if (chevron) chevron.classList.toggle('open');
+}
 
-    const token = getUserToken();
-    if (!token) {
-        console.warn('❌ No user token found, redirecting to login');
-        redirectToUserLogin();
+// ─── LOADERS ──────────────────────────────────────────────────────
+async function loadSettings() {
+    try {
+        const result = await apiFetch('/settings');
+        const data = result.data || {};
+        State.profile = data.profile || null;
+        State.settings = data.settings || null;
+        State.sessions = Array.isArray(data.sessions) ? data.sessions : [];
+        State.currentSessionId = data.current_session_id || null;
+        State.loaded.settings = true;
+        renderAll();
+    } catch (err) {
+        console.error('[SETTINGS] load failed:', err);
+        State.loaded.settings = false;
+        renderSettingsErrorStates();
+        showToast('Failed to load settings: ' + err.message, 'error');
+    }
+}
+
+async function loadActivity(page = 1) {
+    try {
+        const result = await apiFetch(`/activity?page=${page}&limit=10`);
+        const items = Array.isArray(result.data) ? result.data : [];
+        const meta = result.meta || {};
+        State.activity = (page === 1) ? items : State.activity.concat(items);
+        State.activityPage = page;
+        State.activityHasMore = !!meta.has_more;
+        State.loaded.activity = true;
+        renderActivity();
+    } catch (err) {
+        State.loaded.activity = false;
+        renderActivityError();
+        console.warn('[SETTINGS] activity load failed:', err.message);
+    }
+}
+
+async function loadAlerts() {
+    try {
+        const result = await apiFetch('/security-alerts');
+        State.securityAlerts = Array.isArray(result.data) ? result.data : [];
+        State.loaded.alerts = true;
+        renderSecurityAlerts();
+    } catch (err) {
+        State.loaded.alerts = false;
+        renderAlertsError();
+        console.warn('[SETTINGS] alerts load failed:', err.message);
+    }
+}
+
+// ─── RENDER ROOT ──────────────────────────────────────────────────
+function renderAll() {
+    renderPersonalInfo();
+    renderNotifications();
+    renderPinStatus();
+    renderTwoFAStatus();
+    renderLoginDetails();
+    renderAccountStatus();
+}
+
+function renderSettingsErrorStates() {
+    const s = document.getElementById('sessionsList');
+    if (s) s.innerHTML = '<div class="error-state">Unable to load sessions. <button type="button" onclick="window.loadSettings()">Retry</button></div>';
+    const a = document.getElementById('activityList');
+    if (a) a.innerHTML = '<div class="error-state">Unable to load activity. <button type="button" onclick="window.loadActivity(1)">Retry</button></div>';
+    const al = document.getElementById('alertList');
+    if (al) al.innerHTML = '<div class="error-state">Unable to load security alerts. <button type="button" onclick="window.loadAlerts()">Retry</button></div>';
+}
+
+function renderPersonalInfo() {
+    const p = State.profile;
+    if (!p) return;
+    const $ = (id) => document.getElementById(id);
+    if ($('usernameDisplay')) $('usernameDisplay').textContent = p.username || 'Not set';
+    if ($('emailDisplay'))    $('emailDisplay').textContent = p.email || '—';
+    if ($('phoneDisplay'))    $('phoneDisplay').textContent = p.phone || 'Not set';
+    if ($('referralCode'))    $('referralCode').textContent = p.referral_code || 'N/A';
+    if ($('joinedDate'))      $('joinedDate').textContent = p.created_at
+        ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        : '—';
+}
+
+function renderNotifications() {
+    const prefs = (State.settings && State.settings.notification_preferences) || {};
+    const container = document.getElementById('notifToggles');
+    if (!container) return;
+    container.innerHTML = NOTIF_ITEMS.map((item) => {
+        const isOn = prefs[item.key] !== undefined ? !!prefs[item.key] : true;
+        const disabled = item.required ? 'disabled' : '';
+        return `
+            <div class="notif-item">
+                <span class="notif-label">
+                    ${escapeHtml(item.label)}
+                    ${item.required ? '<span class="required-badge">Required</span>' : ''}
+                </span>
+                <label class="toggle-switch">
+                    <input type="checkbox"
+                           class="notif-checkbox"
+                           data-key="${escapeHtml(item.key)}"
+                           ${isOn ? 'checked' : ''}
+                           ${disabled}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        `;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PIN STATUS RENDERING — three states
+// ═══════════════════════════════════════════════════════════════════
+function renderPinStatus() {
+    const hasPin = !!(State.profile && State.profile.has_transaction_pin);
+
+    const banner    = document.getElementById('setupPinBanner');
+    const pinRow    = document.getElementById('pinRow');
+    const forgotRow = document.getElementById('forgotPinRow');
+    const badge     = document.getElementById('pinStatus');
+    const changeBtn = document.getElementById('changePinBtn');
+
+    if (banner)    banner.style.display    = hasPin ? 'none' : 'flex';
+    if (pinRow)    pinRow.style.display    = hasPin ? '' : 'none';
+    if (forgotRow) forgotRow.style.display = hasPin ? '' : 'none';
+
+    if (badge) {
+        badge.textContent = hasPin ? '✅ Set' : '❌ Not Set';
+        badge.className = `status-badge ${hasPin ? 'set' : 'not-set'}`;
+    }
+
+    if (changeBtn) changeBtn.textContent = hasPin ? 'Change PIN' : 'Set PIN';
+}
+
+function renderTwoFAStatus() {
+    const enabled = !!(
+        (State.settings && State.settings.email_2fa_enabled) ||
+        (State.profile && State.profile.two_factor_enabled)
+    );
+    const el = document.getElementById('twofaStatus');
+    const enableBtn = document.getElementById('enable2faBtn');
+    const disableBtn = document.getElementById('disable2faBtn');
+    if (!el) return;
+    el.textContent = enabled ? '✅ Enabled' : '❌ Disabled';
+    el.className = `status-badge ${enabled ? 'enabled' : 'disabled'}`;
+    if (enableBtn)  enableBtn.style.display  = enabled ? 'none' : 'inline-flex';
+    if (disableBtn) disableBtn.style.display = enabled ? 'inline-flex' : 'none';
+}
+
+function renderLoginDetails() {
+    const p = State.profile || {};
+    const lastLoginEl = document.getElementById('lastLoginInfo');
+    if (lastLoginEl) {
+        const lastLogin = p.last_login ? new Date(p.last_login).toLocaleString() : 'Never';
+        lastLoginEl.innerHTML = `
+            <div><strong>${escapeHtml(lastLogin)}</strong></div>
+            <div style="color:var(--text-muted);">
+                ${escapeHtml(p.last_login_location || 'Unknown location')}
+                &nbsp;·&nbsp;
+                ${escapeHtml(p.last_login_device || 'Unknown device')}
+            </div>
+        `;
+    }
+
+    const list = document.getElementById('sessionsList');
+    if (!list) return;
+    if (!State.loaded.settings) {
+        list.innerHTML = '<div class="empty-state">Loading…</div>';
+        return;
+    }
+    if (!State.sessions.length) {
+        list.innerHTML = '<div class="empty-state">No active sessions</div>';
+        return;
+    }
+    list.innerHTML = State.sessions.map((s) => {
+        const isCurrent = s.session_id === State.currentSessionId;
+        return `
+            <div class="session-item ${isCurrent ? 'current' : ''}">
+                <div class="session-info">
+                    <div class="session-device">${escapeHtml(s.browser || 'Unknown')} · ${escapeHtml(s.os || 'Unknown')}</div>
+                    <div class="session-detail">${escapeHtml(s.ip_address || 'Unknown IP')}</div>
+                    <div class="session-detail">Last active: ${s.last_activity_at ? timeAgo(s.last_activity_at) : 'Just now'}</div>
+                </div>
+                <div>
+                    ${isCurrent ? '<span class="current-badge">Current</span>' : ''}
+                    ${!isCurrent ? `<button type="button" class="revoke-btn" data-id="${escapeHtml(s.session_id)}">Log out</button>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    list.querySelectorAll('.revoke-btn').forEach((btn) => {
+        btn.addEventListener('click', () => revokeSession(btn.dataset.id));
+    });
+}
+
+function renderActivity() {
+    const list = document.getElementById('activityList');
+    const moreBtn = document.getElementById('loadMoreActivityBtn');
+    if (!list) return;
+    if (!State.loaded.activity) {
+        list.innerHTML = '<div class="empty-state">Loading…</div>';
+        if (moreBtn) moreBtn.style.display = 'none';
+        return;
+    }
+    if (!State.activity.length) {
+        list.innerHTML = '<div class="empty-state">No account activity yet</div>';
+        if (moreBtn) moreBtn.style.display = 'none';
+        return;
+    }
+    list.innerHTML = State.activity.map((a) => `
+        <div class="activity-item">
+            <div class="activity-icon">${escapeHtml(getActivityIcon(a.activity_type))}</div>
+            <div class="activity-info">
+                <div class="activity-desc">${escapeHtml(a.description || a.activity_type || 'Activity')}</div>
+                <div class="activity-meta">
+                    <span>${timeAgo(a.created_at)}</span>
+                    ${a.location ? `<span>· ${escapeHtml(a.location)}</span>` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+    if (moreBtn) moreBtn.style.display = State.activityHasMore ? 'inline-flex' : 'none';
+}
+
+function renderActivityError() {
+    const list = document.getElementById('activityList');
+    if (list) list.innerHTML = '<div class="error-state">Unable to load activity. <button type="button" onclick="window.loadActivity(1)">Retry</button></div>';
+}
+
+function renderSecurityAlerts() {
+    const list = document.getElementById('alertList');
+    if (!list) return;
+    if (!State.loaded.alerts) {
+        list.innerHTML = '<div class="empty-state">Loading…</div>';
+        return;
+    }
+    if (!State.securityAlerts.length) {
+        list.innerHTML = '<div class="empty-state">No security alerts</div>';
+        return;
+    }
+    list.innerHTML = State.securityAlerts.slice(0, 20).map((a) => `
+        <div class="alert-item severity-${escapeHtml(a.severity || 'medium')} ${!a.is_read ? 'unread' : ''}">
+            <div class="alert-icon">${escapeHtml(getAlertIcon(a.alert_type))}</div>
+            <div class="alert-info">
+                <div class="alert-desc">${escapeHtml(a.description || a.alert_type || 'Security event')}</div>
+                <div class="alert-meta">
+                    <span>${timeAgo(a.created_at)}</span>
+                    <span class="alert-severity ${escapeHtml(a.severity || 'medium')}">${escapeHtml(a.severity || 'medium')}</span>
+                </div>
+            </div>
+            ${!a.is_read ? `<button type="button" class="mark-read-btn" data-id="${escapeHtml(a.id)}" aria-label="Mark as read">✓</button>` : ''}
+        </div>
+    `).join('');
+    list.querySelectorAll('.mark-read-btn').forEach((btn) => {
+        btn.addEventListener('click', () => markAlertRead(btn.dataset.id));
+    });
+}
+
+function renderAlertsError() {
+    const list = document.getElementById('alertList');
+    if (list) list.innerHTML = '<div class="error-state">Unable to load alerts. <button type="button" onclick="window.loadAlerts()">Retry</button></div>';
+}
+
+function renderAccountStatus() {
+    const status = (State.profile && State.profile.status) || 'active';
+    const map = {
+        active:      { label: 'Active',       cls: 'success' },
+        suspended:   { label: 'Suspended',    cls: 'danger' },
+        restricted:  { label: 'Restricted',   cls: 'warn' },
+        pending:     { label: 'Pending',      cls: 'warn' },
+        deactivated: { label: 'Deactivated',  cls: 'danger' },
+        deleted:     { label: 'Deleted',      cls: 'danger' }
+    };
+    const info = map[status] || map.active;
+    const badge = document.getElementById('statusBadge');
+    if (badge) {
+        badge.textContent = info.label;
+        badge.className = `status-badge ${info.cls}`;
+    }
+    const verified = !!(State.profile && State.profile.is_verified);
+    const v = document.getElementById('verificationBadge');
+    if (v) {
+        v.textContent = verified ? '✅ Verified' : '⏳ Pending';
+        v.className = `status-badge ${verified ? 'success' : 'warn'}`;
+    }
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        password_changed: '🔐',
+        email_changed: '📧',
+        phone_changed: '📱',
+        transaction_pin_changed: '🔢',
+        pin_reset_requested: '🔢',
+        twofa_enabled: '🔑',
+        twofa_disabled: '🔑',
+        session_revoked: '🚪',
+        login: '👤',
+        logout: '👋',
+        account_deactivated: '⚠️',
+        account_reactivated: '✅',
+        account_deletion_requested: '🗑️',
+        account_deletion_completed: '🗑️'
+    };
+    return icons[type] || '•';
+}
+
+function getAlertIcon(type) {
+    const icons = {
+        new_login: '🔔',
+        new_device: '📱',
+        password_changed: '🔐',
+        twofa_disabled: '⚠️',
+        suspicious_activity: '🚨',
+        multiple_failed_logins: '🚫',
+        pin_reset: '🔢'
+    };
+    return icons[type] || '🛡️';
+}
+
+// ─── SESSIONS ─────────────────────────────────────────────────────
+async function revokeSession(sessionId) {
+    if (!confirm('Log this device out? You will need to sign in again on that device.')) return;
+    try {
+        await apiFetch(`/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+        State.sessions = State.sessions.filter((s) => s.session_id !== sessionId);
+        renderLoginDetails();
+        showToast('Device logged out', 'success');
+    } catch (err) {
+        showToast(err.message || 'Could not revoke session', 'error');
+    }
+}
+
+async function logoutAllOthers() {
+    if (!confirm('Log out of every device except this one?')) return;
+    const btn = document.getElementById('logoutAllBtn');
+    setLoading(btn, true, 'Logging out…');
+    try {
+        await apiFetch('/sessions/logout-others', { method: 'POST' });
+        State.sessions = State.sessions.filter((s) => s.session_id === State.currentSessionId);
+        renderLoginDetails();
+        showToast('Other devices signed out', 'success');
+    } catch (err) {
+        showToast(err.message || 'Could not sign out other devices', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function markAlertRead(id) {
+    try {
+        await apiFetch(`/security-alerts/${encodeURIComponent(id)}/read`, { method: 'POST' });
+        const a = State.securityAlerts.find((x) => String(x.id) === String(id));
+        if (a) a.is_read = true;
+        renderSecurityAlerts();
+    } catch (err) {
+        showToast(err.message || 'Could not mark alert', 'error');
+    }
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────
+async function saveNotificationPreferences() {
+    const btn = document.getElementById('saveNotifBtn');
+    const prefs = {};
+    document.querySelectorAll('.notif-checkbox').forEach((cb) => {
+        prefs[cb.dataset.key] = cb.checked;
+    });
+    setLoading(btn, true, 'Saving…');
+    try {
+        await apiFetch('/notifications', {
+            method: 'PUT',
+            body: JSON.stringify({ notification_preferences: prefs })
+        });
+        State.settings = State.settings || {};
+        State.settings.notification_preferences = prefs;
+        showToast('Preferences saved', 'success');
+    } catch (err) {
+        showToast(err.message || 'Could not save preferences', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ─── EMAIL CHANGE ─────────────────────────────────────────────────
+async function sendEmailChangeOtp() {
+    const emailInput = document.getElementById('newEmailInput');
+    const email = (emailInput.value || '').trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast('Enter a valid email address', 'error');
+        emailInput.focus();
+        return;
+    }
+    const btn = document.getElementById('sendOtpBtn');
+    setLoading(btn, true, 'Sending…');
+    try {
+        const res = await apiFetch('/email/change-request', {
+            method: 'POST',
+            body: JSON.stringify({ new_email: email })
+        });
+        const requestId = res.data && res.data.request_id;
+        if (requestId) document.getElementById('emailChangeRequestId').value = requestId;
+        const otpInput = document.getElementById('otpInput');
+        otpInput.disabled = false;
+        document.getElementById('verifyOtpBtn').disabled = false;
+        showToast('Verification code sent to ' + email, 'success');
+        otpInput.focus();
+    } catch (err) {
+        showToast(err.message || 'Could not send code', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function verifyEmailChange() {
+    const code = (document.getElementById('otpInput').value || '').trim();
+    const requestId = document.getElementById('emailChangeRequestId').value;
+    if (!/^\d{6}$/.test(code)) {
+        showToast('Enter the 6-digit code', 'error');
+        return;
+    }
+    const btn = document.getElementById('verifyOtpBtn');
+    setLoading(btn, true, 'Verifying…');
+    try {
+        await apiFetch('/email/change-verify', {
+            method: 'POST',
+            body: JSON.stringify({ request_id: requestId, code })
+        });
+        showToast('Email updated', 'success');
+        closeModal('emailModal');
+        await loadSettings();
+    } catch (err) {
+        showToast(err.message || 'Verification failed', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ─── PHONE ────────────────────────────────────────────────────────
+async function savePhone() {
+    const phone = (document.getElementById('newPhoneInput').value || '').trim();
+    if (!phone || !/^\+?\d{7,15}$/.test(phone)) {
+        showToast('Enter a valid phone number with country code', 'error');
+        return;
+    }
+    const btn = document.getElementById('savePhoneBtn');
+    setLoading(btn, true, 'Saving…');
+    try {
+        await apiFetch('/phone', { method: 'PUT', body: JSON.stringify({ phone }) });
+        showToast('Phone updated', 'success');
+        closeModal('phoneModal');
+        await loadSettings();
+    } catch (err) {
+        showToast(err.message || 'Could not update phone', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ─── PASSWORD ─────────────────────────────────────────────────────
+async function changePassword() {
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        showToast('All fields are required', 'error');
+        return;
+    }
+    if (newPassword.length < 8) {
+        showToast('New password must be at least 8 characters', 'error');
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        showToast('Passwords do not match', 'error');
+        return;
+    }
+    const btn = document.getElementById('savePasswordBtn');
+    setLoading(btn, true, 'Changing…');
+    try {
+        await apiFetch('/password', {
+            method: 'PUT',
+            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+        });
+        showToast('Password updated', 'success');
+        closeModal('passwordModal');
+        await loadSettings();
+    } catch (err) {
+        showToast(err.message || 'Could not change password', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ─── PIN (change or set for the first time) ───────────────────────
+function openPinModal() {
+    const hasPin = !!(State.profile && State.profile.has_transaction_pin);
+    const title = document.getElementById('pinModalTitle');
+    const currentWrap = document.getElementById('currentPinWrap');
+    const hint = document.getElementById('pinIntroHint');
+    const errBox = document.getElementById('pinErrorText');
+
+    if (errBox) { errBox.style.display = 'none'; errBox.textContent = ''; }
+
+    if (hasPin) {
+        if (title) title.textContent = 'Change Transaction PIN';
+        if (currentWrap) currentWrap.style.display = '';
+        if (hint) hint.textContent = 'Enter your current 4-digit PIN and choose a new one.';
+    } else {
+        if (title) title.textContent = 'Set Transaction PIN';
+        if (currentWrap) currentWrap.style.display = 'none';
+        if (hint) hint.textContent = 'Choose a 4-digit PIN. You will use it to authorize payments and transactions.';
+    }
+    openModal('pinModal');
+}
+
+async function submitPin() {
+    const hasPin = !!(State.profile && State.profile.has_transaction_pin);
+    const currentPin = document.getElementById('currentPinInput').value.trim();
+    const newPin = document.getElementById('newPinInput').value.trim();
+    const confirmPin = document.getElementById('confirmPinInput').value.trim();
+    const errBox = document.getElementById('pinErrorText');
+
+    const setErr = (msg) => {
+        if (!errBox) return;
+        if (msg) { errBox.textContent = msg; errBox.style.display = 'block'; }
+        else { errBox.textContent = ''; errBox.style.display = 'none'; }
+    };
+    setErr(null);
+
+    if (!/^\d{4}$/.test(newPin))    { setErr('New PIN must be exactly 4 digits'); return; }
+    if (newPin !== confirmPin)      { setErr('PINs do not match'); return; }
+
+    const weak = ['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321','1212','2121'];
+    if (weak.includes(newPin)) {
+        setErr('That PIN is too easy to guess. Choose a less predictable one.');
         return;
     }
 
-    console.log('✅ User token found, loading settings...');
-
-    initDOM();
-
-    // Load data
-    loadSettings();
-
-    // ─── EVENT LISTENERS ────────────────────────────────────────
-
-    // Email change
-    if (DOM.changeEmailBtn) DOM.changeEmailBtn.addEventListener('click', () => openModal('emailModal'));
-    if (DOM.sendOtpBtn) DOM.sendOtpBtn.addEventListener('click', changeEmail);
-    if (DOM.verifyOtpBtn) DOM.verifyOtpBtn.addEventListener('click', verifyEmailChange);
-
-    // Phone change
-    if (DOM.changePhoneBtn) DOM.changePhoneBtn.addEventListener('click', () => openModal('phoneModal'));
-    if (DOM.savePhoneBtn) DOM.savePhoneBtn.addEventListener('click', changePhone);
-
-    // Password change
-    if (DOM.changePasswordBtn) DOM.changePasswordBtn.addEventListener('click', changePassword);
-
-    // Notification preferences
-    if (DOM.saveNotifBtn) DOM.saveNotifBtn.addEventListener('click', saveNotificationPreferences);
-
-    // Bank accounts
-    if (DOM.addBankBtn) DOM.addBankBtn.addEventListener('click', () => openModal('bankModal'));
-    if (DOM.saveBankBtn) DOM.saveBankBtn.addEventListener('click', addBankAccount);
-
-    // Crypto wallets
-    if (DOM.addWalletBtn) DOM.addWalletBtn.addEventListener('click', () => openModal('walletModal'));
-    if (DOM.saveWalletBtn) DOM.saveWalletBtn.addEventListener('click', addCryptoWallet);
-
-    // Transaction PIN
-    if (DOM.changePinBtn) DOM.changePinBtn.addEventListener('click', () => openModal('pinModal'));
-    if (DOM.savePinBtn) DOM.savePinBtn.addEventListener('click', changeTransactionPin);
-    if (DOM.resetPinBtn) DOM.resetPinBtn.addEventListener('click', resetTransactionPin);
-
-    // ─── 2FA - CORRECT EVENT LISTENERS ──────────────────────────
-    if (DOM.enable2faBtn) DOM.enable2faBtn.addEventListener('click', enableTwoFA);
-    if (DOM.disable2faBtn) DOM.disable2faBtn.addEventListener('click', disableTwoFA);
-    if (DOM.twofaSendBtn) DOM.twofaSendBtn.addEventListener('click', resendTwoFACode);
-    if (DOM.twofaVerifyBtn) DOM.twofaVerifyBtn.addEventListener('click', verifyTwoFAEnable);
-    if (DOM.twofaCancelBtn) DOM.twofaCancelBtn.addEventListener('click', () => closeModal('twofaModal'));
-    if (DOM.disable2faConfirmBtn) DOM.disable2faConfirmBtn.addEventListener('click', verifyTwoFADisable);
-    if (DOM.disable2faCancelBtn) DOM.disable2faCancelBtn.addEventListener('click', () => closeModal('disable2faModal'));
-
-    // Sessions
-    if (DOM.logoutAllBtn) DOM.logoutAllBtn.addEventListener('click', logoutAllSessions);
-
-    // Copy referral code
-    if (DOM.copyReferralBtn) {
-        DOM.copyReferralBtn.addEventListener('click', () => {
-            const code = DOM.referralCode?.textContent || '';
-            if (code && code !== 'N/A') {
-                navigator.clipboard.writeText(code).then(() => {
-                    showToast('Referral code copied!', 'success');
-                }).catch(() => {
-                    const input = document.createElement('input');
-                    input.value = code;
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(input);
-                    showToast('Referral code copied!', 'success');
-                });
-            }
-        });
+    if (hasPin && !/^\d{4}$/.test(currentPin)) {
+        setErr('Enter your current 4-digit PIN');
+        document.getElementById('currentPinInput').focus();
+        return;
     }
 
-    // Modal close buttons
-    document.querySelectorAll('.modal-close, .modal-overlay').forEach(el => {
-        el.addEventListener('click', (e) => {
-            if (e.target === el || e.target.classList.contains('modal-close')) {
-                const modal = el.closest('.modal-overlay');
-                if (modal) closeModal(modal.id);
-            }
+    const btn = document.getElementById('savePinBtn');
+    setLoading(btn, true, hasPin ? 'Changing…' : 'Setting…');
+    try {
+        const body = { new_pin: newPin };
+        if (hasPin) body.current_pin = currentPin;
+
+        await apiFetch('/pin', { method: 'PUT', body: JSON.stringify(body) });
+        showToast(hasPin ? 'PIN updated' : 'PIN set successfully', 'success');
+        closeModal('pinModal');
+        await loadSettings();
+    } catch (err) {
+        setErr(err.message || 'Could not update PIN');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FORGOT PIN FLOW (3 steps)
+// ═══════════════════════════════════════════════════════════════════
+function openForgotPinModal() {
+    State.pinReset.resetId = null;
+    State.pinReset.verified = false;
+
+    ['forgotPinStep1','forgotPinStep2','forgotPinStep3'].forEach((sid, idx) => {
+        const el = document.getElementById(sid);
+        if (el) el.style.display = idx === 0 ? 'block' : 'none';
+    });
+    const status = document.getElementById('forgotPinStatus');
+    if (status) { status.style.display = 'none'; status.textContent = ''; status.className = 'twofa-status-text'; }
+
+    const email = (State.profile && State.profile.email) || '';
+    const emailEl = document.getElementById('forgotPinEmail');
+    if (emailEl) {
+        const [local, domain] = String(email).split('@');
+        emailEl.textContent = domain
+            ? `${local.length <= 2 ? '**' : local.slice(0, 2) + '***'}@${domain}`
+            : email || 'your email';
+    }
+
+    openModal('forgotPinModal');
+}
+
+async function forgotPinSendCode() {
+    const btn = document.getElementById('forgotPinSendBtn');
+    const status = document.getElementById('forgotPinStatus');
+    setLoading(btn, true, 'Sending…');
+    try {
+        const res = await apiFetch('/pin/forgot/request', { method: 'POST' });
+        const resetId = (res.data && res.data.reset_id) || null;
+        const masked  = (res.data && res.data.masked_email) || 'your email';
+        if (!resetId) throw new Error('Server did not return reset_id');
+
+        State.pinReset.resetId = resetId;
+        State.pinReset.verified = false;
+
+        const emailEl = document.getElementById('forgotPinEmail');
+        if (emailEl) emailEl.textContent = masked;
+
+        document.getElementById('forgotPinStep1').style.display = 'none';
+        document.getElementById('forgotPinStep2').style.display = 'block';
+        document.getElementById('forgotPinCodeInput').focus();
+        showToast('Verification code sent to ' + masked, 'success');
+    } catch (err) {
+        if (status) {
+            status.textContent = err.message || 'Could not send code';
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        } else {
+            showToast(err.message || 'Could not send code', 'error');
+        }
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function forgotPinVerifyCode() {
+    const code = (document.getElementById('forgotPinCodeInput').value || '').trim();
+    const status = document.getElementById('forgotPinStatus');
+    if (!/^\d{6}$/.test(code)) { showToast('Enter the 6-digit code', 'error'); return; }
+    if (!State.pinReset.resetId) {
+        showToast('Reset session expired. Please start again.', 'error');
+        closeModal('forgotPinModal');
+        return;
+    }
+
+    const btn = document.getElementById('forgotPinVerifyBtn');
+    setLoading(btn, true, 'Verifying…');
+    try {
+        await apiFetch('/pin/forgot/verify', {
+            method: 'POST',
+            body: JSON.stringify({ reset_id: State.pinReset.resetId, code })
         });
+        State.pinReset.verified = true;
+        document.getElementById('forgotPinStep2').style.display = 'none';
+        document.getElementById('forgotPinStep3').style.display = 'block';
+        document.getElementById('forgotPinNewPin').focus();
+        if (status) { status.style.display = 'none'; status.textContent = ''; }
+    } catch (err) {
+        if (status) {
+            status.textContent = err.message || 'Verification failed';
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        } else {
+            showToast(err.message || 'Verification failed', 'error');
+        }
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function forgotPinResetPin() {
+    const newPin = (document.getElementById('forgotPinNewPin').value || '').trim();
+    const confirmPin = (document.getElementById('forgotPinNewPinConfirm').value || '').trim();
+    const status = document.getElementById('forgotPinStatus');
+
+    if (!/^\d{4}$/.test(newPin))     { showToast('New PIN must be exactly 4 digits', 'error'); return; }
+    if (newPin !== confirmPin)       { showToast('PINs do not match', 'error'); return; }
+
+    const weak = ['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321','1212','2121'];
+    if (weak.includes(newPin)) { showToast('That PIN is too easy to guess. Choose a less predictable one.', 'error'); return; }
+
+    if (!State.pinReset.resetId || !State.pinReset.verified) {
+        showToast('Reset session expired. Please start again.', 'error');
+        closeModal('forgotPinModal');
+        return;
+    }
+
+    const btn = document.getElementById('forgotPinResetBtn');
+    setLoading(btn, true, 'Resetting…');
+    try {
+        await apiFetch('/pin/forgot/reset', {
+            method: 'POST',
+            body: JSON.stringify({ reset_id: State.pinReset.resetId, new_pin: newPin })
+        });
+        showToast('PIN reset successful', 'success');
+        closeModal('forgotPinModal');
+        await loadSettings();
+    } catch (err) {
+        if (status) {
+            status.textContent = err.message || 'Could not reset PIN';
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        } else {
+            showToast(err.message || 'Could not reset PIN', 'error');
+        }
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function forgotPinResendCode() {
+    const btn = document.getElementById('forgotPinResendBtn');
+    setLoading(btn, true, 'Sending…');
+    try {
+        const res = await apiFetch('/pin/forgot/request', { method: 'POST' });
+        const resetId = (res.data && res.data.reset_id) || null;
+        const masked  = (res.data && res.data.masked_email) || 'your email';
+        if (!resetId) throw new Error('Server did not return reset_id');
+        State.pinReset.resetId = resetId;
+        State.pinReset.verified = false;
+        document.getElementById('forgotPinCodeInput').value = '';
+        document.getElementById('forgotPinCodeInput').focus();
+        showToast('New code sent to ' + masked, 'success');
+    } catch (err) {
+        showToast(err.message || 'Could not resend code', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ─── 2FA ──────────────────────────────────────────────────────────
+async function start2faSetup() {
+    const btn = document.getElementById('twofaSendBtn');
+    setLoading(btn, true, 'Sending…');
+    try {
+        const res = await apiFetch('/2fa/email/setup', { method: 'POST' });
+        const email = (res.data && res.data.masked_email) || (State.profile && State.profile.email) || 'your email';
+        document.getElementById('twofaEmailDisplay').textContent = email;
+        document.getElementById('twofaSetupStep').style.display = 'none';
+        document.getElementById('twofaVerifyStep').style.display = 'block';
+        document.getElementById('twofaCodeInput').focus();
+    } catch (err) {
+        showToast(err.message || 'Could not start 2FA setup', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function verify2faSetup() {
+    const code = (document.getElementById('twofaCodeInput').value || '').trim();
+    if (!/^\d{6}$/.test(code)) { showToast('Enter the 6-digit code', 'error'); return; }
+    const btn = document.getElementById('twofaVerifyBtn');
+    const status = document.getElementById('twofaStatusText');
+    setLoading(btn, true, 'Verifying…');
+    try {
+        await apiFetch('/2fa/email/verify', { method: 'POST', body: JSON.stringify({ code }) });
+        document.getElementById('twofaVerifyStep').style.display = 'none';
+        document.getElementById('twofaSuccessStep').style.display = 'block';
+        await loadSettings();
+    } catch (err) {
+        status.textContent = err.message || 'Verification failed';
+        status.className = 'twofa-status-text error';
+        status.style.display = 'block';
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function resend2fa() {
+    const btn = document.getElementById('twofaResendBtn');
+    setLoading(btn, true, 'Sending…');
+    try {
+        await apiFetch('/2fa/email/resend', { method: 'POST' });
+        showToast('New code sent', 'success');
+    } catch (err) {
+        showToast(err.message || 'Could not resend code', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function requestDisable2fa() {
+    const btn = document.getElementById('disable2faBtn');
+    setLoading(btn, true, 'Requesting…');
+    try {
+        await apiFetch('/2fa/email/disable/request', { method: 'POST' });
+        openModal('disable2faModal');
+        document.getElementById('disable2faOtpInput').focus();
+    } catch (err) {
+        showToast(err.message || 'Could not start disable flow', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function confirmDisable2fa() {
+    const code = (document.getElementById('disable2faOtpInput').value || '').trim();
+    if (!/^\d{6}$/.test(code)) { showToast('Enter the 6-digit code', 'error'); return; }
+    const btn = document.getElementById('disable2faConfirmBtn');
+    const status = document.getElementById('disable2faStatus');
+    setLoading(btn, true, 'Disabling…');
+    try {
+        await apiFetch('/2fa/email/disable/verify', { method: 'POST', body: JSON.stringify({ code }) });
+        showToast('2FA disabled', 'success');
+        closeModal('disable2faModal');
+        await loadSettings();
+    } catch (err) {
+        status.textContent = err.message || 'Could not disable 2FA';
+        status.className = 'twofa-status-text error';
+        status.style.display = 'block';
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ─── DEACTIVATE (unchanged behaviour; copy clarifies it's reversible) ──
+async function deactivateAccount() {
+    if (!confirm('Deactivate your account? You will be signed out everywhere. Contact support to reactivate. This is NOT the same as permanently deleting your account.')) return;
+    const btn = document.getElementById('deactivateBtn');
+    setLoading(btn, true, 'Deactivating…');
+    try {
+        await apiFetch('/deactivate', { method: 'POST' });
+        showToast('Account deactivated. Signing out…', 'success');
+        setTimeout(() => {
+            if (typeof window.doUserLogout === 'function') window.doUserLogout();
+            else window.location.replace('/login.html');
+        }, 1500);
+    } catch (err) {
+        showToast(err.message || 'Could not deactivate account', 'error');
+        setLoading(btn, false);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PERMANENT ACCOUNT DELETION — 3-step wizard
+// ═══════════════════════════════════════════════════════════════════
+function openDeleteAccountModal() {
+    State.deletion.requestId = null;
+    State.deletion.verified = false;
+    State.deletion.submitting = false;
+
+    ['delStep1','delStep2','delStep3'].forEach((sid, idx) => {
+        const el = document.getElementById(sid);
+        if (el) el.style.display = idx === 0 ? 'block' : 'none';
+    });
+    const st = document.getElementById('deleteStatus');
+    if (st) { st.style.display = 'none'; st.textContent = ''; st.className = 'twofa-status-text'; }
+    const confirmInput = document.getElementById('deleteConfirmInput');
+    if (confirmInput) confirmInput.value = '';
+
+    openModal('deleteAccountModal');
+}
+
+async function deleteStepSendCode() {
+    const btn = document.getElementById('deleteSendBtn');
+    const status = document.getElementById('deleteStatus');
+    setLoading(btn, true, 'Checking account…');
+    try {
+        const res = await apiFetch('/delete/request', { method: 'POST' });
+
+        const requestId = (res.data && res.data.request_id) || null;
+        const masked    = (res.data && res.data.masked_email) || 'your email';
+        if (!requestId) throw new Error('Server did not return request_id');
+
+        State.deletion.requestId = requestId;
+
+        const emailEl = document.getElementById('deleteEmailDisplay');
+        if (emailEl) emailEl.textContent = masked;
+
+        document.getElementById('delStep1').style.display = 'none';
+        document.getElementById('delStep2').style.display = 'block';
+        document.getElementById('deleteCodeInput').focus();
+        if (status) { status.style.display = 'none'; status.textContent = ''; }
+    } catch (err) {
+        // Show settlement blockers clearly if the server returned them.
+        const blockers = (err.data && err.data.blockers) || null;
+        const msg = err.message || 'Could not start deletion.';
+
+        if (status) {
+            status.textContent = blockers && blockers.length
+                ? msg + ' Issues: ' + blockers.map((b) => b.label || b.code).join(', ')
+                : msg;
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        } else {
+            showToast(msg, 'error');
+        }
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function deleteStepVerifyCode() {
+    const code = (document.getElementById('deleteCodeInput').value || '').trim();
+    const status = document.getElementById('deleteStatus');
+    if (!/^\d{6}$/.test(code)) { showToast('Enter the 6-digit code', 'error'); return; }
+    if (!State.deletion.requestId) { showToast('Session expired. Start over.', 'error'); closeModal('deleteAccountModal'); return; }
+
+    const btn = document.getElementById('deleteVerifyBtn');
+    setLoading(btn, true, 'Verifying…');
+    try {
+        await apiFetch('/delete/verify', {
+            method: 'POST',
+            body: JSON.stringify({ request_id: State.deletion.requestId, code })
+        });
+        State.deletion.verified = true;
+        document.getElementById('delStep2').style.display = 'none';
+        document.getElementById('delStep3').style.display = 'block';
+        document.getElementById('deleteConfirmInput').focus();
+        if (status) { status.style.display = 'none'; status.textContent = ''; }
+    } catch (err) {
+        if (status) {
+            status.textContent = err.message || 'Verification failed';
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        } else {
+            showToast(err.message || 'Verification failed', 'error');
+        }
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function deleteStepConfirm() {
+    if (State.deletion.submitting) return;
+
+    const typed = (document.getElementById('deleteConfirmInput').value || '').trim();
+    const expected = (State.profile && State.profile.username) || '';
+    const status = document.getElementById('deleteStatus');
+
+    if (!State.deletion.requestId || !State.deletion.verified) {
+        if (status) {
+            status.textContent = 'Session expired. Please start again.';
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        }
+        return;
+    }
+
+    if (typed.toLowerCase() !== expected.toLowerCase()) {
+        if (status) {
+            status.textContent = `Type your username exactly (${expected}) to confirm.`;
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        }
+        return;
+    }
+
+    State.deletion.submitting = true;
+    const btn = document.getElementById('deleteConfirmBtn');
+    setLoading(btn, true, 'Deleting…');
+
+    try {
+        await apiFetch('/delete/confirm', {
+            method: 'POST',
+            body: JSON.stringify({
+                request_id: State.deletion.requestId,
+                confirmation: typed
+            })
+        });
+
+        // Clear local user state
+        try {
+            if (typeof window.clearUserSession === 'function') window.clearUserSession();
+        } catch {}
+
+        if (status) {
+            status.textContent = 'Account deleted. Signing out…';
+            status.className = 'twofa-status-text success';
+            status.style.display = 'block';
+        }
+
+        setTimeout(() => {
+            if (typeof window.doUserLogout === 'function') window.doUserLogout();
+            else window.location.replace('/login.html');
+        }, 1800);
+    } catch (err) {
+        State.deletion.submitting = false;
+        setLoading(btn, false);
+        if (status) {
+            status.textContent = err.message || 'Could not delete account.';
+            status.className = 'twofa-status-text error';
+            status.style.display = 'block';
+        }
+    }
+}
+
+async function deleteStepResendCode() {
+    if (!State.deletion.requestId) return;
+    const btn = document.getElementById('deleteResendBtn');
+    setLoading(btn, true, 'Sending…');
+    try {
+        const res = await apiFetch('/delete/request', { method: 'POST' });
+        const requestId = (res.data && res.data.request_id) || null;
+        const masked    = (res.data && res.data.masked_email) || 'your email';
+        if (requestId) State.deletion.requestId = requestId;
+        document.getElementById('deleteCodeInput').value = '';
+        document.getElementById('deleteCodeInput').focus();
+        const emailEl = document.getElementById('deleteEmailDisplay');
+        if (emailEl) emailEl.textContent = masked;
+        showToast('New code sent to ' + masked, 'success');
+    } catch (err) {
+        showToast(err.message || 'Could not resend code', 'error');
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+// ─── EVENT BINDING ────────────────────────────────────────────────
+function bindEvents() {
+    document.getElementById('darkToggle')?.addEventListener('click', toggleTheme);
+    document.getElementById('refreshBtn')?.addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        const icon = btn.querySelector('i') || btn;
+        icon.classList.add('fa-spin');
+        Promise.allSettled([loadSettings(), loadActivity(1), loadAlerts()])
+            .finally(() => setTimeout(() => icon.classList.remove('fa-spin'), 400));
     });
 
-    // Deactivate account
-    if (DOM.deactivateBtn) DOM.deactivateBtn.addEventListener('click', deactivateAccount);
+    document.getElementById('copyReferralBtn')?.addEventListener('click', async () => {
+        const code = (document.getElementById('referralCode').textContent || '').trim();
+        if (!code || code === 'N/A') return;
+        try {
+            await navigator.clipboard.writeText(code);
+            showToast('Referral code copied', 'success');
+        } catch {
+            showToast('Could not copy', 'error');
+        }
+    });
 
-    console.log('🔧 Settings page loaded (user mode)');
+    document.querySelectorAll('.settings-card-header[data-toggle]').forEach((h) => {
+        h.addEventListener('click', () => toggleSection(h));
+    });
+
+    document.getElementById('changeEmailBtn')?.addEventListener('click', () => openModal('emailModal'));
+    document.getElementById('changePhoneBtn')?.addEventListener('click', () => openModal('phoneModal'));
+    document.getElementById('changePasswordBtn')?.addEventListener('click', () => openModal('passwordModal'));
+    document.getElementById('changePinBtn')?.addEventListener('click', openPinModal);
+    document.getElementById('forgotPinBtn')?.addEventListener('click', openForgotPinModal);
+    document.getElementById('setupPinBannerBtn')?.addEventListener('click', openPinModal);
+
+    document.getElementById('enable2faBtn')?.addEventListener('click', () => {
+        document.getElementById('twofaEmailDisplay').textContent = (State.profile && State.profile.email) || 'your email';
+        document.getElementById('twofaSetupStep').style.display = 'block';
+        document.getElementById('twofaVerifyStep').style.display = 'none';
+        document.getElementById('twofaSuccessStep').style.display = 'none';
+        openModal('twofaModal');
+    });
+    document.getElementById('disable2faBtn')?.addEventListener('click', requestDisable2fa);
+
+    document.querySelectorAll('.modal-close[data-modal]').forEach((btn) => {
+        btn.addEventListener('click', () => closeModal(btn.dataset.modal));
+    });
+    document.querySelectorAll('.modal-overlay').forEach((ov) => {
+        ov.addEventListener('click', (e) => { if (e.target === ov) closeModal(ov.id); });
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay.open').forEach((m) => closeModal(m.id));
+        }
+    });
+
+    document.getElementById('sendOtpBtn')?.addEventListener('click', sendEmailChangeOtp);
+    document.getElementById('verifyOtpBtn')?.addEventListener('click', verifyEmailChange);
+    document.getElementById('savePhoneBtn')?.addEventListener('click', savePhone);
+    document.getElementById('savePasswordBtn')?.addEventListener('click', changePassword);
+    document.getElementById('savePinBtn')?.addEventListener('click', submitPin);
+
+    document.getElementById('forgotPinSendBtn')?.addEventListener('click', forgotPinSendCode);
+    document.getElementById('forgotPinVerifyBtn')?.addEventListener('click', forgotPinVerifyCode);
+    document.getElementById('forgotPinResendBtn')?.addEventListener('click', forgotPinResendCode);
+    document.getElementById('forgotPinResetBtn')?.addEventListener('click', forgotPinResetPin);
+
+    document.getElementById('twofaSendBtn')?.addEventListener('click', start2faSetup);
+    document.getElementById('twofaVerifyBtn')?.addEventListener('click', verify2faSetup);
+    document.getElementById('twofaResendBtn')?.addEventListener('click', resend2fa);
+    document.getElementById('twofaDoneBtn')?.addEventListener('click', () => closeModal('twofaModal'));
+    document.getElementById('disable2faConfirmBtn')?.addEventListener('click', confirmDisable2fa);
+
+    document.getElementById('saveNotifBtn')?.addEventListener('click', saveNotificationPreferences);
+    document.getElementById('logoutAllBtn')?.addEventListener('click', logoutAllOthers);
+    document.getElementById('deactivateBtn')?.addEventListener('click', deactivateAccount);
+    document.getElementById('loadMoreActivityBtn')?.addEventListener('click', () => loadActivity(State.activityPage + 1));
+
+    // Deletion
+    document.getElementById('deleteAccountBtn')?.addEventListener('click', openDeleteAccountModal);
+    document.getElementById('deleteSendBtn')?.addEventListener('click', deleteStepSendCode);
+    document.getElementById('deleteVerifyBtn')?.addEventListener('click', deleteStepVerifyCode);
+    document.getElementById('deleteResendBtn')?.addEventListener('click', deleteStepResendCode);
+    document.getElementById('deleteConfirmBtn')?.addEventListener('click', deleteStepConfirm);
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    initTheme();
+    bindEvents();
+
+    await new Promise((r) => setTimeout(r, 0));
+    if (!getCurrentUser()) {
+        setTimeout(() => { if (!getCurrentUser()) redirectToLogin(); }, 1500);
+        return;
+    }
+
+    await Promise.allSettled([ loadSettings(), loadActivity(1), loadAlerts() ]);
 });
 
-// ─── Load more activity ───
-if (DOM.loadMoreActivityBtn) {
-    DOM.loadMoreActivityBtn.addEventListener('click', () => {
-        showToast('Loading more activity...', 'info');
-    });
-}
+// Expose for inline onclick fallbacks in error states.
+window.loadSettings = loadSettings;
+window.loadActivity = loadActivity;
+window.loadAlerts   = loadAlerts;

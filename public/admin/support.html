@@ -2,13 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c3d4a">
 <title>MilesSpace — Support Admin</title>
+
+<!-- ═══════════════════════════════════════════════════════════
+     WIDGET OPT-OUT — must come BEFORE the widget script tag.
+     The widget hard-refuses to boot on any page whose path
+     contains "admin", but this is a second layer of defence.
+     ═══════════════════════════════════════════════════════════ -->
+<script>window.MILES_WIDGET_DISABLE = true;</script>
+
+<!-- Purge stale guest-ticket pointers left behind by any earlier
+     widget test. Admin surfaces must never show customer-side
+     support state. -->
+<script>
+(function () {
+    try {
+        var toRemove = [];
+        for (var i = 0; i < sessionStorage.length; i++) {
+            var k = sessionStorage.key(i);
+            if (k && k.indexOf('miles_guest_ticket_') === 0) toRemove.push(k);
+        }
+        for (var j = 0; j < toRemove.length; j++) sessionStorage.removeItem(toRemove[j]);
+    } catch (e) {}
+})();
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="/js/admin-session.js"></script>
 <script src="/js/admin-permissions.js"></script>
+
 <style>
 :root{
   --navy:#0c3d4a; --navy-light:#12556a; --navy-deep:#082a33;
@@ -23,15 +49,20 @@
   --radius-md:14px; --radius-lg:20px;
   --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
   --shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);
-  --sidebar-w:260px; --topbar-h:68px; --mono:'JetBrains Mono',monospace;
+  --sidebar-w:260px; --topbar-h:64px; --mono:'JetBrains Mono',monospace;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.app{display:flex;min-height:100vh}
-.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:22px 16px 18px;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:40;overflow-y:auto}
+*{box-sizing:border-box;margin:0;padding:0;min-width:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(12,61,74,.18);border-radius:99px}
+.mono{font-family:var(--mono)}
+
+.app{display:flex;min-height:100vh;min-height:100dvh}
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:22px 16px 18px;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;height:100dvh;z-index:40;overflow-y:auto}
 .brand{display:flex;align-items:center;gap:11px;padding:6px 10px 22px}
 .brand img{width:32px;height:32px;border-radius:8px}
-.brand-text strong{font-size:15.5px;font-weight:800}
+.brand-text strong{font-size:15.5px;font-weight:800;display:block}
 .brand-text span{font-size:11px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
 .nav-scroll{flex:1;overflow-y:auto}
 .nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 12px 6px}
@@ -40,54 +71,71 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .nav-item.active{background:rgba(245,158,11,.14);color:#ffd899;border-color:rgba(245,158,11,.28);font-weight:600}
 .nav-item .ic{width:18px;text-align:center}
 .sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:6px}
-.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff}
-.sidebar-foot .who strong{font-size:12.8px;color:#fff;display:block}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;flex-shrink:0}
+.sidebar-foot .who{min-width:0;overflow:hidden}
+.sidebar-foot .who strong{font-size:12.8px;color:#fff;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sidebar-foot .who span{font-size:11px;color:#8fbac2}
-.main{flex:1;display:flex;flex-direction:column;margin-left:var(--sidebar-w);min-height:100vh}
-.topbar{background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 26px;height:var(--topbar-h);display:flex;align-items:center;position:sticky;top:0;z-index:30;gap:16px}
-.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:#fff;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
-.topbar .back-link{color:var(--text-dim);font-size:13px;font-weight:500;text-decoration:none;display:flex;align-items:center;gap:6px}
+
+.main{flex:1;display:flex;flex-direction:column;margin-left:var(--sidebar-w);min-height:100vh;min-height:100dvh;min-width:0}
+.topbar{background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 22px;height:var(--topbar-h);display:flex;align-items:center;position:sticky;top:0;z-index:30;gap:12px}
+.hamburger{display:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:#fff;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:17px;flex-shrink:0}
+.topbar .back-link{color:var(--text-dim);font-size:13px;font-weight:500;text-decoration:none;display:flex;align-items:center;gap:6px;flex-shrink:0}
 .topbar .back-link:hover{color:var(--navy)}
-.topbar h1{font-size:19px;font-weight:800;flex:1;display:flex;align-items:center;gap:10px}
-.topbar .subtitle{font-size:12px;color:var(--text-dim);margin-left:8px;font-weight:400}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
-.btn-refresh{padding:8px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px}
+.topbar h1{font-size:17px;font-weight:800;flex:1;min-width:0;display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .subtitle{font-size:11.5px;color:var(--text-dim);font-weight:400;white-space:nowrap}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn-refresh{padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;font-family:inherit;white-space:nowrap}
 .btn-refresh:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
-.quick-filters{display:flex;gap:4px;padding:8px 16px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-wrap:wrap;overflow-x:auto}
-.qf-btn{padding:4px 14px;border-radius:99px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--text-dim);white-space:nowrap}
+
+.quick-filters{display:flex;gap:5px;padding:10px 16px;background:var(--bg-card);border-bottom:1px solid var(--border);overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.quick-filters::-webkit-scrollbar{display:none}
+.qf-btn{padding:5px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-dim);white-space:nowrap;font-family:inherit;flex-shrink:0}
 .qf-btn:hover{background:var(--bg);border-color:var(--navy)}
 .qf-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
-.qf-btn .count{background:var(--bg);padding:0 6px;border-radius:99px;font-size:10px;margin-left:4px}
+.qf-btn .count{background:rgba(0,0,0,.06);padding:0 6px;border-radius:99px;font-size:10px;margin-left:4px}
 .qf-btn.active .count{background:rgba(255,255,255,.2);color:#fff}
-.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:4px;padding:8px 16px;background:var(--bg-card);border-bottom:1px solid var(--border)}
-.stat-item{display:flex;flex-direction:column;align-items:center;padding:4px;border-radius:6px;cursor:pointer}
+
+.stats-bar{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px;padding:8px 12px;background:var(--bg-card);border-bottom:1px solid var(--border)}
+.stat-item{display:flex;flex-direction:column;align-items:center;padding:4px;border-radius:6px;cursor:pointer;text-align:center}
 .stat-item:hover{background:var(--bg)}
-.stat-item .num{font-size:16px;font-weight:800}
-.stat-item .label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.stat-item .num{font-size:15px;font-weight:800;line-height:1.1}
+.stat-item .label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;font-weight:600;margin-top:2px;line-height:1}
 .stat-item.urgent .num{color:var(--danger)}
 .stat-item.high .num{color:var(--warn)}
 .stat-item.open .num{color:var(--info)}
 .stat-item.resolved .num{color:var(--success)}
-.filter-bar{display:flex;gap:6px;padding:8px 16px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
-.filter-bar input,.filter-bar select{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:#fff;outline:none;font-family:inherit}
-.filter-bar input{flex:1;min-width:140px}
+
+.filter-bar{display:flex;gap:6px;padding:8px 12px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.filter-bar input,.filter-bar select{padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:11.5px;background:#fff;outline:none;font-family:inherit;color:var(--text)}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(12,61,74,.08)}
+.filter-bar input{flex:1;min-width:120px}
 .filter-bar .filter-actions{display:flex;gap:4px;margin-left:auto}
-.filter-bar .filter-actions button{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:10px;font-weight:600;color:var(--text-dim)}
-.messages-container{display:flex;flex:1;height:calc(100vh - var(--topbar-h) - 180px);min-height:400px;overflow:hidden}
-.ticket-list{width:340px;min-width:340px;border-right:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden}
+.filter-bar .filter-actions button{padding:5px 10px;border-radius:6px;border:1px solid var(--danger);background:var(--danger-bg);cursor:pointer;font-size:10.5px;font-weight:700;color:var(--danger);font-family:inherit}
+
+.messages-container{
+  display:flex;
+  flex:1;
+  height:calc(100vh - var(--topbar-h) - 190px);
+  height:calc(100dvh - var(--topbar-h) - 190px);
+  min-height:480px;
+  overflow:hidden;
+  background:var(--bg);
+}
+.ticket-list{width:340px;min-width:340px;max-width:340px;border-right:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden}
 .ticket-list .header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .ticket-list .header h2{font-size:13px;font-weight:700}
 .ticket-list .header .count{font-size:10px;color:var(--text-dim)}
-.ticket-list .search{padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:4px}
-.ticket-list .search input{flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;outline:none;background:#fff}
+.ticket-list .search{padding:6px 12px;border-bottom:1px solid var(--border)}
+.ticket-list .search input{width:100%;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:11.5px;outline:none;background:#fff;font-family:inherit}
 .ticket-items{flex:1;overflow-y:auto;padding:4px 0}
-.ticket-item{display:flex;align-items:stretch;gap:8px;padding:8px 12px;cursor:pointer;border-left:3px solid transparent}
+.ticket-item{display:flex;align-items:stretch;gap:8px;padding:9px 12px;cursor:pointer;border-left:3px solid transparent;transition:background .12s}
 .ticket-item:hover{background:var(--bg)}
 .ticket-item.active{background:var(--info-bg);border-left-color:var(--info)}
 .ticket-item .avatar{width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;margin-top:2px}
+.ticket-item .avatar.guest{background:var(--warn);color:#fff}
 .ticket-item .info{flex:1;min-width:0}
 .ticket-item .info .top{display:flex;justify-content:space-between;align-items:center;gap:4px}
-.ticket-item .info .subject{font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ticket-item .info .subject{font-weight:600;font-size:12.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ticket-item .info .preview{font-size:10.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .ticket-item .info .meta{font-size:9.5px;color:var(--text-faint);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .ticket-item .status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
@@ -98,22 +146,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .ticket-item .status-dot.closed{background:var(--text-faint)}
 .ticket-item .status-dot.waiting_user{background:#f472b6}
 .ticket-item .status-dot.waiting_support{background:#f59e0b}
-.ticket-item .priority-badge{font-size:7.5px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px}
+.ticket-item .priority-badge{font-size:7.5px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;letter-spacing:.03em}
 .ticket-item .priority-badge.urgent{background:var(--danger-bg);color:var(--danger)}
 .ticket-item .priority-badge.high{background:var(--warn-bg);color:#b3720a}
 .ticket-item .priority-badge.medium{background:var(--info-bg);color:var(--info)}
 .ticket-item .priority-badge.low{background:var(--bg);color:var(--text-faint)}
-.ticket-item .badge-unread{background:var(--danger);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:99px;min-width:16px;text-align:center}
+.ticket-item .badge-unread{background:var(--danger);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;min-width:18px;text-align:center}
 .ticket-item .time-ago{font-size:9px;color:var(--text-faint);white-space:nowrap}
 .ticket-item .assigned-badge{font-size:7.5px;font-weight:600;color:var(--text-dim);background:var(--bg);padding:1px 5px;border-radius:3px;white-space:nowrap}
+.ticket-item .guest-badge{font-size:7.5px;font-weight:700;color:#b3720a;background:var(--warn-bg);padding:1px 5px;border-radius:3px;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
 .ticket-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--text-faint);text-align:center;height:100%}
 .ticket-empty i{font-size:28px;margin-bottom:10px}
-.conversation-area{flex:1;display:flex;flex-direction:column;background:var(--bg);min-width:0}
-.conv-header{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+.conversation-area{flex:1;display:flex;flex-direction:column;background:var(--bg);min-width:0;min-height:0;overflow:hidden}
+.conv-header{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0}
 .conv-header .info{display:flex;align-items:center;gap:8px;flex:1;min-width:0;flex-wrap:wrap}
-.conv-header .info .subject{font-weight:700;font-size:13px}
+.conv-header .info .subject{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .conv-header .info .ticket-id{font-family:var(--mono);font-size:10px;color:var(--text-dim)}
-.conv-header .info .status-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase}
+.conv-header .info .status-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.03em}
 .conv-header .info .status-badge.open{background:var(--info-bg);color:var(--info)}
 .conv-header .info .status-badge.assigned{background:var(--purple-bg);color:var(--purple)}
 .conv-header .info .status-badge.in_progress{background:var(--warn-bg);color:#b3720a}
@@ -121,137 +171,331 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .conv-header .info .status-badge.closed{background:var(--bg);color:var(--text-dim)}
 .conv-header .info .status-badge.waiting_user{background:#fce7f3;color:#db2777}
 .conv-header .info .status-badge.waiting_support{background:var(--warn-bg);color:#b3720a}
+.conv-header .info .guest-pill{font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--warn-bg);color:#b3720a;text-transform:uppercase;letter-spacing:.03em}
 .conv-header .actions{display:flex;gap:3px;flex-shrink:0;flex-wrap:wrap}
-.conv-header .actions button{padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);font-size:10px;font-weight:600;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:3px}
+.conv-header .actions button{padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;font-weight:600;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:4px;font-family:inherit;min-width:32px;justify-content:center}
 .conv-header .actions button:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
 .conv-header .actions button:disabled{opacity:.5;cursor:not-allowed}
 .conv-header .actions button.danger:hover{background:var(--danger);border-color:var(--danger)}
 .conv-header .actions button.success:hover{background:var(--success);border-color:var(--success)}
 .conv-header .actions button.purple:hover{background:var(--purple);border-color:var(--purple)}
-.messages{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
-.msg{max-width:80%;padding:8px 12px;border-radius:10px;position:relative}
+
+.messages{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:8px;min-height:0;-webkit-overflow-scrolling:touch}
+.msg{max-width:80%;padding:8px 12px;border-radius:10px;position:relative;word-wrap:break-word}
 .msg.sent{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:3px}
 .msg.received{align-self:flex-start;background:var(--bg-card);border:1px solid var(--border);border-bottom-left-radius:3px}
 .msg.system{align-self:center;background:#f1f3f5;color:var(--text-dim);font-size:10.5px;max-width:90%;border-radius:20px;padding:3px 12px;border:1px solid #e3e8ee}
+.msg.sending{opacity:.72}
 .msg .sender{font-size:9.5px;font-weight:600;margin-bottom:2px;color:var(--text-dim)}
 .msg.sent .sender{color:rgba(255,255,255,.7)}
-.msg .text{font-size:12.5px;line-height:1.5;word-wrap:break-word}
+.msg .text{font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .msg .time{font-size:8.5px;opacity:.6;margin-top:3px;text-align:right}
 .msg.sent .time{color:rgba(255,255,255,.6)}
 .msg .internal-badge{font-size:7.5px;background:var(--warn-bg);padding:1px 5px;border-radius:99px;margin-left:4px;color:#b3720a;font-weight:700}
-.msg-attachment{margin-top:4px;border:1px solid var(--border);border-radius:6px;overflow:hidden;max-width:240px;background:var(--bg)}
-.msg-attachment img{display:block;max-width:100%;max-height:160px;object-fit:contain}
-.msg-attachment .attachment-info{display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:10px;color:var(--text-dim);background:#fff}
+
+.msg-attachment{
+  margin-top:6px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+  max-width:280px;
+  background:var(--bg);
+}
+.msg-attachment img{
+  display:block;
+  max-width:100%;
+  max-height:240px;
+  object-fit:contain;
+  background:#000;
+  cursor:zoom-in;
+}
+.msg-attachment.broken img{display:none}
+.msg-attachment .attachment-info{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 9px;
+  font-size:10.5px;
+  color:var(--text-dim);
+  background:#fff;
+  border-top:1px solid var(--border);
+}
+.msg-attachment .attachment-name{
+  flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.msg-attachment .attachment-info a{
+  color:var(--text-dim);text-decoration:none;padding:2px 4px;border-radius:4px;
+}
+.msg-attachment .attachment-info a:hover{background:var(--bg);color:var(--navy)}
 .msg.sent .msg-attachment{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
-.msg.sent .msg-attachment .attachment-info{background:transparent;color:rgba(255,255,255,.7)}
+.msg.sent .msg-attachment .attachment-info{background:transparent;color:rgba(255,255,255,.75);border-top-color:rgba(255,255,255,.15)}
 .msg.sent .msg-attachment .attachment-info a{color:rgba(255,255,255,.9)}
-.file-preview-container{display:flex;flex-wrap:wrap;gap:4px;padding:4px 0 0;width:100%}
-.file-preview-container .file-item{display:flex;align-items:center;gap:4px;padding:3px 6px 3px 4px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:10px}
-.file-preview-container .file-name{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.file-preview-container .file-size{font-size:8px;color:var(--text-faint)}
-.file-preview-container .remove-file{cursor:pointer;color:var(--danger);background:none;border:none;padding:0 2px}
+
+.img-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+.img-lightbox.open{display:flex}
+.img-lightbox img{max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.img-lightbox .close{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.img-lightbox .close:hover{background:rgba(255,255,255,.28)}
+
 .msg-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--text-faint);text-align:center;padding:20px}
 .msg-empty i{font-size:32px;margin-bottom:10px;opacity:.4}
 .msg-empty h4{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px}
-.msg-input-area{padding:8px 12px;border-top:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;gap:4px;flex-shrink:0;position:relative}
-.msg-input-row{display:flex;gap:6px;align-items:flex-end}
-.msg-input-area textarea{flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;resize:none;font-family:inherit;font-size:12px;outline:none;min-height:32px;max-height:80px;background:#fff}
-.input-actions{display:flex;gap:4px;align-items:center;flex-shrink:0;position:relative}
-.btn-send{padding:6px 12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;height:32px;display:flex;align-items:center;gap:4px;font-size:12px}
+.msg-empty p{font-size:11.5px}
+
+.msg-input-area{
+  padding:10px 12px;
+  border-top:1px solid var(--border);
+  background:var(--bg-card);
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  flex-shrink:0;
+}
+.file-preview-container{display:flex;flex-wrap:wrap;gap:4px;padding:0}
+.file-preview-container:empty{display:none}
+.file-preview-container .file-item{display:flex;align-items:center;gap:4px;padding:3px 6px 3px 4px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:10px}
+.file-preview-container .file-name{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-preview-container .file-size{font-size:8px;color:var(--text-faint)}
+.file-preview-container .remove-file{cursor:pointer;color:var(--danger);background:none;border:none;padding:0 2px;font-family:inherit}
+
+.msg-input-row{display:flex;gap:8px;align-items:flex-end}
+.msg-input-area textarea{
+  flex:1;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  resize:none;
+  font-family:inherit;
+  font-size:13.5px;
+  line-height:1.5;
+  outline:none;
+  background:#fff;
+  min-height:46px;
+  max-height:220px;
+  height:46px;
+  overflow-y:auto;
+  color:var(--text);
+}
+.msg-input-area textarea:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(12,61,74,.08)}
+.msg-input-area textarea::placeholder{color:var(--text-faint)}
+
+.input-actions{display:flex;gap:6px;align-items:flex-end;flex-shrink:0;position:relative;flex-wrap:wrap;padding-bottom:2px}
+.btn-send{padding:10px 16px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;min-height:42px;display:flex;align-items:center;gap:6px;font-size:13px;font-family:inherit}
 .btn-send:hover{background:var(--navy-light)}
-.btn-send:disabled{opacity:.5;cursor:not-allowed}
-.btn-attach{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim);position:relative}
+.btn-send:disabled{opacity:.55;cursor:not-allowed}
+.btn-attach{width:42px;height:42px;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-dim);position:relative}
 .btn-attach:hover{background:var(--bg);border-color:var(--navy)}
 .btn-attach input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.btn-canned{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-dim)}
+.btn-canned{width:42px;height:42px;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-dim)}
 .btn-canned:hover{background:var(--gold-soft);border-color:var(--gold)}
-.canned-dropdown{position:absolute;bottom:100%;left:0;width:300px;max-height:180px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);display:none;z-index:50;padding:4px 0}
+.canned-dropdown{position:absolute;bottom:calc(100% + 8px);right:0;width:min(320px,90vw);max-height:240px;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);display:none;z-index:50;padding:4px 0}
 .canned-dropdown.open{display:block}
-.canned-item{padding:6px 10px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--border)}
+.canned-item{padding:8px 12px;cursor:pointer;font-size:11.5px;border-bottom:1px solid var(--border)}
 .canned-item:last-child{border-bottom:none}
 .canned-item:hover{background:var(--info-bg)}
 .canned-item .title{font-weight:600;display:block}
-.canned-item .preview{font-size:10px;color:var(--text-dim);display:block}
-.reply-mode-toggle{display:flex;gap:2px;background:var(--bg);border-radius:6px;padding:2px}
-.reply-mode-toggle button{padding:2px 8px;border-radius:4px;border:none;font-size:9.5px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-dim)}
+.canned-item .preview{font-size:10.5px;color:var(--text-dim);display:block;margin-top:1px}
+.reply-mode-toggle{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px;height:42px;align-items:center}
+.reply-mode-toggle button{padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-dim);font-family:inherit;height:100%}
 .reply-mode-toggle button.active{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.send-status{font-size:9.5px;color:var(--text-faint);min-height:12px}
-.customer-panel{width:260px;min-width:260px;border-left:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden;padding:12px 14px}
-.cp-header{display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-.cp-avatar{width:40px;height:40px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0}
-.cp-name{font-weight:700;font-size:13px}
-.cp-email{font-size:10.5px;color:var(--text-dim);word-break:break-word}
-.cp-status{font-size:9px;font-weight:700;padding:1px 8px;border-radius:99px}
+.send-status{font-size:10px;color:var(--text-faint);min-height:14px;padding-left:2px}
+
+.customer-panel{width:260px;min-width:260px;max-width:260px;border-left:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden;padding:14px 16px}
+.cp-header{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.cp-avatar{width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0}
+.cp-avatar.guest{background:var(--warn);color:#fff}
+.cp-name{font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-email{font-size:10.5px;color:var(--text-dim);word-break:break-all}
+.cp-status{font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-block;margin-top:4px}
 .cp-status.active{background:var(--success-bg);color:var(--success)}
 .cp-status.inactive{background:var(--bg);color:var(--text-dim)}
-.cp-body{flex:1;overflow-y:auto;padding-top:10px}
-.cp-section{margin-bottom:10px}
-.cp-section-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);margin-bottom:4px}
-.cp-wallet{display:flex;gap:10px}
-.cp-wallet-item{flex:1;background:var(--bg);border-radius:6px;padding:6px 8px;text-align:center}
-.cp-wallet-item .amount{font-weight:700;font-size:13px}
-.cp-wallet-item .label{font-size:8px;color:var(--text-dim)}
-.cp-related{background:var(--bg);border-radius:6px;padding:8px 10px;margin-top:4px;cursor:pointer;border-left:3px solid var(--gold)}
-.cp-related .title{font-weight:600;font-size:11px}
-.cp-related .sub{font-size:10px;color:var(--text-dim)}
-.cp-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
-.cp-actions button{padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;font-size:10px;font-weight:600;cursor:pointer}
+.cp-status.guest{background:var(--warn-bg);color:#b3720a}
+.cp-body{flex:1;overflow-y:auto;padding-top:12px}
+.cp-section{margin-bottom:12px}
+.cp-section-title{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:6px}
+.cp-wallet{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cp-wallet-item{background:var(--bg);border-radius:8px;padding:8px 10px;text-align:center}
+.cp-wallet-item .amount{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.cp-wallet-item .label{font-size:9px;color:var(--text-dim);margin-top:2px}
+.cp-info{font-size:11.5px;line-height:1.7}
+.cp-info strong{font-weight:700}
+.cp-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.cp-actions button{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text)}
 .cp-actions button:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.cp-actions button:disabled{opacity:.5;cursor:not-allowed}
+.cp-actions button:disabled:hover{background:transparent;color:var(--text);border-color:var(--border)}
+
+.cp-guest-hint{margin-top:10px;padding:10px;border-radius:8px;background:var(--warn-bg);color:#7a5208;font-size:10.5px;line-height:1.5;border:1px solid rgba(245,158,11,.3)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(8,21,26,.55);backdrop-filter:blur(2px);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);padding:22px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal h2{font-size:16.5px;font-weight:800;margin-bottom:4px}
+.modal .sub{font-size:12px;color:var(--text-dim);margin-bottom:16px}
+.modal .form-group{margin-bottom:12px}
+.modal .form-group label{display:block;font-size:11px;font-weight:600;margin-bottom:4px;color:var(--text-dim)}
+.modal .form-group input,.modal .form-group select,.modal .form-group textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;outline:none;font-family:inherit}
+.modal .form-group input:focus,.modal .form-group select:focus{border-color:var(--navy)}
+.modal .agent-list{max-height:200px;overflow-y:auto}
+.modal .agent-option{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;border:2px solid transparent;margin-bottom:4px}
+.modal .agent-option:hover{background:var(--bg)}
+.modal .agent-option.selected{border-color:var(--navy);background:var(--info-bg)}
+.modal .agent-option .a-avatar{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10.5px;flex-shrink:0}
+.modal .agent-option .a-info{flex:1;min-width:0}
+.modal .agent-option .a-name{font-weight:600;font-size:12.5px}
+.modal .agent-option .a-status{font-size:10px;color:var(--text-dim)}
+.modal .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.modal .modal-actions button{padding:9px 18px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+.modal .modal-actions .btn-primary{background:var(--navy);color:#fff}
+.modal .modal-actions .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+
 .toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:6px;z-index:200;max-width:340px;pointer-events:none}
-.toast{background:var(--navy-deep);color:#fff;padding:8px 14px;border-radius:10px;font-size:11.5px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:8px;pointer-events:auto;border-left:3px solid var(--gold)}
+.toast{background:var(--navy-deep);color:#fff;padding:10px 14px;border-radius:10px;font-size:11.5px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:8px;pointer-events:auto;border-left:3px solid var(--gold);animation:toastIn .2s ease}
 .toast.success{border-left-color:var(--success)}
 .toast.error{border-left-color:var(--danger)}
 .toast.warning{border-left-color:var(--warn)}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(3px);z-index:100;align-items:center;justify-content:center;padding:20px}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:var(--radius-lg);padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
-.modal h2{font-size:17px;font-weight:800;margin-bottom:4px}
-.modal .sub{font-size:12px;color:var(--text-dim);margin-bottom:16px}
-.modal .form-group{margin-bottom:12px}
-.modal .form-group label{display:block;font-size:11px;font-weight:600;margin-bottom:3px;color:var(--text-dim)}
-.modal .form-group input,.modal .form-group select,.modal .form-group textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none;font-family:inherit}
-.modal .form-group textarea{min-height:60px;resize:vertical}
-.modal .agent-list{max-height:160px;overflow-y:auto}
-.modal .agent-option{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;border:2px solid transparent}
-.modal .agent-option:hover{background:var(--bg)}
-.modal .agent-option.selected{border-color:var(--navy);background:var(--info-bg)}
-.modal .agent-option .a-avatar{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px}
-.modal .agent-option .a-info{flex:1}
-.modal .agent-option .a-name{font-weight:600;font-size:12px}
-.modal .agent-option .a-status{font-size:9px;color:var(--text-dim)}
-.modal .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
-.modal .modal-actions button{padding:8px 18px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none}
-.modal .modal-actions .btn-primary{background:var(--navy);color:#fff}
-.modal .modal-actions .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+@media(max-width:1200px){
+  .customer-panel{width:240px;min-width:240px;max-width:240px}
+  .stats-bar{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
 @media(max-width:1024px){
-  .sidebar{transform:translateX(-100%);transition:transform .3s}
+  .sidebar{transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow-lg)}
   .sidebar.open{transform:translateX(0)}
   .main{margin-left:0}
-  .hamburger{display:flex}
+  .hamburger{display:inline-flex}
   .customer-panel{display:none}
-  .ticket-list{min-width:280px;width:280px}
+  .ticket-list{width:300px;min-width:300px;max-width:300px}
 }
 @media(max-width:768px){
-  .messages-container{flex-direction:column;height:auto;min-height:500px}
-  .ticket-list{width:100%;min-width:0;max-height:220px;border-right:none;border-bottom:1px solid var(--border)}
-  .conversation-area{height:calc(100vh - 380px);min-height:280px}
-  .topbar{padding:0 12px;height:52px}
-  .topbar h1{font-size:14px}
-  .stats-bar{grid-template-columns:repeat(4,1fr)}
+  .topbar{padding:0 12px;height:56px;gap:8px}
+  .topbar h1{font-size:15px}
+  .topbar .back-link span{display:none}
+  .subtitle{display:none}
+  .messages-container{flex-direction:column;height:auto;min-height:0}
+  .ticket-list{width:100%;min-width:0;max-width:100%;max-height:34vh;border-right:none;border-bottom:1px solid var(--border)}
+  .conversation-area{flex:1;min-height:0;height:auto}
+  .messages-container{height:calc(100dvh - var(--topbar-h) - 190px);min-height:480px}
+  .conv-header{padding:8px 12px}
+  .conv-header .info .subject{font-size:12.5px}
+  .conv-header .actions button{padding:7px 10px;min-width:34px}
+  .messages{padding:12px 12px;gap:8px}
+  .msg{max-width:88%;font-size:12.5px}
+  .msg .text{font-size:12.5px}
+  .msg-input-area{padding:10px 12px}
+  .msg-input-area textarea{font-size:16px;min-height:46px;height:46px}
+  .input-actions{gap:6px}
+  .btn-attach,.btn-canned{width:44px;height:44px}
+  .btn-send{min-height:44px;padding:10px 14px;font-size:13.5px}
+  .reply-mode-toggle{height:44px}
+  .canned-dropdown{left:0;right:auto;width:min(300px,calc(100vw - 20px))}
+  .stats-bar{grid-template-columns:repeat(4,minmax(0,1fr))}
   .stat-item .num{font-size:13px}
-  .filter-bar input{min-width:80px;font-size:10px}
-  .customer-panel{display:none}
-  .msg{max-width:92%;font-size:12px;padding:6px 10px}
+  .stat-item .label{font-size:8.5px}
+  .filter-bar input{min-width:80px;font-size:11px}
 }
-@media(max-width:480px){
-  .stats-bar{grid-template-columns:repeat(2,1fr)}
-  .filter-bar{flex-direction:column;align-items:stretch}
-  .conversation-area{height:calc(100vh - 420px);min-height:220px}
-  .modal{padding:16px;max-width:100%;margin:10px}
+@media(max-width:560px){
+  .quick-filters{padding:8px 10px}
+  .stats-bar{grid-template-columns:repeat(3,minmax(0,1fr));padding:6px 8px}
+  .filter-bar{padding:6px 10px;gap:4px}
+  .filter-bar select{font-size:11px;padding:5px 8px}
+  .filter-bar input{font-size:11px;min-width:0;flex:1 1 100%}
+  .filter-bar .filter-actions{margin-left:0;width:100%}
+  .filter-bar .filter-actions button{flex:1}
+  .ticket-list{max-height:32vh}
+  .messages-container{min-height:440px}
+  .msg{max-width:92%}
+  .reply-mode-toggle{display:none}
+  .msg-input-area textarea{font-size:16px;min-height:46px;height:46px}
+  .modal{padding:18px;max-width:100%}
+  .modal .modal-actions button{flex:1;padding:10px}
+  .toast-stack{left:10px;right:10px;bottom:10px;max-width:none}
+}
+@media(max-width:380px){
+  .stats-bar{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .msg .text{font-size:12px}
+}
+
+/* WhatsApp-style chat skin */
+.messages-container .messages{
+  background-color:#e9eef2;
+  background-image:radial-gradient(rgba(12,61,74,.08) 1px,transparent 1px);
+  background-size:18px 18px;
+  padding:16px clamp(12px,4vw,56px);
+  gap:2px;
+}
+.messages-container .msg{
+  max-width:min(78%,540px);
+  padding:6px 10px 4px;
+  margin-top:6px;
+  border-radius:10px;
+  box-shadow:0 1px 1px rgba(8,42,51,.14);
+}
+.messages-container .msg.sent{background:var(--navy);color:#fff;border-bottom-right-radius:10px;border-top-right-radius:2px}
+.messages-container .msg.received{background:#fff;border:none;border-bottom-left-radius:10px;border-top-left-radius:2px}
+.messages-container .msg.sent::before,
+.messages-container .msg.received::before{content:"";position:absolute;top:0;border:7px solid transparent}
+.messages-container .msg.sent::before{right:-6px;border-top-color:var(--navy);border-right:0}
+.messages-container .msg.received::before{left:-6px;border-top-color:#fff;border-left:0}
+.messages-container .msg .sender{font-size:11px;font-weight:700;margin-bottom:1px}
+.messages-container .msg.received .sender{color:var(--info)}
+.messages-container .msg .text{font-size:14px;line-height:1.4}
+.messages-container .msg .time{font-size:10px;margin-top:2px;text-align:right}
+.messages-container .msg.sending{opacity:.65}
+.messages-container .msg.system{
+  background:var(--warn-bg);color:#7a5208;border:1px solid rgba(245,158,11,.3);
+  align-self:center;max-width:88%;border-radius:10px;padding:6px 14px;box-shadow:none;
+}
+.messages-container .msg.system::before{display:none}
+.messages-container .msg.system .sender{color:#b3720a}
+.messages-container .msg.system .internal-badge{display:none}
+.messages-container .msg-attachment{border-radius:8px;margin-top:4px}
+
+.ticket-item{padding:12px 14px;border-bottom:1px solid var(--border)}
+.ticket-item .avatar{width:46px;height:46px;font-size:16px;margin-top:0}
+.ticket-item .info .subject{font-size:14px}
+.ticket-item .info .preview{font-size:12.5px}
+
+.messages-container .msg-input-area{background:#f0f2f5;padding:8px 10px;gap:8px;align-items:stretch}
+.messages-container .msg-input-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;position:relative}
+.messages-container .input-actions{display:contents}
+.messages-container .msg-input-area textarea{
+  order:3;flex:1 1 0;min-width:0;
+  min-height:46px;height:46px;max-height:220px;
+  padding:12px 18px;
+  border:none;border-radius:23px;background:#fff;
+  font-size:16px;line-height:1.4;
+  box-shadow:0 1px 1px rgba(8,42,51,.1);
+}
+.messages-container .msg-input-area textarea:focus{box-shadow:0 0 0 2px rgba(12,61,74,.18)}
+.messages-container .btn-attach,
+.messages-container .btn-canned{
+  width:46px;height:46px;border:none;border-radius:50%;background:transparent;
+  color:var(--text-dim);font-size:19px;position:relative;
+}
+.messages-container .btn-attach{order:1}
+.messages-container .btn-canned{order:2}
+.messages-container .btn-attach:hover,
+.messages-container .btn-canned:hover{background:rgba(12,61,74,.08);border:none}
+.messages-container .btn-send{
+  order:4;width:46px;height:46px;min-height:46px;padding:0;border-radius:50%;
+  justify-content:center;font-size:0;gap:0;background:var(--navy);
+}
+.messages-container .btn-send i{font-size:17px;margin-left:-2px}
+.messages-container .reply-mode-toggle{order:-1;flex:0 0 100%;height:34px;width:100%;background:#fff}
+.messages-container .reply-mode-toggle button{flex:1}
+.messages-container .canned-dropdown{left:0;right:auto;bottom:calc(100% + 8px)}
+
+@media(max-width:768px){
+  .messages-container .msg{max-width:86%}
+  .messages-container .msg-input-area textarea{min-height:46px;height:46px}
+  .messages-container .btn-attach,.messages-container .btn-canned,.messages-container .btn-send{width:44px;height:44px;min-height:44px}
 }
 </style>
 </head>
-<body>
+<body data-miles-widget="off">
 
 <div class="app">
 <aside class="sidebar" id="sidebar">
@@ -275,11 +519,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 <div class="main">
   <header class="topbar">
-    <button class="hamburger" id="hamburger">☰</button>
-    <a href="/admin/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
+    <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+    <a href="/admin/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> <span>Dashboard</span></a>
     <h1>🎫 Support <span class="subtitle" id="ticketCountLabel">Loading…</span></h1>
     <div class="topbar-right">
-      <button class="btn-refresh" id="refreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+      <button class="btn-refresh" id="refreshBtn"><i class="fas fa-sync-alt"></i> <span>Refresh</span></button>
     </div>
   </header>
 
@@ -287,6 +531,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <button class="qf-btn active" data-filter="all" data-count="qfAll">All <span class="count" id="qfAll">0</span></button>
     <button class="qf-btn" data-filter="mine" data-count="qfMine">My Tickets <span class="count" id="qfMine">0</span></button>
     <button class="qf-btn" data-filter="unassigned" data-count="qfUnassigned">Unassigned <span class="count" id="qfUnassigned">0</span></button>
+    <button class="qf-btn" data-filter="guest" data-count="qfGuest">👤 Guests <span class="count" id="qfGuest">0</span></button>
     <button class="qf-btn" data-filter="urgent" data-count="qfUrgent">🚨 Urgent <span class="count" id="qfUrgent">0</span></button>
     <button class="qf-btn" data-filter="waiting" data-count="qfWaiting">⏳ Waiting <span class="count" id="qfWaiting">0</span></button>
     <button class="qf-btn" data-filter="resolved" data-count="qfResolved">✅ Resolved <span class="count" id="qfResolved">0</span></button>
@@ -295,9 +540,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="stats-bar" id="statsBar">
     <div class="stat-item open" data-status="open"><span class="num" id="statOpen">0</span><span class="label">Open</span></div>
     <div class="stat-item" data-status="assigned"><span class="num" id="statAssigned">0</span><span class="label">Assigned</span></div>
-    <div class="stat-item" data-status="in_progress"><span class="num" id="statInProgress">0</span><span class="label">In Progress</span></div>
-    <div class="stat-item" data-status="waiting_user"><span class="num" id="statWaitingUser">0</span><span class="label">Waiting User</span></div>
-    <div class="stat-item" data-status="waiting_support"><span class="num" id="statWaitingSupport">0</span><span class="label">Waiting Support</span></div>
+    <div class="stat-item" data-status="in_progress"><span class="num" id="statInProgress">0</span><span class="label">Progress</span></div>
+    <div class="stat-item" data-status="waiting_user"><span class="num" id="statWaitingUser">0</span><span class="label">Wait User</span></div>
+    <div class="stat-item" data-status="waiting_support"><span class="num" id="statWaitingSupport">0</span><span class="label">Wait Sup</span></div>
     <div class="stat-item resolved" data-status="resolved"><span class="num" id="statResolved">0</span><span class="label">Resolved</span></div>
     <div class="stat-item" data-status="closed"><span class="num" id="statClosed">0</span><span class="label">Closed</span></div>
     <div class="stat-item urgent" data-priority="urgent"><span class="num" id="statUrgent">0</span><span class="label">🚨 Urgent</span></div>
@@ -305,7 +550,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
 
   <div class="filter-bar">
-    <input type="text" id="searchTickets" placeholder="🔍 Search tickets...">
+    <input type="text" id="searchTickets" placeholder="🔍 Search tickets, names, emails…">
     <select id="statusFilter">
       <option value="">All Status</option>
       <option value="open">Open</option>
@@ -328,7 +573,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <option value="unassigned">Unassigned</option>
     </select>
     <div class="filter-actions">
-      <button id="clearFiltersBtn" style="background:var(--danger-bg);color:var(--danger);border-color:var(--danger);">Clear</button>
+      <button id="clearFiltersBtn">Clear</button>
     </div>
   </div>
 
@@ -339,7 +584,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <span class="count" id="ticketListCount">0</span>
       </div>
       <div class="search">
-        <input type="text" id="ticketSearch" placeholder="Search tickets...">
+        <input type="text" id="ticketSearch" placeholder="Search…" autocomplete="off">
       </div>
       <div class="ticket-items" id="ticketList">
         <div class="ticket-empty"><i class="fas fa-spinner fa-spin"></i><p>Loading…</p></div>
@@ -353,8 +598,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           <span class="ticket-id" id="convTicketId"></span>
           <span class="status-badge" id="convStatusBadge"></span>
           <span class="priority-badge" id="convPriorityBadge"></span>
+          <span class="guest-pill" id="convGuestPill" style="display:none;">Guest</span>
         </div>
-        <div class="actions" id="convActions" style="position:relative;display:none;">
+        <div class="actions" id="convActions" style="display:none;">
           <button id="assignBtn" class="purple" title="Assign"><i class="fas fa-user-plus"></i></button>
           <button id="resolveBtn" class="success" title="Mark resolved"><i class="fas fa-check"></i></button>
           <button id="closeBtn" class="danger" title="Close"><i class="fas fa-times"></i></button>
@@ -366,14 +612,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <div class="msg-empty">
           <i class="fas fa-inbox"></i>
           <h4>No ticket selected</h4>
-          <p>Select a ticket from the list to view the conversation</p>
+          <p>Select a ticket to view the conversation</p>
         </div>
       </div>
 
       <div class="msg-input-area" id="msgInputArea" style="display:none;">
         <div class="file-preview-container" id="filePreviewContainer"></div>
         <div class="msg-input-row">
-          <textarea id="msgInput" placeholder="Type your reply..." rows="1"></textarea>
+          <textarea id="msgInput" rows="1" placeholder="Type your reply…"></textarea>
           <div class="input-actions">
             <button class="btn-attach" id="attachBtn" title="Attach file">
               <i class="fas fa-paperclip"></i>
@@ -385,8 +631,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
               <div class="canned-item" data-template="checking"><span class="title">🔍 Checking</span><span class="preview">Let me check this for you right away…</span></div>
               <div class="canned-item" data-template="escalated"><span class="title">📤 Escalated</span><span class="preview">I've escalated this to our technical team…</span></div>
               <div class="canned-item" data-template="resolved"><span class="title">✅ Resolved</span><span class="preview">Your issue has been resolved…</span></div>
-              <div class="canned-item" data-template="pending"><span class="title">⏳ Pending</span><span class="preview">Your transaction is currently being processed…</span></div>
-              <div class="canned-item" data-template="refund"><span class="title">💰 Refund</span><span class="preview">Your refund has been processed successfully…</span></div>
+              <div class="canned-item" data-template="pending"><span class="title">⏳ Pending</span><span class="preview">Your transaction is being processed…</span></div>
+              <div class="canned-item" data-template="refund"><span class="title">💰 Refund</span><span class="preview">Your refund has been processed…</span></div>
             </div>
             <div class="reply-mode-toggle">
               <button class="active" data-mode="reply" id="modeReplyBtn">💬 Reply</button>
@@ -402,10 +648,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="customer-panel" id="customerPanel">
       <div class="cp-header">
         <div class="cp-avatar" id="cpAvatar">U</div>
-        <div>
-          <div class="cp-name" id="cpName">User Name</div>
-          <div class="cp-email" id="cpEmail">user@email.com</div>
-          <span class="cp-status" id="cpStatus">Active</span>
+        <div style="min-width:0;flex:1">
+          <div class="cp-name" id="cpName">—</div>
+          <div class="cp-email" id="cpEmail">—</div>
+          <span class="cp-status active" id="cpStatus">Active</span>
         </div>
       </div>
       <div class="cp-body">
@@ -418,15 +664,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         </div>
         <div class="cp-section">
           <div class="cp-section-title">Account</div>
-          <div style="font-size:11px;display:flex;gap:8px;flex-wrap:wrap;">
-            <span>Joined: <strong id="cpJoined">—</strong></span>
-            <span>Status: <strong id="cpAccountStatus">—</strong></span>
-            <span>Tickets: <strong id="cpTicketCount">0</strong></span>
+          <div class="cp-info">
+            <div>Joined: <strong id="cpJoined">—</strong></div>
+            <div>Status: <strong id="cpAccountStatus">—</strong></div>
+            <div>Tickets: <strong id="cpTicketCount">0</strong></div>
           </div>
         </div>
         <div class="cp-actions">
-          <button id="viewProfileBtn">👤 View Profile</button>
-          <button id="viewTxBtn">💳 Transactions</button>
+          <button id="viewProfileBtn">👤 Profile</button>
+          <button id="viewTxBtn">💳 Txns</button>
+        </div>
+        <div class="cp-guest-hint" id="cpGuestHint" style="display:none;">
+          This is a <strong>guest ticket</strong>. The visitor is not signed in.
+          Reply to their email directly, or use the reply composer.
         </div>
       </div>
     </div>
@@ -446,23 +696,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
 </div>
 
+<div class="img-lightbox" id="imgLightbox">
+  <button class="close" id="imgLightboxClose" aria-label="Close">✕</button>
+  <img id="imgLightboxImg" src="" alt="">
+</div>
+
 <div class="toast-stack" id="toastStack"></div>
 
 <script>
 'use strict';
 
-/* ──────────────────────────────────────────────────────────────
-   MilesSpace Support Admin — hardened frontend
-   - One init path (no auth race)
-   - One API surface: /api/admin/support/*
-   - Uses AdminSession.fetch when available
-   - All dynamic values escaped
-   - Overlapping polls prevented
-   - Attachments rendered by type
-   - Permission errors surfaced from backend
-   ────────────────────────────────────────────────────────────── */
-
-// ─── API ───────────────────────────────────────────────────────
 const API = {
   me:           '/api/admin/me',
   stats:        '/api/admin/support/stats',
@@ -478,7 +721,6 @@ const API = {
   admins:       '/api/admin/support/admins'
 };
 
-// ─── STATE ─────────────────────────────────────────────────────
 const State = {
   ready: false,
   admin: null,
@@ -489,6 +731,8 @@ const State = {
   currentTicketNumber: null,
   currentStatus: null,
   currentPriority: null,
+  currentIsGuest: false,
+  lastRenderedMessageId: null,
   pendingFiles: [],
   replyMode: 'reply',
   isCannedOpen: false,
@@ -498,7 +742,9 @@ const State = {
   assignableAdmins: []
 };
 
-// ─── HELPERS ───────────────────────────────────────────────────
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
 function escapeHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/[&<>"']/g, m => ({
@@ -515,53 +761,117 @@ function getTimeAgo(d) {
   return Math.floor(diff / 604800) + 'w ago';
 }
 function formatFileSize(b) {
-  if (!b) return '';
+  if (!b && b !== 0) return '';
   if (b < 1024) return b + ' B';
   if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
   return (b / 1048576).toFixed(1) + ' MB';
 }
-
-// Safe toast — no innerHTML on user-supplied text.
 function showToast(message, type = 'info') {
-  const stack = document.getElementById('toastStack');
+  const stack = $('#toastStack');
   if (!stack) return;
   const el = document.createElement('div');
   el.className = 'toast ' + type;
   const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-  const icon = document.createElement('span');
-  icon.textContent = icons[type] || 'ℹ️';
-  const text = document.createElement('span');
-  text.textContent = String(message || '');
-  el.appendChild(icon);
-  el.appendChild(text);
+  el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${escapeHtml(message)}</span>`;
   stack.appendChild(el);
   setTimeout(() => {
     el.style.opacity = '0';
     el.style.transition = 'opacity .25s';
     setTimeout(() => el.remove(), 260);
-  }, 3400);
+  }, 3200);
 }
 
-// ─── AUTH-AWARE FETCH ──────────────────────────────────────────
-// Uses AdminSession.fetch when available so 401/403 handling is unified.
-async function apiFetch(url, opts = {}) {
-  const token = (() => {
-    try {
-      const raw = localStorage.getItem('admin_sess') || sessionStorage.getItem('admin_sess');
-      return raw ? JSON.parse(raw).token : null;
-    } catch { return null; }
-  })();
+/* Determine whether a ticket is a guest ticket. */
+function ticketIsGuest(t) {
+  return !t || !t.user_id
+    ? !!(t && (t.contact_name || t.contact_email))
+    : false;
+}
 
+/* ─── Attachment normaliser ─── */
+function guessMimeFromUrl(url) {
+  const u = String(url || '').toLowerCase().split('?')[0].split('#')[0];
+  if (/\.(jpg|jpeg)$/.test(u)) return 'image/jpeg';
+  if (/\.png$/.test(u)) return 'image/png';
+  if (/\.gif$/.test(u)) return 'image/gif';
+  if (/\.webp$/.test(u)) return 'image/webp';
+  if (/\.svg$/.test(u)) return 'image/svg+xml';
+  if (/\.bmp$/.test(u)) return 'image/bmp';
+  if (/\.heic$/.test(u)) return 'image/heic';
+  if (/\.pdf$/.test(u)) return 'application/pdf';
+  if (/\.csv$/.test(u)) return 'text/csv';
+  if (/\.txt$/.test(u)) return 'text/plain';
+  return 'application/octet-stream';
+}
+function guessNameFromUrl(url) {
+  try {
+    const u = new URL(url);
+    const last = u.pathname.split('/').filter(Boolean).pop() || 'attachment';
+    return decodeURIComponent(last).slice(0, 120);
+  } catch {
+    return 'attachment';
+  }
+}
+function isImageMime(t) { return String(t || '').toLowerCase().startsWith('image/'); }
+function isLikelyImageUrl(url) { return isImageMime(guessMimeFromUrl(url)); }
+
+function normaliseAttachments(m) {
+  const out = [];
+  const push = (a) => {
+    if (!a) return;
+    if (typeof a === 'string') {
+      const url = a.trim();
+      if (!url) return;
+      out.push({ url, type: guessMimeFromUrl(url), name: guessNameFromUrl(url), size: null });
+      return;
+    }
+    if (typeof a !== 'object') return;
+    const url = a.url || a.secure_url || a.secureUrl || a.src || a.href || a.file_url || a.location || a.path || null;
+    if (!url) return;
+    out.push({
+      url: String(url),
+      type: String(a.type || a.mime || a.mimetype || a.content_type || a.mime_type || guessMimeFromUrl(url)),
+      name: String(a.name || a.filename || a.originalname || a.original_name || guessNameFromUrl(url)),
+      size: Number.isFinite(a.size) ? a.size : null
+    });
+  };
+  if (Array.isArray(m.attachments)) { for (const a of m.attachments) push(a); }
+  else if (m.attachments && typeof m.attachments === 'object') { push(m.attachments); }
+  else if (typeof m.attachments === 'string' && m.attachments.trim()) {
+    const raw = m.attachments.trim();
+    if (raw.startsWith('[') || raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) parsed.forEach(push);
+        else push(parsed);
+      } catch { push(raw); }
+    } else { push(raw); }
+  }
+  if (!out.length && m.attachment_url) {
+    push({ url: m.attachment_url, type: m.attachment_type || m.attachment_mime || '', name: m.attachment_name || m.attachment_filename || '' });
+  }
+  if (!out.length && m.file_url) push({ url: m.file_url, type: m.file_type || '', name: m.file_name || '' });
+  if (!out.length && m.image_url) push({ url: m.image_url, type: 'image/*', name: m.image_name || '' });
+  return out;
+}
+
+async function apiFetch(url, opts = {}) {
   const headers = {
     ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(opts.headers || {})
   };
-  if (token) headers['Authorization'] = 'Bearer ' + token;
 
   let res;
   if (window.AdminSession && typeof window.AdminSession.fetch === 'function') {
     res = await window.AdminSession.fetch(url, { ...opts, headers });
   } else {
+    const token = (() => {
+      try {
+        const raw = localStorage.getItem('admin_sess') || sessionStorage.getItem('admin_sess');
+        return raw ? JSON.parse(raw).token : null;
+      } catch { return null; }
+    })();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
     res = await fetch(url, { ...opts, headers });
   }
 
@@ -569,13 +879,10 @@ async function apiFetch(url, opts = {}) {
   try { body = await res.json(); } catch {}
 
   if (res.status === 401) {
-    // AdminSession normally handles this. If we fell back, do it ourselves.
-    if (!window.AdminSession) {
-      localStorage.removeItem('admin_sess');
-      sessionStorage.removeItem('admin_sess');
-      window.location.href = '/admin/login';
-    }
-    throw Object.assign(new Error(body?.error || 'Session expired'), { code: body?.code || 'SESSION_EXPIRED', status: 401 });
+    const e = new Error(body?.error || 'Session expired');
+    e.code = body?.code || 'SESSION_EXPIRED';
+    e.status = 401;
+    throw e;
   }
   if (res.status === 403) {
     const e = new Error(body?.error || 'You do not have permission to perform this action.');
@@ -593,69 +900,63 @@ async function apiFetch(url, opts = {}) {
   return body;
 }
 
-// ─── INIT ──────────────────────────────────────────────────────
 async function initializePage() {
-  // 1. Auth first.
   try {
     const me = await apiFetch(API.me);
     State.admin = me.admin || me.user || null;
   } catch (err) {
     console.error('Auth check failed:', err.message);
-    window.location.href = '/admin/login';
     return;
   }
 
   const admin = State.admin || {};
   const name = admin.username || admin.email?.split('@')[0] || 'Admin';
   const role = (admin.role || 'admin').replace(/_/g, ' ');
-  document.getElementById('adminName').textContent = name;
-  document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-  document.getElementById('adminAvatar').textContent = name.charAt(0).toUpperCase();
+  $('#adminName').textContent = name;
+  $('#adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+  $('#adminAvatar').textContent = name.charAt(0).toUpperCase();
 
-  // 2. Load sidecar data.
-  try { const a = await apiFetch(API.admins); State.assignableAdmins = a.data || []; } catch (_) {}
+  try {
+    const a = await apiFetch(API.admins);
+    State.assignableAdmins = a.data || [];
+  } catch (_) {}
 
-  // 3. Load tickets.
   await loadTickets();
   await loadStats();
 
-  // 4. Only now begin polling.
   startPolling();
   State.ready = true;
 }
 
-// ─── STATS ─────────────────────────────────────────────────────
 async function loadStats() {
   try {
     const r = await apiFetch(API.stats);
     const s = r.data || {};
-    document.getElementById('statOpen').textContent = s.open || 0;
-    document.getElementById('statAssigned').textContent = s.assigned || 0;
-    document.getElementById('statInProgress').textContent = s.in_progress || 0;
-    document.getElementById('statWaitingUser').textContent = s.waiting_user || 0;
-    document.getElementById('statWaitingSupport').textContent = s.waiting_support || 0;
-    document.getElementById('statResolved').textContent = s.resolved || 0;
-    document.getElementById('statClosed').textContent = s.closed || 0;
-    document.getElementById('statUrgent').textContent = s.urgent || 0;
-    document.getElementById('statHigh').textContent = s.high_priority || 0;
-    document.getElementById('ticketCountLabel').textContent =
-      `${s.total || 0} tickets · ${s.open || 0} open`;
+    $('#statOpen').textContent = s.open || 0;
+    $('#statAssigned').textContent = s.assigned || 0;
+    $('#statInProgress').textContent = s.in_progress || 0;
+    $('#statWaitingUser').textContent = s.waiting_user || 0;
+    $('#statWaitingSupport').textContent = s.waiting_support || 0;
+    $('#statResolved').textContent = s.resolved || 0;
+    $('#statClosed').textContent = s.closed || 0;
+    $('#statUrgent').textContent = s.urgent || 0;
+    $('#statHigh').textContent = s.high_priority || 0;
+    $('#ticketCountLabel').textContent = `${s.total || 0} tickets · ${s.open || 0} open`;
   } catch (err) {
     console.warn('Stats failed:', err.message);
   }
 }
 
-// ─── TICKETS ───────────────────────────────────────────────────
 async function loadTickets() {
   if (State.conversationsLoading) return;
   State.conversationsLoading = true;
   try {
     const p = new URLSearchParams();
     const f = {
-      status: document.getElementById('statusFilter')?.value || '',
-      priority: document.getElementById('priorityFilter')?.value || '',
-      assigned: document.getElementById('assignedFilter')?.value || '',
-      search: document.getElementById('searchTickets')?.value || ''
+      status: $('#statusFilter')?.value || '',
+      priority: $('#priorityFilter')?.value || '',
+      assigned: $('#assignedFilter')?.value || '',
+      search: $('#searchTickets')?.value || ''
     };
     if (f.status) p.set('status', f.status);
     if (f.priority) p.set('priority', f.priority);
@@ -669,8 +970,7 @@ async function loadTickets() {
     renderTicketList();
   } catch (err) {
     console.error('Load tickets error:', err.message);
-    const tb = document.getElementById('ticketList');
-    tb.innerHTML = `<div class="ticket-empty">
+    $('#ticketList').innerHTML = `<div class="ticket-empty">
       <i class="fas fa-exclamation-triangle"></i>
       <p>Unable to load tickets</p>
       <button onclick="loadTickets()" style="margin-top:10px;padding:6px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Retry</button>
@@ -684,29 +984,33 @@ function applyQuickFilterCounts() {
   const myId = State.admin?.id;
   const list = State.tickets || [];
   const isActive = t => !['resolved','closed'].includes(t.status);
-  document.getElementById('qfAll').textContent = list.length;
-  document.getElementById('qfMine').textContent = list.filter(t => t.assigned_to === myId && isActive(t)).length;
-  document.getElementById('qfUnassigned').textContent = list.filter(t => !t.assigned_to && isActive(t)).length;
-  document.getElementById('qfUrgent').textContent = list.filter(t => t.priority === 'urgent' && isActive(t)).length;
-  document.getElementById('qfWaiting').textContent = list.filter(t => ['waiting_user','waiting_support'].includes(t.status)).length;
-  document.getElementById('qfResolved').textContent = list.filter(t => t.status === 'resolved').length;
+  $('#qfAll').textContent = list.length;
+  $('#qfMine').textContent = list.filter(t => t.assigned_to === myId && isActive(t)).length;
+  $('#qfUnassigned').textContent = list.filter(t => !t.assigned_to && isActive(t)).length;
+  $('#qfGuest').textContent = list.filter(t => ticketIsGuest(t) && isActive(t)).length;
+  $('#qfUrgent').textContent = list.filter(t => t.priority === 'urgent' && isActive(t)).length;
+  $('#qfWaiting').textContent = list.filter(t => ['waiting_user','waiting_support'].includes(t.status)).length;
+  $('#qfResolved').textContent = list.filter(t => t.status === 'resolved').length;
 }
 
 function renderTicketList() {
-  const list = document.getElementById('ticketList');
-  const qf = document.querySelector('.qf-btn.active')?.dataset.filter || 'all';
+  const list = $('#ticketList');
+  const qf = $('.qf-btn.active')?.dataset.filter || 'all';
   const myId = State.admin?.id;
 
   State.filteredTickets = State.tickets.filter(t => {
-    if (qf === 'mine') return t.assigned_to === myId && !['resolved','closed'].includes(t.status);
-    if (qf === 'unassigned') return !t.assigned_to && !['resolved','closed'].includes(t.status);
-    if (qf === 'urgent') return t.priority === 'urgent' && !['resolved','closed'].includes(t.status);
+    const isGuest = ticketIsGuest(t);
+    const isActive = !['resolved','closed'].includes(t.status);
+    if (qf === 'mine') return t.assigned_to === myId && isActive;
+    if (qf === 'unassigned') return !t.assigned_to && isActive;
+    if (qf === 'guest') return isGuest && isActive;
+    if (qf === 'urgent') return t.priority === 'urgent' && isActive;
     if (qf === 'waiting') return ['waiting_user','waiting_support'].includes(t.status);
     if (qf === 'resolved') return t.status === 'resolved';
     return true;
   });
 
-  document.getElementById('ticketListCount').textContent = State.filteredTickets.length;
+  $('#ticketListCount').textContent = State.filteredTickets.length;
 
   if (!State.filteredTickets.length) {
     list.innerHTML = `<div class="ticket-empty">
@@ -718,8 +1022,13 @@ function renderTicketList() {
 
   list.innerHTML = State.filteredTickets.map(t => {
     const u = t.user || {};
-    const displayName = u.username || u.email || 'Unknown';
-    const initials = displayName.charAt(0).toUpperCase();
+    const isGuest = ticketIsGuest(t);
+
+    const displayName = isGuest
+      ? (t.contact_name || t.contact_email || 'Guest')
+      : (u.username || u.email || 'Unknown');
+
+    const initials = displayName.charAt(0).toUpperCase() || (isGuest ? 'G' : 'U');
     const unread = Number(t.unread_count || 0);
     const last = t.last_message;
     const preview = last?.message
@@ -728,9 +1037,12 @@ function renderTicketList() {
     const assignedLabel = t.assigned?.username || null;
     const prio = t.priority || 'medium';
     const prioLabel = ({ urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' })[prio] || 'Normal';
-    return `<div class="ticket-item ${State.currentTicketId === t.id ? 'active' : ''}"
-                 data-id="${escapeHtml(t.id)}">
-      <div class="avatar">${escapeHtml(initials)}</div>
+
+    const guestBadge = isGuest ? `<span class="guest-badge">Guest</span>` : '';
+    const avatarClass = isGuest ? 'avatar guest' : 'avatar';
+
+    return `<div class="ticket-item ${State.currentTicketId === t.id ? 'active' : ''}" data-id="${escapeHtml(t.id)}">
+      <div class="${avatarClass}">${escapeHtml(initials)}</div>
       <div class="info">
         <div class="top">
           <span class="subject">${escapeHtml(t.subject || '(no subject)')}</span>
@@ -745,6 +1057,7 @@ function renderTicketList() {
           <span>·</span>
           <span class="time-ago">${escapeHtml(getTimeAgo(t.updated_at || t.created_at))}</span>
           ${assignedLabel ? `<span class="assigned-badge">👤 ${escapeHtml(assignedLabel)}</span>` : ''}
+          ${guestBadge}
         </div>
       </div>
     </div>`;
@@ -755,23 +1068,17 @@ function renderTicketList() {
   });
 }
 
-// ─── SELECT TICKET ─────────────────────────────────────────────
 async function selectTicket(ticketId) {
   if (!ticketId || State.currentTicketId === ticketId) return;
   State.currentTicketId = ticketId;
-  document.querySelectorAll('.ticket-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.id === ticketId);
-  });
-  document.getElementById('msgInputArea').style.display = 'flex';
+  State.lastRenderedMessageId = null;
+  $$('.ticket-item').forEach(el => el.classList.toggle('active', el.dataset.id === ticketId));
+  $('#msgInputArea').style.display = 'flex';
   await loadMessages(ticketId);
-  // Fire-and-forget read receipt; the backend marks user messages read.
-  apiFetch(API.read(ticketId), { method: 'POST' }).catch(() => {});
 }
 
-// ─── LOAD MESSAGES ─────────────────────────────────────────────
-async function loadMessages(ticketId) {
-  if (!ticketId) return;
-  if (State.messagesLoading) return;
+async function loadMessages(ticketId, { silent = false } = {}) {
+  if (!ticketId || State.messagesLoading) return;
   State.messagesLoading = true;
   try {
     const r = await apiFetch(API.ticket(ticketId));
@@ -780,50 +1087,155 @@ async function loadMessages(ticketId) {
     State.currentTicketNumber = ticket.ticket_number;
     State.currentStatus = ticket.status;
     State.currentPriority = ticket.priority;
+    State.currentIsGuest = ticketIsGuest(ticket);
 
-    document.getElementById('convSubject').textContent = ticket.subject || 'Conversation';
-    document.getElementById('convTicketId').textContent = ticket.ticket_number || '';
-    const sb = document.getElementById('convStatusBadge');
+    $('#convSubject').textContent = ticket.subject || 'Conversation';
+    $('#convTicketId').textContent = ticket.ticket_number || '';
+    const sb = $('#convStatusBadge');
     sb.textContent = (ticket.status || 'open').replace(/_/g,' ');
     sb.className = 'status-badge ' + (ticket.status || 'open');
-    const pb = document.getElementById('convPriorityBadge');
+    const pb = $('#convPriorityBadge');
     pb.textContent = (ticket.priority || 'medium');
     pb.className = 'priority-badge ' + (ticket.priority || 'medium');
 
-    // Show / hide actions
-    document.getElementById('convActions').style.display = 'flex';
+    // Guest pill
+    const gp = $('#convGuestPill');
+    if (State.currentIsGuest) gp.style.display = ''; else gp.style.display = 'none';
+
+    $('#convActions').style.display = 'flex';
     const isClosed = ticket.status === 'closed';
     const isResolved = ticket.status === 'resolved';
-    document.getElementById('assignBtn').style.display    = (!isClosed && !isResolved) ? 'inline-flex' : 'none';
-    document.getElementById('resolveBtn').style.display   = (!isClosed && !isResolved) ? 'inline-flex' : 'none';
-    document.getElementById('closeBtn').style.display     = (!isClosed) ? 'inline-flex' : 'none';
-    document.getElementById('reopenBtn').style.display    = (isClosed || isResolved) ? 'inline-flex' : 'none';
+    $('#assignBtn').style.display  = (!isClosed && !isResolved) ? 'inline-flex' : 'none';
+    $('#resolveBtn').style.display = (!isClosed && !isResolved) ? 'inline-flex' : 'none';
+    $('#closeBtn').style.display   = (!isClosed) ? 'inline-flex' : 'none';
+    $('#reopenBtn').style.display  = (isClosed || isResolved) ? 'inline-flex' : 'none';
 
-    // Customer panel
-    const u = ticket.user || {};
-    document.getElementById('cpAvatar').textContent = (u.username || 'U').charAt(0).toUpperCase();
-    document.getElementById('cpName').textContent = u.username || 'Unknown';
-    document.getElementById('cpEmail').textContent = u.email || 'No email';
-    document.getElementById('cpNgn').textContent = '₦' + Number(u.wallet_ngn || 0).toLocaleString();
-    document.getElementById('cpUsd').textContent = '$' + Number(u.wallet_usd || 0).toFixed(2);
-    document.getElementById('cpJoined').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
-    document.getElementById('cpAccountStatus').textContent = u.status || 'active';
-    document.getElementById('cpTicketCount').textContent =
-      State.tickets.filter(x => x.user?.id === u.id).length;
+    // ── Customer panel: registered customer vs guest ──
+    if (State.currentIsGuest) {
+      const guestName  = ticket.contact_name  || 'Guest';
+      const guestEmail = ticket.contact_email || '';
 
-    // Messages
-    renderMessages(ticket.messages || []);
+      $('#cpAvatar').textContent = (guestName.charAt(0) || 'G').toUpperCase();
+      $('#cpAvatar').className = 'cp-avatar guest';
+      $('#cpName').textContent = guestName;
+
+      if (guestEmail) {
+        $('#cpEmail').innerHTML =
+          '<a href="mailto:' + encodeURIComponent(guestEmail) + '" ' +
+             'style="color:var(--navy);text-decoration:none;word-break:break-all;">' +
+             escapeHtml(guestEmail) +
+          '</a>';
+      } else {
+        $('#cpEmail').textContent = 'No email provided';
+      }
+
+      $('#cpStatus').textContent = 'Guest';
+      $('#cpStatus').className = 'cp-status guest';
+
+      $('#cpNgn').textContent = '—';
+      $('#cpUsd').textContent = '—';
+      $('#cpJoined').textContent = ticket.created_at
+        ? new Date(ticket.created_at).toLocaleDateString()
+        : '—';
+      $('#cpAccountStatus').textContent = 'Not registered';
+      $('#cpTicketCount').textContent = State.tickets.filter(x =>
+        ticketIsGuest(x) && guestEmail && x.contact_email === guestEmail
+      ).length;
+
+      const vp = $('#viewProfileBtn');
+      const vt = $('#viewTxBtn');
+      if (vp) { vp.disabled = true; }
+      if (vt) { vt.disabled = true; }
+      $('#cpGuestHint').style.display = '';
+    } else {
+      const u = ticket.user || {};
+      const name  = u.username || 'Unknown';
+      const email = u.email || '';
+
+      $('#cpAvatar').textContent = name.charAt(0).toUpperCase();
+      $('#cpAvatar').className = 'cp-avatar';
+      $('#cpName').textContent = name;
+
+      if (email) {
+        $('#cpEmail').innerHTML =
+          '<a href="mailto:' + encodeURIComponent(email) + '" ' +
+             'style="color:var(--navy);text-decoration:none;word-break:break-all;">' +
+             escapeHtml(email) +
+          '</a>';
+      } else {
+        $('#cpEmail').textContent = 'No email';
+      }
+
+      $('#cpStatus').textContent = u.status || 'Active';
+      $('#cpStatus').className = 'cp-status active';
+
+      $('#cpNgn').textContent = '₦' + Number(u.wallet_ngn || 0).toLocaleString();
+      $('#cpUsd').textContent = '$' + Number(u.wallet_usd || 0).toFixed(2);
+      $('#cpJoined').textContent = u.created_at
+        ? new Date(u.created_at).toLocaleDateString()
+        : '—';
+      $('#cpAccountStatus').textContent = u.status || 'active';
+      $('#cpTicketCount').textContent = State.tickets.filter(x =>
+        x.user && x.user.id === u.id
+      ).length;
+
+      const vp = $('#viewProfileBtn');
+      const vt = $('#viewTxBtn');
+      if (vp) { vp.disabled = false; }
+      if (vt) { vt.disabled = false; }
+      $('#cpGuestHint').style.display = 'none';
+    }
+
+    const messages = ticket.messages || [];
+    const lastId = messages[messages.length - 1]?.id;
+    if (!silent || (lastId && lastId !== State.lastRenderedMessageId)) {
+      renderMessages(messages);
+      State.lastRenderedMessageId = lastId || null;
+    }
+
+    apiFetch(API.read(ticketId), { method: 'POST' }).catch(() => {});
   } catch (err) {
     console.error('Load messages error:', err.message);
-    if (err.status === 403) showToast(err.message, 'warning');
-    else showToast('Failed to load messages', 'error');
+    if (!silent) {
+      if (err.status === 403) showToast(err.message, 'warning');
+      else showToast('Failed to load messages', 'error');
+    }
   } finally {
     State.messagesLoading = false;
   }
 }
 
+function buildAttachmentHtml(message) {
+  const attachments = normaliseAttachments(message);
+  if (!attachments.length) return '';
+  return attachments.map((a, idx) => {
+    const looksImage = isImageMime(a.type) || isLikelyImageUrl(a.url);
+    const safeUrl = escapeHtml(a.url);
+    const safeName = escapeHtml(a.name || 'Attachment');
+    const safeSize = a.size ? escapeHtml(formatFileSize(a.size)) : '';
+    const uid = 'att-' + Math.random().toString(36).slice(2, 8) + '-' + idx;
+    return `
+      <div class="msg-attachment" data-att-id="${uid}">
+        ${looksImage
+          ? `<img src="${safeUrl}" alt="${safeName}" loading="lazy"
+                 data-lightbox-src="${safeUrl}"
+                 onerror="this.parentElement.classList.add('broken')">`
+          : ''}
+        <div class="attachment-info">
+          <i class="fas ${looksImage ? 'fa-image' : 'fa-file'}"></i>
+          <span class="attachment-name" title="${safeName}">${safeName}</span>
+          ${safeSize ? `<span class="file-size">${safeSize}</span>` : ''}
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="Open in new tab">
+            <i class="fas fa-external-link-alt"></i>
+          </a>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderMessages(messages) {
-  const container = document.getElementById('msgContainer');
+  const container = $('#msgContainer');
   if (!messages.length) {
     container.innerHTML = `<div class="msg-empty">
       <i class="fas fa-comment-dots"></i>
@@ -837,83 +1249,123 @@ function renderMessages(messages) {
     const isMine = m.sender_id === myId || m.sender_type === 'admin';
     const isInternal = !!m.is_internal;
     const cls = isInternal ? 'system' : (isMine ? 'sent' : 'received');
-    const senderLabel = isInternal
-      ? '🔒 Internal'
-      : (isMine ? 'You' : (m.sender?.username || 'Customer'));
+    let senderLabel;
+    if (isInternal) senderLabel = '🔒 Internal';
+    else if (isMine) senderLabel = 'You';
+    else if (m.sender?.username) senderLabel = m.sender.username;
+    else if (State.currentIsGuest && m.sender_type === 'user') senderLabel = State.currentTicket?.contact_name || 'Guest';
+    else senderLabel = 'Customer';
 
-    let attachmentHtml = '';
-    const attachments = Array.isArray(m.attachments)
-      ? m.attachments
-      : (m.attachment_url ? [{ url: m.attachment_url, type: m.attachment_type, name: '' }] : []);
-    if (attachments.length) {
-      attachmentHtml = attachments.map(a => {
-        const isImg = String(a.type || '').startsWith('image/');
-        return `<div class="msg-attachment">
-          ${isImg ? `<img src="${escapeHtml(a.url)}" alt="" loading="lazy">` : ''}
-          <div class="attachment-info">
-            <i class="fas ${isImg ? 'fa-image' : 'fa-file'}"></i>
-            <span>${escapeHtml(a.name || 'Attachment')}</span>
-            ${a.size ? `<span class="file-size">${escapeHtml(formatFileSize(a.size))}</span>` : ''}
-            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fas fa-external-link-alt"></i></a>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    return `<div class="msg ${cls}">
+    return `<div class="msg ${cls}" data-msg-id="${escapeHtml(m.id)}">
       <div class="sender">${escapeHtml(senderLabel)}</div>
       <div class="text">${escapeHtml(m.message || '')}</div>
       ${isInternal ? '<span class="internal-badge">🔒 Internal</span>' : ''}
-      ${attachmentHtml}
+      ${buildAttachmentHtml(m)}
       <div class="time">${escapeHtml(new Date(m.created_at).toLocaleString())}</div>
     </div>`;
   }).join('');
   container.scrollTop = container.scrollHeight;
+  wireAttachmentInteractions();
 }
 
-// ─── SEND MESSAGE ──────────────────────────────────────────────
+function appendMessage(m) {
+  const container = $('#msgContainer');
+  const emptyEl = container.querySelector('.msg-empty');
+  if (emptyEl) container.innerHTML = '';
+
+  const isMine = m.sender_id === State.admin?.id || m.sender_type === 'admin';
+  const isInternal = !!m.is_internal;
+  const cls = isInternal ? 'system' : (isMine ? 'sent' : 'received');
+  const senderLabel = isInternal ? '🔒 Internal' : (isMine ? 'You' : (m.sender?.username || 'Customer'));
+
+  const el = document.createElement('div');
+  el.className = `msg ${cls} sending`;
+  el.dataset.msgId = m.id;
+  el.innerHTML = `
+    <div class="sender">${escapeHtml(senderLabel)}</div>
+    <div class="text">${escapeHtml(m.message || '')}</div>
+    ${isInternal ? '<span class="internal-badge">🔒 Internal</span>' : ''}
+    <div class="time">${escapeHtml(new Date(m.created_at).toLocaleString())}</div>
+  `;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function wireAttachmentInteractions() {
+  const container = $('#msgContainer');
+  container.querySelectorAll('img[data-lightbox-src]').forEach(img => {
+    img.addEventListener('click', () => {
+      $('#imgLightboxImg').src = img.dataset.lightboxSrc;
+      $('#imgLightbox').classList.add('open');
+    });
+  });
+}
+function closeLightbox() {
+  $('#imgLightbox').classList.remove('open');
+  $('#imgLightboxImg').src = '';
+}
+
 async function sendMessage() {
-  const input = document.getElementById('msgInput');
+  const input = $('#msgInput');
   const message = input.value.trim();
   if (!State.currentTicketId) return;
   if (!message && !State.pendingFiles.length) return;
 
   const isInternal = State.replyMode === 'internal';
-  const btn = document.getElementById('sendBtn');
-  const status = document.getElementById('sendStatus');
+  const btn = $('#sendBtn');
+  const status = $('#sendStatus');
   btn.disabled = true;
   status.textContent = 'Sending…';
 
+  const tempId = 'tmp-' + Date.now();
+  const optimistic = {
+    id: tempId,
+    message,
+    created_at: new Date().toISOString(),
+    sender_id: State.admin?.id,
+    sender_type: 'admin',
+    is_internal: isInternal,
+    attachments: State.pendingFiles.map(f => ({ name: f.name, size: f.size, type: f.type }))
+  };
+  appendMessage(optimistic);
+
+  const form = new FormData();
+  if (message) form.append('message', message);
+  form.append('is_internal', String(isInternal));
+  State.pendingFiles.forEach(f => form.append('attachments', f));
+
+  const url = isInternal ? API.internalNote(State.currentTicketId) : API.messages(State.currentTicketId);
+
   try {
-    const form = new FormData();
-    if (message) form.append('message', message);
-    form.append('is_internal', String(isInternal));
-    State.pendingFiles.forEach(f => form.append('attachments', f));
-
-    const url = isInternal ? API.internalNote(State.currentTicketId) : API.messages(State.currentTicketId);
-    await apiFetch(url, { method: 'POST', body: form });
-
+    const r = await apiFetch(url, { method: 'POST', body: form });
     input.value = '';
+    resetComposer(input);
     State.pendingFiles = [];
     renderFilePreview();
     status.textContent = '✅ Sent';
-    showToast(isInternal ? 'Internal note added' : 'Reply sent', 'success');
+
+    const el = document.querySelector(`[data-msg-id="${tempId}"]`);
+    if (el) el.remove();
+    if (r.data?.id) State.lastRenderedMessageId = null;
     await loadMessages(State.currentTicketId);
-    await loadTickets();
+
+    loadTickets();
+
+    setTimeout(() => { status.textContent = ''; }, 1500);
   } catch (err) {
+    const el = document.querySelector(`[data-msg-id="${tempId}"]`);
+    if (el) el.remove();
     console.error('Send error:', err.message);
     if (err.status === 403) showToast(err.message, 'warning');
     else showToast('Failed to send', 'error');
     status.textContent = '❌ Failed';
   } finally {
     btn.disabled = false;
-    setTimeout(() => { status.textContent = ''; }, 2500);
   }
 }
 
-// ─── FILES ─────────────────────────────────────────────────────
 function handleFileSelect() {
-  const input = document.getElementById('fileInput');
+  const input = $('#fileInput');
   const files = input.files;
   if (!files || !files.length) return;
   const MAX = 8 * 1024 * 1024;
@@ -927,8 +1379,9 @@ function handleFileSelect() {
   input.value = '';
   renderFilePreview();
 }
+
 function renderFilePreview() {
-  const c = document.getElementById('filePreviewContainer');
+  const c = $('#filePreviewContainer');
   c.innerHTML = State.pendingFiles.map((f, i) => `
     <div class="file-item">
       <i class="fas ${f.type.startsWith('image/') ? 'fa-image' : 'fa-file'}"></i>
@@ -942,43 +1395,57 @@ function renderFilePreview() {
   }));
 }
 
-// ─── REPLY MODE ────────────────────────────────────────────────
 function setReplyMode(mode) {
   State.replyMode = mode === 'internal' ? 'internal' : 'reply';
-  document.getElementById('modeReplyBtn').classList.toggle('active', State.replyMode === 'reply');
-  document.getElementById('modeInternalBtn').classList.toggle('active', State.replyMode === 'internal');
-  const input = document.getElementById('msgInput');
-  input.placeholder = State.replyMode === 'internal'
-    ? '🔒 Internal note (only admins can see this)…'
+  $('#modeReplyBtn').classList.toggle('active', State.replyMode === 'reply');
+  $('#modeInternalBtn').classList.toggle('active', State.replyMode === 'internal');
+  $('#msgInput').placeholder = State.replyMode === 'internal'
+    ? '🔒 Internal note (only admins see this)…'
     : 'Type your reply…';
 }
 
-// ─── CANNED RESPONSES ──────────────────────────────────────────
 const CANNED = {
-  greeting:  'Hello {{username}},\n\nThank you for contacting MilesSpace support. I\'m here to help. Could you please provide more details so I can assist you better?',
+  greeting:  "Hello {{username}},\n\nThank you for contacting MilesSpace support. I'm here to help. Could you please provide more details so I can assist you better?",
   checking:  'Let me check this for you right away. Ticket #{{ticket_number}}.',
-  escalated: 'I\'ve escalated this to our technical team for further investigation. They will review and respond within 24 hours. Ticket #{{ticket_number}}.',
+  escalated: "I've escalated this to our technical team for further investigation. They will review and respond within 24 hours. Ticket #{{ticket_number}}.",
   resolved:  'Your issue has been resolved. Please confirm everything is working. If not, reply and we will continue.\n\nBest regards,\nMilesSpace Support',
   pending:   'Your transaction is currently being processed. Please allow 15-30 minutes for completion.',
   refund:    'Your refund has been processed successfully. Funds will reflect within 3-5 business days.'
 };
 function toggleCanned() {
   State.isCannedOpen = !State.isCannedOpen;
-  document.getElementById('cannedDropdown').classList.toggle('open', State.isCannedOpen);
+  $('#cannedDropdown').classList.toggle('open', State.isCannedOpen);
 }
 function insertCanned(key) {
   const t = CANNED[key];
   if (!t) return;
-  const u = State.currentTicket?.user || {};
-  const text = t.replace(/{{username}}/g, u.username || 'there')
+  const ticket = State.currentTicket || {};
+  const u = ticket.user || {};
+  const nameForPlaceholder = State.currentIsGuest
+    ? (ticket.contact_name || 'there')
+    : (u.username || 'there');
+  const text = t.replace(/{{username}}/g, nameForPlaceholder)
                 .replace(/{{ticket_number}}/g, State.currentTicketNumber || '');
-  const input = document.getElementById('msgInput');
+  const input = $('#msgInput');
   input.value = text;
+  autoGrow(input);
   input.focus();
   toggleCanned();
 }
 
-// ─── STATUS ACTIONS ────────────────────────────────────────────
+const MIN_COMPOSER_PX = 46;
+const MAX_COMPOSER_PX = 220;
+function autoGrow(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const next = Math.min(Math.max(el.scrollHeight, MIN_COMPOSER_PX), MAX_COMPOSER_PX);
+  el.style.height = next + 'px';
+}
+function resetComposer(el) {
+  if (!el) return;
+  el.style.height = MIN_COMPOSER_PX + 'px';
+}
+
 async function updateStatus(next, reason) {
   if (!State.currentTicketId) return;
   try {
@@ -1000,10 +1467,14 @@ async function markResolved() {
 }
 async function markClosed() {
   if (!State.currentTicketId || !confirm('Close this ticket?')) return;
-  await apiFetch(API.close(State.currentTicketId), { method: 'POST', body: JSON.stringify({ reason: 'Closed by admin' }) })
-    .then(() => { showToast('Ticket closed', 'success'); return loadTickets(); })
-    .then(() => loadMessages(State.currentTicketId))
-    .catch(err => showToast(err.status === 403 ? err.message : 'Failed to close', err.status === 403 ? 'warning' : 'error'));
+  try {
+    await apiFetch(API.close(State.currentTicketId), { method: 'POST', body: JSON.stringify({ reason: 'Closed by admin' }) });
+    showToast('Ticket closed', 'success');
+    await loadTickets();
+    await loadMessages(State.currentTicketId);
+  } catch (err) {
+    showToast(err.status === 403 ? err.message : 'Failed to close', err.status === 403 ? 'warning' : 'error');
+  }
 }
 async function reopenTicket() {
   if (!State.currentTicketId) return;
@@ -1017,17 +1488,16 @@ async function reopenTicket() {
   }
 }
 
-// ─── ASSIGN ────────────────────────────────────────────────────
 function openAssignModal() {
   if (!State.currentTicketId) return;
-  const overlay = document.getElementById('modalOverlay');
-  document.getElementById('modalTitle').textContent = 'Assign Ticket';
-  document.getElementById('modalSub').textContent = 'Ticket #' + (State.currentTicketNumber || '');
+  const overlay = $('#modalOverlay');
+  $('#modalTitle').textContent = 'Assign Ticket';
+  $('#modalSub').textContent = 'Ticket #' + (State.currentTicketNumber || '');
   const me = State.admin || {};
   const admins = State.assignableAdmins.length
     ? State.assignableAdmins
-    : [{ id: me.id, username: me.username || 'Me', email: me.email || '' }];
-  document.getElementById('modalBody').innerHTML = `
+    : [{ id: me.id, username: me.username || 'Me', email: me.email || '', role: me.role || '' }];
+  $('#modalBody').innerHTML = `
     <div class="form-group">
       <label>Assign to</label>
       <div class="agent-list" id="agentList">
@@ -1045,22 +1515,22 @@ function openAssignModal() {
       <label>Note (optional)</label>
       <input type="text" id="assignNote" maxlength="200" placeholder="Add a note about this assignment…">
     </div>`;
-  document.getElementById('agentList').querySelectorAll('.agent-option').forEach(el => {
+  $('#agentList').querySelectorAll('.agent-option').forEach(el => {
     el.addEventListener('click', () => {
-      document.querySelectorAll('.agent-option').forEach(x => x.classList.remove('selected'));
+      $$('.agent-option').forEach(x => x.classList.remove('selected'));
       el.classList.add('selected');
     });
   });
-  const confirmBtn = document.getElementById('modalConfirmBtn');
+  const confirmBtn = $('#modalConfirmBtn');
   confirmBtn.onclick = async () => {
-    const sel = document.querySelector('.agent-option.selected');
+    const sel = $('.agent-option.selected');
     if (!sel) { showToast('Pick an agent first', 'warning'); return; }
     try {
       await apiFetch(API.assign(State.currentTicketId), {
         method: 'POST',
         body: JSON.stringify({
           assigned_to: sel.dataset.agent,
-          reason: document.getElementById('assignNote')?.value || null
+          reason: $('#assignNote')?.value || null
         })
       });
       showToast('Ticket assigned', 'success');
@@ -1074,111 +1544,150 @@ function openAssignModal() {
   overlay.classList.add('open');
 }
 
-// ─── MODAL ─────────────────────────────────────────────────────
 function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
-  document.getElementById('modalConfirmBtn').style.display = 'inline-flex';
+  $('#modalOverlay').classList.remove('open');
+  $('#modalConfirmBtn').style.display = 'inline-flex';
 }
 
-// ─── FILTERS ───────────────────────────────────────────────────
 function readFilters() {
-  document.getElementById('ticketSearch').value = document.getElementById('searchTickets').value;
+  $('#ticketSearch').value = $('#searchTickets').value;
   loadTickets();
 }
-document.querySelectorAll('.qf-btn').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.qf-btn').forEach(x => x.classList.toggle('active', x === b));
-  renderTicketList();
-}));
-['statusFilter','priorityFilter','assignedFilter'].forEach(id => {
-  document.getElementById(id).addEventListener('change', () => loadTickets());
-});
-let searchTimer;
-document.getElementById('searchTickets').addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(readFilters, 350);
-});
-document.getElementById('ticketSearch').addEventListener('input', () => {
-  document.getElementById('searchTickets').value = document.getElementById('ticketSearch').value;
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(readFilters, 350);
-});
-document.getElementById('clearFiltersBtn').addEventListener('click', () => {
-  document.getElementById('searchTickets').value = '';
-  document.getElementById('ticketSearch').value = '';
-  document.getElementById('statusFilter').value = '';
-  document.getElementById('priorityFilter').value = '';
-  document.getElementById('assignedFilter').value = '';
-  document.querySelectorAll('.qf-btn').forEach((x, i) => x.classList.toggle('active', i === 0));
-  loadTickets();
-});
-document.querySelectorAll('.stat-item').forEach(el => el.addEventListener('click', () => {
-  if (el.dataset.status) {
-    document.getElementById('statusFilter').value = el.dataset.status;
-    loadTickets();
-  } else if (el.dataset.priority) {
-    document.getElementById('priorityFilter').value = el.dataset.priority;
-    loadTickets();
-  }
-}));
 
-// ─── POLLING ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  $('#hamburger').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
+
+  $('#refreshBtn').addEventListener('click', () => {
+    showToast('Refreshing…', 'info');
+    loadTickets().then(() => { if (State.currentTicketId) loadMessages(State.currentTicketId); });
+    loadStats();
+  });
+
+  $$('.qf-btn').forEach(b => b.addEventListener('click', () => {
+    $$('.qf-btn').forEach(x => x.classList.toggle('active', x === b));
+    renderTicketList();
+  }));
+
+  ['statusFilter','priorityFilter','assignedFilter'].forEach(id => {
+    $('#' + id).addEventListener('change', () => loadTickets());
+  });
+
+  let searchTimer;
+  $('#searchTickets').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(readFilters, 350);
+  });
+  $('#ticketSearch').addEventListener('input', () => {
+    $('#searchTickets').value = $('#ticketSearch').value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(readFilters, 350);
+  });
+
+  $('#clearFiltersBtn').addEventListener('click', () => {
+    $('#searchTickets').value = '';
+    $('#ticketSearch').value = '';
+    $('#statusFilter').value = '';
+    $('#priorityFilter').value = '';
+    $('#assignedFilter').value = '';
+    $$('.qf-btn').forEach((x, i) => x.classList.toggle('active', i === 0));
+    loadTickets();
+  });
+
+  $$('.stat-item').forEach(el => el.addEventListener('click', () => {
+    if (el.dataset.status) {
+      $('#statusFilter').value = el.dataset.status;
+      loadTickets();
+    } else if (el.dataset.priority) {
+      $('#priorityFilter').value = el.dataset.priority;
+      loadTickets();
+    }
+  }));
+
+  $('#assignBtn').addEventListener('click', openAssignModal);
+  $('#resolveBtn').addEventListener('click', markResolved);
+  $('#closeBtn').addEventListener('click', markClosed);
+  $('#reopenBtn').addEventListener('click', reopenTicket);
+
+  $('#attachBtn').querySelector('input').addEventListener('change', handleFileSelect);
+  $('#cannedBtn').addEventListener('click', toggleCanned);
+  $$('.canned-item').forEach(el => el.addEventListener('click', () => insertCanned(el.dataset.template)));
+
+  $('#modeReplyBtn').addEventListener('click', () => setReplyMode('reply'));
+  $('#modeInternalBtn').addEventListener('click', () => setReplyMode('internal'));
+
+  $('#sendBtn').addEventListener('click', sendMessage);
+
+  const composer = $('#msgInput');
+  composer.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  composer.addEventListener('input', function() { autoGrow(this); });
+  composer.addEventListener('paste', () => setTimeout(() => autoGrow(composer), 0));
+  resetComposer(composer);
+
+  $('#modalCancelBtn').addEventListener('click', closeModal);
+  $('#modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(); closeLightbox(); }
+  });
+
+  $('#viewProfileBtn').addEventListener('click', () => {
+    if (State.currentIsGuest) {
+      showToast('Guest tickets have no linked account.', 'warning');
+      return;
+    }
+    const u = State.currentTicket?.user;
+    if (u?.id) window.location.href = '/admin/users?user=' + encodeURIComponent(u.id);
+  });
+  $('#viewTxBtn').addEventListener('click', () => {
+    if (State.currentIsGuest) {
+      showToast('Guest tickets have no linked transactions.', 'warning');
+      return;
+    }
+    const u = State.currentTicket?.user;
+    if (u?.id) window.location.href = '/admin/transactions?user=' + encodeURIComponent(u.id);
+  });
+
+  document.addEventListener('click', e => {
+    if (!State.isCannedOpen) return;
+    const drop = $('#cannedDropdown');
+    const btn = $('#cannedBtn');
+    if (!drop.contains(e.target) && !btn.contains(e.target)) {
+      State.isCannedOpen = false;
+      drop.classList.remove('open');
+    }
+  });
+
+  $('#imgLightbox')?.addEventListener('click', closeLightbox);
+  $('#imgLightboxClose')?.addEventListener('click', closeLightbox);
+
+  initializePage();
+});
+
 function startPolling() {
   stopPolling();
   State.pollingTimer = setInterval(() => {
     if (document.hidden || !State.ready) return;
     loadTickets();
-    if (State.currentTicketId) loadMessages(State.currentTicketId);
-  }, 15000);
+    if (State.currentTicketId) loadMessages(State.currentTicketId, { silent: true });
+  }, 30000);
 }
 function stopPolling() {
   if (State.pollingTimer) { clearInterval(State.pollingTimer); State.pollingTimer = null; }
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopPolling();
-  else { startPolling(); if (State.ready) { loadTickets(); if (State.currentTicketId) loadMessages(State.currentTicketId); } }
-});
-
-// ─── WIRE-UP ───────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('hamburger').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('open');
-  });
-  document.getElementById('refreshBtn').addEventListener('click', () => {
-    showToast('Refreshing…', 'info');
-    loadTickets().then(() => { if (State.currentTicketId) loadMessages(State.currentTicketId); });
-    loadStats();
-  });
-  document.getElementById('assignBtn').addEventListener('click', openAssignModal);
-  document.getElementById('resolveBtn').addEventListener('click', markResolved);
-  document.getElementById('closeBtn').addEventListener('click', markClosed);
-  document.getElementById('reopenBtn').addEventListener('click', reopenTicket);
-  document.getElementById('attachBtn').querySelector('input').addEventListener('change', handleFileSelect);
-  document.getElementById('cannedBtn').addEventListener('click', toggleCanned);
-  document.querySelectorAll('.canned-item').forEach(el => el.addEventListener('click', () => insertCanned(el.dataset.template)));
-  document.getElementById('modeReplyBtn').addEventListener('click', () => setReplyMode('reply'));
-  document.getElementById('modeInternalBtn').addEventListener('click', () => setReplyMode('internal'));
-  document.getElementById('sendBtn').addEventListener('click', sendMessage);
-  document.getElementById('msgInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
-  document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-  document.getElementById('viewProfileBtn').addEventListener('click', () => {
-    const u = State.currentTicket?.user;
-    if (u?.id) window.location.href = '/admin/users?user=' + encodeURIComponent(u.id);
-  });
-  document.getElementById('viewTxBtn').addEventListener('click', () => {
-    const u = State.currentTicket?.user;
-    if (u?.id) window.location.href = '/admin/transactions?user=' + encodeURIComponent(u.id);
-  });
-
-  // Kick off the one init path.
-  initializePage();
+  else {
+    startPolling();
+    if (State.ready) {
+      loadTickets();
+      if (State.currentTicketId) loadMessages(State.currentTicketId, { silent: true });
+    }
+  }
 });
 
 window.loadTickets = loadTickets;
+window.loadMessages = loadMessages;
 </script>
 </body>
 </html>

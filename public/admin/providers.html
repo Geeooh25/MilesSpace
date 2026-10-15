@@ -2,26 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Providers · MilesSpace Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="/js/admin-session.js?v=2025-admin-dash-v4"></script>
+<script src="/js/admin-session.js?v=2025-admin-dash-v5"></script>
 <style>
 :root{
-  --brand-primary:#0f4c5c; --brand-primary-deep:#0a3542; --brand-primary-light:#14607a;
-  --brand-accent:#f5a623; --brand-accent-soft:#fde3ad;
-  --navy:var(--brand-primary); --navy-light:var(--brand-primary-light); --navy-deep:var(--brand-primary-deep);
-  --gold:var(--brand-accent); --gold-soft:var(--brand-accent-soft);
+  --navy:#0f4c5c; --navy-deep:#0a3542; --navy-light:#14607a;
+  --gold:#f5a623; --gold-soft:#fde3ad;
   --white:#ffffff; --bg:#f4f7fb; --bg-card:rgba(255,255,255,.72);
   --border:rgba(15,76,92,.09); --text:#0c1f26; --text-dim:#5b7480; --text-faint:#8fa3ab;
   --success:#16a34a; --success-bg:#e9f9ef;
   --danger:#dc2626; --danger-bg:#fdecec;
   --warn:#f59e0b; --warn-bg:#fef3d9;
   --info:#2563a8; --info-bg:#e8f1fb;
-  --purple:#8b5cf6; --purple-bg:#ede9fe;
   --radius-sm:8px; --radius-md:14px; --radius-lg:20px;
   --shadow-sm:0 1px 2px rgba(8,42,51,.06);
   --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
@@ -31,184 +28,163 @@
 }
 html.dark{
   --bg:#08151a; --bg-card:rgba(18,38,44,.75);
-  --border:rgba(255,255,255,.08); --text:#eaf3f5;
-  --text-dim:#9db4bb; --text-faint:#5b7480;
+  --border:rgba(255,255,255,.08); --text:#eaf3f5; --text-dim:#9db4bb; --text-faint:#5b7480;
   --success-bg:rgba(22,163,74,.15); --danger-bg:rgba(220,38,38,.15);
-  --warn-bg:rgba(245,158,11,.15); --info-bg:rgba(37,99,168,.18); --purple-bg:rgba(139,92,246,.18);
+  --warn-bg:rgba(245,158,11,.15); --info-bg:rgba(37,99,168,.18);
   --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 8px 24px -8px rgba(0,0,0,.5);
   --shadow-lg:0 16px 48px -12px rgba(0,0,0,.6);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%} html{overflow-x:hidden}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;transition:background var(--transition),color var(--transition);overflow-x:hidden;width:100%}
-img,svg{max-width:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden;width:100%}
 ::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
 html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
 .mono{font-family:'JetBrains Mono',monospace}
-:focus-visible{outline:2.5px solid var(--brand-accent);outline-offset:2px;border-radius:6px}
+:focus-visible{outline:2.5px solid var(--gold);outline-offset:2px;border-radius:6px}
 
-/* Layout */
 .app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
 .app.sb-collapsed{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
-.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;transition:transform var(--transition),width var(--transition);overflow-y:auto;overflow-x:hidden;width:var(--sidebar-w)}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;transition:width var(--transition);overflow-y:auto;width:var(--sidebar-w)}
 .app.sb-collapsed .sidebar{width:var(--sidebar-w-collapsed)}
 .app.sb-collapsed .sidebar .brand-text,
 .app.sb-collapsed .sidebar .nav-label,
 .app.sb-collapsed .sidebar .nav-item span:not(.ic),
-.app.sb-collapsed .sidebar .who,
-.app.sb-collapsed .sidebar .chev,
-.app.sb-collapsed .sidebar .badge-count{display:none}
+.app.sb-collapsed .sidebar .who{display:none}
 .app.sb-collapsed .nav-item{justify-content:center}
 .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
-.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
-.brand-text{display:flex;flex-direction:column;line-height:1.15}
-.brand-text strong{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.brand img{width:32px;height:32px;border-radius:8px}
+.brand-text strong{font-size:15px;font-weight:800;display:block}
 .brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
-.nav-scroll{flex:1;overflow-y:auto;padding-right:2px}
-.nav-group{margin-bottom:2px}
-.nav-group-head{display:flex;align-items:center;justify-content:space-between;padding:12px 10px 5px;cursor:pointer;user-select:none;border:none;background:none;width:100%;color:inherit;font-family:inherit}
-.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700}
-.nav-group-head .chev{font-size:9px;color:#6fa2ad;transition:transform var(--transition)}
-.nav-group.collapsed .chev{transform:rotate(-90deg)}
-.nav-group.collapsed .nav-items{display:none}
+.nav-scroll{flex:1;overflow-y:auto}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:12px 10px 5px;display:block}
 .nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:background var(--transition),color var(--transition);white-space:nowrap;text-decoration:none}
 .nav-item .ic{width:17px;text-align:center;font-size:13.5px;flex-shrink:0}
-.nav-item:hover,.nav-item:focus-visible{background:rgba(255,255,255,.06);color:#fff}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
 .nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
-.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10px;font-weight:800;padding:1.5px 6px;border-radius:99px}
-.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px;flex-shrink:0}
-.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
-.sidebar-foot .who{display:flex;flex-direction:column;line-height:1.2}
-.sidebar-foot .who strong{font-size:12.5px;color:#fff}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;flex-shrink:0}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff;display:block}
 .sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
-.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;display:flex;align-items:center;justify-content:center;font-size:11px}
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
 .hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
 html.dark .hamburger{background:rgba(255,255,255,.05)}
 .sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
 html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
-@media(max-width:768px){.sb-toggle-desktop{display:none}}
 .topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
-.page-title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
-.page-title h1{margin:0;font-size:clamp(16px,2.4vw,19px);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.page-title h1{margin:0;font-size:19px;font-weight:800}
 .breadcrumb{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-bottom:2px}
 .breadcrumb a{color:var(--text-faint);text-decoration:none}
-.breadcrumb a:hover{color:var(--gold)}
-.crumb{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.crumb .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse-dot 1.8s infinite}
+.crumb{font-size:12px;color:var(--text-dim)}
+.crumb .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse 1.8s infinite}
 .crumb .live-dot.off{background:var(--danger);animation:none}
-@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
-.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;color:var(--navy);font-size:15px;transition:transform var(--transition),background var(--transition)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px}
 html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
-.icon-btn:hover{transform:translateY(-1px);background:var(--gold-soft);color:var(--navy-deep)}
-.admin-chip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:99px;border:1px solid var(--border);background:var(--white);cursor:pointer}
+.admin-chip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:99px;border:1px solid var(--border);background:var(--white)}
 html.dark .admin-chip{background:rgba(255,255,255,.04)}
 .admin-chip .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-deep)}
-.admin-chip .info{display:flex;flex-direction:column;line-height:1.15}
-.admin-chip .info strong{font-size:12.3px}
+.admin-chip .info strong{font-size:12.3px;display:block}
 .admin-chip .info span{font-size:10.5px;color:var(--text-dim)}
-.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
-@media(min-width:1920px){.content{max-width:1800px;margin:0 auto}}
+.content{padding:22px 26px 60px;min-width:0}
 
-/* Page header */
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
-.page-header h2{font-size:clamp(18px,2.6vw,23px);font-weight:800}
-.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:600px}
-.page-header .header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.page-header h2{font-size:23px;font-weight:800;letter-spacing:-.01em}
+.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:680px}
 
-/* Buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);transition:background var(--transition);font-family:inherit;min-height:38px;text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);font-family:inherit;min-height:38px;text-decoration:none}
 html.dark .btn{background:rgba(255,255,255,.04);color:#dff0f2}
 .btn:hover:not(:disabled){background:var(--gold-soft);color:var(--navy-deep)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:disabled{opacity:.55;cursor:not-allowed}
 .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 .btn-primary:hover:not(:disabled){background:var(--navy-light);color:#fff}
 .btn-sm{padding:6px 10px;font-size:11.5px;min-height:32px}
 
-/* Provider grid */
-.provider-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;margin-bottom:20px}
-.provider-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;backdrop-filter:blur(10px)}
+.summary-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.summary-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px 16px}
+.summary-card .lbl{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.summary-card .val{font-size:20px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.summary-card .sub{font-size:10.5px;color:var(--text-faint);margin-top:2px}
+
+.provider-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px;margin-bottom:20px}
+.provider-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column}
+.provider-card.is-stale{border-color:#f59e0b}
+.provider-card.is-severely-stale{border-color:#dc2626}
 .provider-card-head{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);gap:10px}
-.provider-card-head .name{display:flex;flex-direction:column;line-height:1.2;min-width:0}
-.provider-card-head h3{margin:0;font-size:15px;font-weight:800;text-transform:capitalize;word-break:break-word}
-.provider-card-head .sub{font-size:11.5px;color:var(--text-dim);margin-top:2px}
-.provider-card-body{padding:16px 18px}
+.provider-card-head h3{margin:0;font-size:15.5px;font-weight:800;word-break:break-word}
+.provider-card-head .sub{font-size:11.5px;color:var(--text-dim);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.env-badge{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:6px;border:1px solid}
+.env-badge.live{background:var(--success-bg);color:var(--success);border-color:var(--success)}
+.env-badge.sandbox{background:var(--danger-bg);color:var(--danger);border-color:var(--danger)}
+.env-badge.preprod{background:var(--warn-bg);color:#92400e;border-color:#f59e0b}
+.env-badge.legacy{background:var(--bg);color:var(--text-dim);border-color:var(--border)}
+.provider-card-body{padding:14px 18px;flex:1}
 .stat-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;font-size:12.5px;border-bottom:1px dashed var(--border)}
 .stat-row:last-child{border-bottom:none}
 .stat-row .k{color:var(--text-dim);font-weight:600}
 .stat-row .v{font-weight:700;text-align:right;word-break:break-word}
+.section-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);font-weight:800;margin-top:12px;margin-bottom:4px}
 .provider-card-actions{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg)}
-.provider-card-actions .btn{flex:1 1 auto;min-width:120px}
+.provider-card-actions .btn{flex:1 1 auto;min-width:100px}
 
-/* Status pill */
 .status-pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;text-transform:capitalize}
 .status-pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
-.status-pill.operational{background:var(--success-bg);color:var(--success)}
-.status-pill.degraded{background:var(--warn-bg);color:#b3720a}
-.status-pill.unavailable{background:var(--danger-bg);color:var(--danger)}
-.status-pill.not_configured{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
-.status-pill.unknown{background:var(--bg);color:var(--text-faint);border:1px solid var(--border)}
+.status-pill.connected,.status-pill.configured,.status-pill.operational,.status-pill.healthy{background:var(--success-bg);color:var(--success)}
+.status-pill.degraded,.status-pill.rate_limited{background:var(--warn-bg);color:#b3720a}
+.status-pill.unreachable,.status-pill.auth_failed,.status-pill.unavailable,.status-pill.circuit_open{background:var(--danger-bg);color:var(--danger)}
+.status-pill.not_configured,.status-pill.disabled,.status-pill.unknown{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.stale-badge{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:5px}
+.stale-badge.current{background:var(--success-bg);color:var(--success)}
+.stale-badge.stale{background:var(--warn-bg);color:#92400e}
+.stale-badge.severely_stale{background:var(--danger-bg);color:var(--danger)}
 
-/* Alert banner */
+.area-row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-size:12px}
+.area-row .a{color:var(--text-dim);font-weight:600}
+.area-row .s{font-weight:700}
+.area-row .s.healthy{color:var(--success)}
+.area-row .s.degraded{color:#b3720a}
+.area-row .s.failing{color:var(--danger)}
+.area-row .s.no_traffic{color:var(--text-faint)}
+
 .banner{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:12px;font-size:12.8px;line-height:1.55;margin-bottom:16px;border:1px solid}
 .banner .ic{font-size:16px;flex-shrink:0;margin-top:1px}
 .banner.info{background:var(--info-bg);border-color:#c3d9f5;color:#1e4a8a}
 .banner.warn{background:var(--warn-bg);border-color:#fde68a;color:#92400e}
 .banner.danger{background:var(--danger-bg);border-color:#fca5a5;color:#991b1b}
-.banner.success{background:var(--success-bg);border-color:#a7f3d0;color:#065f46}
+.banner.success{background:var(--success-bg);border-color:#bbf7d0;color:#166534}
 
-/* States */
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:14px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .empty-state{text-align:center;padding:52px 20px;color:var(--text-faint)}
 .empty-state .ic{font-size:28px;margin-bottom:8px;display:block}
 .unavailable-box{text-align:center;padding:24px 14px;color:var(--text-faint)}
 .unavailable-box button{margin-top:10px;border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer}
-html.dark .unavailable-box button{background:rgba(255,255,255,.04);color:#dff0f2}
-.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
-/* Toasts */
-.toast-stack{position:fixed;bottom:22px;right:14px;left:14px;display:flex;flex-direction:column;gap:10px;z-index:500;pointer-events:none;align-items:flex-end}
-@media(min-width:640px){.toast-stack{left:auto;max-width:380px}}
-.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:11px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);border-left:3px solid var(--gold);pointer-events:auto;max-width:100%;animation:tin .22s ease both}
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:500;max-width:360px}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:11px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);border-left:3px solid var(--gold)}
 .toast.success{border-left-color:var(--success)}
 .toast.error{border-left-color:var(--danger)}
-@keyframes tin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.toast.warn{border-left-color:#b3720a}
 
-/* Scrim, mobile nav */
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
 .scrim.show{display:block}
-.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:420px;height:54px;background:rgba(255,255,255,.92);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:17px;box-shadow:0 6px 22px rgba(12,61,74,.12);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
-html.dark .mnav{background:rgba(18,38,44,.92);border-color:rgba(255,255,255,.1)}
-.mni{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;font-weight:600;color:var(--text-faint);text-decoration:none;flex:1;padding:4px 0}
-.mni i{font-size:16px;padding:2px 4px;border-radius:8px}
-.mni.active{color:var(--navy)}
-html.dark .mni.active{color:#dff0f2}
-
 @media(max-width:900px){
   .app{grid-template-columns:1fr!important}
-  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;box-shadow:var(--shadow-lg);z-index:50;height:100vh}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;z-index:50;height:100vh}
   .sidebar.open{transform:translateX(0)}
   .hamburger{display:flex}
   .sb-toggle-desktop{display:none}
   .provider-grid{grid-template-columns:1fr}
-}
-@media(max-width:768px){
-  :root{--topbar-h:60px}
+  .content{padding:14px 12px 40px}
   .topbar{padding:0 14px;height:60px;gap:8px}
-  .admin-chip .info{display:none}
-  .content{padding:14px 12px 80px}
-  .mnav{display:flex!important}
-  .page-header{flex-direction:column;align-items:stretch}
 }
 </style>
 </head>
 <body>
 <div class="app" id="appRoot">
-
 <aside class="sidebar" id="sidebar">
     <div class="brand">
         <img src="../images/miles.png" alt="" onerror="this.style.display='none'">
@@ -216,50 +192,29 @@ html.dark .mni.active{color:#dff0f2}
         <button class="sb-collapse-btn" id="sbCollapseBtn"><i class="fas fa-angles-left"></i></button>
     </div>
     <nav class="nav-scroll">
-        <div class="nav-group"><div class="nav-group-head"><span class="nav-label">Overview</span></div>
-            <div class="nav-items"><a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span><span>Dashboard</span></a></div></div>
-        <div class="nav-group"><button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Customers</span><span class="chev">▾</span></button>
-            <div class="nav-items">
-                <a href="/admin/users" class="nav-item"><span class="ic">👥</span><span>Users</span></a>
-                <a href="/admin/support" class="nav-item"><span class="ic">💬</span><span>Support</span></a>
-            </div></div>
-        <div class="nav-group"><button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Money</span><span class="chev">▾</span></button>
-            <div class="nav-items">
-                <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span><span>Transactions</span></a>
-                <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span><span>Deposits</span></a>
-                <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span><span>Ledger</span></a>
-                <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span><span>Reconciliation</span></a>
-            </div></div>
-        <div class="nav-group"><button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Services</span><span class="chev">▾</span></button>
-            <div class="nav-items">
-                <a href="/admin/sellgift" class="nav-item"><span class="ic">🎁</span><span>Gift Cards</span></a>
-                <a href="/admin/airtime-data" class="nav-item"><span class="ic">📶</span><span>Airtime &amp; Data</span></a>
-                <a href="/admin/bills" class="nav-item"><span class="ic">🧾</span><span>Bills</span></a>
-                <a href="/admin/esim" class="nav-item"><span class="ic">📡</span><span>eSIM</span></a>
-                <a href="/admin/virtual-sms" class="nav-item"><span class="ic">📱</span><span>Virtual SMS</span></a>
-                <a href="/admin/boost" class="nav-item"><span class="ic">📈</span><span>Boost</span></a>
-                <a href="/admin/marketplace-products" class="nav-item"><span class="ic">📦</span><span>Marketplace</span></a>
-            </div></div>
-        <div class="nav-group"><button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Operations</span><span class="chev">▾</span></button>
-            <div class="nav-items">
-                <a href="/admin/orders" class="nav-item"><span class="ic">🧮</span><span>Orders</span></a>
-                <a href="/admin/orders?status=failed" class="nav-item"><span class="ic">⚠️</span><span>Failed Orders</span></a>
-                <a href="/admin/providers" class="nav-item active"><span class="ic">🔌</span><span>Providers</span></a>
-                <a href="/admin/webhooks" class="nav-item"><span class="ic">🪝</span><span>Webhooks</span></a>
-            </div></div>
-        <div class="nav-group collapsed"><button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">Analytics</span><span class="chev">▾</span></button>
-            <div class="nav-items">
-                <a href="/admin/revenue" class="nav-item"><span class="ic">💹</span><span>Revenue</span></a>
-                <a href="/admin/reports" class="nav-item"><span class="ic">📄</span><span>Reports</span></a>
-            </div></div>
-        <div class="nav-group collapsed"><button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">System</span><span class="chev">▾</span></button>
-            <div class="nav-items">
-                <a href="/admin/notifications" class="nav-item"><span class="ic">🔔</span><span>Notifications</span></a>
-                <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span><span>Settings</span></a>
-            </div></div>
+        <span class="nav-label">Overview</span>
+        <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span><span>Dashboard</span></a>
+        <span class="nav-label">Customers</span>
+        <a href="/admin/users" class="nav-item"><span class="ic">👥</span><span>Users</span></a>
+        <a href="/admin/support" class="nav-item"><span class="ic">💬</span><span>Support</span></a>
+        <span class="nav-label">Money</span>
+        <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span><span>Transactions</span></a>
+        <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span><span>Deposits</span></a>
+        <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span><span>Ledger</span></a>
+        <a href="/admin/refunds" class="nav-item"><span class="ic">↩️</span><span>Refunds</span></a>
+        <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span><span>Reconciliation</span></a>
+        <span class="nav-label">Operations</span>
+        <a href="/admin/orders" class="nav-item"><span class="ic">🧮</span><span>Orders</span></a>
+        <a href="/admin/providers" class="nav-item active"><span class="ic">🔌</span><span>Providers</span></a>
+        <a href="/admin/webhooks" class="nav-item"><span class="ic">🪝</span><span>Webhooks</span></a>
+        <span class="nav-label">Services</span>
+        <a href="/admin/virtual-sms" class="nav-item"><span class="ic">📱</span><span>Virtual SMS</span></a>
+        <a href="/admin/sellgift" class="nav-item"><span class="ic">🎁</span><span>Gift Cards</span></a>
+        <a href="/admin/airtime-data" class="nav-item"><span class="ic">📶</span><span>Airtime &amp; Data</span></a>
+        <a href="/admin/boost" class="nav-item"><span class="ic">📈</span><span>Boost</span></a>
     </nav>
     <div class="sidebar-foot">
-        <div class="av" id="adminAvatar">DA</div>
+        <div class="av" id="adminAvatar">AD</div>
         <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
     </div>
 </aside>
@@ -273,16 +228,14 @@ html.dark .mni.active{color:#dff0f2}
             <div class="page-title">
                 <nav class="breadcrumb"><a href="/admin/dashboard">Home</a><span>/</span><span>Operations</span><span>/</span><span>Providers</span></nav>
                 <h1>Providers</h1>
-                <div class="crumb"><span class="live-dot" id="liveDot"></span><span id="liveDotLabel">Checking…</span> · <span id="lastUpdated">never</span></div>
+                <div class="crumb"><span class="live-dot" id="liveDot"></span><span id="liveDotLabel">Loading…</span> · <span id="lastUpdated">never</span></div>
             </div>
         </div>
         <div class="topbar-right">
-            <button class="icon-btn" title="Notifications" onclick="window.location.href='/admin/notifications'">🔔</button>
-            <button class="icon-btn" id="darkToggle" title="Toggle dark mode">🌙</button>
+            <button class="icon-btn" id="darkToggle" title="Toggle theme">🌙</button>
             <div class="admin-chip" id="adminChip">
-                <div class="av" id="chipAvatar">DA</div>
+                <div class="av" id="chipAvatar">AD</div>
                 <div class="info"><strong id="chipName">Admin</strong><span id="chipRole">Admin</span></div>
-                <span aria-hidden="true" style="font-size:10px;color:var(--text-faint);">▾</span>
             </div>
         </div>
     </header>
@@ -291,20 +244,21 @@ html.dark .mni.active{color:#dff0f2}
         <div class="page-header">
             <div>
                 <h2>Providers</h2>
-                <div class="sub">Live status of every external provider MilesSpace talks to. API keys are never shown — only "configured / not configured".</div>
+                <div class="sub">Snapshot of every external provider. Credentials are never exposed. Values are read from the database — no provider is contacted when this page loads.</div>
             </div>
-            <div class="header-actions">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <button class="btn" id="refreshBtn"><i class="fas fa-rotate-right"></i> Refresh</button>
-                <button class="btn btn-primary" id="healthAllBtn"><i class="fas fa-heart-pulse"></i> Run health check</button>
+                <button class="btn btn-primary" id="testAllBtn"><i class="fas fa-heart-pulse"></i> Test all providers</button>
             </div>
         </div>
 
-        <div id="envBanner"></div>
-
-        <div class="provider-grid" id="providerGrid">
-            <div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:120px"></div></div></div>
-            <div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:120px"></div></div></div>
-            <div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:120px"></div></div></div>
+        <div id="systemBanner"></div>
+        <div id="banner"></div>
+        <div class="summary-strip" id="summary"></div>
+        <div class="provider-grid" id="grid">
+            <div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:200px"></div></div></div>
+            <div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:200px"></div></div></div>
+            <div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:200px"></div></div></div>
         </div>
     </div>
 </div>
@@ -312,185 +266,237 @@ html.dark .mni.active{color:#dff0f2}
 
 <div class="toast-stack" id="toastStack"></div>
 
-<nav class="mnav">
-    <a href="/admin/dashboard" class="mni"><i class="fas fa-home"></i><span>Home</span></a>
-    <a href="/admin/orders" class="mni"><i class="fas fa-receipt"></i><span>Orders</span></a>
-    <a href="/admin/providers" class="mni active"><i class="fas fa-plug"></i><span>Providers</span></a>
-    <a href="/admin/webhooks" class="mni"><i class="fas fa-hook"></i><span>Webhooks</span></a>
-    <a href="/admin/settings" class="mni"><i class="fas fa-cog"></i><span>Settings</span></a>
-</nav>
-
 <script>
 'use strict';
 
 const API = {
-    providers:  '/api/admin/orders/providers/health',
-    healthAll:  '/api/admin/providers/health-check-all',
-    me:         '/api/admin/me'
+    list:    '/api/admin/providers',
+    refresh: '/api/admin/providers/refresh',
+    detail:  p => `/api/admin/providers/${encodeURIComponent(p)}`,
+    test:    p => `/api/admin/providers/${encodeURIComponent(p)}/test`,
+    testAll: '/api/admin/providers/test-all',
+    me:      '/api/admin/me'
 };
 
-function escapeHtml(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-}
-function timeAgo(iso) {
-    if (!iso) return '—';
-    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (s < 60) return 'just now';
-    if (s < 3600) return Math.floor(s / 60) + 'm ago';
-    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
-    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
-    return new Date(iso).toLocaleDateString();
-}
-function formatNumber(v) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n.toLocaleString('en-US') : '—';
-}
-function showToast(msg, type = 'info') {
-    const stack = document.getElementById('toastStack');
-    const el = document.createElement('div');
-    el.className = 'toast ' + type;
-    el.textContent = msg;
+const state = {
+    providers: {},
+    summary: {},
+    lastLoaded: null,
+    testing: new Set()
+};
+
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+function esc(s){ if(s===null||s===undefined)return ''; return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function timeAgo(iso){ if(!iso)return '—'; const s=Math.floor((Date.now()-new Date(iso).getTime())/1000); if(s<0)return 'just now'; if(s<60)return s+'s ago'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; return new Date(iso).toLocaleDateString(); }
+function fmtNum(v){ const n=Number(v); return Number.isFinite(n)?n.toLocaleString('en-US'):'—'; }
+function toast(msg, kind='info'){
+    const stack=$('#toastStack');
+    const el=document.createElement('div');
+    el.className='toast '+kind;
+    el.textContent=msg;
     stack.appendChild(el);
-    setTimeout(() => el.remove(), 3400);
-}
-function toggleNavGroup(head) {
-    const g = head.closest('.nav-group');
-    g.classList.toggle('collapsed');
-    head.setAttribute('aria-expanded', String(!g.classList.contains('collapsed')));
-    try { localStorage.setItem('navgroup:' + g.dataset.group, g.classList.contains('collapsed') ? 'collapsed' : 'open'); } catch (e) {}
+    setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(),250); },3400);
 }
 
-async function api(url, opts = {}) {
-    try {
+async function apiFetch(url, opts={}){
+    if(!window.AdminSession || typeof window.AdminSession.fetch!=='function'){
+        return { ok:false, error:'Authentication layer not loaded.' };
+    }
+    try{
         const res = await AdminSession.fetch(url, opts);
-        let json = null;
-        try { json = await res.json(); } catch {}
-        if (!res.ok || json?.success === false) {
-            return { ok: false, status: res.status, error: json?.error || json?.message || 'Request failed' };
+        let body=null; try{ body=await res.json(); }catch{}
+        if(res.status === 401) return { ok:false, reason:'unauthorized' };
+        if(res.status === 403) return { ok:false, reason:'forbidden', error: body?.error, code: body?.code };
+        if(!res.ok || body?.success===false){
+            return { ok:false, status:res.status, code:body?.code, error:body?.error || body?.message || 'Request failed' };
         }
-        return { ok: true, data: json };
-    } catch (e) {
-        return { ok: false, status: 0, error: 'Network error' };
+        return { ok:true, data: body };
+    }catch(e){
+        return { ok:false, error: e.message || 'Network error' };
     }
 }
 
-function statusPillClass(status) {
-    const s = String(status || '').toLowerCase();
-    if (['operational'].includes(s)) return 'operational';
-    if (['degraded'].includes(s)) return 'degraded';
-    if (['unavailable','down'].includes(s)) return 'unavailable';
-    if (['not_configured','not-configured'].includes(s)) return 'not_configured';
+function pillClass(status){
+    const s = String(status || 'unknown').toLowerCase();
+    if(['connected','configured','operational','healthy'].includes(s)) return 'healthy';
+    if(['degraded','rate_limited'].includes(s)) return 'degraded';
+    if(['unreachable','auth_failed','unavailable','circuit_open'].includes(s)) return 'unreachable';
+    if(s === 'not_configured') return 'not_configured';
+    if(s === 'disabled') return 'disabled';
     return 'unknown';
 }
 
-function renderProviderCard(key, p) {
-    const label = p.label || key;
+function isHealthy(status){
+    return ['connected','configured','operational','healthy'].includes(String(status || '').toLowerCase());
+}
+
+function envClass(env){
+    const e = String(env || '').toLowerCase();
+    if(e === 'live' || e === 'production') return 'live';
+    if(e === 'sandbox') return 'sandbox';
+    if(e === 'preprod' || e === 'staging') return 'preprod';
+    return 'legacy';
+}
+
+function renderSystemBanner(summary){
+    const el = $('#systemBanner');
+    const s = summary.system_status || 'unknown';
+    if(s === 'operational'){
+        el.innerHTML = `<div class="banner success"><span class="ic">🟢</span><div><strong>System operational.</strong> All providers healthy.</div></div>`;
+        return;
+    }
+    if(s === 'degraded'){
+        el.innerHTML = `<div class="banner warn"><span class="ic">🟠</span><div><strong>System degraded.</strong> ${summary.offline || 0} provider(s) offline, ${summary.degraded || 0} degraded. Non-critical services may be impacted.</div></div>`;
+        return;
+    }
+    if(s === 'major_outage'){
+        el.innerHTML = `<div class="banner danger"><span class="ic">🔴</span><div><strong>Major outage.</strong> ${summary.critical_down} critical provider(s) down. Affected services should be treated as temporarily unavailable.</div></div>`;
+        return;
+    }
+    el.innerHTML = '';
+}
+
+function renderSummary(summary){
+    const el = $('#summary');
+    if(!summary || !Object.keys(summary).length){ el.innerHTML=''; return; }
+    const cards = [
+        { lbl:'Total providers', val: summary.total ?? '—' },
+        { lbl:'Healthy',         val: summary.healthy ?? 0, color:'var(--success)' },
+        { lbl:'Degraded',        val: summary.degraded ?? 0, color:'#b3720a' },
+        { lbl:'Offline',         val: summary.offline ?? 0, color:'var(--danger)' },
+        { lbl:'Critical down',   val: summary.critical_down ?? 0, color: (summary.critical_down ? 'var(--danger)' : 'inherit') },
+        { lbl:'Not configured',  val: summary.not_configured ?? 0, color:'var(--text-dim)' }
+    ];
+    el.innerHTML = cards.map(c => `
+        <div class="summary-card">
+            <div class="lbl">${esc(c.lbl)}</div>
+            <div class="val" style="color:${c.color||'inherit'}">${esc(String(c.val))}</div>
+            ${c.lbl === 'Total providers' && summary.last_checked_at ? `<div class="sub">last check: ${esc(timeAgo(summary.last_checked_at))}</div>` : ''}
+        </div>`).join('');
+}
+
+function renderCard(key, p){
     const status = p.status || 'unknown';
-    const pillCls = statusPillClass(status);
+    const label  = p.label || key;
+    const inFlight = state.testing.has(key);
+    const healthy = isHealthy(status);
+    const env = p.environment || 'unknown';
+    const staleClass = p.staleness === 'severely_stale' ? 'is-severely-stale' : p.staleness === 'stale' ? 'is-stale' : '';
 
     const rows = [
-        ['Configured', p.configured ? '✓ Yes' : '✗ No'],
-        ['Reachable',  p.reachable === true ? '✓ Yes' : p.reachable === false ? '✗ No' : '—'],
-        ['Last success', p.lastSuccess ? timeAgo(p.lastSuccess) : '—'],
-        ['Last failure', p.lastFailure?.at ? timeAgo(p.lastFailure.at) : '—'],
-        ['Orders (24h)', formatNumber(p.recentCount ?? 0)],
-        ['Last webhook', p.lastWebhook ? timeAgo(p.lastWebhook) : '—'],
-        ['Failed webhooks', formatNumber(p.failedWebhooks ?? 0)]
+        ['Configured',     p.configured ? '✓ Yes' : '✗ No'],
+        ['Reachable',      p.reachable === true ? '✓ Yes' : p.reachable === false ? '✗ No' : '—'],
+        ['Authenticated',  p.authenticated === true ? '✓ Yes' : p.authenticated === false ? '✗ No' : '—'],
+        ['Functional',     p.functional === true ? '✓ Yes' : p.functional === false ? '✗ No' : '—'],
+        ['Latency',        p.latencyMs != null ? `${fmtNum(p.latencyMs)} ms` : '—'],
+        ['Last check',     p.lastCheckedAt ? timeAgo(p.lastCheckedAt) : 'never'],
+        ['Last success',   p.lastSuccessAt ? timeAgo(p.lastSuccessAt) : '—'],
+        ['Last failure',   p.lastFailureAt ? timeAgo(p.lastFailureAt) : '—'],
+        ['Failures (consec)', p.consecutiveFailures ?? 0]
     ];
 
+    const lastOpLabel = p.lastSuccessfulOperationLabel || 'Last successful operation';
+    const lastOpLine = `<div class="stat-row"><span class="k">${esc(lastOpLabel)}</span><span class="v">${p.lastSuccessfulOperationAt ? esc(timeAgo(p.lastSuccessfulOperationAt)) : '—'}</span></div>`;
+
+    const webhookRows = p.supportsWebhook === false
+        ? `<div class="stat-row"><span class="k">Webhook</span><span class="v">not applicable</span></div>`
+        : `
+            <div class="stat-row"><span class="k">Webhook</span><span class="v">${esc(p.webhookStatus || '—')}</span></div>
+            <div class="stat-row"><span class="k">Last webhook</span><span class="v">${p.lastWebhookAt ? esc(timeAgo(p.lastWebhookAt)) : '—'}</span></div>
+            <div class="stat-row"><span class="k">Webhook latency</span><span class="v">${p.webhookProcessingLatencyMs != null ? esc(fmtNum(p.webhookProcessingLatencyMs)+' ms') : '—'}</span></div>
+            <div class="stat-row"><span class="k">Failed 24h</span><span class="v">${esc(String(p.failedWebhooks24h || 0))}</span></div>
+            <div class="stat-row"><span class="k">Sig failures 24h</span><span class="v">${esc(String(p.webhookSignatureFailures24h || 0))}</span></div>
+        `;
+
+    const breaker = p.breaker || null;
+    const breakerLine = breaker && breaker.state !== 'CLOSED'
+        ? `<div class="stat-row"><span class="k">Circuit</span><span class="v" style="color:var(--warn)">${esc(breaker.state)} · ${esc(String(breaker.failures))} failures</span></div>`
+        : '';
+
+    // Show error only if not healthy OR severely stale.
+    const showError = (!healthy || p.staleness === 'severely_stale') && p.errorMessage;
+    const errorLine = showError
+        ? `<div class="stat-row"><span class="k">Last error</span><span class="v" style="color:var(--danger);font-size:11.5px">${esc(String(p.errorMessage).slice(0,200))}</span></div>`
+        : '';
+
+    const staleLine = p.staleness && p.staleness !== 'current'
+        ? `<div class="stat-row"><span class="k">Data</span><span class="v"><span class="stale-badge ${esc(p.staleness)}">${esc(p.staleness.replace(/_/g,' '))}</span></span></div>`
+        : '';
+
     return `
-        <div class="provider-card" data-provider="${escapeHtml(key)}">
+        <div class="provider-card ${staleClass}" data-provider="${esc(key)}">
             <div class="provider-card-head">
-                <div class="name">
-                    <h3>${escapeHtml(label)}</h3>
-                    <span class="sub">${escapeHtml(key)}</span>
+                <div>
+                    <h3>${esc(label)}</h3>
+                    <span class="sub mono">${esc(key)}
+                        <span class="env-badge ${envClass(env)}">${esc(env)}</span>
+                        ${p.critical ? `<span class="env-badge legacy">critical</span>` : ''}
+                    </span>
                 </div>
-                <span class="status-pill ${pillCls}">${escapeHtml(status.replace(/_/g, ' '))}</span>
+                <span class="status-pill ${pillClass(status)}">${esc(status.replace(/_/g,' '))}</span>
             </div>
             <div class="provider-card-body">
-                ${rows.map(([k, v]) => `<div class="stat-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span></div>`).join('')}
-                ${p.lastError ? `<div class="stat-row"><span class="k">Last error</span><span class="v" style="color:var(--danger);font-size:11.5px">${escapeHtml(p.lastError)}</span></div>` : ''}
+                ${rows.map(([k,v]) => `<div class="stat-row"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}</span></div>`).join('')}
+                ${lastOpLine}
+                ${breakerLine}
+                ${staleLine}
+                <div class="section-title">Webhook</div>
+                ${webhookRows}
+                ${errorLine}
             </div>
             <div class="provider-card-actions">
-                <button class="btn btn-sm" data-check="${escapeHtml(key)}"><i class="fas fa-heart-pulse"></i> Health check</button>
+                <button class="btn btn-sm" data-test="${esc(key)}" ${inFlight?'disabled':''}>
+                    <i class="fas ${inFlight?'fa-spinner fa-spin':'fa-heart-pulse'}"></i>
+                    ${inFlight?'Testing…':'Test connection'}
+                </button>
                 <a class="btn btn-sm" href="/admin/webhooks?provider=${encodeURIComponent(key)}"><i class="fas fa-hook"></i> Webhooks</a>
-                <a class="btn btn-sm" href="/admin/orders?provider=${encodeURIComponent(key)}"><i class="fas fa-receipt"></i> Orders</a>
             </div>
         </div>`;
 }
 
-async function loadProviders() {
-    const grid = document.getElementById('providerGrid');
-    grid.innerHTML = Array.from({ length: 3 }).map(() => `<div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:120px"></div></div></div>`).join('');
-
-    const { ok, data, error } = await api(API.providers);
-    if (!ok) {
-        grid.innerHTML = `<div class="provider-card"><div class="provider-card-body"><div class="unavailable-box">Unable to load providers: ${escapeHtml(error)}<br><button onclick="loadProviders()">Retry</button></div></div></div>`;
-        updateLiveStatus(false);
-        return;
-    }
-    const providers = data.providers || data.data?.providers || {};
-    const keys = Object.keys(providers);
-
-    if (!keys.length) {
+function renderGrid(){
+    const grid = $('#grid');
+    const keys = Object.keys(state.providers);
+    if(!keys.length){
         grid.innerHTML = `<div class="provider-card"><div class="provider-card-body"><div class="empty-state"><span class="ic">🔌</span>No providers registered.</div></div></div>`;
         return;
     }
+    grid.innerHTML = keys
+        .sort((a,b) => (state.providers[a].label || a).localeCompare(state.providers[b].label || b))
+        .map(k => renderCard(k, state.providers[k]))
+        .join('');
 
-    grid.innerHTML = keys.map(k => renderProviderCard(k, providers[k])).join('');
-    grid.querySelectorAll('[data-check]').forEach(btn => {
-        btn.addEventListener('click', () => healthCheckOne(btn.dataset.check, btn));
+    grid.querySelectorAll('[data-test]').forEach(btn => {
+        btn.addEventListener('click', () => testOne(btn.dataset.test));
     });
+}
 
-    // Env banner if any are not configured
-    const unconfigured = keys.filter(k => !providers[k].configured);
-    const banner = document.getElementById('envBanner');
-    if (unconfigured.length) {
-        banner.innerHTML = `<div class="banner warn">
-            <span class="ic">⚠️</span>
-            <div>
-                <strong>${unconfigured.length} provider${unconfigured.length === 1 ? '' : 's'} not configured.</strong>
-                Missing API keys on the server: <span class="mono">${escapeHtml(unconfigured.join(', '))}</span>.
-                Set the corresponding environment variables and restart. Details are logged server-side.
-            </div>
-        </div>`;
-    } else {
-        banner.innerHTML = '';
+function renderBanner(){
+    const el = $('#banner');
+    const offline = Object.values(state.providers).filter(p => ['unreachable','auth_failed','rate_limited','circuit_open'].includes(p.status)).length;
+    const notConfigured = Object.values(state.providers).filter(p => !p.configured).length;
+
+    if(!notConfigured && !offline){ el.innerHTML = ''; return; }
+    if(notConfigured && !offline){
+        el.innerHTML = `<div class="banner warn"><span class="ic">⚠️</span><div><strong>${notConfigured} provider${notConfigured===1?'':'s'} not configured.</strong> Set the missing environment variables on the server and restart. Details are logged server-side.</div></div>`;
+        return;
     }
-    updateLiveStatus(true);
+    if(offline && !notConfigured){
+        el.innerHTML = `<div class="banner danger"><span class="ic">🔴</span><div><strong>${offline} provider${offline===1?'':'s'} unreachable.</strong> Investigate before accepting new orders. Check the card for the exact error.</div></div>`;
+        return;
+    }
+    el.innerHTML = `<div class="banner warn"><span class="ic">⚠️</span><div><strong>${notConfigured} not configured · ${offline} unreachable.</strong> Review each card below.</div></div>`;
 }
 
-async function healthCheckOne(key, btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking…';
-    const { ok, data, error } = await api(`/api/admin/providers/${encodeURIComponent(key)}/health-check`, { method: 'POST' });
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-heart-pulse"></i> Health check';
-    if (!ok) { showToast(error || 'Health check failed', 'error'); return; }
-    showToast(`${key}: ${data.reachable ? 'reachable' : 'unreachable'}`, data.reachable ? 'success' : 'error');
-    loadProviders();
-}
-
-async function healthCheckAll() {
-    const btn = document.getElementById('healthAllBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking…';
-    const { ok, data, error } = await api(API.healthAll, { method: 'POST' });
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-heart-pulse"></i> Run health check';
-    if (!ok) { showToast(error || 'Health check failed', 'error'); return; }
-    showToast('Health check complete', 'success');
-    loadProviders();
-}
-
-function updateLiveStatus(ok) {
-    const dot = document.getElementById('liveDot');
-    const lbl = document.getElementById('liveDotLabel');
-    const upd = document.getElementById('lastUpdated');
-    if (ok) {
+function updateLiveStatus(ok){
+    const dot = $('#liveDot');
+    const lbl = $('#liveDotLabel');
+    const upd = $('#lastUpdated');
+    if(ok){
         dot.classList.remove('off');
-        lbl.textContent = 'Live data';
+        lbl.textContent = 'Live';
         upd.textContent = new Date().toLocaleTimeString();
     } else {
         dot.classList.add('off');
@@ -498,56 +504,104 @@ function updateLiveStatus(ok) {
     }
 }
 
-async function loadAdminProfile() {
-    const { ok, data } = await api(API.me);
-    if (!ok || !data?.data?.user) return;
-    const u = data.data.user;
-    const name = u.username || u.email?.split('@')[0] || 'Admin';
+async function loadProviders(){
+    const grid = $('#grid');
+    grid.innerHTML = Array.from({length:3}).map(()=>`<div class="provider-card"><div class="provider-card-body"><div class="skel" style="height:200px"></div></div></div>`).join('');
+    const r = await apiFetch(API.list);
+    if(!r.ok){
+        const msg = r.reason === 'forbidden' ? 'You do not have permission to view providers.'
+                  : r.reason === 'unauthorized' ? 'Your session has expired.'
+                  : r.error || 'Unable to load providers.';
+        grid.innerHTML = `<div class="provider-card"><div class="provider-card-body"><div class="unavailable-box">${esc(msg)}<br><button onclick="loadProviders()">Retry</button></div></div></div>`;
+        updateLiveStatus(false);
+        return;
+    }
+    state.providers = r.data.providers || {};
+    state.summary = r.data.summary || {};
+    state.lastLoaded = new Date();
+    renderSummary(state.summary);
+    renderSystemBanner(state.summary);
+    renderGrid();
+    renderBanner();
+    updateLiveStatus(true);
+}
+
+async function testOne(key){
+    if(state.testing.has(key)) return;
+    state.testing.add(key);
+    renderGrid();
+    const r = await apiFetch(API.test(key), {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ reason: 'admin_test_from_page' })
+    });
+    state.testing.delete(key);
+    if(!r.ok){
+        toast(r.error || 'Health check failed', 'error');
+        renderGrid();
+        return;
+    }
+    const result = r.data.result || {};
+    const ok = isHealthy(result.status);
+    toast(`${key}: ${result.status.replace(/_/g,' ')}${result.latencyMs ? ` · ${result.latencyMs}ms` : ''}`, ok ? 'success' : 'error');
+    await loadProviders();
+}
+
+async function testAll(){
+    const btn = $('#testAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing all…';
+    const r = await apiFetch(API.testAll, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ reason: 'admin_test_all_from_page' })
+    });
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-heart-pulse"></i> Test all providers';
+    if(!r.ok){
+        toast(r.error || 'Health check failed', 'error');
+        return;
+    }
+    toast('Health check complete', 'success');
+    await loadProviders();
+}
+
+async function loadAdminProfile(){
+    const r = await apiFetch(API.me);
+    if(!r.ok || !r.data?.data?.user) return;
+    const u = r.data.data.user;
+    const name = u.username || (u.email ? u.email.split('@')[0] : 'Admin');
     const role = u.role || 'admin';
-    const initials = name.slice(0, 1).toUpperCase();
-    ['adminName','chipName'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = name; });
-    ['adminRole','chipRole'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = role.charAt(0).toUpperCase() + role.slice(1); });
-    ['adminAvatar','chipAvatar'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = initials; });
+    const initials = name.slice(0,1).toUpperCase();
+    $('#adminName').textContent = name;
+    $('#chipName').textContent = name;
+    $('#adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    $('#chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    $('#adminAvatar').textContent = initials;
+    $('#chipAvatar').textContent = initials;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (!AdminSession.getToken()) return AdminSession.redirectToLogin();
+    if(!AdminSession.getToken()) return AdminSession.redirectToLogin();
 
-    document.getElementById('hamburger')?.addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('open');
-        document.getElementById('scrim').classList.toggle('show');
-    });
-    document.getElementById('scrim')?.addEventListener('click', () => {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('scrim').classList.remove('show');
-    });
-    document.getElementById('sbToggleDesktop')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
-    document.getElementById('sbCollapseBtn')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
-
-    document.getElementById('darkToggle')?.addEventListener('click', () => {
+    $('#hamburger')?.addEventListener('click', () => { $('#sidebar').classList.toggle('open'); $('#scrim').classList.toggle('show'); });
+    $('#scrim')?.addEventListener('click', () => { $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('show'); });
+    $('#sbToggleDesktop')?.addEventListener('click', () => $('#appRoot').classList.toggle('sb-collapsed'));
+    $('#sbCollapseBtn')?.addEventListener('click', () => $('#appRoot').classList.toggle('sb-collapsed'));
+    $('#darkToggle')?.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
-        document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+        $('#darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
     });
-
-    document.getElementById('adminChip')?.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to logout?')) await AdminSession.logout();
+    $('#adminChip')?.addEventListener('click', async () => {
+        if(confirm('Are you sure you want to logout?')) await AdminSession.logout();
     });
-
-    try {
-        document.querySelectorAll('.nav-group').forEach(g => {
-            const saved = localStorage.getItem('navgroup:' + (g.dataset.group || ''));
-            if (saved === 'collapsed') g.classList.add('collapsed');
-        });
-    } catch (e) {}
-
-    document.getElementById('refreshBtn')?.addEventListener('click', () => { loadProviders(); showToast('Refreshed', 'success'); });
-    document.getElementById('healthAllBtn')?.addEventListener('click', healthCheckAll);
+    $('#refreshBtn')?.addEventListener('click', () => { loadProviders(); toast('Refreshed', 'success'); });
+    $('#testAllBtn')?.addEventListener('click', testAll);
 
     loadAdminProfile();
     loadProviders();
 });
 
-window.toggleNavGroup = toggleNavGroup;
 window.loadProviders = loadProviders;
 </script>
 </body>

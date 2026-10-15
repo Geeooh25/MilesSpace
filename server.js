@@ -23,13 +23,11 @@ const jwt = require('jsonwebtoken');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 
 require('dotenv').config();
 
 // ─── SHARED SERVICES (used by background reconciliation loops) ───
-// These three were referenced inside the deposit-reconciliation
-// setInterval before, but were never imported. Importing them here
-// so the loop actually works.
 const { supabaseAdmin } = require('./db/supabase');
 const korapayService    = require('./services/korapayService');
 const depositService    = require('./services/depositService');
@@ -61,6 +59,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1);
 
 // ─── SECURITY HEADERS ────────────────────────────────────────────
+// CSP kept functionally identical to what the existing frontend
+// requires. We do NOT remove unsafe-eval / unsafe-inline — the
+// admin pages rely on them. We only add connectSrc entries needed
+// for credentialed refresh calls from the same origin.
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -105,6 +107,12 @@ console.log('✅ Security headers enabled');
 app.use(compression());
 console.log('✅ Compression enabled');
 
+// ─── COOKIE PARSER ───────────────────────────────────────────────
+// Required by the HttpOnly refresh-token flow in /api/auth/refresh
+// and /api/auth/logout. Does not change any other route behaviour.
+app.use(cookieParser());
+console.log('✅ Cookie parser enabled');
+
 // ─── CORS ────────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
@@ -140,6 +148,12 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // ─── RATE LIMITING ───────────────────────────────────────────────
+// ── General auth bucket ──────────────────────────────────────────
+// Applies to /api/auth/* EXCEPT:
+//   • /api/auth/refresh  → high-frequency by design (15-min rotation)
+//   • /api/auth/session  → polling every 60s from the dashboard
+//   • /api/auth/heartbeat→ presence beacon
+// These endpoints have their own limiter inside the auth routes.
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -149,11 +163,21 @@ const authLimiter = rateLimit({
         code: 'AUTH_RATE_LIMIT'
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    // Skip the high-frequency endpoints that have their own limiter.
+    // If skip() returns true, the request bypasses this limiter.
+    skip: (req) => {
+        const p = req.path || '';
+        return (
+            p === '/refresh' ||
+            p === '/session' ||
+            p === '/heartbeat'
+        );
+    }
 });
 
 app.use('/api/auth', authLimiter);
-console.log('✅ Rate limiting enabled (auth routes only)');
+console.log('✅ Rate limiting enabled (auth routes, refresh/session/heartbeat exempted)');
 
 // ─── STATIC FILES ────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
@@ -216,9 +240,7 @@ function safeMount(app, prefix, route) {
 // ═══════════════════════════════════════════════════════════════════
 
 const supportRoutes        = require('./routes/support');
-const cashbackRoutes       = require('./routes/cashback');
 const transactionRoutes    = require('./routes/transactionRoutes');
-const bushaRoutes          = require('./routes/busha');
 const tickerRoutes         = require('./routes/tickerRoutes');
 
 const boostRoutes          = safeRequire('./routes/boostRoutes');
@@ -227,13 +249,11 @@ const notificationRoutes   = safeRequire('./routes/notificationRoutes');
 const profileRoutes        = safeRequire('./routes/profileRoutes');
 const marketRoutes         = safeRequire('./routes/marketRoutes');
 const giftCardRoutes       = safeRequire('./routes/giftCardRoutes');
-const giftRoutes           = safeRequire('./routes/giftRoutes');
 const presenceRoutes       = safeRequire('./routes/presenceRoutes');
 const walletRoutes         = safeRequire('./routes/wallet/index');
 const bankRoutes           = safeRequire('./routes/bankRoutes');
 const nowPaymentsRoutes    = safeRequire('./routes/wallet/nowpayments');
-const paystackRoutes       = safeRequire('./routes/wallet/paystack');
-const withdrawals          = safeRequire('./routes/wallet/withdrawals');
+
 const beneficiaryRoutes    = require('./routes/wallet/beneficiaries');
 const userSettingsRoutes   = safeRequire('./routes/userSettingsRoutes');
 const virtualRoutes        = require('./routes/virtual-router');
@@ -246,11 +266,9 @@ const reconciliationRoutes = require('./routes/reconciliationRoutes');
 
 console.log('\n📦 Mounting user routes:');
 
-safeMount(app, '/api/cashback', cashbackRoutes);
 safeMount(app, '/api/support', supportRoutes);
 safeMount(app, '/api/transactions', transactionRoutes);
-safeMount(app, '/api/busha', bushaRoutes);
-safeMount(app, '/api/crypto', bushaRoutes);
+
 
 safeMount(app, '/api/boost', boostRoutes);
 safeMount(app, '/api/sms', smsRoutes);
@@ -258,14 +276,11 @@ safeMount(app, '/api/notifications', notificationRoutes);
 safeMount(app, '/api/profile', profileRoutes);
 safeMount(app, '/api/market', marketRoutes);
 safeMount(app, '/api', giftCardRoutes);
-safeMount(app, '/api/gifts', giftRoutes);
 safeMount(app, '/api/presence', presenceRoutes);
 safeMount(app, '/api/banks', bankRoutes);
 safeMount(app, '/api/wallet', walletRoutes);
 safeMount(app, '/api/wallet/beneficiaries', beneficiaryRoutes);
-safeMount(app, '/api/wallet/withdraw', withdrawals);
 safeMount(app, '/api/wallet/nowpayments', nowPaymentsRoutes);
-safeMount(app, '/api/wallet/paystack', paystackRoutes);
 safeMount(app, '/api/user', userSettingsRoutes);
 safeMount(app, '/api/ticker', tickerRoutes);
 safeMount(app, '/api/wallet', koraDepositsRoutes);
@@ -333,6 +348,7 @@ const adminDashboardRoutes     = require('./routes/admin/dashboardRoutes');
 const adminPresenceRoutes      = require('./routes/admin/presenceAdminRoutes');
 const adminIntelligenceRoutes  = require('./routes/admin/intelligenceRoutes');
 const adminSettingsRoutes      = require('./routes/admin/adminSettings');
+const auditLogRoutes =require('./routes/admin/auditLogRoutes')
 
 safeMount(app, '/api/admin', adminDashboardRoutes);
 safeMount(app, '/api/admin/presence', adminPresenceRoutes);
@@ -342,11 +358,9 @@ console.log('  ✅ /api/admin (settings) → loaded');
 
 // ─── Optional admin routers (loaded only if the file exists) ────
 const marketplaceRoutes      = safeRequire('./routes/admin/marketplaceRoutes');
-const giftAdminRoutes        = safeRequire('./routes/admin/giftAdminRoutes');
-const cryptoRoutes           = safeRequire('./routes/admin/cryptoRoutes');
+
 const giftcardAdminRoutes    = safeRequire('./routes/admin/giftcardAdminRoutes');
 const adminUserRoutes        = safeRequire('./routes/admin/userRoutes');
-const adminAuditRoutes       = safeRequire('./routes/admin/auditRoutes');
 // ─── Admin support (separate from customer messaging) ────────
 app.use('/api/admin/support', require('./routes/admin/supportRoutes'));
 app.use('/api/admin', require('./routes/admin/boostAdminRoutes'));
@@ -378,20 +392,16 @@ app.use('/api/admin', require('./routes/admin/stepUpRoutes'));
 console.log('  ✅ /api/admin (me, permissions, step-up) → loaded');
 
 if (marketplaceRoutes)   safeMount(app, '/api/admin', marketplaceRoutes);
-if (giftAdminRoutes)     app.use('/api/admin', giftAdminRoutes);
-if (cryptoRoutes)        app.use('/api/admin/crypto', cryptoRoutes);
+
 if (giftcardAdminRoutes) app.use('/api/admin', giftcardAdminRoutes);
 if (adminUserRoutes)     app.use('/api/admin', adminUserRoutes);
-if (adminAuditRoutes)    app.use('/api/admin', adminAuditRoutes);
+if (auditLogRoutes)    app.use('/api/admin', auditLogRoutes);
 if (messageRoutes)       app.use('/api/messages', messageRoutes);
 
 console.log('\n✅ All API routes mounted');
 
 // ═══════════════════════════════════════════════════════════════════
 //  BACKGROUND RECONCILIATION SCHEDULERS
-// ───────────────────────────────────────────────────────────────────
-//  Each of these starts a setInterval that runs in-process. They
-//  currently run every 5 minutes.
 // ═══════════════════════════════════════════════════════════════════
 
 const reconciliationService = require('./services/reconciliationService');
@@ -440,8 +450,6 @@ setTimeout(async () => {
 }, 10000);
 
 // ─── Deposit reconciliation: every 5 minutes ────────────────────
-// Finds Kora deposits stuck in pending/processing for >5 minutes
-// and re-verifies them against the provider.
 setInterval(async () => {
     try {
         const { data: stuck } = await supabaseAdmin
@@ -589,8 +597,7 @@ app.get('/admin/notifications', (req, res) => res.sendFile(path.join(__dirname, 
 app.get('/admin/settings', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'settings.html')));
 app.get('/admin/ticker-manager', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'ticker-manager.html')));
 
-// Generic admin fallback: any /admin/<something>.html serves the file,
-// any /admin/<something> without extension falls through to dashboard.
+// Generic admin fallback
 app.get(/^\/admin\/(.+)$/, (req, res) => {
     const requestedPath = req.params[0] || '';
     if (requestedPath && requestedPath.includes('.')) {

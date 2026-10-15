@@ -3,38 +3,66 @@
 // SINGLE ADMIN AUTH AUTHORITY.
 //
 // Guarantees:
-//   - Never trusts req.body.role / req.body.isAdmin / req.body.permission.
-//   - Re-reads role from `profiles` on every request.
-//   - Permission resolution is DB-authoritative and FAILS CLOSED:
+//   • Never trusts req.body.role / req.body.isAdmin / req.body.permission.
+//   • Re-reads role from `profiles` on every request.
+//   • Permission resolution is DB-authoritative and FAILS CLOSED:
 //       * admin_permissions read error → 503, deny
 //       * profiles read error          → 503, deny
 //       * super_admin                  → ['*']
 //       * every other role             → role defaults + overrides,
 //         and if overrides cannot be read → 503, deny
-//   - Session must match profiles.current_session_id AND be active
+//   • Session must match profiles.current_session_id AND be active
 //     in user_sessions.
-//   - Only super_admin gets the wildcard.
+//   • Only super_admin gets the wildcard.
+//   • Audit is delegated to services/auditLogService — no direct
+//     writes to admin_audit_logs from this file.
+//   • `sid` on the JWT must be a UUID. A malformed sid is rejected
+//     before any DB call.
+//   • Every request gets a correlation id (from x-correlation-id
+//     when provided, generated otherwise) so the audit chain can
+//     be reassembled later.
 //
 // Exports:
 //   adminAuth
 //   superAdminAuth
+//   requireSuperAdmin         — alias
 //   requirePermission(permission)
-//   requireStepUpAuth (re-export)
-//   requireSuperAdmin (alias for superAdminAuth)
-//   recordAdminAction          — fire-and-forget audit
-//   recordAdminActionStrict    — throws if audit insert fails
+//   requireStepUpAuth         — re-export from ./adminStepUp
+//   recordAdminAction         — fire-and-forget audit
+//   recordAdminActionStrict   — throws if audit insert fails
 //   buildAdminContext
 //   getClientIp
+//   safeAdminIdentity
 //   ADMIN_ROLES, ADMIN_ROLE_VALUES, PERMISSIONS, ROLE_PERMISSIONS
-//   roleHasPermission, isAdminRole, safeAdminIdentity
-//   can, canAny, canAll        — programmatic helpers
+//   roleHasPermission, isAdminRole, can, canAny, canAll
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
 
-const jwt = require('jsonwebtoken');
+const jwt    = require('jsonwebtoken');
+const crypto = require('crypto');
 const { supabaseAdmin } = require('../db/supabase');
-const { requireStepUpAuth } = require('./adminStepUp');
+const auditLog = require('../services/auditLogService');
+
+// ─── Step-up (re-export) — guarded so a future signature change is caught ───
+let requireStepUpAuth;
+try {
+    const stepUp = require('./adminStepUp');
+    if (!stepUp || typeof stepUp.requireStepUpAuth !== 'function') {
+        throw new Error('adminStepUp.js must export requireStepUpAuth as a function');
+    }
+    requireStepUpAuth = stepUp.requireStepUpAuth;
+} catch (err) {
+    // Do not crash on load — the middleware is only used by routes
+    // that opt in. But make the failure loud so it is caught in CI.
+    console.error('[ADMIN AUTH] requireStepUpAuth unavailable:', err.message);
+    requireStepUpAuth = (req, res, next) => {
+        const e = new Error('Step-up authentication is not configured on this server.');
+        e.status = 503;
+        e.code = 'STEP_UP_NOT_CONFIGURED';
+        throw e;
+    };
+}
 
 // ─── JWT secret ─────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -44,6 +72,9 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
         'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"'
     );
 }
+
+// ─── UUID shape (session ids are uuid in this schema) ───────────
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── Roles ──────────────────────────────────────────────────────
 const ADMIN_ROLES = Object.freeze({
@@ -57,13 +88,15 @@ const ADMIN_ROLES = Object.freeze({
 });
 const ADMIN_ROLE_VALUES = Object.freeze(Object.values(ADMIN_ROLES));
 
-// ─── Permission registry ────────────────────────────────────────
+// ─── Permission registry (single definition per key) ────────────
 const PERMISSIONS = Object.freeze({
     DASHBOARD_READ:         'dashboard.read',
 
     USERS_READ:             'users.read',
     USERS_MANAGE:           'users.manage',
     USERS_SUSPEND:          'users.suspend',
+    USERS_SECURITY_READ:    'users.security.read',
+    USERS_AUDIT_READ:       'users.audit.read',
 
     WALLETS_READ:           'wallets.read',
     WALLETS_ADJUST:         'wallets.adjust',
@@ -83,6 +116,7 @@ const PERMISSIONS = Object.freeze({
 
     PROVIDERS_READ:         'providers.read',
     PROVIDERS_MANAGE:       'providers.manage',
+    PROVIDERS_TEST:         'providers.test',
 
     SERVICES_READ:          'services.read',
     SERVICES_MANAGE:        'services.manage',
@@ -109,10 +143,10 @@ const PERMISSIONS = Object.freeze({
     ADMINS_MANAGE:          'admins.manage',
 
     AUDIT_READ:             'audit.read',
+    AUDIT_EXPORT:           'audit.export',
 
     SYSTEM_HEALTH_READ:     'system.health.read',
 
-    // Security
     SECURITY_READ:          'security.read',
     SECURITY_MANAGE:        'security.manage',
     SESSIONS_READ:          'sessions.read',
@@ -133,19 +167,20 @@ const PERMISSIONS = Object.freeze({
     SUPPORT_AUDIT_READ:         'support.audit.read'
 });
 
-// ─── Role → default permissions (BASELINE — overridable) ───────
+// ─── Role → baseline permissions ────────────────────────────────
 const ROLE_PERMISSIONS = Object.freeze({
     [ADMIN_ROLES.SUPER_ADMIN]: ['*'],
 
     [ADMIN_ROLES.ADMIN]: [
         PERMISSIONS.DASHBOARD_READ,
         PERMISSIONS.USERS_READ, PERMISSIONS.USERS_MANAGE, PERMISSIONS.USERS_SUSPEND,
+        PERMISSIONS.USERS_SECURITY_READ, PERMISSIONS.USERS_AUDIT_READ,
         PERMISSIONS.WALLETS_READ,
         PERMISSIONS.TRANSACTIONS_READ, PERMISSIONS.TRANSACTIONS_RESOLVE,
         PERMISSIONS.DEPOSITS_READ, PERMISSIONS.DEPOSITS_RESOLVE,
         PERMISSIONS.CRYPTO_READ, PERMISSIONS.CRYPTO_RESOLVE,
         PERMISSIONS.FX_READ,
-        PERMISSIONS.PROVIDERS_READ,
+        PERMISSIONS.PROVIDERS_READ, PERMISSIONS.PROVIDERS_TEST,
         PERMISSIONS.SERVICES_READ, PERMISSIONS.SERVICES_MANAGE,
         PERMISSIONS.ORDERS_READ, PERMISSIONS.ORDERS_RESOLVE,
         PERMISSIONS.WEBHOOKS_READ,
@@ -193,7 +228,7 @@ const ROLE_PERMISSIONS = Object.freeze({
         PERMISSIONS.TRANSACTIONS_READ,
         PERMISSIONS.DEPOSITS_READ,
         PERMISSIONS.CRYPTO_READ,
-        PERMISSIONS.PROVIDERS_READ,
+        PERMISSIONS.PROVIDERS_READ, PERMISSIONS.PROVIDERS_TEST,
         PERMISSIONS.SERVICES_READ,
         PERMISSIONS.ORDERS_READ, PERMISSIONS.ORDERS_RESOLVE,
         PERMISSIONS.WEBHOOKS_READ, PERMISSIONS.WEBHOOKS_REPLAY,
@@ -240,7 +275,7 @@ const ROLE_PERMISSIONS = Object.freeze({
         PERMISSIONS.CRYPTO_READ,
         PERMISSIONS.RECONCILIATION_READ,
         PERMISSIONS.REPORTS_READ, PERMISSIONS.REPORTS_EXPORT,
-        PERMISSIONS.AUDIT_READ,
+        PERMISSIONS.AUDIT_READ, PERMISSIONS.AUDIT_EXPORT,
         PERMISSIONS.SYSTEM_HEALTH_READ,
         PERMISSIONS.SECURITY_READ,
         PERMISSIONS.SESSIONS_READ,
@@ -274,12 +309,20 @@ function roleHasPermission(role, permission) {
     return perms.includes(permission);
 }
 
+// Normalize the client IP. If we only have a loopback address,
+// returning null is more honest than persisting `::1`.
 function getClientIp(req) {
     if (!req) return null;
-    if (typeof req.ip === 'string' && req.ip) return req.ip;
-    const fwd = req.headers?.['x-forwarded-for'];
-    if (typeof fwd === 'string') return fwd.split(',')[0].trim();
-    return req.socket?.remoteAddress || null;
+    const raw = (() => {
+        if (typeof req.ip === 'string' && req.ip) return req.ip;
+        const fwd = req.headers?.['x-forwarded-for'];
+        if (typeof fwd === 'string' && fwd) return fwd.split(',')[0].trim();
+        return req.socket?.remoteAddress || null;
+    })();
+    if (!raw) return null;
+    const normalized = raw.replace(/^::ffff:/, '');
+    if (normalized === '::1' || normalized === '127.0.0.1' || normalized === 'localhost') return null;
+    return raw;
 }
 
 function safeAdminIdentity(user) {
@@ -294,7 +337,24 @@ function safeAdminIdentity(user) {
     };
 }
 
-// ─── JWT verification (signature + expiry + type) ───────────────
+// ─── Correlation id ─────────────────────────────────────────────
+// Prefer an inbound x-correlation-id from the caller (for example
+// an internal admin tool that already has one). Otherwise generate.
+// Always set the response header so a browser devtools session can
+// tie the request to the audit row.
+function ensureCorrelationId(req, res) {
+    const inbound = req.headers?.['x-correlation-id'];
+    const corr = (typeof inbound === 'string' && inbound.trim())
+        ? inbound.trim().slice(0, 80)
+        : crypto.randomUUID();
+    req.correlationId = corr;
+    if (res && typeof res.setHeader === 'function' && !res.headersSent) {
+        res.setHeader('X-Correlation-Id', corr);
+    }
+    return corr;
+}
+
+// ─── JWT verification (signature + expiry + type + sid shape) ───
 function verifyAdminJwt(req) {
     const auth = req.headers?.authorization;
     if (!auth || !auth.startsWith('Bearer ')) {
@@ -320,7 +380,15 @@ function verifyAdminJwt(req) {
         e.status = 403; e.code = 'ADMIN_REQUIRED';
         throw e;
     }
-    if (!decoded.sid) {
+    if (!decoded.id || typeof decoded.id !== 'string') {
+        const e = new Error('Invalid session. Please sign in again.');
+        e.status = 401; e.code = 'INVALID_SESSION';
+        throw e;
+    }
+    if (!decoded.sid || typeof decoded.sid !== 'string' || !UUID_RE.test(decoded.sid)) {
+        // Session ids are uuid in this schema. A malformed sid would
+        // otherwise trigger a DB type error on the .eq('session_id', ...)
+        // filter further down. Reject it here before any DB call.
         const e = new Error('Invalid session. Please sign in again.');
         e.status = 401; e.code = 'INVALID_SESSION';
         throw e;
@@ -328,14 +396,18 @@ function verifyAdminJwt(req) {
     return decoded;
 }
 
-// ─── buildAdminContext — throws; never grants on uncertainty ────
+// ─── buildAdminContext — throws on every failure ────────────────
 async function buildAdminContext(req, requiredPermission) {
     const decoded = verifyAdminJwt(req);
 
-    // 1. Read profile — fail closed on any DB error.
-    let profile, profileErr;
+    // Correlation id — always set before any further work so even a
+    // rejected request is traceable.
+    const correlationId = ensureCorrelationId(req, req.res);
+
+    // 1. Read the profile. Any DB-level failure is a hard 503.
+    let profile;
     try {
-        const result = await supabaseAdmin
+        const { data, error } = await supabaseAdmin
             .from('profiles')
             .select([
                 'id', 'email', 'username', 'role', 'status', 'deleted_at',
@@ -343,18 +415,19 @@ async function buildAdminContext(req, requiredPermission) {
             ].join(', '))
             .eq('id', decoded.id)
             .maybeSingle();
-        profile = result.data;
-        profileErr = result.error;
+        if (error) {
+            const e = new Error('Authentication service temporarily unavailable.');
+            e.status = 503; e.code = 'AUTH_SERVICE_UNAVAILABLE';
+            throw e;
+        }
+        profile = data;
     } catch (dbErr) {
+        if (dbErr && dbErr.status) throw dbErr;
         const e = new Error('Authentication service temporarily unavailable.');
         e.status = 503; e.code = 'AUTH_SERVICE_UNAVAILABLE';
         throw e;
     }
-    if (profileErr) {
-        const e = new Error('Authentication service temporarily unavailable.');
-        e.status = 503; e.code = 'AUTH_SERVICE_UNAVAILABLE';
-        throw e;
-    }
+
     if (!profile) {
         const e = new Error('Admin profile not found.');
         e.status = 403; e.code = 'USER_NOT_FOUND';
@@ -371,7 +444,7 @@ async function buildAdminContext(req, requiredPermission) {
         throw e;
     }
 
-    // 2. Session must match the DB pointer.
+    // 2. Session must match the DB pointer exactly.
     if (!profile.current_session_id || profile.current_session_id !== decoded.sid) {
         const e = new Error('Your session has been revoked. Please sign in again.');
         e.status = 401; e.code = 'SESSION_REVOKED';
@@ -391,22 +464,26 @@ async function buildAdminContext(req, requiredPermission) {
             .eq('session_id', decoded.sid)
             .eq('user_id', profile.id)
             .maybeSingle();
+
         if (sessErr) {
             const e = new Error('Authentication service temporarily unavailable.');
             e.status = 503; e.code = 'AUTH_SERVICE_UNAVAILABLE';
             throw e;
         }
-        if (sess) {
-            if (sess.revoked_at || sess.is_active === false) {
-                const e = new Error('Your session has been revoked. Please sign in again.');
-                e.status = 401; e.code = 'SESSION_REVOKED';
-                throw e;
-            }
-            if (sess.expires_at && new Date(sess.expires_at) < new Date()) {
-                const e = new Error('Your session has expired. Please sign in again.');
-                e.status = 401; e.code = 'SESSION_EXPIRED';
-                throw e;
-            }
+        if (!sess) {
+            const e = new Error('Your session could not be found. Please sign in again.');
+            e.status = 401; e.code = 'SESSION_NOT_FOUND';
+            throw e;
+        }
+        if (sess.revoked_at || sess.is_active !== true) {
+            const e = new Error('Your session has been revoked. Please sign in again.');
+            e.status = 401; e.code = 'SESSION_REVOKED';
+            throw e;
+        }
+        if (sess.expires_at && new Date(sess.expires_at) <= new Date()) {
+            const e = new Error('Your session has expired. Please sign in again.');
+            e.status = 401; e.code = 'SESSION_EXPIRED';
+            throw e;
         }
     } catch (e) {
         if (e && e.status) throw e;
@@ -415,7 +492,7 @@ async function buildAdminContext(req, requiredPermission) {
         throw err;
     }
 
-    // 4. Role check.
+    // 4. Role must be an admin role.
     const role = String(profile.role || '').toLowerCase();
     if (!isAdminRole(role)) {
         const e = new Error('Admin access required.');
@@ -429,36 +506,35 @@ async function buildAdminContext(req, requiredPermission) {
         effective = ['*'];
     } else {
         const defaults = ROLE_PERMISSIONS[role] || [];
-        effective = new Set(defaults);
+        const merged = new Set(defaults);
 
-        let overrides, ovErr;
+        let overrides;
         try {
-            const result = await supabaseAdmin
+            const { data, error } = await supabaseAdmin
                 .from('admin_permissions')
                 .select('permission, granted')
                 .eq('user_id', profile.id);
-            overrides = result.data;
-            ovErr = result.error;
+            if (error) {
+                const e = new Error('Permission service temporarily unavailable.');
+                e.status = 503; e.code = 'PERMISSION_SERVICE_UNAVAILABLE';
+                throw e;
+            }
+            overrides = data || [];
         } catch (e) {
-            const err = new Error('Permission service temporarily unavailable.');
-            err.status = 503; err.code = 'PERMISSION_SERVICE_UNAVAILABLE';
-            throw err;
-        }
-        if (ovErr) {
-            // Any read error — DENY. No fallback to role defaults.
+            if (e && e.status) throw e;
             const err = new Error('Permission service temporarily unavailable.');
             err.status = 503; err.code = 'PERMISSION_SERVICE_UNAVAILABLE';
             throw err;
         }
 
-        for (const o of overrides || []) {
-            if (o.granted) effective.add(o.permission);
-            else effective.delete(o.permission);
+        for (const o of overrides) {
+            if (o.granted) merged.add(o.permission);
+            else merged.delete(o.permission);
         }
-        effective = Array.from(effective);
+        effective = Array.from(merged);
     }
 
-    // 6. Attach canonical context.
+    // 6. Canonical context.
     req.user = req.user || {};
     req.user.id = profile.id;
     req.user.email = profile.email;
@@ -476,7 +552,9 @@ async function buildAdminContext(req, requiredPermission) {
         isSuperAdmin: role === ADMIN_ROLES.SUPER_ADMIN,
         permissions: effective,
         sessionId: decoded.sid,
-        authTime: new Date().toISOString()
+        authTime: new Date().toISOString(),
+        correlationId,
+        ip: getClientIp(req)
     };
 
     // 7. Enforce permission if requested.
@@ -514,6 +592,19 @@ function sendAdminError(res, err) {
     const status = err?.status || 500;
     const code = err?.code || 'ADMIN_AUTH_ERROR';
     const message = err?.message || 'Admin authorization failed.';
+
+    // Log security-relevant denials (4xx) at info level with the
+    // required permission, and 5xx at error level. This is the
+    // single line that shows up for every rejected admin request.
+    if (status >= 500) {
+        console.error('[ADMIN AUTH]', code, message);
+    } else if (status === 401 || status === 403) {
+        try {
+            const adminId = err?.adminId || null;
+            console.warn('[ADMIN AUTH DENIED]', code, err?.required ? `required=${err.required}` : '', adminId ? `admin=${adminId}` : '');
+        } catch (_) { /* never throw from logging */ }
+    }
+
     if (res && typeof res.status === 'function' && !res.headersSent) {
         return res.status(status).json({
             success: false,
@@ -527,19 +618,22 @@ function sendAdminError(res, err) {
 
 // ─── Middleware factories ───────────────────────────────────────
 function adminAuth(req, res, next) {
+    req.res = req.res || res;
     buildAdminContext(req, null)
         .then(() => next())
         .catch(err => sendAdminError(res, err));
 }
 
 function superAdminAuth(req, res, next) {
+    req.res = req.res || res;
     buildAdminContext(req, null)
         .then(() => {
             if (!req.adminContext.isSuperAdmin) {
                 return sendAdminError(res, {
                     status: 403,
                     code: 'SUPER_ADMIN_REQUIRED',
-                    message: 'Super admin privileges required.'
+                    message: 'Super admin privileges required.',
+                    adminId: req.adminContext.id
                 });
             }
             next();
@@ -547,45 +641,83 @@ function superAdminAuth(req, res, next) {
         .catch(err => sendAdminError(res, err));
 }
 
-// Alias — some callers import `requireSuperAdmin`.
 const requireSuperAdmin = superAdminAuth;
 
 function requirePermission(permission) {
     return (req, res, next) => {
+        req.res = req.res || res;
         buildAdminContext(req, permission)
             .then(() => next())
-            .catch(err => sendAdminError(res, err));
+            .catch(err => sendAdminError(res, {
+                ...err,
+                adminId: err?.adminId || null
+            }));
     };
 }
 
-// ─── Audit — fire-and-forget ────────────────────────────────────
+// ─── Audit — fire-and-forget (delegated to auditLogService) ─────
 async function recordAdminAction({
-    adminId, action, targetType, targetId,
-    before = null, after = null, reason = null, req = null
+    adminId, adminEmail, adminRole, actorType,
+    action, targetType, targetId,
+    before = null, after = null, reason = null,
+    adminNote = null, result = 'success',
+    failureCode = null, durationMs = null,
+    correlationId = null, requestId = null, sessionId = null,
+    provider = null, operation = null, metadata = null,
+    ip = null, userAgent = null, location = null,
+    req = null
 }) {
+    if (!adminId || !action) return;
     try {
-        if (!adminId || !action) return;
-        await supabaseAdmin.from('admin_audit_logs').insert({
-            admin_id: adminId,
-            action: String(action).slice(0, 120),
-            target_type: targetType ? String(targetType).slice(0, 80) : null,
-            target_id: targetId ? String(targetId).slice(0, 120) : null,
-            before: before || null,
-            after: after || null,
-            reason: reason ? String(reason).slice(0, 500) : null,
-            ip_address: getClientIp(req),
-            user_agent: req?.headers?.['user-agent'] || null,
-            created_at: new Date().toISOString()
+        await auditLog.record({
+            adminId,
+            adminEmail: adminEmail || req?.adminContext?.email || null,
+            adminRole:  adminRole  || req?.adminContext?.role  || null,
+            actorType:  actorType  || (req?.adminContext ? 'admin' : 'system'),
+
+            action,
+            targetType,
+            targetId,
+
+            before,
+            after,
+
+            reason,
+            adminNote,
+
+            result,
+            failureCode,
+            durationMs,
+
+            correlationId: correlationId || req?.correlationId || null,
+            requestId:     requestId     || req?.requestId || req?.headers?.['x-request-id'] || null,
+            sessionId:     sessionId     || req?.adminContext?.sessionId || null,
+
+            provider,
+            operation,
+            metadata,
+
+            ip:        ip        || getClientIp(req),
+            userAgent: userAgent || req?.headers?.['user-agent'] || null,
+            location
         });
     } catch (e) {
+        // Fire-and-forget: never break the request because audit
+        // failed. Strict callers use recordAdminActionStrict.
         console.warn('[ADMIN AUDIT] Failed to record action:', e.message);
     }
 }
 
 // ─── Audit — strict (throws on failure) ─────────────────────────
 async function recordAdminActionStrict(opts) {
-    const { recordAdminActionStrict: impl } = require('./adminAuditStrict');
-    return impl(opts);
+    const mod = require('./adminAuditStrict');
+    if (!mod || typeof mod.recordAdminActionStrict !== 'function') {
+        const e = new Error('Audit strict middleware is not configured.');
+        e.code = 'AUDIT_STRICT_NOT_CONFIGURED';
+        e.status = 503;
+        throw e;
+    }
+    return mod.recordAdminActionStrict(opts);
 }
 
 // ─── Exports ────────────────────────────────────────────────────

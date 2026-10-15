@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Audit · MilesSpace Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2026-mfa-v1"></script>
+<script src="/js/admin-permissions.js?v=2026-mfa-v1"></script>
+<style>
+:root{
+  --brand:#0f4c5c; --brand-deep:#0a3542; --brand-light:#14607a;
+  --gold:#f5a623;
+  --bg:#f4f7fb; --surface:#ffffff;
+  --border:rgba(15,76,92,.10);
+  --text:#0c1f26; --text-dim:#5b7480; --text-faint:#8fa3ab;
+  --success:#16a34a; --success-bg:#e9f9ef;
+  --danger:#dc2626;  --danger-bg:#fdecec;
+  --warn:#f59e0b;    --warn-bg:#fef3d9;
+  --info:#2563a8;    --info-bg:#e8f1fb;
+  --purple:#8b5cf6;  --purple-bg:#ede9fe;
+  --radius:12px; --radius-lg:16px;
+  --shadow-sm:0 1px 2px rgba(8,42,51,.06);
+  --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
+  --shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);
+  --sidebar-w:264px; --topbar-h:64px;
+}
+html.dark{
+  --bg:#08151a; --surface:#12262c;
+  --border:rgba(255,255,255,.08);
+  --text:#eaf3f5; --text-dim:#9db4bb; --text-faint:#5b7480;
+  --success-bg:rgba(22,163,74,.15); --danger-bg:rgba(220,38,38,.15);
+  --warn-bg:rgba(245,158,11,.15); --info-bg:rgba(37,99,168,.18);
+  --purple-bg:rgba(139,92,246,.18);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;min-width:0;min-height:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+.mono{font-family:'JetBrains Mono',monospace}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+
+/* ─── Shell ─── */
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+.sidebar{background:linear-gradient(180deg,var(--brand-deep),var(--brand) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:60}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:15px;color:#0c1d22;font-weight:800}
+.brand-text strong{font-size:15px;font-weight:800;display:block}
+.brand-text span{font-size:10.5px;color:#9fd4de;text-transform:uppercase;letter-spacing:.06em}
+.nav-scroll{flex:1;overflow-y:auto;margin-top:6px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;transition:background .15s}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;font-weight:600}
+.nav-item .ic{width:17px;text-align:center}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.topbar{min-height:var(--topbar-h);position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:10px 22px;background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+html.dark .topbar{background:rgba(18,38,44,.85)}
+.topbar h1{margin:0;font-size:17px;font-weight:800}
+.topbar .sub{font-size:11.5px;color:var(--text-dim);margin-top:2px}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.content{padding:14px 22px 22px;max-width:1560px;width:100%;margin:0 auto}
+
+.hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text);width:38px;height:38px;border-radius:9px;font-size:15px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
+.scrim{display:none;position:fixed;inset:0;background:rgba(8,21,26,.5);z-index:55}
+.scrim.show{display:block}
+
+/* ─── KPIs ─── */
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--brand);opacity:.65}
+.kpi.critical::before{background:var(--danger)}
+.kpi.failed::before{background:var(--warn)}
+.kpi.security::before{background:var(--purple)}
+.kpi.today::before{background:var(--brand-light)}
+.kpi .lbl{font-size:10.5px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .val{font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi.critical .val{color:var(--danger)}
+.kpi.failed .val{color:#b3720a}
+.kpi.security .val{color:var(--purple)}
+.kpi .sub{font-size:10.5px;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ─── Toolbar ─── */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.quick{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.quick button{border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:99px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.quick button:hover{background:var(--bg);color:var(--text)}
+.quick button.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.quick button .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.filters-toggle{border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:99px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.filters-toggle:hover{background:var(--bg);color:var(--text)}
+.filters-toggle .chev{transition:transform .15s}
+.filters-toggle.open .chev{transform:rotate(180deg)}
+
+/* ─── Filters panel ─── */
+.filters-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+.filters-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:10px}
+.filter-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.filter-field label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim)}
+.filter-field input,.filter-field select{padding:8px 11px;border-radius:9px;border:1px solid var(--border);font-size:12.5px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;width:100%}
+.filter-field input:focus,.filter-field select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,76,92,.08)}
+.filter-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.filter-actions .hint{font-size:11px;color:var(--text-faint);margin-left:auto}
+
+/* ─── The two-column region ───
+   Uses explicit height so both columns align and neither can push
+   the other off-screen. Inside, each card scrolls independently. */
+.workspace{
+  display:grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap:14px;
+  /* Fills the remaining viewport height. */
+  height: calc(100vh - var(--topbar-h) - 220px);
+  min-height: 460px;
+}
+.workspace > *{min-width:0;min-height:0;display:flex;flex-direction:column}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;min-height:0}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;flex-shrink:0}
+.card-head h3{font-size:13.5px;font-weight:800;letter-spacing:-.005em}
+.card-head .sub{font-size:11px;color:var(--text-dim);margin-top:2px}
+.card-body{padding:12px 14px;flex:1;min-height:0;overflow-y:auto}
+
+/* ─── Table (primary column) ─── */
+.table-scroll{flex:1;min-height:0;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12.4px;min-width:840px}
+thead th{text-align:left;padding:10px 12px;color:var(--text-dim);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{cursor:pointer;outline:none}
+tbody tr:hover,tbody tr:focus-visible{background:var(--bg)}
+tbody tr:last-child td{border-bottom:none}
+.cell-main{font-weight:600}
+.cell-dim{color:var(--text-dim);font-size:11px}
+
+/* ─── Badges ─── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.badge.low{background:var(--success-bg);color:var(--success)}
+.badge.medium{background:var(--warn-bg);color:#b3720a}
+.badge.high{background:var(--info-bg);color:var(--info)}
+.badge.critical{background:var(--danger-bg);color:var(--danger)}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.failure{background:var(--danger-bg);color:var(--danger)}
+.badge.partial{background:var(--warn-bg);color:#b3720a}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.sev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.sev-dot.low{background:var(--success)}
+.sev-dot.medium{background:var(--warn)}
+.sev-dot.high{background:var(--info)}
+.sev-dot.critical{background:var(--danger)}
+
+.empty{padding:44px 20px;text-align:center;color:var(--text-dim)}
+.empty .ic{font-size:26px;margin-bottom:10px;display:block;opacity:.5}
+.empty strong{display:block;font-size:13.5px;margin-bottom:4px;color:var(--text)}
+.empty span{font-size:12px}
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.table-foot{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--text-dim);gap:12px;flex-wrap:wrap;flex-shrink:0;background:var(--surface)}
+.pg-btn{min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;font-size:12px;cursor:pointer;color:var(--text-dim);padding:0 6px;font-family:inherit}
+.pg-btn:hover{background:var(--bg);color:var(--text)}
+.pg-btn.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+/* ─── Right rail ─── */
+.rail{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
+.rail .card.timeline-card{flex:1;min-height:0}
+.rail .card.tips-card{flex-shrink:0}
+
+/* Timeline */
+.timeline{list-style:none;display:flex;flex-direction:column;gap:2px}
+.tl-item{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:9px 6px;border-radius:10px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--border);outline:none}
+.tl-item:last-child{border-bottom:none}
+.tl-item:hover,.tl-item:focus-visible{background:var(--bg)}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--brand);margin-top:6px;position:relative;flex-shrink:0}
+.tl-dot.low{background:var(--success)}
+.tl-dot.medium{background:var(--warn)}
+.tl-dot.high{background:var(--info)}
+.tl-dot.critical{background:var(--danger)}
+.tl-dot::after{content:"";position:absolute;top:13px;left:50%;transform:translateX(-50%);width:1px;height:calc(100% + 8px);background:var(--border)}
+.tl-item:last-child .tl-dot::after{display:none}
+.tl-body{min-width:0}
+.tl-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.6px}
+.tl-action{font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11.6px;word-break:break-all}
+.tl-result{font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px}
+.tl-result.success{background:var(--success-bg);color:var(--success)}
+.tl-result.failure{background:var(--danger-bg);color:var(--danger)}
+.tl-result.partial{background:var(--warn-bg);color:#b3720a}
+.tl-time{color:var(--text-faint);font-size:11px;margin-left:auto;white-space:nowrap}
+.tl-meta{font-size:11.3px;color:var(--text-dim);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.tl-meta .mono{font-size:11px}
+.tl-actor{font-weight:600}
+
+/* Tips */
+.tips{font-size:12.3px;color:var(--text-dim);line-height:1.6}
+.tips p + p{margin-top:8px}
+.tips ul{margin-left:16px;margin-top:6px}
+.tips li{margin-bottom:4px}
+.tips .mono{font-size:11.3px;color:var(--text)}
+
+/* ─── Buttons ─── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;font-size:12.5px;font-weight:600;border:1px solid transparent;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:var(--brand-light)}
+.btn-ghost{background:var(--surface);color:var(--text);border-color:var(--border)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:7px 12px;font-size:11.5px;min-height:34px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+
+/* ─── Drawer ─── */
+.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.55);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity .22s}
+.drawer-scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100dvh;width:min(660px,100vw);background:var(--bg);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:310;display:flex;flex-direction:column;box-shadow:var(--shadow-lg)}
+.drawer.open{transform:translateX(0)}
+.dhead{padding:18px 20px;background:linear-gradient(135deg,var(--brand-deep),var(--brand));color:#fff;position:relative;flex-shrink:0}
+.dhead .close{position:absolute;top:12px;right:14px;width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.dhead .close:hover{background:rgba(255,255,255,.22)}
+.dhead h2{margin:0;font-size:15.5px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-right:44px}
+.dhead .sub{font-size:11.5px;color:#b8dbe2;margin-top:4px}
+.dhead .meta-pills{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.dhead .meta-pills .badge{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.22)}
+.dbody{flex:1;overflow-y:auto;padding:18px 20px 40px}
+.dsection{margin-bottom:18px}
+.dsection-title{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dsection-title .count{font-weight:500;color:var(--text-faint);text-transform:none;letter-spacing:0}
+.dfield{display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:12.5px;border-bottom:1px dashed var(--border)}
+.dfield:last-child{border-bottom:none}
+.dfield .k{color:var(--text-dim);font-weight:600;flex-shrink:0;min-width:118px}
+.dfield .v{font-weight:600;text-align:right;word-break:break-word;overflow-wrap:anywhere;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+.dfield .v.text{font-family:inherit;font-size:12.3px;text-align:left;font-weight:500}
+.copy-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:10px;padding:1px 6px;cursor:pointer;margin-left:6px;font-family:inherit}
+.copy-btn:hover{background:var(--bg);color:var(--text)}
+.diff{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11.7px;white-space:pre-wrap;word-break:break-word;color:var(--text-dim);max-height:280px;overflow-y:auto}
+.diff .before{color:var(--danger)}
+.diff .after{color:var(--success)}
+
+.chain{list-style:none;display:flex;flex-direction:column;gap:6px}
+.chain-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;font-size:12px;outline:none}
+.chain-item:hover,.chain-item:focus-visible{background:var(--bg)}
+.chain-item .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:5px}
+.chain-item .dot.critical{background:var(--danger)}
+.chain-item .dot.high{background:var(--info)}
+.chain-item .dot.medium{background:var(--warn)}
+.chain-item .dot.low{background:var(--success)}
+.chain-item .a{font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11.4px;word-break:break-all}
+.chain-item .t{color:var(--text-faint);font-size:10.5px;white-space:nowrap}
+
+/* ─── Toast ─── */
+.toast-stack{position:fixed;bottom:18px;right:18px;z-index:1200;display:flex;flex-direction:column;gap:10px;max-width:380px}
+.toast{background:#0c1f26;color:#fff;padding:12px 16px;border-radius:11px;font-size:12.7px;font-weight:500;box-shadow:var(--shadow-md);border-left:3px solid var(--gold);animation:toastIn .22s ease}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+.toast.warn{border-left-color:#b3720a}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+/* ─── Responsive ─── */
+@media(max-width:1180px){
+  .filters-grid{grid-template-columns:1fr 1fr 1fr}
+  .workspace{grid-template-columns:minmax(0,1fr) 320px}
+}
+@media(max-width:1000px){
+  .workspace{grid-template-columns:1fr;height:auto;min-height:0}
+  .rail{display:grid;grid-template-columns:1fr;gap:12px}
+  .rail .card.timeline-card{max-height:480px}
+}
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;width:82%;max-width:320px;height:100dvh;transform:translateX(-100%);transition:transform .25s ease;box-shadow:var(--shadow-md)}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:inline-flex}
+  .topbar{padding:10px 12px}
+  .content{padding:12px 12px 80px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .filters-grid{grid-template-columns:1fr 1fr}
+  .workspace{height:auto}
+  .table-scroll{max-height:none}
+}
+@media(max-width:560px){
+  .topbar-actions{width:100%;margin-left:0}
+  .topbar-actions .btn{flex:1;justify-content:center}
+  .drawer{width:100vw}
+  .kpis{grid-template-columns:1fr}
+  .filters-grid{grid-template-columns:1fr}
+  .toast-stack{left:12px;right:12px;max-width:none}
+  .tl-time{margin-left:0;width:100%;text-align:left}
+  .card-head{padding:11px 12px}
+  .card-body{padding:10px 12px}
+}
+</style>
+</head>
+<body>
+
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+<aside class="sidebar" id="sidebar">
+    <div class="brand">
+        <div class="brand-mark">M</div>
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+    </div>
+    <nav class="nav-scroll">
+        <div class="nav-label">Overview</div>
+        <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
+        <div class="nav-label">Customers</div>
+        <a href="/admin/users" class="nav-item"><span class="ic">👥</span>Users</a>
+        <a href="/admin/support" class="nav-item"><span class="ic">💬</span>Support</a>
+        <div class="nav-label">Money</div>
+        <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span>Transactions</a>
+        <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span>Deposits</a>
+        <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span>Ledger</a>
+        <a href="/admin/refunds" class="nav-item"><span class="ic">↩️</span>Refunds</a>
+        <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span>Reconciliation</a>
+        <div class="nav-label">Operations</div>
+        <a href="/admin/orders" class="nav-item"><span class="ic">🧮</span>Orders</a>
+        <a href="/admin/providers" class="nav-item"><span class="ic">🔌</span>Providers</a>
+        <a href="/admin/webhooks" class="nav-item"><span class="ic">🪝</span>Webhooks</a>
+        <div class="nav-label">System</div>
+        <a href="/admin/audit" class="nav-item active"><span class="ic">📋</span>Audit Log</a>
+        <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span>Settings</a>
+    </nav>
+    <div class="sidebar-foot">
+        <div class="av" id="adminAvatar">DA</div>
+        <div style="min-width:0;overflow:hidden">
+            <strong id="adminName" style="font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Admin</strong>
+            <div id="adminRole" style="font-size:10.5px;color:#8fbac2">Loading…</div>
+        </div>
+    </div>
+</aside>
+
+<div class="main">
+    <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+        <div style="min-width:0">
+            <h1>📋 Audit Log</h1>
+            <div class="sub">Append-only record. Financial, permission, provider and security changes cannot be edited or deleted.</div>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-ghost btn-sm" id="reloadBtn" title="Reload"><i class="fas fa-rotate-right"></i> Reload</button>
+            <button class="btn btn-primary btn-sm" id="exportBtn" hidden><i class="fas fa-download"></i> Export CSV</button>
+        </div>
+    </header>
+
+    <div class="content">
+
+        <div class="kpis" id="kpis">
+            <div class="kpi"><div class="lbl">Total events</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div></div>
+            <div class="kpi today"><div class="lbl">Today</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div></div>
+            <div class="kpi critical"><div class="lbl">Critical</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div></div>
+            <div class="kpi failed"><div class="lbl">Failed</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div></div>
+            <div class="kpi security"><div class="lbl">Security</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div></div>
+        </div>
+
+        <div class="toolbar">
+            <div class="quick" id="quickFilters">
+                <button data-quick="all" class="active"><span class="dot"></span> All</button>
+                <button data-quick="critical"><span class="dot" style="background:var(--danger)"></span> Critical</button>
+                <button data-quick="failed"><span class="dot" style="background:var(--warn)"></span> Failed</button>
+                <button data-quick="security"><span class="dot" style="background:var(--purple)"></span> Security</button>
+                <button data-quick="financial"><span class="dot" style="background:var(--info)"></span> Financial</button>
+                <button data-quick="today"><span class="dot" style="background:var(--brand)"></span> Today</button>
+            </div>
+            <button class="filters-toggle" id="filtersToggle" aria-expanded="false" aria-controls="filtersPanel">
+                <i class="fas fa-sliders"></i> Filters <i class="fas fa-chevron-down chev"></i>
+            </button>
+        </div>
+
+        <div class="filters-panel" id="filtersPanel">
+            <div class="filters-grid">
+                <div class="filter-field">
+                    <label>Search</label>
+                    <input type="text" id="fSearch" placeholder="Action, admin, target, request id, correlation…">
+                </div>
+                <div class="filter-field">
+                    <label>Admin</label>
+                    <select id="fAdmin"><option value="all">All admins</option></select>
+                </div>
+                <div class="filter-field">
+                    <label>Category</label>
+                    <select id="fCategory"><option value="all">All categories</option></select>
+                </div>
+                <div class="filter-field">
+                    <label>Action</label>
+                    <select id="fAction"><option value="all">All actions</option></select>
+                </div>
+                <div class="filter-field">
+                    <label>Severity</label>
+                    <select id="fSeverity">
+                        <option value="all">All severities</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label>Result</label>
+                    <select id="fResult">
+                        <option value="all">All results</option>
+                        <option value="success">Success</option>
+                        <option value="failure">Failure</option>
+                        <option value="partial">Partial</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label>Actor</label>
+                    <select id="fActor">
+                        <option value="all">All actors</option>
+                        <option value="admin">👤 Admin</option>
+                        <option value="system">⚙ System</option>
+                        <option value="scheduler">🕒 Scheduler</option>
+                        <option value="webhook">🪝 Webhook</option>
+                        <option value="provider">🔌 Provider</option>
+                        <option value="customer">🙋 Customer</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label>Provider</label>
+                    <select id="fProvider"><option value="all">All providers</option></select>
+                </div>
+                <div class="filter-field">
+                    <label>Time range</label>
+                    <select id="fRange">
+                        <option value="all">All time</option>
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="7d">Last 7 days</option>
+                        <option value="30d">Last 30 days</option>
+                        <option value="custom">Custom…</option>
+                    </select>
+                </div>
+                <div class="filter-field" id="fromWrap" hidden>
+                    <label>From (UTC)</label>
+                    <input type="datetime-local" id="fFrom">
+                </div>
+                <div class="filter-field" id="toWrap" hidden>
+                    <label>To (UTC)</label>
+                    <input type="datetime-local" id="fTo">
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-primary btn-sm" id="applyBtn"><i class="fas fa-filter"></i> Apply</button>
+                <button class="btn btn-ghost btn-sm" id="clearBtn">Clear</button>
+                <span class="hint">All times shown in UTC</span>
+            </div>
+        </div>
+
+        <div class="workspace">
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Audit events</h3>
+                        <div class="sub" id="tableSub">—</div>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time (UTC)</th>
+                                <th>Actor</th>
+                                <th>Action</th>
+                                <th>Category</th>
+                                <th>Target</th>
+                                <th>Severity</th>
+                                <th>Result</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rows">
+                            <tr><td colspan="8"><div class="empty"><span class="ic">⏳</span><strong>Loading…</strong></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-foot">
+                    <span id="tableInfo">—</span>
+                    <div id="pagination" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+                </div>
+            </div>
+
+            <div class="rail">
+
+                <div class="card timeline-card">
+                    <div class="card-head">
+                        <div>
+                            <h3>Recent activity</h3>
+                            <div class="sub" id="timelineSub">Latest 20 matching events</div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <ul class="timeline" id="timeline">
+                            <li><div class="skel" style="height:36px;margin:6px 0"></div></li>
+                            <li><div class="skel" style="height:36px;margin:6px 0"></div></li>
+                            <li><div class="skel" style="height:36px;margin:6px 0"></div></li>
+                            <li><div class="skel" style="height:36px;margin:6px 0"></div></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card tips-card">
+                    <div class="card-head">
+                        <div>
+                            <h3>Search tips</h3>
+                            <div class="sub">Get to the right row faster</div>
+                        </div>
+                    </div>
+                    <div class="card-body tips">
+                        <p>Press <span class="mono">Enter</span> in the search field to run the current filter.</p>
+                        <ul>
+                            <li>Search by <span class="mono">correlation_id</span> to reconstruct a single operation.</li>
+                            <li>Filter <em>Security</em> + <em>Failed</em> for denied access attempts.</li>
+                            <li>Filter <em>Critical</em> for wallet and permission changes.</li>
+                            <li>Click any row to open the full entry, its diff, and its chain.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+</div>
+
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+    <div class="dhead">
+        <button class="close" id="drawerClose" aria-label="Close"><i class="fas fa-xmark"></i></button>
+        <h2 id="dTitle">Audit entry</h2>
+        <div class="sub" id="dSub">—</div>
+        <div class="meta-pills" id="dPills"></div>
+    </div>
+    <div class="dbody" id="dBody">
+        <div class="empty"><span class="ic">⏳</span>Loading…</div>
+    </div>
+</aside>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+'use strict';
+
+const API = {
+    bootstrap: '/api/admin/audit/bootstrap',
+    list:      '/api/admin/audit',
+    detail:    id => `/api/admin/audit/${encodeURIComponent(id)}`,
+    export:    '/api/admin/audit/export',
+    me:        '/api/admin/me'
+};
+
+const state = {
+    page: 1, limit: 50,
+    count: 0, totalPages: 1,
+    filters: {
+        search:'', admin_id:'all', category:'all', action:'all',
+        severity:'all', result:'all', actor_type:'all', provider:'all',
+        from:null, to:null,
+        quick:'all'
+    }
+};
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+function fmtUtc(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    return d.toISOString().replace('T',' ').replace('Z','') + ' UTC';
+}
+function relTime(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (!Number.isFinite(s)) return '—';
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+    if (s < 604800) return `${Math.floor(s/86400)}d ago`;
+    return new Date(iso).toISOString().slice(0,10);
+}
+function shortId(id) {
+    if (!id) return '—';
+    const s = String(id);
+    if (s.length <= 12) return s;
+    return s.slice(0,8) + '…' + s.slice(-4);
+}
+function toast(msg, type='info') {
+    const stack = $('#toastStack');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.remove(),220); }, 3400);
+}
+
+async function api(url, opts={}) {
+    if (!window.AdminSession || typeof AdminSession.fetch !== 'function') {
+        return { ok:false, reason:'no_session', error:'Authentication layer not loaded.' };
+    }
+    try {
+        const res = await AdminSession.fetch(url, opts);
+        let json = null;
+        try { json = await res.json(); } catch {}
+        if (res.status === 401) return { ok:false, reason:'unauthorized' };
+        if (res.status === 403) return { ok:false, reason:'forbidden', code: json?.code };
+        if (!res.ok || json?.success === false) {
+            return { ok:false, reason:'api_error', error: json?.error || json?.message, code: json?.code };
+        }
+        return { ok:true, data: json };
+    } catch (e) {
+        return { ok:false, reason:'network_error', error: e.message };
+    }
+}
+
+function buildQuery(includePaging = true) {
+    const q = new URLSearchParams();
+    if (includePaging) {
+        q.set('page', state.page);
+        q.set('limit', state.limit);
+    }
+    const f = state.filters;
+    if (f.search) q.set('search', f.search);
+    if (f.admin_id   !== 'all') q.set('admin_id', f.admin_id);
+    if (f.category   !== 'all') q.set('category', f.category);
+    if (f.action     !== 'all') q.set('action', f.action);
+    if (f.severity   !== 'all') q.set('severity', f.severity);
+    if (f.result     !== 'all') q.set('result', f.result);
+    if (f.actor_type !== 'all') q.set('actor_type', f.actor_type);
+    if (f.provider   !== 'all') q.set('provider', f.provider);
+    if (f.from) q.set('from', f.from);
+    if (f.to)   q.set('to', f.to);
+    return q.toString();
+}
+
+function renderKpis(summary) {
+    const n = v => v == null ? '—' : Number(v).toLocaleString();
+    $('#kpis').innerHTML = `
+        <div class="kpi"><div class="lbl">Total events</div><div class="val">${n(summary?.total)}</div><div class="sub">all-time</div></div>
+        <div class="kpi today"><div class="lbl">Today</div><div class="val">${n(summary?.today)}</div><div class="sub">since midnight UTC</div></div>
+        <div class="kpi critical"><div class="lbl">Critical</div><div class="val">${n(summary?.critical)}</div><div class="sub">needs attention</div></div>
+        <div class="kpi failed"><div class="lbl">Failed</div><div class="val">${n(summary?.failed)}</div><div class="sub">did not succeed</div></div>
+        <div class="kpi security"><div class="lbl">Security</div><div class="val">${n(summary?.security)}</div><div class="sub">auth, MFA, permissions</div></div>
+    `;
+}
+
+function actorLabel(e) {
+    if (e.actor_type === 'admin')    return `👤 ${esc(e.admin_display || e.admin_email || 'Admin')}`;
+    if (e.actor_type === 'system')   return `⚙ System`;
+    if (e.actor_type === 'scheduler')return `🕒 Scheduler`;
+    if (e.actor_type === 'webhook')  return `🪝 ${esc(e.provider || 'Webhook')}`;
+    if (e.actor_type === 'provider') return `🔌 ${esc(e.provider || 'Provider')}`;
+    if (e.actor_type === 'customer') return `🙋 Customer`;
+    return `👤 ${esc(e.admin_display || 'Actor')}`;
+}
+
+function renderTimeline(entries) {
+    const el = $('#timeline');
+    if (!entries.length) {
+        el.innerHTML = `<li class="empty"><span class="ic">📭</span><strong>No recent activity</strong></li>`;
+        return;
+    }
+    el.innerHTML = entries.slice(0, 20).map(e => {
+        const targetBits = [e.target_type, e.target_id].filter(Boolean).join(' ');
+        return `
+            <li class="tl-item" tabindex="0" role="button" data-id="${esc(e.id)}" aria-label="Open audit entry ${esc(e.action)}">
+                <span class="tl-dot ${esc(e.severity || 'low')}"></span>
+                <div class="tl-body">
+                    <div class="tl-line">
+                        <span class="tl-action">${esc(e.action)}</span>
+                        <span class="tl-result ${esc(e.result)}">${esc(e.result)}</span>
+                        <span class="tl-time">${esc(relTime(e.created_at))}</span>
+                    </div>
+                    <div class="tl-meta">
+                        <span class="tl-actor">${actorLabel(e)}</span>
+                        ${targetBits ? `<span class="mono">${esc(targetBits)}</span>` : ''}
+                        ${e.duration_ms != null ? `<span>${esc(String(e.duration_ms))} ms</span>` : ''}
+                    </div>
+                </div>
+            </li>
+        `;
+    }).join('');
+
+    el.querySelectorAll('.tl-item').forEach(li => {
+        const open = () => openEntry(li.dataset.id);
+        li.addEventListener('click', open);
+        li.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } });
+    });
+}
+
+function renderRows(entries) {
+    const tb = $('#rows');
+    if (!entries.length) {
+        tb.innerHTML = `<tr><td colspan="8"><div class="empty"><span class="ic">📭</span><strong>No audit entries match those filters.</strong><span>Try widening the time range or clearing filters.</span></div></td></tr>`;
+        return;
+    }
+    tb.innerHTML = entries.map(e => `
+        <tr tabindex="0" role="button" data-id="${esc(e.id)}" aria-label="Open audit entry ${esc(e.action)}">
+            <td>
+                <div class="cell-main">${esc(relTime(e.created_at))}</div>
+                <div class="cell-dim mono">${esc(fmtUtc(e.created_at))}</div>
+            </td>
+            <td>
+                <div class="cell-main">${esc(e.admin_display || e.admin_email || '—')}</div>
+                <div class="cell-dim">${esc(e.actor_type || 'admin')}${e.admin_role ? ' · ' + esc(e.admin_role) : ''}</div>
+            </td>
+            <td><span class="mono" style="font-size:11.5px">${esc(e.action)}</span></td>
+            <td><span class="badge neutral">${esc(e.category)}</span></td>
+            <td>
+                <div class="cell-main">${esc(e.target_type || '—')}</div>
+                <div class="cell-dim mono">${esc(shortId(e.target_id))}</div>
+            </td>
+            <td><span class="sev-dot ${esc(e.severity)}"></span><span class="badge ${esc(e.severity)}">${esc(e.severity)}</span></td>
+            <td>
+                <span class="badge ${esc(e.result)}">${esc(e.result)}</span>
+                ${e.failure_code ? `<div class="cell-dim mono" style="margin-top:2px">${esc(e.failure_code)}</div>` : ''}
+            </td>
+            <td class="mono" style="font-size:11px">${e.duration_ms != null ? esc(String(e.duration_ms)) + ' ms' : '—'}</td>
+        </tr>
+    `).join('');
+
+    tb.querySelectorAll('tr[data-id]').forEach(tr => {
+        const open = () => openEntry(tr.dataset.id);
+        tr.addEventListener('click', open);
+        tr.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } });
+    });
+}
+
+function renderPagination(totalPages) {
+    const el = $('#pagination');
+    if (!totalPages || totalPages <= 1) { el.innerHTML = ''; return; }
+    let html = '';
+    const start = Math.max(1, state.page - 2);
+    const end = Math.min(totalPages, state.page + 2);
+    if (start > 1) html += `<button class="pg-btn" data-page="1">1</button>`;
+    if (start > 2) html += `<span style="color:var(--text-faint);padding:0 4px">…</span>`;
+    for (let i = start; i <= end; i++) {
+        html += `<button class="pg-btn ${i === state.page ? 'active' : ''}" data-page="${i}" aria-label="Page ${i}">${i}</button>`;
+    }
+    if (end < totalPages - 1) html += `<span style="color:var(--text-faint);padding:0 4px">…</span>`;
+    if (end < totalPages) html += `<button class="pg-btn" data-page="${totalPages}">${totalPages}</button>`;
+    el.innerHTML = html;
+    el.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => {
+        state.page = Number(b.dataset.page);
+        loadList();
+    }));
+}
+
+async function loadBootstrap() {
+    const { ok, data, reason, error } = await api(API.bootstrap + '?' + buildQuery(false));
+    if (!ok) {
+        const msg = reason === 'forbidden' ? 'You do not have permission to view the audit log.'
+                  : reason === 'unauthorized' ? 'Your session has expired.'
+                  : error || 'Unable to load audit data.';
+        toast(msg, 'error');
+        return false;
+    }
+    renderKpis(data.summary || {});
+    applyFacets(data.facets || {});
+    applyAdmins(data.admins || []);
+    return true;
+}
+
+function applyFacets(facets) {
+    const catEl = $('#fCategory');
+    const currentCat = catEl.value;
+    catEl.innerHTML = '<option value="all">All categories</option>' +
+        (facets.categories || []).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    catEl.value = currentCat || 'all';
+
+    const actEl = $('#fAction');
+    const currentAct = actEl.value;
+    actEl.innerHTML = '<option value="all">All actions</option>' +
+        (facets.actions || []).slice().sort().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    actEl.value = currentAct || 'all';
+
+    const provEl = $('#fProvider');
+    if (Array.isArray(facets.providers) && facets.providers.length) {
+        const currentProv = provEl.value;
+        provEl.innerHTML = '<option value="all">All providers</option>' +
+            facets.providers.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+        provEl.value = currentProv || 'all';
+    }
+}
+
+function applyAdmins(admins) {
+    const el = $('#fAdmin');
+    const current = el.value;
+    el.innerHTML = '<option value="all">All admins</option>' +
+        (admins || []).map(x => `<option value="${esc(x.admin_id)}">${esc(x.admin_email || x.admin_id)}</option>`).join('');
+    el.value = current || 'all';
+}
+
+async function loadList() {
+    const tb = $('#rows');
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty"><span class="ic">⏳</span><strong>Loading…</strong></div></td></tr>`;
+
+    const { ok, data, reason, error } = await api(API.list + '?' + buildQuery(true));
+    if (!ok) {
+        const msg = reason === 'forbidden' ? 'You do not have permission to view the audit log.'
+                  : reason === 'unauthorized' ? 'Your session has expired.'
+                  : error || 'Unable to load audit log.';
+        tb.innerHTML = `<tr><td colspan="8"><div class="empty"><span class="ic">⚠️</span><strong>${esc(msg)}</strong></div></td></tr>`;
+        return;
+    }
+    state.count = data.count || 0;
+    state.totalPages = data.totalPages || 1;
+    renderRows(data.entries || []);
+    renderTimeline(data.entries || []);
+
+    const sub = $('#tableSub');
+    if (sub) sub.textContent = state.count
+        ? `${state.count.toLocaleString()} matching event${state.count === 1 ? '' : 's'} · page ${state.page} of ${state.totalPages}`
+        : 'No matching events';
+
+    const info = $('#tableInfo');
+    info.textContent = state.count
+        ? `Showing ${(state.page-1)*state.limit + 1}–${Math.min(state.page*state.limit, state.count)} of ${state.count}`
+        : 'No results';
+
+    renderPagination(state.totalPages);
+}
+
+function applyQuick(name) {
+    state.filters.severity = 'all';
+    state.filters.result   = 'all';
+    state.filters.category = 'all';
+    state.filters.from     = null;
+    state.filters.to       = null;
+
+    if (name === 'critical')  state.filters.severity = 'critical';
+    else if (name === 'failed')   state.filters.result = 'failure';
+    else if (name === 'security') state.filters.category = 'security';
+    else if (name === 'financial')state.filters.category = 'wallets';
+    else if (name === 'today') {
+        const start = new Date();
+        start.setUTCHours(0,0,0,0);
+        state.filters.from = start.toISOString();
+    }
+    state.filters.quick = name;
+    state.page = 1;
+
+    $('#fSeverity').value = state.filters.severity;
+    $('#fResult').value   = state.filters.result;
+    $('#fCategory').value = state.filters.category;
+    $('#fRange').value    = name === 'today' ? 'today' : 'all';
+    $('#fromWrap').hidden = !state.filters.from;
+    $('#toWrap').hidden   = true;
+
+    $$('#quickFilters button').forEach(b => b.classList.toggle('active', b.dataset.quick === name));
+    loadBootstrap();
+    loadList();
+}
+
+function applyRange(kind) {
+    const startOfTodayUtc = () => { const d = new Date(); d.setUTCHours(0,0,0,0); return d; };
+    const endOfTodayUtc   = () => { const d = new Date(); d.setUTCHours(23,59,59,999); return d; };
+
+    state.filters.from = null;
+    state.filters.to   = null;
+    $('#fromWrap').hidden = true;
+    $('#toWrap').hidden   = true;
+
+    if (kind === 'today') {
+        state.filters.from = startOfTodayUtc().toISOString();
+        state.filters.to   = endOfTodayUtc().toISOString();
+    } else if (kind === 'yesterday') {
+        const y = new Date(Date.now() - 24*3600*1000);
+        y.setUTCHours(0,0,0,0);
+        const e = new Date(y.getTime());
+        e.setUTCHours(23,59,59,999);
+        state.filters.from = y.toISOString();
+        state.filters.to   = e.toISOString();
+    } else if (kind === '7d') {
+        state.filters.from = new Date(Date.now() - 7*24*3600*1000).toISOString();
+    } else if (kind === '30d') {
+        state.filters.from = new Date(Date.now() - 30*24*3600*1000).toISOString();
+    } else if (kind === 'custom') {
+        $('#fromWrap').hidden = false;
+        $('#toWrap').hidden   = false;
+    }
+}
+
+let lastFocused = null;
+
+function openDrawer() {
+    lastFocused = document.activeElement;
+    $('#drawer').classList.add('open');
+    $('#drawerScrim').classList.add('open');
+    $('#drawer').setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => $('#drawerClose')?.focus(), 60);
+}
+function closeDrawer() {
+    $('#drawer').classList.remove('open');
+    $('#drawerScrim').classList.remove('open');
+    $('#drawer').setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+    lastFocused = null;
+}
+
+function copyText(text, label='Copied') {
+    if (!navigator.clipboard) return toast('Clipboard unavailable', 'warn');
+    navigator.clipboard.writeText(String(text)).then(() => toast(label, 'success'));
+}
+function idField(label, value, { showCopy = true } = {}) {
+    if (!value) return `<div class="dfield"><span class="k">${esc(label)}</span><span class="v">—</span></div>`;
+    const short = esc(shortId(value));
+    const full  = esc(value);
+    const copyBtn = showCopy ? `<button type="button" class="copy-btn" data-copy="${full}">copy</button>` : '';
+    return `<div class="dfield"><span class="k">${esc(label)}</span><span class="v" title="${full}">${short}${copyBtn}</span></div>`;
+}
+
+async function openEntry(id) {
+    $('#dTitle').textContent = 'Loading…';
+    $('#dSub').textContent = '';
+    $('#dPills').innerHTML = '';
+    $('#dBody').innerHTML = `<div class="empty"><span class="ic">⏳</span>Loading…</div>`;
+    openDrawer();
+
+    const { ok, data, error } = await api(API.detail(id));
+    if (!ok) {
+        $('#dTitle').textContent = 'Error';
+        $('#dBody').innerHTML = `<div class="empty"><span class="ic">⚠️</span>${esc(error || 'Unable to load entry.')}</div>`;
+        return;
+    }
+
+    const e = data.entry || {};
+    const admin = data.admin || {};
+    const target = data.target || null;
+    const chain = Array.isArray(data.chain) ? data.chain : [];
+
+    $('#dTitle').textContent = e.action || 'Audit entry';
+    $('#dSub').textContent = fmtUtc(e.created_at);
+    $('#dPills').innerHTML = `
+        <span class="badge">${esc(e.category)}</span>
+        <span class="badge">${esc(e.severity)}</span>
+        <span class="badge">${esc(e.result)}</span>
+        <span class="badge">${esc(e.actor_type || 'admin')}</span>
+    `;
+
+    let diffBlock = '';
+    if (e.before !== null || e.after !== null) {
+        diffBlock = `
+            <div class="dsection">
+                <div class="dsection-title">Change</div>
+                <div class="diff"><span class="before">${esc(JSON.stringify(e.before || {}, null, 2))}</span>
+→
+<span class="after">${esc(JSON.stringify(e.after || {}, null, 2))}</span></div>
+            </div>`;
+    }
+
+    let targetBlock = '';
+    if (target && typeof target === 'object' && Object.keys(target).length) {
+        const rows = Object.entries(target).map(([k, v]) =>
+            `<div class="dfield"><span class="k">${esc(k)}</span><span class="v">${esc(typeof v === 'object' ? JSON.stringify(v) : (v ?? '—'))}</span></div>`
+        ).join('');
+        targetBlock = `<div class="dsection"><div class="dsection-title">Resolved target</div>${rows}</div>`;
+    }
+
+    let metadataBlock = '';
+    if (e.metadata && Object.keys(e.metadata).length) {
+        metadataBlock = `
+            <div class="dsection">
+                <div class="dsection-title">Metadata</div>
+                <div class="diff">${esc(JSON.stringify(e.metadata, null, 2))}</div>
+            </div>`;
+    }
+
+    let chainBlock = '';
+    if (chain.length > 1) {
+        chainBlock = `
+            <div class="dsection">
+                <div class="dsection-title">Correlation chain <span class="count">${chain.length} events</span></div>
+                <ul class="chain">
+                    ${chain.map(c => `
+                        <li class="chain-item" data-chain-id="${esc(c.id)}" tabindex="0" role="button">
+                            <span class="dot ${esc(c.severity || 'low')}"></span>
+                            <span class="a">${esc(c.action)}</span>
+                            <span class="t">${esc(relTime(c.created_at))}</span>
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>`;
+    }
+
+    let impactBlock = '';
+    const beforeAmount = e.before && typeof e.before === 'object' ? (e.before.amount ?? e.before.balance) : null;
+    const afterAmount  = e.after  && typeof e.after  === 'object' ? (e.after.amount  ?? e.after.balance)  : null;
+    if (beforeAmount != null || afterAmount != null) {
+        impactBlock = `
+            <div class="dsection">
+                <div class="dsection-title">Financial impact</div>
+                ${beforeAmount != null ? `<div class="dfield"><span class="k">Before</span><span class="v">${esc(String(beforeAmount))}</span></div>` : ''}
+                ${afterAmount  != null ? `<div class="dfield"><span class="k">After</span><span class="v">${esc(String(afterAmount))}</span></div>`  : ''}
+            </div>`;
+    }
+
+    $('#dBody').innerHTML = `
+        <div class="dsection">
+            <div class="dsection-title">Summary</div>
+            <div class="dfield"><span class="k">Action</span><span class="v">${esc(e.action)}</span></div>
+            <div class="dfield"><span class="k">Result</span><span class="v">${esc(e.result)}${e.failure_code ? ` · ${esc(e.failure_code)}` : ''}</span></div>
+            ${e.duration_ms != null ? `<div class="dfield"><span class="k">Duration</span><span class="v">${esc(String(e.duration_ms))} ms</span></div>` : ''}
+            <div class="dfield"><span class="k">Timestamp</span><span class="v">${esc(fmtUtc(e.created_at))}</span></div>
+        </div>
+
+        <div class="dsection">
+            <div class="dsection-title">Actor</div>
+            <div class="dfield"><span class="k">Type</span><span class="v">${esc(e.actor_type || 'admin')}</span></div>
+            <div class="dfield"><span class="k">Admin</span><span class="v">${esc(admin.username || e.admin_email || e.admin_id || '—')}</span></div>
+            <div class="dfield"><span class="k">Email</span><span class="v">${esc(e.admin_email || '—')}</span></div>
+            <div class="dfield"><span class="k">Role</span><span class="v">${esc(admin.role || e.admin_role || '—')}</span></div>
+        </div>
+
+        <div class="dsection">
+            <div class="dsection-title">Target</div>
+            <div class="dfield"><span class="k">Type</span><span class="v">${esc(e.target_type || '—')}</span></div>
+            ${idField('ID', e.target_id || '')}
+            ${e.provider ? `<div class="dfield"><span class="k">Provider</span><span class="v">${esc(e.provider)}</span></div>` : ''}
+            ${e.operation ? `<div class="dfield"><span class="k">Operation</span><span class="v">${esc(e.operation)}</span></div>` : ''}
+        </div>
+
+        ${targetBlock}
+        ${impactBlock}
+        ${diffBlock}
+        ${metadataBlock}
+
+        <div class="dsection">
+            <div class="dsection-title">Reason &amp; note</div>
+            <div class="dfield"><span class="k">Reason</span><span class="v text">${esc(e.reason || '—')}</span></div>
+            <div class="dfield"><span class="k">Note</span><span class="v text">${esc(e.admin_note || '—')}</span></div>
+        </div>
+
+        <div class="dsection">
+            <div class="dsection-title">Request</div>
+            ${idField('IP address', e.ip_address || '')}
+            <div class="dfield"><span class="k">Device</span><span class="v">${esc(e.device || '—')}</span></div>
+            <div class="dfield"><span class="k">Location</span><span class="v">${esc(e.location || '—')}</span></div>
+            ${idField('Request ID', e.request_id || '')}
+            ${idField('Session ID', e.session_id || '')}
+            ${idField('Correlation ID', e.correlation_id || '')}
+            <div class="dfield"><span class="k">User agent</span><span class="v text">${esc(e.user_agent || '—')}</span></div>
+        </div>
+
+        ${chainBlock}
+    `;
+
+    $('#dBody').querySelectorAll('[data-copy]').forEach(b => {
+        b.addEventListener('click', () => copyText(b.dataset.copy, 'Copied'));
+    });
+    $('#dBody').querySelectorAll('[data-chain-id]').forEach(li => {
+        const go = () => openEntry(li.dataset.chainId);
+        li.addEventListener('click', go);
+        li.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+    });
+}
+
+function handleExport() {
+    const q = new URLSearchParams(buildQuery(false));
+    AdminSession.fetch(API.export + '?' + q.toString())
+        .then(r => {
+            const truncated = r.headers.get('X-Export-Truncated') === 'true';
+            const rowCount  = r.headers.get('X-Export-Row-Count') || '?';
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.blob().then(b => ({ blob: b, truncated, rowCount }));
+        })
+        .then(({ blob, truncated, rowCount }) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `admin_audit_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            if (truncated) toast(`Exported first ${rowCount} rows (limit reached)`, 'warn');
+            else toast(`Exported ${rowCount} rows`, 'success');
+        })
+        .catch(e => toast('Export failed: ' + e.message, 'error'));
+}
+
+async function loadAdmin() {
+    const { ok, data } = await api(API.me);
+    if (!ok) return;
+    const u = data.data?.user || data.user;
+    if (!u) return;
+    const name = u.username || u.email?.split('@')[0] || 'Admin';
+    const role = u.role || 'admin';
+    $('#adminName').textContent = name;
+    $('#adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    $('#adminAvatar').textContent = name.slice(0,1).toUpperCase();
+
+    if (window.AdminPermissions && typeof AdminPermissions.has === 'function') {
+        $('#exportBtn').hidden = !AdminPermissions.has('audit.export');
+    } else {
+        $('#exportBtn').hidden = true;
+    }
+}
+
+function initFiltersToggle() {
+    const toggle = $('#filtersToggle');
+    const panel = $('#filtersPanel');
+    if (!toggle || !panel) return;
+
+    const applyInitial = () => {
+        const isMobile = window.matchMedia('(max-width:900px)').matches;
+        if (isMobile) {
+            panel.style.display = 'none';
+            toggle.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+        } else {
+            panel.style.display = '';
+            toggle.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'true');
+        }
+    };
+    applyInitial();
+
+    toggle.addEventListener('click', () => {
+        const isHidden = panel.style.display === 'none';
+        panel.style.display = isHidden ? '' : 'none';
+        toggle.classList.toggle('open', isHidden);
+        toggle.setAttribute('aria-expanded', String(isHidden));
+    });
+
+    let wasMobile = window.matchMedia('(max-width:900px)').matches;
+    window.addEventListener('resize', () => {
+        const isMobile = window.matchMedia('(max-width:900px)').matches;
+        if (isMobile !== wasMobile) { wasMobile = isMobile; applyInitial(); }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!AdminSession.getToken()) return AdminSession.redirectToLogin();
+
+    $('#hamburger')?.addEventListener('click', () => {
+        $('#sidebar').classList.add('open');
+        $('#scrim').classList.add('show');
+    });
+    $('#scrim')?.addEventListener('click', () => {
+        $('#sidebar').classList.remove('open');
+        $('#scrim').classList.remove('show');
+    });
+
+    initFiltersToggle();
+
+    $('#applyBtn')?.addEventListener('click', () => {
+        state.filters.search     = $('#fSearch').value.trim();
+        state.filters.admin_id   = $('#fAdmin').value;
+        state.filters.category   = $('#fCategory').value;
+        state.filters.action     = $('#fAction').value;
+        state.filters.severity   = $('#fSeverity').value;
+        state.filters.result     = $('#fResult').value;
+        state.filters.actor_type = $('#fActor').value;
+        state.filters.provider   = $('#fProvider').value;
+        const range = $('#fRange').value;
+        if (range === 'custom') {
+            state.filters.from = $('#fFrom').value ? new Date($('#fFrom').value).toISOString() : null;
+            state.filters.to   = $('#fTo').value   ? new Date($('#fTo').value).toISOString()   : null;
+        } else {
+            applyRange(range);
+        }
+        state.page = 1;
+        state.filters.quick = 'all';
+        $$('#quickFilters button').forEach(b => b.classList.toggle('active', b.dataset.quick === 'all'));
+        loadBootstrap();
+        loadList();
+    });
+
+    $('#clearBtn')?.addEventListener('click', () => {
+        $('#fSearch').value = '';
+        $('#fAdmin').value = 'all';
+        $('#fCategory').value = 'all';
+        $('#fAction').value = 'all';
+        $('#fSeverity').value = 'all';
+        $('#fResult').value = 'all';
+        $('#fActor').value = 'all';
+        $('#fProvider').value = 'all';
+        $('#fRange').value = 'all';
+        $('#fFrom').value = '';
+        $('#fTo').value = '';
+        $('#fromWrap').hidden = true;
+        $('#toWrap').hidden = true;
+        state.filters = {
+            search:'', admin_id:'all', category:'all', action:'all',
+            severity:'all', result:'all', actor_type:'all', provider:'all',
+            from:null, to:null, quick:'all'
+        };
+        state.page = 1;
+        $$('#quickFilters button').forEach(b => b.classList.toggle('active', b.dataset.quick === 'all'));
+        loadBootstrap();
+        loadList();
+    });
+
+    $('#fSearch')?.addEventListener('keydown', e => { if (e.key === 'Enter') $('#applyBtn').click(); });
+
+    $('#fRange')?.addEventListener('change', e => {
+        const v = e.target.value;
+        if (v === 'custom') {
+            $('#fromWrap').hidden = false;
+            $('#toWrap').hidden = false;
+        } else {
+            applyRange(v);
+        }
+    });
+
+    $('#reloadBtn')?.addEventListener('click', () => {
+        loadBootstrap();
+        loadList();
+        toast('Reloaded', 'success');
+    });
+    $('#exportBtn')?.addEventListener('click', handleExport);
+
+    $$('#quickFilters button').forEach(b => {
+        b.addEventListener('click', () => applyQuick(b.dataset.quick));
+    });
+
+    $('#drawerClose')?.addEventListener('click', closeDrawer);
+    $('#drawerScrim')?.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && $('#drawer').classList.contains('open')) closeDrawer();
+    });
+    $('#drawer').addEventListener('keydown', e => {
+        if (e.key !== 'Tab') return;
+        const focusables = $('#drawer').querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last  = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+
+    loadAdmin();
+    loadBootstrap().then(ok => { if (ok) loadList(); });
+});
+</script>
+</body>
+</html>

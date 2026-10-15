@@ -1,7 +1,13 @@
 // services/emailService.js — COMPLETE
 // Handles: 2FA, verification, password reset, welcome, login alerts, gift orders,
 // crypto delivery, withdrawals, payments, cashback, eSIM delivery/failure,
-// gift card delivery/failure, and multi-currency deposit confirmations.
+// gift card delivery/failure, multi-currency deposit confirmations,
+// and registration OTP.
+//
+// FIX IN THIS REVISION:
+//   Added `sendOTPEmail: send2FAEmail` alias so routes that call
+//   emailService.sendOTPEmail(...) continue to work. The canonical
+//   name is send2FAEmail.
 
 const nodemailer = require('nodemailer');
 const fs = require('fs');
@@ -186,7 +192,6 @@ function generateFallbackTemplate(type, data) {
     const style = `font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f6f8;padding:40px 20px;margin:0;`;
     const containerStyle = `max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:40px 32px;box-shadow:0 4px 14px rgba(0,0,0,0.06);`;
 
-    // ─── eSIM delivery ────────────────────────────────────────────
     if (type === 'esim-delivery') {
         let html = `
             <!DOCTYPE html>
@@ -243,7 +248,6 @@ function generateFallbackTemplate(type, data) {
         return html;
     }
 
-    // ─── eSIM failure ─────────────────────────────────────────────
     if (type === 'esim-failure') {
         return `
             <!DOCTYPE html>
@@ -287,7 +291,7 @@ function generateFallbackTemplate(type, data) {
         `;
     }
 
-    // ─── Default fallback (OTP / verification etc.) ───────────────
+    // Default fallback (OTP / verification / registration)
     let html = `
         <!DOCTYPE html>
         <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -315,11 +319,11 @@ function generateFallbackTemplate(type, data) {
         html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>Date & Time:</strong> ${data.when}</p>`;
     }
 
-    if (data.device)   html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>Device:</strong> ${data.device}</p>`;
-    if (data.browser)  html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>Browser:</strong> ${data.browser}</p>`;
-    if (data.os)       html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>OS:</strong> ${data.os}</p>`;
-    if (data.location) html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>Location:</strong> ${data.location}</p>`;
-    if (data.ipAddress)html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>IP Address:</strong> ${data.ipAddress}</p>`;
+    if (data.device)    html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>Device:</strong> ${data.device}</p>`;
+    if (data.browser)   html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>Browser:</strong> ${data.browser}</p>`;
+    if (data.os)        html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>OS:</strong> ${data.os}</p>`;
+    if (data.location)  html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>Location:</strong> ${data.location}</p>`;
+    if (data.ipAddress) html += `<p style="margin:6px 0;color:#4a6070;font-size:14px;"><strong>IP Address:</strong> ${data.ipAddress}</p>`;
     html += `</div>`;
 
     if (data.otp) {
@@ -392,7 +396,6 @@ async function sendAdminSecurityAlert({
 
     const safe = (v) => escapeHtml(v == null ? '' : String(v));
 
-    // Human-friendly label per action. Extend as new events appear.
     const LABELS = {
         ADMIN_LOGIN_NEW_DEVICE:     'New admin sign-in detected',
         MFA_ENABLED:                'Two-factor authentication enabled',
@@ -470,16 +473,49 @@ async function sendAdminSecurityAlert({
         </body></html>
     `;
 
-    return sendEmail(
-        email,
-        `🔐 ${title} — MilesSpace Admin`,
-        html
-    );
+    return sendEmail(email, `🔐 ${title} — MilesSpace Admin`, html);
 }
 
 // ═══════════════════════════════════════════════════════════════════
 //  AUTH EMAILS
 // ═══════════════════════════════════════════════════════════════════
+
+// ─── REGISTRATION OTP ────────────────────────────────────────────
+async function sendRegistrationOTP(email, username, otp) {
+    const html = `
+        <!DOCTYPE html>
+        <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Verify your MilesSpace account</title></head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f6f8;padding:40px 20px;margin:0;">
+            <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:40px 32px;box-shadow:0 4px 14px rgba(0,0,0,0.06);">
+                <div style="text-align:center;margin-bottom:24px;">
+                    <div style="display:inline-block;width:56px;height:56px;border-radius:50%;background:#e8f4f7;color:#0c3d4a;font-size:24px;line-height:56px;text-align:center;">✉️</div>
+                </div>
+                <h2 style="font-size:22px;font-weight:700;color:#0c3d4a;margin:0 0 8px;text-align:center;">Verify your email</h2>
+                <p style="color:#4a6070;font-size:14px;margin:0 0 20px;text-align:center;">
+                    Hi ${escapeHtml(username || 'there')}, use the code below to finish creating your MilesSpace account.
+                </p>
+                <div style="background:#e8f4f7;border-radius:12px;padding:24px;text-align:center;margin:24px 0;">
+                    <p style="font-size:11px;color:#4a6070;letter-spacing:.08em;font-weight:700;margin:0 0 8px;">YOUR VERIFICATION CODE</p>
+                    <div style="font-family:'JetBrains Mono',Consolas,monospace;font-size:36px;font-weight:800;color:#0c3d4a;letter-spacing:10px;">${escapeHtml(otp)}</div>
+                    <p style="font-size:12px;color:#92a8b4;margin:10px 0 0;">Expires in 10 minutes</p>
+                </div>
+                <div style="background:#fdf3e8;border-radius:10px;padding:14px 18px;margin:22px 0;">
+                    <p style="margin:0;color:#7a3517;font-size:13px;line-height:1.6;">
+                        If you didn't create a MilesSpace account, you can safely ignore this email. Someone may have typed your address by mistake.
+                    </p>
+                </div>
+                <div style="border-top:1px solid #e4e8ec;padding-top:16px;margin-top:22px;">
+                    <p style="color:#92a8b4;font-size:12px;text-align:center;margin:0;">
+                        © ${new Date().getFullYear()} MilesSpace. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        </body></html>
+    `;
+    return sendEmail(email, '🔐 Verify your MilesSpace account', html);
+}
+
+// ─── 2FA EMAIL (canonical name) ──────────────────────────────────
 async function send2FAEmail(email, username, otp, deviceInfo, location, ipAddress) {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -664,11 +700,6 @@ async function sendWithdrawalConfirmation(email, username, amount, currency, des
     return sendEmail(email, `💸 Withdrawal Requested — ${reference || 'MilesSpace'}`, html);
 }
 
-/**
- * sendPaymentReceived
- * Generic wallet credit email. Works for both NGN and USD wallets.
- * Used by depositService.completeKoraDeposit after a successful deposit.
- */
 async function sendPaymentReceived(email, username, amount, currency, reference, source) {
     const formattedAmount = formatAmountForCurrency(amount, currency);
     const walletLabel = currency === 'USD' ? 'USD Wallet' : 'Naira Wallet';
@@ -706,15 +737,6 @@ async function sendCashbackReward(email, username, amount, source, transactionId
     return sendEmail(email, `⭐ Cashback Reward — ${formattedAmount} Earned!`, html);
 }
 
-/**
- * sendDepositConfirmation
- * Multi-currency deposit confirmation. Shows:
- *   - Amount paid in the SOURCE currency (e.g. "GHS 1,000.00")
- *   - Amount credited in the TARGET currency (e.g. "$98.00" or "₦95,000.00")
- *   - The FX rate used
- *
- * Used by depositService after a Kora deposit completes.
- */
 async function sendDepositConfirmation({
     email,
     username,
@@ -1011,7 +1033,7 @@ function getStatus() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  EXPORTS — every function below is available to callers
+//  EXPORTS
 // ═══════════════════════════════════════════════════════════════════
 module.exports = {
     // Core
@@ -1023,7 +1045,10 @@ module.exports = {
     parseUserAgentForDisplay,
 
     // Auth
+    sendRegistrationOTP,
     send2FAEmail,
+    sendOTPEmail: send2FAEmail,        // ← FIX: alias so routes calling
+                                        //   emailService.sendOTPEmail() work.
     sendVerificationEmail,
     sendPasswordResetOTP,
     sendWelcomeEmail,
@@ -1041,6 +1066,7 @@ module.exports = {
     // eSIM
     sendEsimDeliveryEmail,
     sendEsimFailureEmail,
+    sendLoginOTP:   send2FAEmail, 
 
     // Gift cards
     sendGiftCardDeliveryEmail,

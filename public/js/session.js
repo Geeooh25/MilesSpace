@@ -1,48 +1,124 @@
-// /public/js/session.js
+// public/js/session.js
 // ============================================================
-// MILESSPACE USER SESSION MANAGER
-// USER ONLY - NEVER TOUCHES ADMIN SESSION
-// Single authority for auth + connectivity.
+// MILESSPACE USER SESSION MANAGER (customer)
+//
+// TOKEN MODEL
+//   • Access token  — memory only. Never localStorage, never
+//                     sessionStorage, never a cookie. Recovered
+//                     via /api/auth/refresh on reload.
+//   • Refresh token — HttpOnly, Secure, SameSite=Strict cookie
+//                     set by the server. JS cannot read it.
+//   • User metadata — localStorage for UI rendering only.
+//                     No tokens, no secrets.
+//
+// CROSS-TAB
+//   • One BroadcastChannel coordinates refresh across tabs so
+//     two tabs do not race the same refresh token.
+//
+// UTC
+//   • Server returns ISO 8601 with `Z`. This file never parses
+//     a timestamp as local time — it only ever displays.
 // ============================================================
 
 (function () {
     'use strict';
 
     // ─── CONSTANTS ─────────────────────────────────────────────
-    const SESSION_KEY = 'mx_sess';
-    const RETURN_TO_KEY = 'milespace_return_to';
+    const USER_KEY        = 'mx_user';                // non-sensitive
+    const DEVICE_ID_KEY   = 'mx_device_id';           // non-sensitive
+    const RETURN_TO_KEY   = 'milespace_return_to';
 
-    const LOGIN_PAGE = '/login.html';
-    const DASHBOARD_PAGE = '/dashboard.html';
+    const LOGIN_PAGE      = '/login.html';
+    const DASHBOARD_PAGE  = '/dashboard.html';
 
     const REFRESH_ENDPOINT = '/api/auth/refresh';
     const SESSION_ENDPOINT = '/api/auth/session';
-    const LOGOUT_ENDPOINT = '/api/auth/logout';
+    const LOGOUT_ENDPOINT  = '/api/auth/logout';
 
-    // Auth/OTP pages must never be saved as return destination.
     const AUTH_PAGES = new Set([
-        '/login.html',
-        '/login',
-        '/signup.html',
-        '/signup',
-        '/register.html',
-        '/register',
-        '/forgot-password.html',
-        '/forgot-password',
-        '/reset-password.html',
-        '/reset-password',
-        '/verify.html',
-        '/verify'
+        '/login.html', '/login',
+        '/signup.html', '/signup',
+        '/register.html', '/register',
+        '/forgot-password.html', '/forgot-password',
+        '/reset-password.html', '/reset-password',
+        '/verify.html', '/verify'
     ]);
+
+    const LEGACY_TOKEN_KEYS = [
+        'mx_sess', 'mx_token', 'mx_refresh',
+        'miles_token', 'miles_user', 'milespace_token'
+    ];
+
+    // ─── IN-MEMORY ACCESS TOKEN ────────────────────────────────
+    let _accessToken = null;
+    let _accessTokenExpiresAt = 0;
+
+    function setAccessToken(token, expiresInSeconds) {
+        _accessToken = token || null;
+        _accessTokenExpiresAt = token
+            ? Date.now() + (Number(expiresInSeconds || 900) * 1000)
+            : 0;
+    }
+    function getAccessToken() {
+        if (!_accessToken) return null;
+        if (Date.now() >= _accessTokenExpiresAt - 5000) return null;   // 5s skew
+        return _accessToken;
+    }
+    function clearAccessToken() {
+        _accessToken = null;
+        _accessTokenExpiresAt = 0;
+    }
+
+    // ─── USER METADATA (non-sensitive) ─────────────────────────
+    function readUser() {
+        try {
+            const raw = localStorage.getItem(USER_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+    }
+    function saveUser(user) {
+        try {
+            if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+            else localStorage.removeItem(USER_KEY);
+        } catch (_) {}
+    }
+    function clearUser() {
+        try { localStorage.removeItem(USER_KEY); } catch (_) {}
+    }
+
+    function readSession() {
+        const user = readUser();
+        return user ? { user } : null;
+    }
+    function getUser() { return readUser(); }
+
+    // ─── DEVICE ID ─────────────────────────────────────────────
+    // Stable, opaque, per-browser identifier. This is NOT a
+    // fingerprint — it is just a random UUID we generate once
+    // and reuse. Clearing site data makes it look like a new
+    // device, which is the conservative default.
+    function getOrCreateDeviceId() {
+        try {
+            let id = localStorage.getItem(DEVICE_ID_KEY);
+            if (!id || typeof id !== 'string' || id.length < 8) {
+                id = (window.crypto && crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : ('dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 12));
+                localStorage.setItem(DEVICE_ID_KEY, id);
+            }
+            return id;
+        } catch { return null; }
+    }
 
     // ─── STATE ─────────────────────────────────────────────────
     let heartbeatTimer = null;
-    let expiryTimer = null;
+    let refreshTimer   = null;
     let refreshPromise = null;
-    let initialized = false;
-    let redirecting = false;
-    let isOffline = false;
-    let bannerEl = null;
+    let initialized    = false;
+    let redirecting    = false;
+    let isOffline      = false;
+    let bannerEl       = null;
+    let channel        = null;      // BroadcastChannel
 
     // ─── PAGE DETECTION ────────────────────────────────────────
     const pathname = window.location.pathname;
@@ -52,475 +128,230 @@
         pathname === '/admin/' ||
         pathname.startsWith('/admin/');
 
-    const IS_USER_LOGIN_PAGE =
-        pathname === '/login.html' ||
-        pathname === '/login';
-
     const IS_AUTH_PAGE = AUTH_PAGES.has(pathname);
-
-    const IS_ROOT_PAGE =
-        pathname === '/' || pathname === '/index.html';
+    const IS_ROOT_PAGE = pathname === '/' || pathname === '/index.html';
 
     // ============================================================
-    // RETURN-TO / DESTINATION HANDLING
+    // RETURN-TO
     // ============================================================
-
-    /**
-     * Reject anything that isn't a same-origin relative path.
-     * Blocks: https://, http://, //, javascript:, data:, vbscript:
-     * Also blocks login loops and auth pages.
-     */
     function isSafeInternalPath(dest) {
         if (typeof dest !== 'string' || dest.length === 0) return false;
-
-        // Must start with a single slash, not // or /\
         if (dest[0] !== '/') return false;
-        if (dest[1] === '/') return false;
-        if (dest[1] === '\\') return false;
-
-        // Reject protocol-relative and pseudo-protocols
-        if (/^\/\/|^\/\\/.test(dest)) return false;
+        if (dest[1] === '/' || dest[1] === '\\') return false;
         if (/^\s*(javascript|data|vbscript|file):/i.test(dest)) return false;
-
-        // Reject backslashes anywhere (some browsers treat as path sep)
         if (dest.includes('\\')) return false;
 
-        // Normalize path portion only
         let pathOnly;
-        try {
-            pathOnly = new URL(dest, window.location.origin).pathname;
-        } catch {
-            return false;
-        }
+        try { pathOnly = new URL(dest, window.location.origin).pathname; }
+        catch { return false; }
 
-        // Reject auth pages as destination (loop prevention)
         if (AUTH_PAGES.has(pathOnly)) return false;
-
-        // Reject nested redirect params: /login.html?redirect=...
         if (pathOnly === '/login.html' || pathOnly === '/login') return false;
-
         return true;
     }
 
-    /**
-     * Save current page (path + search + hash) as return destination.
-     * Skips auth pages, admin pages, and root.
-     */
     function saveReturnDestination() {
-        if (IS_ADMIN_PAGE) return;
-        if (IS_AUTH_PAGE) return;
-        if (IS_ROOT_PAGE) return;
-
-        const dest =
-            window.location.pathname +
-            window.location.search +
-            window.location.hash;
-
-        if (!isSafeInternalPath(dest)) {
-            console.warn('[SESSION] Refusing to save unsafe return dest:', dest);
-            return;
-        }
-
+        if (IS_ADMIN_PAGE || IS_AUTH_PAGE || IS_ROOT_PAGE) return;
+        const dest = window.location.pathname + window.location.search + window.location.hash;
+        if (!isSafeInternalPath(dest)) return;
         try {
             sessionStorage.setItem(
                 RETURN_TO_KEY,
                 JSON.stringify({ path: dest, savedAt: Date.now() })
             );
-            console.log('[SESSION] Saving return destination:', dest);
         } catch (e) {
             console.warn('[SESSION] Failed to save return destination:', e);
         }
     }
 
-    /**
-     * Read + validate return destination.
-     * Priority: sessionStorage → ?redirect= query param.
-     * Returns null if nothing safe.
-     */
     function getSafeReturnDestination() {
-        // 1. sessionStorage
         try {
             const raw = sessionStorage.getItem(RETURN_TO_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (parsed && isSafeInternalPath(parsed.path)) {
-                    return parsed.path;
-                }
-                // Corrupt / unsafe — drop it
+                if (parsed && isSafeInternalPath(parsed.path)) return parsed.path;
                 sessionStorage.removeItem(RETURN_TO_KEY);
             }
-        } catch (e) {
-            sessionStorage.removeItem(RETURN_TO_KEY);
-        }
+        } catch { sessionStorage.removeItem(RETURN_TO_KEY); }
 
-        // 2. ?redirect= query param
         try {
             const params = new URLSearchParams(window.location.search);
             const fromQuery = params.get('redirect');
             if (fromQuery) {
                 const decoded = decodeURIComponent(fromQuery);
-                if (isSafeInternalPath(decoded)) {
-                    return decoded;
-                }
+                if (isSafeInternalPath(decoded)) return decoded;
             }
-        } catch (e) {
-            // ignore
-        }
+        } catch {}
 
         return null;
     }
 
     function clearReturnDestination() {
-        try {
-            sessionStorage.removeItem(RETURN_TO_KEY);
-        } catch (e) {
-            // ignore
-        }
-    }
-
-    // ============================================================
-    // JWT
-    // ============================================================
-
-    function decodeJwtPayload(token) {
-        try {
-            if (!token) return null;
-            const parts = token.split('.');
-            if (parts.length !== 3) return null;
-            let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-            while (base64.length % 4) base64 += '=';
-            return JSON.parse(atob(base64));
-        } catch (error) {
-            return null;
-        }
-    }
-
-    function getTokenExpiryMs(token) {
-        const payload = decodeJwtPayload(token);
-        if (!payload || !payload.exp) return null;
-        return payload.exp * 1000;
-    }
-
-    function isTokenExpired(token) {
-        const expiry = getTokenExpiryMs(token);
-        if (expiry === null) return true;
-        return Date.now() >= expiry;
-    }
-
-    // ============================================================
-    // SESSION READ
-    // ============================================================
-
-    function readSession() {
-        try {
-            const local = localStorage.getItem(SESSION_KEY);
-            if (local) return JSON.parse(local);
-
-            const session = sessionStorage.getItem(SESSION_KEY);
-            if (session) return JSON.parse(session);
-
-            return null;
-        } catch (error) {
-            console.error('[SESSION] Failed to read session');
-            return null;
-        }
-    }
-
-    function getUserToken() {
-        return readSession()?.token || '';
-    }
-
-    // Support both camelCase (session.js) and snake_case (legacy login.html)
-    function getRefreshToken() {
-        const s = readSession();
-        if (!s) return null;
-        return s.refreshToken || s.refresh_token || null;
-    }
-
-    function getUser() {
-        return readSession()?.user || null;
-    }
-
-    // ============================================================
-    // SAVE SESSION
-    // ============================================================
-
-    function saveSession(token, user, remember = false, refreshToken = null) {
-        if (!token) throw new Error('Cannot save empty user token');
-
-        localStorage.removeItem(SESSION_KEY);
-        sessionStorage.removeItem(SESSION_KEY);
-
-        const expiresAt = getTokenExpiryMs(token);
-
-        const sessionData = {
-            token,
-            refreshToken: refreshToken || null,
-            user: user || null,
-            loggedAt: Date.now(),
-            expiresAt,
-            remember: !!remember
-        };
-
-        const json = JSON.stringify(sessionData);
-
-        if (remember) {
-            localStorage.setItem(SESSION_KEY, json);
-        } else {
-            sessionStorage.setItem(SESSION_KEY, json);
-        }
-
-        console.log(
-            '[SESSION] Saved:',
-            user?.email || user?.username || 'user'
-        );
-
-        return sessionData;
-    }
-
-    // ============================================================
-    // CLEAR USER SESSION
-    // ============================================================
-
-    function clearUserSession() {
-        localStorage.removeItem(SESSION_KEY);
-        sessionStorage.removeItem(SESSION_KEY);
-
-        // Legacy keys
-        localStorage.removeItem('miles_token');
-        localStorage.removeItem('miles_user');
-
-        // Do NOT clear return destination here — logout decides that.
-        console.log('[SESSION] Cleared');
+        try { sessionStorage.removeItem(RETURN_TO_KEY); } catch {}
     }
 
     // ============================================================
     // CONNECTIVITY BANNER
     // ============================================================
-
     function ensureBanner() {
         if (bannerEl && document.body.contains(bannerEl)) return bannerEl;
-
         bannerEl = document.createElement('div');
         bannerEl.id = 'milespaceConnectivity';
         bannerEl.setAttribute('role', 'status');
         bannerEl.setAttribute('aria-live', 'polite');
-
         Object.assign(bannerEl.style, {
-            position: 'fixed',
-            left: '50%',
-            bottom: '24px',
+            position: 'fixed', left: '50%', bottom: '24px',
             transform: 'translateX(-50%) translateY(120%)',
-            padding: '10px 18px',
-            borderRadius: '999px',
+            padding: '10px 18px', borderRadius: '999px',
             fontFamily: 'Inter, DM Sans, system-ui, sans-serif',
-            fontSize: '13px',
-            fontWeight: '600',
-            letterSpacing: '0.01em',
-            color: '#ffffff',
+            fontSize: '13px', fontWeight: '600', color: '#ffffff',
             background: '#1a2c3e',
             boxShadow: '0 6px 20px rgba(0,0,0,0.18)',
-            zIndex: '2147483647',
-            pointerEvents: 'none',
+            zIndex: '2147483647', pointerEvents: 'none',
             opacity: '0',
             transition: 'transform 0.28s ease, opacity 0.28s ease',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
+            display: 'flex', alignItems: 'center', gap: '8px',
             maxWidth: 'calc(100vw - 32px)'
         });
-
         bannerEl.innerHTML = '<span id="milespaceConnectivityText"></span>';
-
         document.body.appendChild(bannerEl);
         return bannerEl;
     }
-
     function showBanner(text, tone) {
         if (!document.body) {
             document.addEventListener('DOMContentLoaded', () => showBanner(text, tone), { once: true });
             return;
         }
-
         const el = ensureBanner();
         const txt = el.querySelector('#milespaceConnectivityText');
         if (txt) txt.textContent = text;
-
-        // Tone: 'offline' | 'online'
-        if (tone === 'offline') {
-            el.style.background = '#1a2c3e';
-        } else if (tone === 'online') {
-            el.style.background = '#065f46';
-        }
-
+        el.style.background = tone === 'online' ? '#065f46' : '#1a2c3e';
         el.style.transform = 'translateX(-50%) translateY(0)';
         el.style.opacity = '1';
-
         if (showBanner._timer) clearTimeout(showBanner._timer);
-
-        // Auto-hide only for "back online"
-        if (tone === 'online') {
-            showBanner._timer = setTimeout(() => hideBanner(), 3200);
-        }
+        if (tone === 'online') showBanner._timer = setTimeout(() => hideBanner(), 3200);
     }
-
     function hideBanner() {
         if (!bannerEl) return;
         bannerEl.style.transform = 'translateX(-50%) translateY(120%)';
         bannerEl.style.opacity = '0';
     }
-
     function markOffline() {
         if (isOffline) return;
         isOffline = true;
         document.body.dataset.network = 'offline';
-        console.log('[NETWORK] Offline');
         showBanner('You are offline', 'offline');
     }
-
     function markOnline() {
-        if (!isOffline) {
-            // Still update dataset for consistency
-            document.body.dataset.network = 'online';
-            return;
-        }
+        if (!isOffline) { document.body.dataset.network = 'online'; return; }
         isOffline = false;
         document.body.dataset.network = 'online';
-        console.log('[NETWORK] Back online');
         showBanner("You're back online", 'online');
     }
-
     function installConnectivityListeners() {
-        if (IS_ADMIN_PAGE) return; // admin has its own system
-
+        if (IS_ADMIN_PAGE) return;
         window.addEventListener('offline', () => {
             markOffline();
             if (window.presenceTracker?.pauseForOffline) {
-                try { window.presenceTracker.pauseForOffline(); } catch (e) {}
+                try { window.presenceTracker.pauseForOffline(); } catch {}
             }
         });
-
         window.addEventListener('online', () => {
             markOnline();
             if (window.presenceTracker?.resumeFromOffline) {
-                try { window.presenceTracker.resumeFromOffline(); } catch (e) {}
+                try { window.presenceTracker.resumeFromOffline(); } catch {}
             }
         });
-
-        // Initial signal
-        if (navigator.onLine === false) {
-            markOffline();
-        } else {
-            document.body.dataset.network = 'online';
-        }
+        if (navigator.onLine === false) markOffline();
+        else document.body.dataset.network = 'online';
     }
 
     // ============================================================
-    // REDIRECT TO LOGIN (with return destination)
+    // REDIRECT TO LOGIN
     // ============================================================
-
     function redirectToUserLogin() {
-        if (IS_ADMIN_PAGE) return;
-        if (IS_AUTH_PAGE) return;
-        if (redirecting) return;
-
+        if (IS_ADMIN_PAGE || IS_AUTH_PAGE || redirecting) return;
         redirecting = true;
-
-        // CRITICAL: save destination BEFORE clearing session.
         saveReturnDestination();
-
-        clearUserSession();
-
+        clearAccessToken();
+        clearUser();
         if (typeof window.logoutPresence === 'function') {
-            try { window.logoutPresence(); } catch (e) {}
+            try { window.logoutPresence(); } catch {}
         }
-
-        const dest = (() => {
-            try {
-                const raw = sessionStorage.getItem(RETURN_TO_KEY);
-                if (!raw) return null;
-                const parsed = JSON.parse(raw);
-                return parsed?.path && isSafeInternalPath(parsed.path)
-                    ? parsed.path
-                    : null;
-            } catch {
-                return null;
-            }
-        })();
-
+        const dest = getSafeReturnDestination();
         let url = LOGIN_PAGE;
-        if (dest) {
-            url += '?redirect=' + encodeURIComponent(dest);
-            console.log('[SESSION] Redirecting to login, return to:', dest);
-        } else {
-            console.log('[SESSION] Redirecting to login (no return dest)');
-        }
-
-        // Use replace — never leave login in history
+        if (dest) url += '?redirect=' + encodeURIComponent(dest);
         window.location.replace(url);
     }
 
     // ============================================================
-    // SESSION VALIDATION
+    // BROADCAST CHANNEL (cross-tab coordination)
     // ============================================================
-
-    function isSessionValid() {
-        const token = getUserToken();
-        if (!token) return false;
-        return !isTokenExpired(token);
+    function initChannel() {
+        if (channel !== null) return channel;
+        try {
+            channel = new BroadcastChannel('mx_auth');
+            channel.onmessage = (e) => {
+                const msg = e.data || {};
+                if (msg.type === 'logout') {
+                    clearAccessToken();
+                    clearUser();
+                    if (!IS_ADMIN_PAGE && !IS_AUTH_PAGE) redirectToUserLogin();
+                } else if (msg.type === 'token' && msg.token) {
+                    setAccessToken(msg.token, msg.expiresIn || 900);
+                    scheduleProactiveRefresh();
+                } else if (msg.type === 'refresh_start') {
+                    // Another tab is refreshing; wait a moment.
+                }
+            };
+        } catch {
+            channel = null;
+        }
+        return channel;
+    }
+    function bcPost(msg) {
+        try { if (channel) channel.postMessage(msg); } catch {}
     }
 
     // ============================================================
-    // REFRESH TOKEN (single-flight)
+    // REFRESH (single-flight, cross-tab aware)
     // ============================================================
-
-    async function refreshToken() {
-        if (refreshPromise) return refreshPromise;
-
-        const oldRefreshToken = getRefreshToken();
-        if (!oldRefreshToken) throw new Error('No refresh token');
+    async function refreshToken(force = false) {
+        if (refreshPromise && !force) return refreshPromise;
 
         refreshPromise = (async () => {
             try {
-                console.log('[SESSION] Attempting refresh');
-
                 const response = await fetch(REFRESH_ENDPOINT, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refresh_token: oldRefreshToken })
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
                 });
+
+                if (response.status === 409) {
+                    // Concurrent refresh. Retry once after a short delay.
+                    const body = await response.json().catch(() => ({}));
+                    if (body.code === 'REFRESH_RACE') {
+                        await new Promise(r => setTimeout(r, 250));
+                        const retry = await fetch(REFRESH_ENDPOINT, {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        if (retry.ok) {
+                            return await _consumeRefreshResponse(retry);
+                        }
+                        throw new Error(`Refresh race retry failed: ${retry.status}`);
+                    }
+                    throw new Error(`Refresh failed: ${response.status}`);
+                }
 
                 if (!response.ok) {
                     throw new Error(`Refresh failed: ${response.status}`);
                 }
 
-                const result = await response.json();
-
-                const newAccessToken =
-                    result?.data?.access_token || result?.access_token;
-                const newRefreshToken =
-                    result?.data?.refresh_token ||
-                    result?.refresh_token ||
-                    oldRefreshToken;
-
-                if (!newAccessToken) {
-                    throw new Error('Refresh response contains no access token');
-                }
-
-                const session = readSession();
-
-                saveSession(
-                    newAccessToken,
-                    session?.user || null,
-                    session?.remember === true,
-                    newRefreshToken
-                );
-
-                console.log('[SESSION] Refresh successful');
-                scheduleProactiveRefresh();
-                return newAccessToken;
+                return await _consumeRefreshResponse(response);
             } catch (error) {
-                console.error('[SESSION] Refresh failed:', error.message);
+                clearAccessToken();
                 throw error;
             } finally {
                 refreshPromise = null;
@@ -530,95 +361,65 @@
         return refreshPromise;
     }
 
-    // ============================================================
-    // CHECK SESSION
-    // ============================================================
+    async function _consumeRefreshResponse(response) {
+        const result = await response.json();
+        const accessToken = result?.data?.access_token || result?.access_token || null;
+        const expiresIn   = result?.data?.expires_in   || result?.expires_in   || 900;
+        if (!accessToken) throw new Error('Refresh response contained no access token');
 
-    async function checkUserSession() {
-        if (IS_ADMIN_PAGE) return true;
-        if (IS_AUTH_PAGE) return true;
-
-        const token = getUserToken();
-        if (!token) {
-            redirectToUserLogin();
-            return false;
-        }
-
-        if (!isTokenExpired(token)) return true;
-
-        if (getRefreshToken()) {
-            try {
-                await refreshToken();
-                return true;
-            } catch (error) {
-                redirectToUserLogin();
-                return false;
-            }
-        }
-
-        redirectToUserLogin();
-        return false;
+        setAccessToken(accessToken, expiresIn);
+        scheduleProactiveRefresh();
+        bcPost({ type: 'token', token: accessToken, expiresIn });
+        return accessToken;
     }
 
     // ============================================================
-    // HEARTBEAT (session probe, 60s)
+    // SESSION CHECK
     // ============================================================
+    async function checkUserSession() {
+        if (IS_ADMIN_PAGE || IS_AUTH_PAGE) return true;
+        if (getAccessToken()) return true;
+        try { await refreshToken(); return true; }
+        catch { redirectToUserLogin(); return false; }
+    }
 
+    // ============================================================
+    // HEARTBEAT (60s, paused when hidden)
+    // ============================================================
     function startUserHeartbeat() {
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-
         if (IS_AUTH_PAGE || IS_ADMIN_PAGE) return;
 
         heartbeatTimer = setInterval(async () => {
-            const token = getUserToken();
+            if (document.hidden) return;   // pause when hidden
+            const token = getAccessToken();
             if (!token) {
-                clearInterval(heartbeatTimer);
+                try { await refreshToken(); }
+                catch { redirectToUserLogin(); }
                 return;
             }
-
-            // Refresh before expiry
-            const expiry = getTokenExpiryMs(token);
-            if (expiry) {
-                const timeLeft = expiry - Date.now();
-                if (timeLeft <= 60000 && timeLeft > 0) {
-                    try { await refreshToken(); } catch (e) {}
-                    return;
-                }
-            }
-
             try {
                 const response = await fetch(SESSION_ENDPOINT, {
                     method: 'GET',
                     headers: { Authorization: `Bearer ${token}` }
                 });
-
                 if (response.ok) return;
-
                 if (response.status === 401) {
                     let data = {};
-                    try { data = await response.json(); } catch (e) {}
-
-                    if (
-                        data.code === 'SESSION_EXPIRED' ||
-                        data.code === 'INVALID_TOKEN'
-                    ) {
-                        if (getRefreshToken()) {
-                            try { await refreshToken(); }
-                            catch (e) { redirectToUserLogin(); }
-                        } else {
-                            redirectToUserLogin();
-                        }
+                    try { data = await response.json(); } catch {}
+                    if (data.code === 'SESSION_EXPIRED' || data.code === 'INVALID_TOKEN') {
+                        try { await refreshToken(); }
+                        catch { redirectToUserLogin(); }
                     } else if (
                         data.code === 'SESSION_REVOKED' ||
                         data.code === 'ACCOUNT_DELETED' ||
-                        data.code === 'ACCOUNT_SUSPENDED'
+                        data.code === 'ACCOUNT_SUSPENDED' ||
+                        data.code === 'INVALID_SESSION'
                     ) {
                         redirectToUserLogin();
                     }
                 }
-                // 503, 500, etc → leave alone; connectivity layer handles offline
-            } catch (error) {
-                // Network failure is NOT auth failure
+            } catch {
                 console.warn('[SESSION] Heartbeat network error — keeping session');
             }
         }, 60000);
@@ -627,97 +428,74 @@
     // ============================================================
     // PROACTIVE REFRESH
     // ============================================================
-
     function scheduleProactiveRefresh() {
-        if (expiryTimer) {
-            clearTimeout(expiryTimer);
-            expiryTimer = null;
-        }
-
+        if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
         if (IS_ADMIN_PAGE || IS_AUTH_PAGE) return;
-
-        const token = getUserToken();
+        const token = getAccessToken();
         if (!token) return;
-
-        const expiry = getTokenExpiryMs(token);
-        if (!expiry) return;
-
-        const timeLeft = expiry - Date.now();
-
-        if (timeLeft <= 0) {
-            if (getRefreshToken()) refreshToken().catch(() => {});
-            return;
-        }
-
-        const REFRESH_AHEAD_MS = 5 * 60 * 1000; // 5 minutes before expiry
-        const refreshIn = timeLeft - REFRESH_AHEAD_MS;
-
-        if (refreshIn > 0) {
-            expiryTimer = setTimeout(() => {
-                if (getRefreshToken()) refreshToken().catch(() => {});
-            }, refreshIn);
-        } else {
-            if (getRefreshToken()) refreshToken().catch(() => {});
-        }
+        const timeLeft = _accessTokenExpiresAt - Date.now();
+        const REFRESH_AHEAD_MS = 5 * 60 * 1000;
+        const refreshIn = Math.max(0, timeLeft - REFRESH_AHEAD_MS);
+        refreshTimer = setTimeout(() => {
+            if (document.hidden) return;
+            refreshToken().catch(() => {});
+        }, refreshIn);
     }
 
     // ============================================================
-    // USER FETCH
+    // USER FETCH — attaches access token, retries once on 401
     // ============================================================
-
     async function userFetch(url, options = {}, retry = true) {
-        if (IS_ADMIN_PAGE) {
-            throw new Error('userFetch() cannot be used on admin pages');
-        }
+        if (IS_ADMIN_PAGE) throw new Error('userFetch() cannot be used on admin pages');
 
-        const token = getUserToken();
+        let token = getAccessToken();
         if (!token) {
-            redirectToUserLogin();
-            throw new Error('User not authenticated');
+            try { token = await refreshToken(); }
+            catch {
+                redirectToUserLogin();
+                throw new Error('User not authenticated');
+            }
         }
 
         const headers = {
             ...(options.headers || {}),
             Authorization: `Bearer ${token}`
         };
-
         if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
             headers['Content-Type'] = 'application/json';
         }
 
         let response;
         try {
-            response = await fetch(url, { ...options, headers });
+            response = await fetch(url, {
+                ...options,
+                headers,
+                credentials: 'same-origin'      // cookies only same-origin
+            });
         } catch (networkError) {
-            // Network failure — do NOT redirect. Surface the error.
-            console.warn('[NETWORK] Fetch failed:', networkError.message);
             if (navigator.onLine === false) markOffline();
             throw networkError;
         }
 
-        // Success or non-auth error → return as-is
-        if (response.status !== 401) {
-            return response;
-        }
+        if (response.status !== 401) return response;
 
-        // 401 → inspect code
         let data = {};
-        try { data = await response.clone().json(); } catch (e) {}
-
+        try { data = await response.clone().json(); } catch {}
         const code = data.code;
 
-        if (
-            retry &&
-            (code === 'SESSION_EXPIRED' || code === 'INVALID_TOKEN') &&
-            getRefreshToken()
-        ) {
+        if (retry && (code === 'SESSION_EXPIRED' || code === 'INVALID_TOKEN')) {
             try {
                 await refreshToken();
-                return userFetch(url, options, false); // one retry only
+                return userFetch(url, options, false);
             } catch (err) {
                 redirectToUserLogin();
                 throw err;
             }
+        }
+
+        if (code === 'NO_TOKEN') {
+            redirectToUserLogin();
+            return response;
         }
 
         if (
@@ -735,83 +513,55 @@
     // ============================================================
     // LOGOUT
     // ============================================================
-
     async function doUserLogout() {
-        const token = getUserToken();
-        const refreshTokenValue = getRefreshToken();
-
+        const token = getAccessToken();
         if (typeof window.logoutPresence === 'function') {
-            try { window.logoutPresence(); } catch (e) {}
+            try { window.logoutPresence(); } catch {}
         }
-
-        if (expiryTimer) {
-            clearTimeout(expiryTimer);
-            expiryTimer = null;
-        }
-        if (heartbeatTimer) {
-            clearInterval(heartbeatTimer);
-            heartbeatTimer = null;
-        }
+        if (refreshTimer)   { clearTimeout(refreshTimer);   refreshTimer = null; }
+        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
 
         try {
-            if (token) {
-                await fetch(LOGOUT_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify(
-                        refreshTokenValue
-                            ? { refresh_token: refreshTokenValue }
-                            : {}
-                    )
-                });
-            }
-        } catch (error) {
-            // server logout failure shouldn't block local logout
-        }
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            await fetch(LOGOUT_ENDPOINT, {
+                method: 'POST', headers, credentials: 'include'
+            });
+        } catch {}
 
-        clearUserSession();
-        clearReturnDestination(); // logout = no auto-restore
-
+        clearAccessToken();
+        clearUser();
+        clearReturnDestination();
+        bcPost({ type: 'logout' });
         window.location.replace(LOGIN_PAGE);
     }
 
     // ============================================================
-    // INITIALIZATION
+    // INIT
     // ============================================================
-
     async function init() {
         if (initialized) return;
         initialized = true;
 
-        // Connectivity listeners run on all non-admin pages, including auth.
-        if (!IS_ADMIN_PAGE) {
-            installConnectivityListeners();
-        }
+        // Scrub legacy token keys unconditionally.
+        try {
+            for (const k of LEGACY_TOKEN_KEYS) {
+                localStorage.removeItem(k);
+                sessionStorage.removeItem(k);
+            }
+        } catch {}
 
-        if (IS_ADMIN_PAGE) {
-            console.log('[SESSION] Admin page — skipped');
-            return;
-        }
+        initChannel();
 
-        if (IS_AUTH_PAGE || IS_ROOT_PAGE) {
-            console.log('[SESSION] Auth/root page — guard skipped');
-            return;
-        }
+        if (!IS_ADMIN_PAGE) installConnectivityListeners();
 
-        console.log('[SESSION] Initializing');
+        if (IS_ADMIN_PAGE || IS_AUTH_PAGE || IS_ROOT_PAGE) return;
 
         const valid = await checkUserSession();
         if (!valid) return;
-
         startUserHeartbeat();
         scheduleProactiveRefresh();
-
-        console.log('[SESSION] Loaded');
     }
-
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {
@@ -821,32 +571,18 @@
     // ============================================================
     // VISIBILITY
     // ============================================================
-
     document.addEventListener('visibilitychange', () => {
-        if (
-            !document.hidden &&
-            !IS_ADMIN_PAGE &&
-            !IS_AUTH_PAGE &&
-            !IS_ROOT_PAGE
-        ) {
-            checkUserSession().then((valid) => {
-                if (valid) scheduleProactiveRefresh();
-            });
+        if (!document.hidden && !IS_ADMIN_PAGE && !IS_AUTH_PAGE && !IS_ROOT_PAGE) {
+            checkUserSession().then((valid) => { if (valid) scheduleProactiveRefresh(); });
         }
     });
 
     // ============================================================
-    // CROSS-TAB
+    // CROSS-TAB (storage fallback if BroadcastChannel missing)
     // ============================================================
-
     window.addEventListener('storage', (event) => {
-        if (
-            event.key === SESSION_KEY &&
-            event.newValue === null &&
-            !IS_ADMIN_PAGE &&
-            !IS_AUTH_PAGE
-        ) {
-            console.log('[SESSION] Session removed in another tab');
+        if (event.key === USER_KEY && event.newValue === null && !IS_ADMIN_PAGE && !IS_AUTH_PAGE) {
+            clearAccessToken();
             redirectToUserLogin();
         }
     });
@@ -854,30 +590,26 @@
     // ============================================================
     // EXPORTS
     // ============================================================
-
     window.getUserSession = readSession;
-    window.getUserToken = getUserToken;
-    window.getRefreshToken = getRefreshToken;
-    window.getUser = getUser;
+    window.getUser        = getUser;
 
-    window.saveUserSession = saveSession;
-    window.clearUserSession = clearUserSession;
+    window.saveUserSession  = saveUser;
+    window.clearUserSession = () => { clearAccessToken(); clearUser(); };
 
-    window.checkUserSession = checkUserSession;
-    window.doUserLogout = doUserLogout;
-    window.userFetch = userFetch;
-    window.refreshUserToken = refreshToken;
+    window.checkUserSession  = checkUserSession;
+    window.doUserLogout      = doUserLogout;
+    window.userFetch         = userFetch;
+    window.refreshUserToken  = refreshToken;
 
-    // Return-destination API (used by login.html + anywhere)
-    window.saveReturnDestination = saveReturnDestination;
-    window.getSafeReturnDestination = getSafeReturnDestination;
-    window.clearReturnDestination = clearReturnDestination;
+    window.getAccessToken    = getAccessToken;
+    window.setAccessToken    = setAccessToken;
+    window.getOrCreateDeviceId = getOrCreateDeviceId;
 
-    // Auth redirect API (used by presence.js if needed)
-    window.redirectToUserLogin = redirectToUserLogin;
+    window.saveReturnDestination     = saveReturnDestination;
+    window.getSafeReturnDestination  = getSafeReturnDestination;
+    window.clearReturnDestination    = clearReturnDestination;
+    window.redirectToUserLogin       = redirectToUserLogin;
+    window.milespaceIsOffline        = () => isOffline;
 
-    // Connectivity API
-    window.milespaceIsOffline = () => isOffline;
-
-    console.log('[SESSION] Exported — isolated from admin');
+    console.log('[SESSION] Ready — memory-only access token, HttpOnly refresh cookie, cross-tab coordinated');
 })();

@@ -2,14 +2,12 @@
 // Mounted at: /api/esim
 // Webhook mounted separately at: /api/webhooks/dtone/esim
 //
-// FIXES IN THIS VERSION:
-//  - Supports GLOBAL destination type (not forced into countryIso3)
-//  - QR uploaded to PRIVATE bucket, served via signed URLs
-//  - Idempotency-Key header honored from client
-//  - delivery_pending status when provider completes but LPA is missing
-//  - Minimal field projection on all public responses
-//  - Reference returned in completion payload
-//  - Email queue + retry worker + stale-sending recovery
+// BALANCE SOURCE: profiles.wallet_ngn / wallet_usd
+//   (matches /api/auth/me, /api/wallet/me, and the dashboard)
+//
+// HISTORY: reads esim_transactions, returns FULL detail per row
+//   (QR, activation code, LPA string, serial, ICCID, install links)
+//   so the user can see every eSIM they've purchased on the page.
 
 const express = require('express');
 const router = express.Router();
@@ -31,8 +29,8 @@ const MAX_AGE_MINUTES = 26 * 60;
 const EMAIL_MAX_ATTEMPTS = 5;
 const EMAIL_RETRY_BACKOFF_MIN = [2, 5, 15, 60, 240];
 const QR_BUCKET = 'esim-qr';
-const QR_SIGNED_URL_TTL_SEC = 60 * 60 * 24 * 7; // 7 days
-const STALE_SENDING_MS = 10 * 60 * 1000;        // 10 min
+const QR_SIGNED_URL_TTL_SEC = 60 * 60 * 24 * 7;
+const STALE_SENDING_MS = 10 * 60 * 1000;
 
 const MAX_PIN_ATTEMPTS = 4;
 const PIN_LOCK_DURATION = 60 * 60 * 1000;
@@ -42,6 +40,11 @@ const cache = {
     plans: new Map(),
     ttl: CACHE_TTL
 };
+
+function num(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
 
 // ════════════════════════════════════════════════════════════════════════
 //  PIN VERIFICATION
@@ -131,11 +134,10 @@ async function verifyTransactionPin(userId, pin) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  DESTINATION TYPE RESOLVER — GLOBAL / REGIONAL / COUNTRY
+//  DESTINATION TYPE RESOLVER
 // ════════════════════════════════════════════════════════════════════════
 function resolveDestination(input) {
     if (!input) return null;
-
     const type = String(input.type || 'country').toLowerCase();
     const code = String(input.code || input.iso3 || '').toUpperCase();
 
@@ -204,6 +206,9 @@ async function generateEsimQr(lpaString, reference) {
 
 // ════════════════════════════════════════════════════════════════════════
 //  GET /me
+//
+//  Reads the SAME balance as the dashboard — profiles.wallet_*.
+//  Ledger is used only as a fallback when profiles is zero.
 // ════════════════════════════════════════════════════════════════════════
 router.get('/me', authMiddleware, async (req, res) => {
     try {
@@ -220,6 +225,20 @@ router.get('/me', authMiddleware, async (req, res) => {
             return res.status(403).json({ success: false, error: 'Account suspended' });
         }
 
+        let walletNgn = num(user.wallet_ngn);
+        let walletUsd = num(user.wallet_usd);
+
+        // Ledger fallback — only if profiles is zero.
+        if (walletNgn === 0 || walletUsd === 0) {
+            try {
+                const balances = await LedgerService.getAllBalances(user.id);
+                if (walletNgn === 0 && num(balances.NGN) > 0) walletNgn = num(balances.NGN);
+                if (walletUsd === 0 && num(balances.USD) > 0) walletUsd = num(balances.USD);
+            } catch (e) {
+                console.warn('[ESIM /me] ledger fallback failed:', e.message);
+            }
+        }
+
         res.json({
             success: true,
             data: {
@@ -227,8 +246,8 @@ router.get('/me', authMiddleware, async (req, res) => {
                 name: user.username || user.email?.split('@')[0] || 'Account',
                 email: user.email || '',
                 avatarUrl: user.avatar_url || null,
-                walletBalanceUsd: parseFloat(user.wallet_usd) || 0,
-                walletBalanceNgn: parseFloat(user.wallet_ngn) || 0,
+                walletBalanceUsd: walletUsd,
+                walletBalanceNgn: walletNgn,
                 role: user.role || 'user',
                 hasPin: Boolean(user.transaction_pin_hash)
             }
@@ -241,46 +260,109 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // ════════════════════════════════════════════════════════════════════════
 //  GET /history
+//
+//  Returns FULL eSIM detail per row so the user sees every purchase
+//  they've made — including QR, activation code, LPA, serial, ICCID,
+//  install links, and delivery/email status.
 // ════════════════════════════════════════════════════════════════════════
 router.get('/history', authMiddleware, async (req, res) => {
     try {
         const { data: txns, error } = await supabaseAdmin
             .from('esim_transactions')
             .select(`
-                id, reference, dtone_external_id, country_name, country_flag,
-                plan_name, data_display, validity_days, total_usd, status,
-                delivery_status, created_at, qr_code_url,
-                activation_code, lpa_string, serial_number, iccid
+                id, reference, dtone_external_id, provider_transaction_id,
+                country_iso2, country_iso3, country_name, country_flag,
+                plan_name, data_display, data_mb, validity_days,
+                price_usd, fee_usd, total_usd, price_ngn,
+                debit_currency, debit_amount, exchange_rate,
+                status, delivery_status, email_status,
+                qr_code_url, activation_code, lpa_string,
+                serial_number, iccid, smdp_address, matching_id,
+                installation_url, apple_universal_link, android_universal_link,
+                instructions, failure_reason, refunded, refund_status,
+                delivery_attempts, last_delivery_error,
+                email_attempts, last_email_error,
+                created_at, updated_at, completed_at, failed_at, refunded_at
             `)
             .eq('user_id', req.user.id)
             .order('created_at', { ascending: false })
-            .limit(20);
+            .limit(50);
 
         if (error) {
-            if (error.code === '42P01') return res.json({ success: true, data: [] });
+            if (error.code === '42P01') {
+                // Table missing — return empty rather than 500.
+                return res.json({ success: true, data: [] });
+            }
             throw error;
         }
 
         const formatted = (txns || []).map(t => ({
             id: t.id,
             reference: t.reference,
+            externalId: t.dtone_external_id,
+            providerTransactionId: t.provider_transaction_id,
+
+            // Destination
+            countryIso2: t.country_iso2,
+            countryIso3: t.country_iso3,
             countryName: t.country_name,
             countryFlag: t.country_flag,
+
+            // Plan
             planName: t.plan_name,
             dataAmount: t.data_display,
+            dataMb: t.data_mb,
             validityDays: t.validity_days,
-            totalUsd: parseFloat(t.total_usd) || 0,
+
+            // Pricing
+            priceUsd: num(t.price_usd),
+            feeUsd: num(t.fee_usd),
+            totalUsd: num(t.total_usd),
+            priceNgn: num(t.price_ngn),
+            debitCurrency: t.debit_currency,
+            debitAmount: num(t.debit_amount),
+            exchangeRate: num(t.exchange_rate),
+
+            // Status
             status: t.status,
             deliveryStatus: t.delivery_status,
-            createdAt: t.created_at,
+            emailStatus: t.email_status,
+            refunded: !!t.refunded,
+            refundStatus: t.refund_status,
+            failureReason: t.failure_reason || null,
+
+            // Delivery data — user needs this to install
             qrCodeUrl: t.qr_code_url || null,
             activationCode: t.activation_code || null,
             lpaString: t.lpa_string || null,
+            smdpAddress: t.smdp_address || null,
+            matchingId: t.matching_id || null,
             serial: t.serial_number || null,
-            iccid: t.iccid || null
+            iccid: t.iccid || null,
+            installationUrl: t.installation_url || null,
+            appleUniversalLink: t.apple_universal_link || null,
+            androidUniversalLink: t.android_universal_link || null,
+            instructions: t.instructions || null,
+
+            // Diagnostics
+            deliveryAttempts: t.delivery_attempts || 0,
+            lastDeliveryError: t.last_delivery_error || null,
+            emailAttempts: t.email_attempts || 0,
+            lastEmailError: t.last_email_error || null,
+
+            // Timestamps
+            createdAt: t.created_at,
+            updatedAt: t.updated_at,
+            completedAt: t.completed_at,
+            failedAt: t.failed_at,
+            refundedAt: t.refunded_at
         }));
 
-        res.json({ success: true, data: formatted });
+        res.json({
+            success: true,
+            data: formatted,
+            meta: { count: formatted.length }
+        });
     } catch (error) {
         console.error('❌ GET /history error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to fetch eSIM history' });
@@ -324,7 +406,7 @@ router.get('/countries', authMiddleware, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  GET /plans?country=XXX  |  ?region=EUROPE  |  ?type=global
+//  GET /plans
 // ════════════════════════════════════════════════════════════════════════
 router.get('/plans', authMiddleware, async (req, res) => {
     const type = String(req.query.type || '').toLowerCase();
@@ -453,7 +535,6 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Transaction PIN (4 digits) is required', code: 'PIN_REQUIRED' });
     }
 
-    // Resolve destination — supports country / global / regional
     const destination = resolveDestination({
         type: destinationType,
         code: destinationCode || countryIso3
@@ -534,9 +615,18 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         const totalUsd = +(priceUsd + feeUsd).toFixed(2);
         const totalNgn = +(totalUsd * usdToNgn).toFixed(2);
 
-        const balances = await LedgerService.getAllBalances(userId);
-        const walletUsd = parseFloat(balances.USD) || 0;
-        const walletNgn = parseFloat(balances.NGN) || 0;
+        // Read wallet — prefer profiles (same as dashboard), fall back to ledger.
+        let walletUsd = num(profile.wallet_usd);
+        let walletNgn = num(profile.wallet_ngn);
+        if (walletUsd === 0 || walletNgn === 0) {
+            try {
+                const balances = await LedgerService.getAllBalances(userId);
+                if (walletUsd === 0) walletUsd = num(balances.USD);
+                if (walletNgn === 0) walletNgn = num(balances.NGN);
+            } catch (e) {
+                console.warn('[ESIM /purchase] ledger fallback failed:', e.message);
+            }
+        }
 
         let debitCurrency, debitAmount;
 
@@ -698,10 +788,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         if (normalized.final && normalized.status === 'completed') {
             await finalizeEsimOrder(orderId, providerTransactionId);
             const { data: fresh } = await supabaseAdmin.from('esim_transactions').select('*').eq('id', orderId).single();
-            return res.json({
-                success: true,
-                data: shapeCompleted(fresh)
-            });
+            return res.json({ success: true, data: shapeCompleted(fresh) });
         }
 
         if (normalized.final && ['failed', 'cancelled', 'reversed'].includes(normalized.status)) {
@@ -771,12 +858,10 @@ router.get('/status/:transactionId', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, error: 'Order not found' });
         }
 
-        // Delivery-ready → real completion
         if (order.status === 'completed' && order.delivery_status === 'ready') {
             return res.json({ success: true, data: shapeCompleted(order) });
         }
 
-        // Provider completed but LPA not yet available
         if (order.status === 'completed' && order.delivery_status !== 'ready') {
             return res.json({
                 success: true,
@@ -818,12 +903,7 @@ router.get('/status/:transactionId', authMiddleware, async (req, res) => {
                             await refundEsimOrder(order.user_id, order.id, `External lookup: ${altStatus.code}`);
                             return res.json({
                                 success: true,
-                                data: {
-                                    status: altStatus.status,
-                                    isFinal: true,
-                                    qrCodeUrl: null,
-                                    errorMessage: 'Provider rejected order'
-                                }
+                                data: { status: altStatus.status, isFinal: true, qrCodeUrl: null, errorMessage: 'Provider rejected order' }
                             });
                         }
                     }
@@ -850,12 +930,7 @@ router.get('/status/:transactionId', authMiddleware, async (req, res) => {
                     await refundEsimOrder(req.user.id, order.id, dtoneResult.errorMessage || `Provider: ${dtoneResult.providerStatus}`);
                     return res.json({
                         success: true,
-                        data: {
-                            status: dtoneResult.status,
-                            isFinal: true,
-                            qrCodeUrl: null,
-                            errorMessage: dtoneResult.errorMessage || 'Provider rejected order'
-                        }
+                        data: { status: dtoneResult.status, isFinal: true, qrCodeUrl: null, errorMessage: dtoneResult.errorMessage || 'Provider rejected order' }
                     });
                 }
 
@@ -908,7 +983,6 @@ router.get('/status/:transactionId', authMiddleware, async (req, res) => {
 // ════════════════════════════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════════════════════════════
-
 function shapeCompleted(t) {
     if (!t) return null;
     return {
@@ -1055,15 +1129,12 @@ async function trySendEsimEmail(order) {
     if (!order || order.email_sent) return true;
     if (!order.delivery_email) return false;
 
-    // Stale-sending recovery
     const isStaleSending =
         order.email_status === 'sending' &&
         order.updated_at &&
         (Date.now() - new Date(order.updated_at).getTime()) > STALE_SENDING_MS;
 
-    if (order.email_status === 'sending' && !isStaleSending) {
-        return true; // someone else is sending
-    }
+    if (order.email_status === 'sending' && !isStaleSending) return true;
 
     if ((order.email_attempts || 0) >= EMAIL_MAX_ATTEMPTS) {
         await supabaseAdmin

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>MilesSpace — Refunds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2025-refunds-v1"></script>
+<style>
+:root{--brand-primary:#0f4c5c;--brand-primary-deep:#0a3542;--brand-primary-light:#14607a;--brand-accent:#f5a623;--brand-accent-soft:#fde3ad;--navy:var(--brand-primary);--navy-light:var(--brand-primary-light);--navy-deep:var(--brand-primary-deep);--gold:var(--brand-accent);--gold-soft:var(--brand-accent-soft);--white:#ffffff;--bg:#f4f7fb;--bg-card:rgba(255,255,255,.72);--border:rgba(15,76,92,.09);--text:#0c1f26;--text-dim:#5b7480;--text-faint:#8fa3ab;--success:#16a34a;--success-bg:#e9f9ef;--danger:#dc2626;--danger-bg:#fdecec;--warn:#f59e0b;--warn-bg:#fef3d9;--info:#2563a8;--info-bg:#e8f1fb;--purple:#8b5cf6;--purple-bg:#ede9fe;--usd:#0891b2;--usd-bg:#e0f6fa;--radius-sm:8px;--radius-md:14px;--radius-lg:20px;--shadow-sm:0 1px 2px rgba(8,42,51,.06);--shadow-md:0 8px 24px -8px rgba(8,42,51,.16);--shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);--sidebar-w:264px;--sidebar-w-collapsed:78px;--topbar-h:68px;--transition:180ms cubic-bezier(.4,0,.2,1)}
+html.dark{--bg:#08151a;--bg-card:rgba(18,38,44,.75);--border:rgba(255,255,255,.08);--text:#eaf3f5;--text-dim:#9db4bb;--text-faint:#5b7480;--success-bg:rgba(22,163,74,.15);--danger-bg:rgba(220,38,38,.15);--warn-bg:rgba(245,158,11,.15);--info-bg:rgba(37,99,168,.18);--purple-bg:rgba(139,92,246,.18);--usd-bg:rgba(8,145,178,.18);--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 8px 24px -8px rgba(0,0,0,.5);--shadow-lg:0 16px 48px -12px rgba(0,0,0,.6)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}html{overflow-x:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden;width:100%}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+.mono{font-family:'JetBrains Mono',monospace}
+:focus-visible{outline:2.5px solid var(--brand-accent);outline-offset:2px;border-radius:6px}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
+.app.sb-collapsed{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;transition:transform var(--transition),width var(--transition);overflow-y:auto;overflow-x:hidden;width:var(--sidebar-w)}
+.app.sb-collapsed .sidebar{width:var(--sidebar-w-collapsed)}
+.app.sb-collapsed .sidebar .brand-text,.app.sb-collapsed .sidebar .nav-label,.app.sb-collapsed .sidebar .nav-item span:not(.ic),.app.sb-collapsed .sidebar .who{display:none}
+.app.sb-collapsed .nav-item{justify-content:center}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
+.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand-text{display:flex;flex-direction:column;line-height:1.15}
+.brand-text strong{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+.nav-scroll{flex:1;overflow-y:auto;padding-right:2px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:12px 10px 5px;display:block}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:background var(--transition),color var(--transition);white-space:nowrap;text-decoration:none}
+.nav-item .ic{width:17px;text-align:center;font-size:13.5px;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px;flex-shrink:0}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
+.sidebar-foot .who{display:flex;flex-direction:column;line-height:1.2}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff}
+.sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
+.sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
+html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
+.page-title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.page-title h1{margin:0;font-size:clamp(16px,2.4vw,19px);font-weight:800;letter-spacing:-.01em}
+.breadcrumb{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.breadcrumb a{color:var(--text-faint);text-decoration:none}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px;margin-left:auto}
+html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.icon-btn:hover{background:var(--gold-soft);color:var(--navy-deep)}
+.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.page-header h2{font-size:clamp(18px,2.6vw,23px);font-weight:800;letter-spacing:-.01em}
+.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:640px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);transition:background var(--transition);font-family:inherit;text-decoration:none}
+html.dark .btn{background:rgba(255,255,255,.04);color:#dff0f2}
+.btn:hover:not(:disabled){background:var(--gold-soft);color:var(--navy-deep)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-success{background:var(--success);color:#fff;border-color:var(--success)}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
+.panel{padding:18px 20px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.filters input,.filters select{border:1px solid var(--border);background:var(--white);border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--text);font-family:inherit;outline:none;min-width:130px}
+html.dark .filters input,html.dark .filters select{background:rgba(255,255,255,.04);color:var(--text)}
+.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px}
+@media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.stat{padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;transition:transform var(--transition),border-color var(--transition)}
+.stat:hover{transform:translateY(-1px);border-color:var(--gold)}
+.stat.active{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-soft)}
+.stat .lbl{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.stat .val{font-size:20px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:680px;border-radius:var(--radius-lg)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1000px}
+thead th{text-align:left;padding:11px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{cursor:pointer;transition:background var(--transition)}
+tbody tr:hover{background:rgba(245,166,35,.05)}
+tbody tr:last-child td{border-bottom:none}
+.badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.badge.success{background:var(--success-bg);color:var(--success)}
+.badge.danger{background:var(--danger-bg);color:var(--danger)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.purple{background:var(--purple-bg);color:var(--purple)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.empty-state{text-align:center;padding:52px 20px;color:var(--text-faint)}
+.empty-state .ic{font-size:28px;margin-bottom:8px;display:block}
+.unavailable-box{text-align:center;padding:24px 14px;color:var(--text-faint);border:1px dashed var(--border);border-radius:10px}
+.unavailable-box .ic{font-size:20px;margin-bottom:6px;display:block;color:var(--danger)}
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.pagination{display:flex;justify-content:space-between;align-items:center;padding:14px 4px 0;font-size:12.5px;color:var(--text-dim);flex-wrap:wrap;gap:8px}
+.pagination button{border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px}
+html.dark .pagination button{background:rgba(255,255,255,.04);color:#dff0f2}
+.pagination button:disabled{opacity:.45;cursor:not-allowed}
+.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms ease}
+.drawer-scrim.show{opacity:1;pointer-events:auto}
+.detail-drawer{position:fixed;top:0;right:0;height:100vh;width:min(720px,96vw);background:var(--bg);z-index:301;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform 260ms cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.detail-drawer.open{transform:translateX(0)}
+.dd-head{display:flex;align-items:center;gap:14px;padding:20px 22px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;flex-shrink:0}
+.dd-head .dd-ic{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dd-head .dd-titles{flex:1;min-width:0}
+.dd-head h2{margin:0;font-size:16.5px;font-weight:800}
+.dd-head .dd-sub{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px;flex-shrink:0}
+.dd-close:hover{background:rgba(255,255,255,.2)}
+.dd-body{flex:1;overflow-y:auto;padding:20px 22px 40px}
+.dd-field{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
+.dd-field .k{color:var(--text-dim);font-weight:600;flex-shrink:0;min-width:130px}
+.dd-field .v{font-weight:700;text-align:right;word-break:break-word;overflow-wrap:anywhere}
+.dd-section{margin-bottom:20px}
+.dd-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.dd-hero{padding:16px 18px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dd-hero .amount{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--navy)}
+.dd-hero .meta{font-size:11px;color:var(--text-faint)}
+.dd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding:12px;border-radius:12px;background:var(--bg-card);border:1px solid var(--border)}
+.dd-empty{text-align:center;color:var(--text-faint);padding:24px 10px;font-size:12px}
+.dd-tx-list{display:flex;flex-direction:column;gap:6px}
+.dd-tx-item{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);font-size:12px}
+.dd-tx-item .row1{display:flex;justify-content:space-between;margin-bottom:4px;gap:10px;align-items:center}
+.dd-tx-item .row2{font-size:10.5px;color:var(--text-faint);margin-top:2px}
+.modal-scrim{position:fixed;inset:0;background:rgba(5,15,20,.6);backdrop-filter:blur(3px);z-index:400;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-scrim.show{display:flex}
+.modal{background:var(--white);border-radius:16px;max-width:520px;width:100%;box-shadow:var(--shadow-lg);overflow:hidden}
+html.dark .modal{background:#12262c;color:var(--text)}
+.modal h3{margin:0;padding:18px 22px;font-size:16px;font-weight:800;border-bottom:1px solid var(--border)}
+.modal .body{padding:18px 22px}
+.modal .body label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;margin-top:10px}
+.modal .body label:first-child{margin-top:0}
+.modal .body textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:13px;background:var(--white);color:var(--text);outline:none;resize:vertical}
+html.dark .modal .body textarea{background:rgba(255,255,255,.04);color:var(--text)}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border)}
+.modal .notice{padding:10px 12px;border-radius:9px;font-size:12px;margin-bottom:10px}
+.modal .notice.warn{background:var(--warn-bg);color:#8a5b06;border:1px solid rgba(245,158,11,.35)}
+.modal .notice.info{background:var(--info-bg);color:var(--info);border:1px solid rgba(37,99,168,.25)}
+.modal .notice.danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(220,38,38,.25)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
+.scrim.show{display:block}
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:500}
+.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);border-left:3px solid var(--gold);min-width:220px}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+@media(max-width:768px){
+  .app{grid-template-columns:1fr!important}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;z-index:50;height:100vh}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:flex}
+  .sb-toggle-desktop{display:none}
+  .topbar{padding:0 14px;height:60px}
+  .content{padding:12px 10px 60px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="appRoot">
+<aside class="sidebar" id="sidebar">
+    <div class="brand">
+        <img src="../images/miles.png" alt="" onerror="this.style.display='none'">
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+        <button class="sb-collapse-btn" id="sbCollapseBtn"><i class="fas fa-angles-left"></i></button>
+    </div>
+    <nav class="nav-scroll">
+        <span class="nav-label">Overview</span>
+        <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span><span>Dashboard</span></a>
+        <span class="nav-label">Customers</span>
+        <a href="/admin/users" class="nav-item"><span class="ic">👥</span><span>Users</span></a>
+        <a href="/admin/support" class="nav-item"><span class="ic">💬</span><span>Support</span></a>
+        <span class="nav-label">Money</span>
+        <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span><span>Transactions</span></a>
+        <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span><span>Deposits</span></a>
+        <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span><span>Ledger</span></a>
+        <a href="/admin/refunds" class="nav-item active"><span class="ic">↩️</span><span>Refunds</span></a>
+        <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span><span>Reconciliation</span></a>
+        <span class="nav-label">Services</span>
+        <a href="/admin/sellgift" class="nav-item"><span class="ic">🎁</span><span>Gift Cards</span></a>
+        <a href="/admin/airtime-data" class="nav-item"><span class="ic">📶</span><span>Airtime &amp; Data</span></a>
+        <a href="/admin/bills" class="nav-item"><span class="ic">🧾</span><span>Bills &amp; Utilities</span></a>
+        <a href="/admin/esim" class="nav-item"><span class="ic">📡</span><span>eSIM</span></a>
+        <a href="/admin/virtual-sms" class="nav-item"><span class="ic">📱</span><span>Virtual SMS</span></a>
+        <a href="/admin/boost" class="nav-item"><span class="ic">📈</span><span>Boost</span></a>
+        <a href="/admin/marketplace-products" class="nav-item"><span class="ic">📦</span><span>Marketplace</span></a>
+    </nav>
+    <div class="sidebar-foot">
+        <div class="av" id="adminAvatar">AD</div>
+        <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
+    </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+<div class="main">
+    <header class="topbar">
+        <button class="hamburger" id="hamburger">☰</button>
+        <button class="sb-toggle-desktop" id="sbToggleDesktop"><i class="fas fa-bars"></i></button>
+        <div class="page-title">
+            <nav class="breadcrumb"><a href="/admin/dashboard">Home</a><span>/</span><span>Money</span><span>/</span><span>Refunds</span></nav>
+            <h1>Refunds</h1>
+        </div>
+        <button class="icon-btn" id="darkToggle" title="Toggle dark mode">🌙</button>
+    </header>
+    <div class="content">
+        <div class="page-header">
+            <div>
+                <h2>Refunds</h2>
+                <div class="sub">Every refund attempt — wallet credits, provider-initiated refunds, and deposit reversals. Click a row to see the full accounting chain.</div>
+            </div>
+            <button class="btn" id="reloadBtn"><i class="fas fa-rotate"></i> Reload</button>
+        </div>
+        <div class="stats-row" id="statsRow"></div>
+        <div class="card panel">
+            <div class="filters">
+                <select id="fStatus">
+                    <option value="all">All statuses</option>
+                    <option value="REQUESTED">Requested</option>
+                    <option value="PENDING_APPROVAL">Pending approval</option>
+                    <option value="PROCESSING">Processing</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="FAILED">Failed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+                <select id="fType">
+                    <option value="all">All types</option>
+                    <option value="wallet">Wallet</option>
+                    <option value="provider">Provider</option>
+                    <option value="reversal">Reversal</option>
+                </select>
+                <select id="fCurrency">
+                    <option value="all">All currencies</option>
+                    <option value="NGN">NGN</option>
+                    <option value="USD">USD</option>
+                </select>
+                <input type="date" id="fFrom">
+                <input type="date" id="fTo">
+                <button class="btn" id="applyBtn"><i class="fas fa-filter"></i> Apply</button>
+                <button class="btn" id="clearBtn">Clear</button>
+            </div>
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Refund ID</th>
+                            <th>Type</th>
+                            <th>Original TX</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Provider</th>
+                            <th>Requested</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <div id="pageInfo">—</div>
+                <div>
+                    <button id="prevBtn" disabled>Previous</button>
+                    <button id="nextBtn" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="detail-drawer" id="detailDrawer" role="dialog" aria-modal="true">
+    <div class="dd-head">
+        <div class="dd-ic" id="ddIcon">↩️</div>
+        <div class="dd-titles"><h2 id="ddTitle">Refund</h2><div class="dd-sub" id="ddSub"></div></div>
+        <button class="dd-close" id="ddClose">✕</button>
+    </div>
+    <div class="dd-body" id="ddBody"></div>
+</aside>
+
+<div class="modal-scrim" id="modalScrim">
+    <div class="modal" role="dialog" aria-modal="true">
+        <h3 id="modalTitle">Action</h3>
+        <div class="body" id="modalBody"></div>
+        <div class="foot">
+            <button class="btn" id="modalCancel">Cancel</button>
+            <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════
+   MilesSpace — Refunds admin.
+   • Every call goes through AdminSession.fetch (bearer token).
+   • Actions are capability-driven: only approve / cancel / retry
+     render when the backend state allows them.
+   • Every mutation requires a reason and (for approve / retry)
+     step-up MFA on the backend.
+   ════════════════════════════════════════════════════════════════ */
+
+const API = {
+    list:    '/api/admin/refunds',
+    summary: '/api/admin/refunds/summary',
+    detail:  id => `/api/admin/refunds/${encodeURIComponent(id)}`,
+    approve: id => `/api/admin/refunds/${encodeURIComponent(id)}/approve`,
+    cancel:  id => `/api/admin/refunds/${encodeURIComponent(id)}/cancel`,
+    retry:   id => `/api/admin/refunds/${encodeURIComponent(id)}/retry`
+};
+
+const CURRENCY_SYMBOLS = { NGN: '₦', USD: '$', GHS: 'GH₵', KES: 'KSh', ZAR: 'R' };
+
+const State = { page: 1, limit: 25, totalPages: 1, count: 0, filters: {}, currentRefund: null };
+
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+function esc(s){ if(s===null||s===undefined)return ''; return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function fmtMoney(v,c){ if(v===null||v===undefined||v==='')return null; const n=Number(v); if(!Number.isFinite(n))return null; const ccy=String(c||'').toUpperCase(); return (CURRENCY_SYMBOLS[ccy]||(ccy?ccy+' ':''))+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtNum(v){ if(v===null||v===undefined||v==='')return null; const n=Number(v); return Number.isFinite(n)?n.toLocaleString('en-US'):null; }
+function timeAgo(iso){ if(!iso)return '—'; const s=Math.floor((Date.now()-new Date(iso).getTime())/1000); if(s<60)return 'just now'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; if(s<604800)return Math.floor(s/86400)+'d ago'; return new Date(iso).toLocaleDateString(); }
+function fmtDateTime(iso){ if(!iso)return '—'; return new Date(iso).toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function statusBadge(s){ const t=String(s||'').toUpperCase(); if(t==='COMPLETED')return 'success'; if(t==='FAILED'||t==='CANCELLED')return 'danger'; if(t==='PROCESSING')return 'warn'; if(t==='PENDING_APPROVAL')return 'purple'; if(t==='REQUESTED'||t==='APPROVED')return 'info'; return 'neutral'; }
+function typeBadge(t){ const s=String(t||'').toLowerCase(); if(s==='wallet')return 'info'; if(s==='provider')return 'purple'; if(s==='reversal')return 'danger'; return 'neutral'; }
+function toast(msg,kind='info'){ const stack=$('#toastStack'); if(!stack)return; const el=document.createElement('div'); el.className='toast '+kind; el.textContent=msg; stack.appendChild(el); setTimeout(()=>el.remove(),3600); }
+
+async function apiFetch(url,opts={}){
+    if(!window.AdminSession||typeof window.AdminSession.fetch!=='function'){
+        return { ok:false,status:0,code:'NO_SESSION_LAYER',error:'Authentication layer not loaded.' };
+    }
+    try{
+        const res = await AdminSession.fetch(url,opts);
+        let json=null; try{ json=await res.json(); }catch{}
+        if(!res.ok||json?.success===false){
+            return { ok:false,status:res.status,code:json?.code,error:json?.error||json?.message||'Request failed',extra:json||{} };
+        }
+        return { ok:true,data:json };
+    }catch(e){
+        return { ok:false,status:e.status||0,code:e.code||'NETWORK_ERROR',error:e.message||'Network error',extra:e };
+    }
+}
+
+/* ─── stats ─── */
+function renderStats(s){
+    const el=$('#statsRow');
+    if(!s){
+        el.innerHTML=['Total','Requested','Pending approval','Processing','Completed','Failed'].map(l=>`<div class="stat"><div class="lbl">${l}</div><div class="val" style="color:var(--text-faint);font-size:13px">Unavailable</div></div>`).join('');
+        return;
+    }
+    const tiles=[
+        { key:'all',              lbl:'Total',            val:s.total,             color:'' },
+        { key:'REQUESTED',        lbl:'Requested',        val:s.requested,         color:'var(--info)' },
+        { key:'PENDING_APPROVAL', lbl:'Pending approval', val:s.pending_approval,  color:'var(--purple)' },
+        { key:'PROCESSING',       lbl:'Processing',       val:s.processing,        color:'#b3720a' },
+        { key:'COMPLETED',        lbl:'Completed',        val:s.completed,         color:'var(--success)' },
+        { key:'FAILED',           lbl:'Failed',           val:s.failed,            color:'var(--danger)' }
+    ];
+    el.innerHTML=tiles.map(t=>`<div class="stat${State.filters.status===t.key?' active':''}" data-status="${t.key}"><div class="lbl">${t.lbl}</div><div class="val"${t.color?` style="color:${t.color}"`:''}>${fmtNum(t.val)??'—'}</div></div>`).join('');
+    el.querySelectorAll('.stat').forEach(st=>st.addEventListener('click',()=>{
+        State.filters.status=st.dataset.status;
+        $('#fStatus').value=st.dataset.status;
+        State.page=1;
+        renderStats(s);
+        loadList();
+    }));
+}
+
+/* ─── table ─── */
+function renderSkeleton(){ const tb=$('#tableBody'); let h=''; for(let i=0;i<8;i++)h+=`<tr><td colspan="8"><span class="skel" style="width:${50+Math.random()*40}%;display:inline-block"></span></td></tr>`; tb.innerHTML=h; }
+
+function renderRows(rows){
+    const tb=$('#tableBody');
+    if(!rows.length){ tb.innerHTML=`<tr><td colspan="8"><div class="empty-state"><span class="ic">↩️</span>No refunds match your filters</div></td></tr>`; return; }
+    tb.innerHTML=rows.map(r=>{
+        const user=r.user||{username:'—',email:''};
+        const origTx=r.original_transaction||{};
+        return `<tr data-id="${esc(r.id)}">
+            <td><span class="mono" style="font-size:11px">${esc(String(r.id).slice(0,8))}…</span></td>
+            <td><span class="badge ${typeBadge(r.refund_type)}">${esc(r.refund_type||'—')}</span></td>
+            <td>
+                <div style="display:flex;flex-direction:column;line-height:1.3">
+                    <span class="mono" style="font-size:11px">${esc(origTx.reference||'—')}</span>
+                    <span style="font-size:10.5px;color:var(--text-dim)">${esc(origTx.type||'')}</span>
+                </div>
+            </td>
+            <td>
+                <div style="display:flex;flex-direction:column;line-height:1.3">
+                    <strong style="font-size:12.5px">${esc(user.username||'—')}</strong>
+                    <span style="font-size:10.5px;color:var(--text-dim)">${esc(user.email||'')}</span>
+                </div>
+            </td>
+            <td style="font-weight:700;font-variant-numeric:tabular-nums">${esc(fmtMoney(r.amount,r.currency)||'—')}</td>
+            <td><span class="badge ${statusBadge(r.status)}">${esc(r.status||'—')}</span></td>
+            <td>${esc(r.provider||'—')}</td>
+            <td title="${esc(fmtDateTime(r.created_at))}">${esc(timeAgo(r.created_at))}</td>
+        </tr>`;
+    }).join('');
+    tb.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',()=>openDetail(tr.dataset.id)));
+}
+
+function buildQuery(){
+    const q=new URLSearchParams();
+    q.set('page',State.page); q.set('limit',State.limit);
+    const f=State.filters;
+    if(f.status&&f.status!=='all')q.set('status',f.status);
+    if(f.refund_type&&f.refund_type!=='all')q.set('refund_type',f.refund_type);
+    if(f.currency&&f.currency!=='all')q.set('currency',f.currency);
+    if(f.from)q.set('from',f.from);
+    if(f.to)q.set('to',f.to);
+    return q.toString();
+}
+
+async function loadList(){
+    renderSkeleton();
+    const r=await apiFetch(API.list+'?'+buildQuery());
+    if(!r.ok){
+        const msg = r.code==='REFUNDS_TABLE_NOT_DEPLOYED'
+            ? 'Refunds table has not been deployed. Run migration 2026_transactions_v5.sql.'
+            : (r.error || 'Unable to load refunds.');
+        $('#tableBody').innerHTML=`<tr><td colspan="8"><div class="unavailable-box"><span class="ic">⚠️</span>${esc(msg)}</div></td></tr>`;
+        return;
+    }
+    const p=r.data;
+    State.totalPages=p.totalPages||1; State.count=p.count||0;
+    renderRows(p.refunds||[]);
+    $('#pageInfo').textContent = State.count ? `Showing ${(State.page-1)*State.limit+1}–${Math.min(State.page*State.limit,State.count)} of ${State.count}` : 'No results';
+    $('#prevBtn').disabled=State.page<=1;
+    $('#nextBtn').disabled=State.page>=State.totalPages;
+}
+
+async function loadStats(){
+    const r=await apiFetch(API.summary);
+    renderStats(r.ok?r.data.summary:null);
+}
+
+/* ─── drawer ─── */
+function openDrawer(){ $('#detailDrawer').classList.add('open'); $('#drawerScrim').classList.add('show'); }
+function closeDrawer(){ $('#detailDrawer').classList.remove('open'); $('#drawerScrim').classList.remove('show'); State.currentRefund=null; }
+
+async function openDetail(id){
+    $('#ddIcon').textContent='↩️';
+    $('#ddTitle').textContent='Loading…';
+    $('#ddSub').textContent='';
+    $('#ddBody').innerHTML='<div class="dd-empty">Loading refund…</div>';
+    openDrawer();
+    const r=await apiFetch(API.detail(id));
+    if(!r.ok){ $('#ddBody').innerHTML=`<div class="dd-empty">${esc(r.error||'Unable to load refund.')}</div>`; return; }
+    State.currentRefund=r.data.refund;
+    renderDetail(r.data);
+}
+
+function renderDetail(p){
+    const rf=p.refund, user=p.user, origTx=p.original_transaction, refundTx=p.refund_transaction, audit=p.audit||[];
+    $('#ddIcon').textContent = rf.refund_type==='reversal'?'↺':(rf.refund_type==='provider'?'🏦':'↩️');
+    $('#ddTitle').textContent = `${rf.refund_type} refund · ${String(rf.id).slice(0,8)}…`;
+    $('#ddSub').textContent = `${user?.username||user?.email||''} · ${rf.currency} ${rf.amount}`;
+
+    const amt=fmtMoney(rf.amount,rf.currency)||'—';
+
+    const hero=`<div class="dd-hero">
+        <div>
+            <div class="amount">${amt}</div>
+            <div class="meta">${esc(rf.currency)} · ${esc(rf.refund_type)} · ${esc(rf.provider||'internal')}</div>
+        </div>
+        <div style="text-align:right">
+            <span class="badge ${statusBadge(rf.status)}" style="font-size:11.5px;padding:4px 12px">${esc(rf.status)}</span>
+            <div class="meta" style="margin-top:6px">${esc(fmtDateTime(rf.created_at))}</div>
+        </div>
+    </div>`;
+
+    const overview=`
+        <div class="dd-section">
+            <div class="dd-section-title">Refund</div>
+            <div class="dd-field"><span class="k">Refund ID</span><span class="v mono" style="font-size:11px">${esc(rf.id)}</span></div>
+            <div class="dd-field"><span class="k">Type</span><span class="v"><span class="badge ${typeBadge(rf.refund_type)}">${esc(rf.refund_type)}</span></span></div>
+            <div class="dd-field"><span class="k">Status</span><span class="v"><span class="badge ${statusBadge(rf.status)}">${esc(rf.status)}</span></span></div>
+            <div class="dd-field"><span class="k">Amount</span><span class="v">${amt}</span></div>
+            <div class="dd-field"><span class="k">Reason</span><span class="v">${esc(rf.reason||'—')}</span></div>
+            ${rf.provider?`<div class="dd-field"><span class="k">Provider</span><span class="v">${esc(rf.provider)}</span></div>`:''}
+            ${rf.provider_refund_ref?`<div class="dd-field"><span class="k">Provider Ref</span><span class="v mono" style="font-size:11px">${esc(rf.provider_refund_ref)}</span></div>`:''}
+            ${rf.failure_reason?`<div class="dd-field"><span class="k">Failure Reason</span><span class="v" style="color:var(--danger)">${esc(rf.failure_reason)}</span></div>`:''}
+            <div class="dd-field"><span class="k">Created</span><span class="v">${esc(fmtDateTime(rf.created_at))}</span></div>
+            ${rf.approved_at?`<div class="dd-field"><span class="k">Approved</span><span class="v">${esc(fmtDateTime(rf.approved_at))}</span></div>`:''}
+            ${rf.completed_at?`<div class="dd-field"><span class="k">Completed</span><span class="v">${esc(fmtDateTime(rf.completed_at))}</span></div>`:''}
+            ${rf.failed_at?`<div class="dd-field"><span class="k">Failed</span><span class="v">${esc(fmtDateTime(rf.failed_at))}</span></div>`:''}
+        </div>
+        <div class="dd-section">
+            <div class="dd-section-title">Original transaction</div>
+            ${origTx?`
+                <div class="dd-field"><span class="k">Reference</span><span class="v mono" style="font-size:11px">${esc(origTx.reference||'—')}</span></div>
+                <div class="dd-field"><span class="k">Type</span><span class="v">${esc(origTx.type||'—')}</span></div>
+                <div class="dd-field"><span class="k">Amount</span><span class="v">${esc(fmtMoney(origTx.amount,origTx.currency)||'—')}</span></div>
+                <div class="dd-field"><span class="k">Status</span><span class="v">${esc(origTx.status||'—')}</span></div>
+                <div class="dd-field"><span class="k">Provider</span><span class="v">${esc(origTx.provider||'—')}${origTx.provider_reference?' · '+esc(origTx.provider_reference):''}</span></div>
+                <div class="dd-field"><span class="k">Created</span><span class="v">${esc(fmtDateTime(origTx.created_at))}</span></div>
+            `:`<div class="dd-empty">Original transaction not found.</div>`}
+        </div>
+        ${refundTx?`
+            <div class="dd-section">
+                <div class="dd-section-title">Compensating transaction</div>
+                <div class="dd-field"><span class="k">Reference</span><span class="v mono" style="font-size:11px">${esc(refundTx.reference||'—')}</span></div>
+                <div class="dd-field"><span class="k">Type</span><span class="v">${esc(refundTx.type||'—')}</span></div>
+                <div class="dd-field"><span class="k">Amount</span><span class="v">${esc(fmtMoney(refundTx.amount,refundTx.currency)||'—')}</span></div>
+                <div class="dd-field"><span class="k">Created</span><span class="v">${esc(fmtDateTime(refundTx.created_at))}</span></div>
+            </div>
+        `:''}
+        <div class="dd-section">
+            <div class="dd-section-title">Customer</div>
+            <div class="dd-field"><span class="k">Username</span><span class="v">${esc(user?.username||'—')}</span></div>
+            <div class="dd-field"><span class="k">Email</span><span class="v">${esc(user?.email||'—')}</span></div>
+            <div class="dd-field"><span class="k">Phone</span><span class="v">${esc(user?.phone||'—')}</span></div>
+        </div>
+    `;
+
+    const auditTab = audit.length
+        ? `<div class="dd-tx-list">${audit.map(a=>`
+            <div class="dd-tx-item">
+                <div class="row1"><span style="font-weight:700">${esc(a.action||'')}</span><span class="row2" style="margin:0">${esc(timeAgo(a.created_at))}</span></div>
+                <div class="row2">by ${esc(a.admin_email||a.admin_id||'admin')}${a.request_id?' · req '+esc(String(a.request_id).slice(0,8)):''}</div>
+                ${a.reason?`<div class="row2">Reason: ${esc(a.reason)}</div>`:''}
+            </div>`).join('')}</div>`
+        : `<div class="dd-empty">No audit entries for this refund.</div>`;
+
+    const actions = buildActions(rf);
+
+    $('#ddBody').innerHTML=`
+        ${hero}
+        ${actions}
+        <div style="margin-bottom:14px"><button class="btn btn-ghost" id="toggleAudit">Audit trail (${audit.length})</button></div>
+        <div id="auditWrap" style="display:none">${auditTab}</div>
+        ${overview}
+    `;
+
+    $('#toggleAudit')?.addEventListener('click',()=>{
+        const w=$('#auditWrap');
+        w.style.display = w.style.display==='none'?'block':'none';
+    });
+
+    $('#btnApprove')?.addEventListener('click',()=>openReasonModal({
+        title:'Approve refund',
+        confirmLabel:'Approve & execute',
+        notice: rf.refund_type==='provider'
+            ? 'This will initiate the refund via the payment provider. The wallet is credited only after the provider confirms.'
+            : rf.refund_type==='reversal'
+                ? 'This will DEBIT the customer\'s wallet to reverse the original deposit.'
+                : 'This will credit the customer\'s wallet and mark the original transaction as refunded.',
+        noticeKind: 'warn',
+        endpoint: API.approve(rf.id),
+        successMsg: 'Refund approved.'
+    }));
+
+    $('#btnCancel')?.addEventListener('click',()=>openReasonModal({
+        title:'Cancel refund',
+        confirmLabel:'Cancel refund',
+        notice:'The refund will be marked CANCELLED. No money moves.',
+        noticeKind:'info',
+        endpoint: API.cancel(rf.id),
+        successMsg: 'Refund cancelled.'
+    }));
+
+    $('#btnRetry')?.addEventListener('click',()=>openReasonModal({
+        title:'Retry provider refund',
+        confirmLabel:'Retry',
+        notice:'The refund will be re-sent to the provider. The provider adapter is expected to be idempotent.',
+        noticeKind:'warn',
+        endpoint: API.retry(rf.id),
+        successMsg: 'Retry submitted.'
+    }));
+}
+
+function buildActions(rf){
+    const buttons=[];
+    const status=String(rf.status||'').toUpperCase();
+    if(status==='PENDING_APPROVAL'){
+        buttons.push(`<button class="btn btn-success" id="btnApprove"><i class="fas fa-check"></i> Approve</button>`);
+        buttons.push(`<button class="btn" id="btnCancel"><i class="fas fa-xmark"></i> Cancel</button>`);
+    } else if(status==='REQUESTED'){
+        buttons.push(`<button class="btn" id="btnCancel"><i class="fas fa-xmark"></i> Cancel</button>`);
+    } else if(status==='FAILED' && rf.refund_type==='provider'){
+        buttons.push(`<button class="btn btn-primary" id="btnRetry"><i class="fas fa-rotate"></i> Retry</button>`);
+    }
+    return `<div class="dd-actions">${buttons.join('')}</div>`;
+}
+
+function openReasonModal({ title, confirmLabel='Confirm', notice, noticeKind='info', endpoint, successMsg='Done' }){
+    openModal({
+        title,
+        confirmLabel,
+        bodyHtml:`
+            ${notice?`<div class="notice ${noticeKind}">${esc(notice)}</div>`:''}
+            <label for="reason">Reason (required, min 4 chars)</label>
+            <textarea id="reason" rows="3" placeholder="Why?"></textarea>
+        `,
+        onConfirm: async()=>{
+            const reason=$('#reason').value.trim();
+            if(reason.length<4){ toast('Reason required.','error'); return false; }
+            const r=await apiFetch(endpoint,{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({reason})
+            });
+            if(!r.ok){
+                if(r.code==='STEP_UP_EXPIRED'||r.code==='MFA_REQUIRED'){
+                    toast('Step-up verification required. Complete MFA and retry.','warn');
+                    if(window.AdminSession&&typeof window.AdminSession.verify==='function'){
+                        try{ await window.AdminSession.verify(); }catch(_){}
+                    }
+                    return false;
+                }
+                toast(r.error||'Action failed.',(r.status===403?'warn':'error'));
+                return false;
+            }
+            toast(successMsg,'success');
+            closeDrawer();
+            loadList(); loadStats();
+            return true;
+        }
+    });
+}
+
+/* ─── modal ─── */
+function openModal({title,bodyHtml,confirmLabel='Confirm',onConfirm}){
+    const scrim=$('#modalScrim');
+    $('#modalTitle').textContent=title;
+    $('#modalBody').innerHTML=bodyHtml;
+    $('#modalConfirm').textContent=confirmLabel;
+    const cancel=()=>{ scrim.classList.remove('show'); $('#modalConfirm').onclick=null; };
+    $('#modalCancel').onclick=cancel;
+    $('#modalConfirm').onclick=async()=>{ const ok=await onConfirm(); if(ok)cancel(); };
+    scrim.classList.add('show');
+}
+
+/* ─── filters + init ─── */
+function readFilters(){
+    State.filters={
+        status:$('#fStatus').value||'all',
+        refund_type:$('#fType').value||'all',
+        currency:$('#fCurrency').value||'all',
+        from:$('#fFrom').value,
+        to:$('#fTo').value
+    };
+    State.page=1;
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+    if(!AdminSession.getToken()) return AdminSession.redirectToLogin();
+
+    try{
+        const u = AdminSession.getUser && AdminSession.getUser();
+        if(u){
+            const name=u.name||u.email||'Admin';
+            $('#adminName').textContent=name;
+            $('#adminRole').textContent=u.role||'admin';
+            $('#adminAvatar').textContent=(name[0]||'A').toUpperCase()+((name.split(' ')[1]||'')[0]||'').toUpperCase();
+        }
+    }catch(_){}
+
+    $('#hamburger')?.addEventListener('click',()=>{ $('#sidebar').classList.toggle('open'); $('#scrim').classList.toggle('show'); });
+    $('#scrim')?.addEventListener('click',()=>{ $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('show'); });
+    $('#sbToggleDesktop')?.addEventListener('click',()=>$('#appRoot').classList.toggle('sb-collapsed'));
+    $('#sbCollapseBtn')?.addEventListener('click',()=>$('#appRoot').classList.toggle('sb-collapsed'));
+    $('#darkToggle')?.addEventListener('click',()=>{
+        document.documentElement.classList.toggle('dark');
+        $('#darkToggle').textContent=document.documentElement.classList.contains('dark')?'☀️':'🌙';
+    });
+
+    $('#applyBtn')?.addEventListener('click',()=>{ readFilters(); loadList(); loadStats(); });
+    $('#clearBtn')?.addEventListener('click',()=>{
+        $('#fStatus').value='all'; $('#fType').value='all'; $('#fCurrency').value='all';
+        $('#fFrom').value=''; $('#fTo').value='';
+        readFilters(); loadList(); loadStats();
+    });
+    $('#reloadBtn')?.addEventListener('click',()=>{ loadList(); loadStats(); });
+    $('#prevBtn')?.addEventListener('click',()=>{ if(State.page>1){State.page--;loadList();} });
+    $('#nextBtn')?.addEventListener('click',()=>{ if(State.page<State.totalPages){State.page++;loadList();} });
+
+    $('#ddClose')?.addEventListener('click',closeDrawer);
+    $('#drawerScrim')?.addEventListener('click',closeDrawer);
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeDrawer(); $('#modalScrim').classList.remove('show'); }});
+    $('#modalScrim')?.addEventListener('click',e=>{ if(e.target.id==='modalScrim')$('#modalScrim').classList.remove('show'); });
+
+    readFilters();
+    loadStats();
+    loadList();
+});
+</script>
+</body>
+</html>

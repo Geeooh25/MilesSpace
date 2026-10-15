@@ -1,1379 +1,981 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MilesSpace — Messages</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="/js/admin-session.js"></script>
-    <style>
-        :root {
-            --navy: #0c3d4a;
-            --navy-light: #12556a;
-            --navy-deep: #082a33;
-            --gold: #f59e0b;
-            --gold-soft: #fde3ad;
-            --bg: #f4f7fb;
-            --bg-card: rgba(255,255,255,0.72);
-            --border: rgba(12,61,74,0.08);
-            --text: #0c1f26;
-            --text-dim: #5b7480;
-            --text-faint: #8fa3ab;
-            --success: #16a34a;
-            --success-bg: #e9f9ef;
-            --danger: #dc2626;
-            --danger-bg: #fdecec;
-            --warn: #f59e0b;
-            --warn-bg: #fef3d9;
-            --info: #2563a8;
-            --info-bg: #e8f1fb;
-            --purple: #8b5cf6;
-            --purple-bg: #ede9fe;
-            --radius-md: 14px;
-            --radius-lg: 20px;
-            --shadow-md: 0 8px 24px -8px rgba(8,42,51,0.16);
-            --shadow-lg: 0 16px 48px -12px rgba(8,42,51,0.26);
-            --sidebar-w: 260px;
-            --topbar-h: 68px;
-            --mono: 'JetBrains Mono', monospace;
-        }
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-        .app { display: flex; min-height: 100vh; }
-        
-        /* ─── SIDEBAR ─── */
-        .sidebar {
-            width: var(--sidebar-w);
-            background: linear-gradient(180deg, var(--navy-deep), var(--navy) 70%);
-            color: #eaf6f8;
-            padding: 22px 16px 18px;
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-            z-index: 40;
-            overflow-y: auto;
-            overflow-x: hidden;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(245,158,11,0.4) transparent;
-        }
-        .sidebar::-webkit-scrollbar { width: 5px; }
-        .sidebar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.4); border-radius: 99px; }
-        
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-            padding: 6px 10px 22px;
-            flex-shrink: 0;
-        }
-        .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
-        .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
-        .brand-text strong { font-size: 15.5px; font-weight: 800; letter-spacing: -0.01em; }
-        .brand-text span { font-size: 11px; color: #9fd4de; letter-spacing: .06em; text-transform: uppercase; }
-        
-        .nav-scroll { flex: 1; overflow-y: auto; padding-right: 2px; }
-        .nav-label {
-            font-size: 10.5px;
-            text-transform: uppercase;
-            letter-spacing: .09em;
-            color: #6fa2ad;
-            font-weight: 700;
-            padding: 14px 12px 6px;
-        }
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-            padding: 9.5px 12px;
-            border-radius: 10px;
-            color: #cfe7ea;
-            font-size: 13.6px;
-            font-weight: 500;
-            cursor: pointer;
-            border: 1px solid transparent;
-            transition: background 0.15s, color 0.15s;
-            text-decoration: none;
-        }
-        .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
-        .nav-item.active {
-            background: rgba(245,158,11,0.14);
-            color: #ffd899;
-            border-color: rgba(245,158,11,0.28);
-            font-weight: 600;
-        }
-        .nav-item .ic { width: 18px; text-align: center; font-size: 14.5px; flex-shrink: 0; }
-        .nav-item .badge-count {
-            margin-left: auto;
-            background: var(--gold);
-            color: var(--navy-deep);
-            font-size: 10.5px;
-            font-weight: 800;
-            padding: 1.5px 6.5px;
-            border-radius: 99px;
-            min-width: 20px;
-            text-align: center;
-        }
-        .nav-item .badge-count.danger { background: var(--danger); color: #fff; }
-        
-        .sidebar-foot {
-            border-top: 1px solid rgba(255,255,255,0.08);
-            padding-top: 12px;
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding-left: 6px;
-            flex-shrink: 0;
-        }
-        .sidebar-foot .av {
-            width: 34px; height: 34px; border-radius: 50%;
-            background: linear-gradient(135deg, #25748a, #0c3d4a);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700; font-size: 12.5px; color: #fff;
-            border: 1.5px solid rgba(255,255,255,0.18);
-        }
-        .sidebar-foot .who { display: flex; flex-direction: column; line-height: 1.2; }
-        .sidebar-foot .who strong { font-size: 12.8px; color: #fff; }
-        .sidebar-foot .who span { font-size: 11px; color: #8fbac2; }
-        
-        /* ─── MAIN ─── */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            margin-left: var(--sidebar-w);
-            min-height: 100vh;
-        }
-        
-        /* ─── TOPBAR ─── */
-        .topbar {
-            background: var(--bg-card);
-            backdrop-filter: blur(14px);
-            border-bottom: 1px solid var(--border);
-            padding: 0 26px;
-            height: var(--topbar-h);
-            display: flex;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 30;
-            gap: 16px;
-        }
-        .hamburger {
-            display: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 9px;
-            border: 1px solid var(--border);
-            background: #fff;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: var(--navy);
-            font-size: 18px;
-        }
-        .topbar .back-link {
-            color: var(--text-dim);
-            font-size: 13px;
-            font-weight: 500;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: color 0.2s;
-        }
-        .topbar .back-link:hover { color: var(--navy); }
-        .topbar h1 { font-size: 19px; font-weight: 800; flex: 1; display: flex; align-items: center; gap: 10px; }
-        .topbar .subtitle { font-size: 12px; color: var(--text-dim); margin-left: 8px; font-weight: 400; }
-        .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-        .topbar-right .btn-refresh {
-            padding: 8px 14px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 12px;
-            color: var(--text);
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .topbar-right .btn-refresh:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
-        .topbar-right .btn-refresh:active { transform: scale(0.96); }
-        
-        /* ─── CONVERSATION STATS ─── */
-        .conv-stats {
-            display: flex;
-            gap: 16px;
-            padding: 8px 20px;
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .conv-stats .stat {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 12px;
-            color: var(--text-dim);
-        }
-        .conv-stats .stat .num { font-weight: 700; color: var(--text); font-size: 14px; }
-        .conv-stats .stat .num.open { color: var(--info); }
-        .conv-stats .stat .num.unread { color: var(--danger); }
-        .conv-stats .stat .num.resolved { color: var(--success); }
-        
-        /* ─── MESSAGES CONTAINER ─── */
-        .messages-container {
-            display: flex;
-            flex: 1;
-            height: calc(100vh - var(--topbar-h) - 60px);
-            min-height: 400px;
-            overflow: hidden;
-        }
-        
-        /* ─── CONVERSATION LIST ─── */
-        .conversation-list {
-            width: 380px;
-            min-width: 380px;
-            border-right: 1px solid var(--border);
-            background: var(--bg-card);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .conversation-list .header {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        .conversation-list .header h2 { font-size: 14px; font-weight: 700; }
-        .conversation-list .header .count { font-size: 11px; color: var(--text-dim); }
-        
-        .conversation-list .search {
-            padding: 8px 12px;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-        .conversation-list .search input {
-            width: 100%;
-            padding: 6px 10px 6px 32px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238fa3ab' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E") no-repeat 10px center;
-            font-size: 12px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .conversation-list .search input:focus { border-color: var(--navy); }
-        
-        .conversation-list .items {
-            flex: 1;
-            overflow-y: auto;
-            padding: 4px 0;
-        }
-        
-        .conv-item {
-            display: flex;
-            align-items: stretch;
-            gap: 10px;
-            padding: 10px 14px;
-            cursor: pointer;
-            transition: background 0.15s;
-            border-left: 3px solid transparent;
-            position: relative;
-        }
-        .conv-item:hover { background: var(--bg); }
-        .conv-item.active {
-            background: var(--info-bg);
-            border-left-color: var(--info);
-        }
-        .conv-item .avatar {
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            background: var(--navy);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 13px;
-            flex-shrink: 0;
-        }
-        .conv-item .info { flex: 1; min-width: 0; }
-        .conv-item .info .top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-        .conv-item .info .subject { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .conv-item .info .preview {
-            font-size: 11.5px;
-            color: var(--text-dim);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-top: 1px;
-        }
-        .conv-item .info .meta {
-            font-size: 10px;
-            color: var(--text-faint);
-            margin-top: 2px;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .conv-item .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            display: inline-block;
-        }
-        .conv-item .status-dot.open { background: var(--info); }
-        .conv-item .status-dot.assigned { background: var(--purple); }
-        .conv-item .status-dot.in_progress { background: var(--warn); }
-        .conv-item .status-dot.resolved { background: var(--success); }
-        .conv-item .status-dot.closed { background: var(--text-faint); }
-        .conv-item .badge-unread {
-            background: var(--danger);
-            color: #fff;
-            font-size: 9px;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 99px;
-            min-width: 18px;
-            text-align: center;
-        }
-        .conv-item .time-ago { font-size: 10px; color: var(--text-faint); white-space: nowrap; }
-        .conv-item .assigned-badge {
-            font-size: 8.5px;
-            font-weight: 600;
-            color: var(--text-dim);
-            background: var(--bg);
-            padding: 1px 6px;
-            border-radius: 4px;
-            white-space: nowrap;
-        }
-        
-        .conv-empty {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-            color: var(--text-faint);
-            text-align: center;
-            height: 100%;
-        }
-        .conv-empty i { font-size: 32px; margin-bottom: 12px; color: var(--border); }
-        
-        /* ─── MESSAGE AREA ─── */
-        .message-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: var(--bg);
-            min-width: 0;
-        }
-        
-        .message-area .conv-header {
-            padding: 10px 18px;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-card);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .message-area .conv-header .info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; flex-wrap: wrap; }
-        .message-area .conv-header .info .subject { font-weight: 700; font-size: 14px; }
-        .message-area .conv-header .info .ticket-id { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
-        .message-area .conv-header .info .status-badge {
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 10px;
-            border-radius: 99px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-        .message-area .conv-header .info .status-badge.open { background: var(--info-bg); color: var(--info); }
-        .message-area .conv-header .info .status-badge.assigned { background: var(--purple-bg); color: var(--purple); }
-        .message-area .conv-header .info .status-badge.in_progress { background: var(--warn-bg); color: #b3720a; }
-        .message-area .conv-header .info .status-badge.resolved { background: var(--success-bg); color: var(--success); }
-        .message-area .conv-header .info .status-badge.closed { background: var(--bg); color: var(--text-dim); }
-        
-        .message-area .conv-header .actions {
-            display: flex;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-        .message-area .conv-header .actions button {
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: var(--bg);
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .message-area .conv-header .actions button:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
-        .message-area .conv-header .actions button.icon-only { padding: 4px 8px; font-size: 13px; }
-        
-        .message-area .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .msg {
-            max-width: 80%;
-            padding: 10px 14px;
-            border-radius: 12px;
-            animation: fadeIn 0.25s ease;
-            position: relative;
-        }
-        .msg.sent {
-            align-self: flex-end;
-            background: var(--navy);
-            color: #fff;
-            border-bottom-right-radius: 4px;
-        }
-        .msg.received {
-            align-self: flex-start;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-bottom-left-radius: 4px;
-        }
-        .msg.system {
-            align-self: center;
-            background: #f1f3f5;
-            color: var(--text-dim);
-            font-size: 11.5px;
-            max-width: 90%;
-            border-radius: 20px;
-            padding: 4px 16px;
-        }
-        .msg .sender {
-            font-size: 10.5px;
-            font-weight: 600;
-            margin-bottom: 3px;
-            color: var(--text-dim);
-        }
-        .msg.sent .sender { color: rgba(255,255,255,0.7); }
-        .msg .text { font-size: 13.5px; line-height: 1.5; word-wrap: break-word; }
-        .msg .text a { color: inherit; text-decoration: underline; }
-        .msg .time {
-            font-size: 9.5px;
-            opacity: 0.6;
-            margin-top: 4px;
-            text-align: right;
-        }
-        .msg.sent .time { color: rgba(255,255,255,0.6); }
-        .msg .attachment-indicator {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 4px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .msg-empty {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            flex: 1;
-            color: var(--text-faint);
-            text-align: center;
-            padding: 20px;
-        }
-        .msg-empty i { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
-        .msg-empty h4 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-        .msg-empty p { font-size: 13px; color: var(--text-dim); }
-        
-        /* ─── MESSAGE INPUT ─── */
-        .msg-input-area {
-            padding: 10px 16px;
-            border-top: 1px solid var(--border);
-            background: var(--bg-card);
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-            flex-shrink: 0;
-        }
-        .msg-input-area textarea {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            resize: none;
-            font-family: inherit;
-            font-size: 13px;
-            outline: none;
-            min-height: 38px;
-            max-height: 100px;
-            background: #fff;
-            transition: border-color 0.2s;
-        }
-        .msg-input-area textarea:focus { border-color: var(--navy); }
-        .msg-input-area .input-actions {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        .msg-input-area .btn-send {
-            padding: 8px 16px;
-            background: var(--navy);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            height: 38px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-        }
-        .msg-input-area .btn-send:hover { background: var(--navy-light); }
-        .msg-input-area .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
-        .msg-input-area .btn-attach {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: #fff;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            color: var(--text-dim);
-            transition: all 0.2s;
-            position: relative;
-        }
-        .msg-input-area .btn-attach:hover { background: var(--bg); border-color: var(--navy); }
-        .msg-input-area .btn-attach input {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-        
-        /* ─── USER INFO PANEL ─── */
-        .user-info-panel {
-            display: none;
-            padding: 12px 18px;
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border);
-            font-size: 12px;
-            flex-shrink: 0;
-            max-height: 180px;
-            overflow-y: auto;
-        }
-        .user-info-panel.open { display: block; animation: slideDown 0.25s ease; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-        .user-info-panel .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 4px 20px;
-        }
-        .user-info-panel .grid-item { display: flex; gap: 4px; padding: 2px 0; }
-        .user-info-panel .grid-item .label { color: var(--text-dim); font-weight: 500; min-width: 80px; }
-        .user-info-panel .grid-item .value { font-weight: 600; }
-        .user-info-panel .actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-        .user-info-panel .actions button {
-            padding: 4px 12px;
-            border-radius: 6px;
-            border: none;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .user-info-panel .actions button.btn-info { background: var(--info-bg); color: var(--info); }
-        .user-info-panel .actions button.btn-info:hover { background: var(--info); color: #fff; }
-        
-        /* ─── TOAST ─── */
-        .toast-stack {
-            position: fixed;
-            bottom: 22px;
-            right: 22px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 200;
-            max-width: 360px;
-            pointer-events: none;
-        }
-        .toast {
-            background: var(--navy-deep);
-            color: #fff;
-            padding: 10px 16px;
-            border-radius: 12px;
-            font-size: 12.5px;
-            font-weight: 600;
-            box-shadow: var(--shadow-lg);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            pointer-events: auto;
-            animation: toastIn 0.25s ease;
-            border-left: 3px solid var(--gold);
-        }
-        .toast.success { border-left-color: var(--success); }
-        .toast.error { border-left-color: var(--danger); }
-        .toast.warning { border-left-color: var(--warn); }
-        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
-        
-        /* ─── RESPONSIVE ─── */
-        @media(max-width: 1024px) {
-            .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
-            .sidebar.open { transform: translateX(0); }
-            .main { margin-left: 0; }
-            .hamburger { display: flex; }
-        }
-        @media(max-width: 768px) {
-            .messages-container { flex-direction: column; height: auto; min-height: 500px; }
-            .conversation-list { width: 100%; min-width: 0; max-height: 280px; border-right: none; border-bottom: 1px solid var(--border); }
-            .message-area { height: calc(100vh - 420px); min-height: 300px; }
-            .topbar { padding: 0 12px; height: 56px; }
-            .topbar h1 { font-size: 15px; }
-            .topbar .subtitle { font-size: 10px; margin-left: 4px; }
-            .msg { max-width: 92%; font-size: 13px; padding: 8px 12px; }
-            .msg .text { font-size: 13px; }
-            .conv-stats { padding: 6px 12px; gap: 10px; }
-            .conv-stats .stat { font-size: 10px; }
-            .user-info-panel .grid { grid-template-columns: 1fr; }
-            .msg-input-area { flex-wrap: wrap; padding: 8px 12px; }
-            .msg-input-area textarea { min-height: 32px; font-size: 14px; }
-            .msg-input-area .btn-send { height: 34px; padding: 6px 12px; font-size: 12px; }
-            .msg-input-area .btn-attach { width: 34px; height: 34px; font-size: 12px; }
-            .message-area .conv-header { padding: 8px 12px; }
-            .message-area .conv-header .info .subject { font-size: 13px; }
-            .message-area .conv-header .actions button { font-size: 10px; padding: 2px 8px; }
-            .conv-item { padding: 8px 10px; gap: 8px; }
-            .conv-item .avatar { width: 32px; height: 32px; font-size: 11px; }
-            .conv-item .info .subject { font-size: 12px; }
-            .conv-item .info .preview { font-size: 10.5px; }
-            .topbar-right .btn-refresh { padding: 4px 10px; font-size: 11px; }
-        }
-        @media(max-width: 480px) {
-            .conv-stats { grid-template-columns: repeat(2, 1fr); gap: 4px; }
-            .messages-container { height: auto; }
-            .message-area { height: calc(100vh - 480px); min-height: 250px; }
-            .msg { max-width: 95%; }
-            .conv-item .info .meta { font-size: 9px; }
-        }
-        
-        /* ─── SCROLLBAR ─── */
-        .messages::-webkit-scrollbar,
-        .items::-webkit-scrollbar,
-        .user-info-panel::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
-        }
-        .messages::-webkit-scrollbar-track,
-        .items::-webkit-scrollbar-track,
-        .user-info-panel::-webkit-scrollbar-track { background: transparent; }
-        .messages::-webkit-scrollbar-thumb,
-        .items::-webkit-scrollbar-thumb,
-        .user-info-panel::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 99px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c3d4a">
+<title>MilesSpace — Messages</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js"></script>
+<style>
+:root{
+  --navy:#0c3d4a; --navy-light:#12556a; --navy-deep:#082a33;
+  --gold:#f59e0b; --gold-soft:#fde3ad;
+  --bg:#f4f7fb; --bg-card:rgba(255,255,255,.72); --border:rgba(12,61,74,.08);
+  --text:#0c1f26; --text-dim:#5b7480; --text-faint:#8fa3ab;
+  --success:#16a34a; --success-bg:#e9f9ef;
+  --danger:#dc2626; --danger-bg:#fdecec;
+  --warn:#f59e0b; --warn-bg:#fef3d9;
+  --info:#2563a8; --info-bg:#e8f1fb;
+  --purple:#8b5cf6; --purple-bg:#ede9fe;
+  --radius-lg:20px;
+  --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
+  --shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);
+  --sidebar-w:260px; --topbar-h:64px; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;min-width:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(12,61,74,.18);border-radius:99px}
+
+.app{display:flex;min-height:100vh;min-height:100dvh}
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:22px 16px 18px;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;height:100dvh;z-index:40;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 22px}
+.brand img{width:32px;height:32px;border-radius:8px}
+.brand-text strong{font-size:15.5px;font-weight:800;display:block}
+.brand-text span{font-size:11px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
+.nav-scroll{flex:1;overflow-y:auto}
+.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 12px 6px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9.5px 12px;border-radius:10px;color:#cfe7ea;font-size:13.6px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:.15s;text-decoration:none}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,158,11,.14);color:#ffd899;border-color:rgba(245,158,11,.28);font-weight:600}
+.nav-item .ic{width:18px;text-align:center;font-size:14.5px}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:6px}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;flex-shrink:0}
+.sidebar-foot .who{min-width:0;overflow:hidden}
+.sidebar-foot .who strong{font-size:12.8px;color:#fff;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-foot .who span{font-size:11px;color:#8fbac2}
+
+.main{flex:1;display:flex;flex-direction:column;margin-left:var(--sidebar-w);min-height:100vh;min-height:100dvh;min-width:0}
+.topbar{background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 22px;height:var(--topbar-h);display:flex;align-items:center;position:sticky;top:0;z-index:30;gap:12px}
+.hamburger{display:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:#fff;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:17px;flex-shrink:0}
+.topbar .back-link{color:var(--text-dim);font-size:13px;font-weight:500;text-decoration:none;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.topbar .back-link:hover{color:var(--navy)}
+.topbar h1{font-size:17px;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .subtitle{font-size:11.5px;color:var(--text-dim);font-weight:400}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn-refresh{padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;font-family:inherit;white-space:nowrap}
+.btn-refresh:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.conv-stats{display:flex;gap:14px;padding:8px 18px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.conv-stats::-webkit-scrollbar{display:none}
+.conv-stats .stat{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-dim);white-space:nowrap}
+.conv-stats .stat .num{font-weight:700;color:var(--text);font-size:14px}
+.conv-stats .stat .num.open{color:var(--info)}
+.conv-stats .stat .num.unread{color:var(--danger)}
+.conv-stats .stat .num.resolved{color:var(--success)}
+
+.messages-container{
+  display:flex;
+  flex:1;
+  height:calc(100vh - var(--topbar-h) - 48px);
+  height:calc(100dvh - var(--topbar-h) - 48px);
+  min-height:480px;
+  overflow:hidden;
+}
+.conversation-list{width:380px;min-width:380px;max-width:380px;border-right:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden}
+.conversation-list .header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.conversation-list .header h2{font-size:14px;font-weight:700}
+.conversation-list .header .count{font-size:11px;color:var(--text-dim)}
+.conversation-list .search{padding:8px 12px;border-bottom:1px solid var(--border)}
+.conversation-list .search input{width:100%;padding:7px 11px 7px 32px;border:1px solid var(--border);border-radius:8px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238fa3ab' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E") no-repeat 10px center;font-size:12px;outline:none;font-family:inherit}
+.conversation-list .search input:focus{border-color:var(--navy)}
+.conversation-list .items{flex:1;overflow-y:auto;padding:4px 0;-webkit-overflow-scrolling:touch}
+.conv-item{display:flex;align-items:stretch;gap:10px;padding:10px 14px;cursor:pointer;border-left:3px solid transparent;transition:background .12s}
+.conv-item:hover{background:var(--bg)}
+.conv-item.active{background:var(--info-bg);border-left-color:var(--info)}
+.conv-item .avatar{width:38px;height:38px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.conv-item .info{flex:1;min-width:0}
+.conv-item .info .top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.conv-item .info .subject{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv-item .info .preview{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.conv-item .info .meta{font-size:10px;color:var(--text-faint);margin-top:2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.conv-item .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+.conv-item .status-dot.open{background:var(--info)}
+.conv-item .status-dot.assigned{background:var(--purple)}
+.conv-item .status-dot.in_progress{background:var(--warn)}
+.conv-item .status-dot.resolved{background:var(--success)}
+.conv-item .status-dot.closed{background:var(--text-faint)}
+.conv-item .status-dot.waiting_user{background:#f472b6}
+.conv-item .status-dot.waiting_support{background:#f59e0b}
+.conv-item .badge-unread{background:var(--danger);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;min-width:18px;text-align:center}
+.conv-item .time-ago{font-size:10px;color:var(--text-faint);white-space:nowrap}
+.conv-item .assigned-badge{font-size:8.5px;font-weight:600;color:var(--text-dim);background:var(--bg);padding:1px 6px;border-radius:4px}
+.conv-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--text-faint);text-align:center;height:100%}
+.conv-empty i{font-size:32px;margin-bottom:12px;color:var(--border)}
+.conv-empty p{font-size:12.5px;margin-top:6px}
+
+.message-area{flex:1;display:flex;flex-direction:column;background:var(--bg);min-width:0;min-height:0;overflow:hidden}
+.message-area .conv-header{padding:10px 18px;border-bottom:1px solid var(--border);background:var(--bg-card);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;flex-shrink:0}
+.message-area .conv-header .info{display:flex;align-items:center;gap:10px;flex:1;min-width:0;flex-wrap:wrap}
+.message-area .conv-header .info .subject{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.message-area .conv-header .info .ticket-id{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.message-area .conv-header .info .status-badge{font-size:10px;font-weight:700;padding:2px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.03em}
+.message-area .conv-header .info .status-badge.open{background:var(--info-bg);color:var(--info)}
+.message-area .conv-header .info .status-badge.assigned{background:var(--purple-bg);color:var(--purple)}
+.message-area .conv-header .info .status-badge.in_progress{background:var(--warn-bg);color:#b3720a}
+.message-area .conv-header .info .status-badge.resolved{background:var(--success-bg);color:var(--success)}
+.message-area .conv-header .info .status-badge.closed{background:var(--bg);color:var(--text-dim)}
+.message-area .conv-header .info .status-badge.waiting_user{background:#fce7f3;color:#db2777}
+.message-area .conv-header .info .status-badge.waiting_support{background:var(--warn-bg);color:#b3720a}
+.message-area .conv-header .actions{display:flex;gap:4px;flex-shrink:0}
+.message-area .conv-header .actions button{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:12px;font-weight:600;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:4px;font-family:inherit;min-height:36px}
+.message-area .conv-header .actions button:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.message-area .messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;min-height:0;-webkit-overflow-scrolling:touch}
+.msg{max-width:80%;padding:10px 14px;border-radius:12px;position:relative;word-wrap:break-word}
+.msg.sent{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
+.msg.received{align-self:flex-start;background:var(--bg-card);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg.system{align-self:center;background:#f1f3f5;color:var(--text-dim);font-size:11.5px;max-width:90%;border-radius:20px;padding:4px 16px;border:1px solid #e3e8ee}
+.msg.sending{opacity:.72}
+.msg .sender{font-size:10.5px;font-weight:600;margin-bottom:3px;color:var(--text-dim)}
+.msg.sent .sender{color:rgba(255,255,255,.7)}
+.msg .text{font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.msg .time{font-size:9.5px;opacity:.6;margin-top:4px;text-align:right}
+.msg.sent .time{color:rgba(255,255,255,.6)}
+.msg .internal-badge{font-size:8.5px;background:var(--warn-bg);padding:1px 6px;border-radius:99px;margin-left:4px;color:#b3720a;font-weight:700}
+
+.msg-attachment{
+  margin-top:6px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+  max-width:280px;
+  background:var(--bg);
+}
+.msg-attachment img{
+  display:block;
+  max-width:100%;
+  max-height:240px;
+  object-fit:contain;
+  background:#000;
+  cursor:zoom-in;
+}
+.msg-attachment.broken img{display:none}
+.msg-attachment .attachment-info{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 9px;
+  font-size:10.5px;
+  color:var(--text-dim);
+  background:#fff;
+  border-top:1px solid var(--border);
+}
+.msg-attachment .attachment-name{
+  flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.msg-attachment .attachment-info a{
+  color:var(--text-dim);text-decoration:none;padding:2px 4px;border-radius:4px;
+}
+.msg-attachment .attachment-info a:hover{background:var(--bg);color:var(--navy)}
+.msg.sent .msg-attachment{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
+.msg.sent .msg-attachment .attachment-info{background:transparent;color:rgba(255,255,255,.75);border-top-color:rgba(255,255,255,.15)}
+.msg.sent .msg-attachment .attachment-info a{color:rgba(255,255,255,.9)}
+
+.img-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+.img-lightbox.open{display:flex}
+.img-lightbox img{max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.img-lightbox .close{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.img-lightbox .close:hover{background:rgba(255,255,255,.28)}
+
+.msg-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--text-faint);text-align:center;padding:20px}
+.msg-empty i{font-size:40px;margin-bottom:12px;opacity:.4}
+.msg-empty h4{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.msg-empty p{font-size:12px}
+
+.msg-input-area{padding:10px 16px;border-top:1px solid var(--border);background:var(--bg-card);display:flex;gap:10px;align-items:flex-end;flex-shrink:0}
+.msg-input-area textarea{
+  flex:1;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  resize:none;
+  font-family:inherit;
+  font-size:14px;
+  line-height:1.5;
+  outline:none;
+  background:#fff;
+  min-height:46px;
+  height:46px;
+  max-height:220px;
+  overflow-y:auto;
+  color:var(--text);
+}
+.msg-input-area textarea:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(12,61,74,.08)}
+.msg-input-area textarea::placeholder{color:var(--text-faint)}
+.msg-input-area .input-actions{display:flex;gap:6px;align-items:flex-end;flex-shrink:0}
+.msg-input-area .btn-send{padding:10px 16px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;font-size:13.5px;font-family:inherit}
+.msg-input-area .btn-send:hover{background:var(--navy-light)}
+.msg-input-area .btn-send:disabled{opacity:.55;cursor:not-allowed}
+.msg-input-area .btn-attach{width:44px;height:44px;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text-dim);position:relative}
+.msg-input-area .btn-attach:hover{background:var(--bg);border-color:var(--navy)}
+.msg-input-area .btn-attach input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:8px;z-index:200;max-width:360px;pointer-events:none}
+.toast{background:var(--navy-deep);color:#fff;padding:10px 16px;border-radius:12px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;border-left:3px solid var(--gold);pointer-events:auto;animation:toastIn .2s ease}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+.toast.warning{border-left-color:var(--warn)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+@media(max-width:1024px){
+  .sidebar{transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow-lg)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .hamburger{display:inline-flex}
+  .conversation-list{width:320px;min-width:320px;max-width:320px}
+}
+@media(max-width:768px){
+  .topbar{padding:0 12px;height:56px;gap:8px}
+  .topbar h1{font-size:15px}
+  .subtitle{display:none}
+  .messages-container{flex-direction:column;height:calc(100dvh - var(--topbar-h) - 48px);min-height:480px}
+  .conversation-list{width:100%;min-width:0;max-width:100%;max-height:34vh;border-right:none;border-bottom:1px solid var(--border)}
+  .message-area{flex:1;min-height:0}
+  .message-area .conv-header{padding:8px 12px}
+  .message-area .messages{padding:12px 14px;gap:8px}
+  .msg{max-width:88%}
+  .msg-input-area{padding:10px 12px;gap:8px}
+  .msg-input-area textarea{font-size:16px;min-height:46px;height:46px}
+  .msg-input-area .btn-attach{width:44px;height:44px}
+  .msg-input-area .btn-send{min-height:44px;padding:10px 14px}
+}
+@media(max-width:560px){
+  .conv-stats{padding:6px 12px;gap:12px}
+  .conv-stats .stat{font-size:11px}
+  .conv-stats .stat .num{font-size:13px}
+  .conversation-list{max-height:32vh}
+  .messages-container{min-height:440px}
+  .msg{max-width:92%}
+  .msg .text{font-size:13px}
+  .toast-stack{left:10px;right:10px;bottom:10px;max-width:none}
+}
+@media(max-width:380px){
+  .msg .text{font-size:12.5px}
+  .msg-input-area .btn-send{padding:10px;font-size:12.5px}
+}
+
+/* ═════ WhatsApp-style chat skin ═════ */
+.messages-container .messages{
+  background-color:#e9eef2;
+  background-image:radial-gradient(rgba(12,61,74,.08) 1px,transparent 1px);
+  background-size:18px 18px;
+  padding:16px clamp(12px,4vw,56px);
+  gap:2px;
+}
+.messages-container .msg{
+  max-width:min(78%,540px);
+  padding:6px 10px 4px;
+  margin-top:6px;
+  border-radius:10px;
+  box-shadow:0 1px 1px rgba(8,42,51,.14);
+}
+.messages-container .msg.sent{background:var(--navy);color:#fff;border-bottom-right-radius:10px;border-top-right-radius:2px}
+.messages-container .msg.received{background:#fff;border:none;border-bottom-left-radius:10px;border-top-left-radius:2px}
+.messages-container .msg.sent::before,
+.messages-container .msg.received::before{content:"";position:absolute;top:0;border:7px solid transparent}
+.messages-container .msg.sent::before{right:-6px;border-top-color:var(--navy);border-right:0}
+.messages-container .msg.received::before{left:-6px;border-top-color:#fff;border-left:0}
+.messages-container .msg .sender{font-size:11px;font-weight:700;margin-bottom:1px}
+.messages-container .msg.received .sender{color:var(--info)}
+.messages-container .msg .text{font-size:14px;line-height:1.4}
+.messages-container .msg .time{font-size:10px;margin-top:2px;text-align:right}
+.messages-container .msg.sending{opacity:.65}
+.messages-container .msg.system{
+  background:var(--warn-bg);color:#7a5208;border:1px solid rgba(245,158,11,.3);
+  align-self:center;max-width:88%;border-radius:10px;padding:6px 14px;box-shadow:none;
+}
+.messages-container .msg.system::before{display:none}
+.messages-container .msg.system .sender{color:#b3720a}
+.messages-container .msg.system .internal-badge{display:none}
+.messages-container .msg-attachment{border-radius:8px;margin-top:4px}
+
+.conv-item{padding:12px 14px;border-bottom:1px solid var(--border)}
+.conv-item .avatar{width:46px;height:46px;font-size:16px}
+.conv-item .info .subject{font-size:14px}
+.conv-item .info .preview{font-size:12.5px}
+
+/* Composer */
+.messages-container .msg-input-area{background:#f0f2f5;padding:8px 10px;gap:8px;align-items:flex-end}
+.messages-container .input-actions{display:contents}
+.messages-container .msg-input-area textarea{
+  order:3;flex:1 1 0;min-width:0;
+  min-height:46px;height:46px;max-height:220px;
+  padding:12px 18px;
+  border:none;border-radius:23px;background:#fff;
+  font-size:16px;line-height:1.4;
+  box-shadow:0 1px 1px rgba(8,42,51,.1);
+}
+.messages-container .msg-input-area textarea:focus{box-shadow:0 0 0 2px rgba(12,61,74,.18)}
+.messages-container .btn-attach{
+  order:1;width:46px;height:46px;border:none;border-radius:50%;background:transparent;
+  color:var(--text-dim);font-size:19px;position:relative;
+}
+.messages-container .btn-attach:hover{background:rgba(12,61,74,.08);border:none}
+.messages-container .btn-send{
+  order:4;width:46px;height:46px;min-height:46px;padding:0;border-radius:50%;
+  justify-content:center;font-size:0;gap:0;background:var(--navy);
+}
+.messages-container .btn-send i{font-size:17px;margin-left:-2px}
+
+@media(max-width:768px){
+  .messages-container .msg{max-width:86%}
+  .messages-container .msg-input-area textarea{min-height:46px;height:46px}
+  .messages-container .btn-attach,.messages-container .btn-send{width:44px;height:44px;min-height:44px}
+}
+</style>
 </head>
 <body>
 
 <div class="app">
-    <!-- ─── SIDEBAR ─── -->
-    <aside class="sidebar" id="sidebar">
-        <div class="brand">
-            <img src="../images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
-            <div class="brand-text"><strong>MilesSpace</strong><span>Messages</span></div>
-        </div>
-        <div class="nav-scroll">
-            <div class="nav-label">Navigation</div>
-            <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
-            <a href="/admin/support" class="nav-item"><span class="ic">🎫</span>Support</a>
-            <a href="/admin/messages" class="nav-item active"><span class="ic">💬</span>Messages</a>
-            <a href="/admin/notifications" class="nav-item"><span class="ic">🔔</span>Notifications</a>
-            <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span>Settings</a>
-        </div>
-        <div class="sidebar-foot">
-            <div class="av" id="adminAvatar">A</div>
-            <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Super Admin</span></div>
-        </div>
-    </aside>
-    
-    <div class="main">
-        <!-- ─── TOPBAR ─── -->
-        <header class="topbar">
-            <button class="hamburger" id="hamburger" aria-label="Toggle menu">☰</button>
-            <a href="/admin/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
-            <h1>💬 Messages <span class="subtitle" id="messageCountLabel">Loading...</span></h1>
-            <div class="topbar-right">
-                <button class="btn-refresh" onclick="refreshAll()"><i class="fas fa-sync-alt"></i> Refresh</button>
-            </div>
-        </header>
-
-        <!-- ─── CONVERSATION STATS ─── -->
-        <div class="conv-stats" id="convStats">
-            <div class="stat"><span class="num" id="statTotal">0</span> Total</div>
-            <div class="stat"><span class="num open" id="statOpen">0</span> Open</div>
-            <div class="stat"><span class="num unread" id="statUnread">0</span> Unread</div>
-            <div class="stat"><span class="num resolved" id="statResolved">0</span> Resolved</div>
-            <div class="stat" style="margin-left:auto;">
-                <span id="lastUpdated" style="font-size:10px;color:var(--text-faint);">Updated just now</span>
-            </div>
-        </div>
-
-        <!-- ─── MESSAGES CONTAINER ─── -->
-        <div class="messages-container">
-            <!-- Conversation List -->
-            <div class="conversation-list">
-                <div class="header">
-                    <h2>Conversations</h2>
-                    <span class="count" id="convListCount">0</span>
-                </div>
-                <div class="search">
-                    <input type="text" id="searchConversations" placeholder="Search conversations..." oninput="searchConversations()">
-                </div>
-                <div class="items" id="convList">
-                    <div class="conv-empty">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Loading conversations...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Message Area -->
-            <div class="message-area">
-                <div class="conv-header" id="convHeader">
-                    <div class="info">
-                        <span class="subject" id="convSubject">Select a conversation</span>
-                        <span class="ticket-id" id="convTicketId"></span>
-                        <span class="status-badge" id="convStatusBadge"></span>
-                    </div>
-                    <div class="actions">
-                        <button class="icon-only" onclick="toggleUserInfo()" title="User Info"><i class="fas fa-user"></i></button>
-                        <button class="icon-only" onclick="refreshMessages()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
-                    </div>
-                </div>
-
-                <!-- User Info Panel -->
-                <div class="user-info-panel" id="userInfoPanel">
-                    <div id="userInfoContent">Loading user info...</div>
-                </div>
-
-                <div class="messages" id="msgContainer">
-                    <div class="msg-empty">
-                        <i class="fas fa-inbox"></i>
-                        <h4>No conversation selected</h4>
-                        <p>Select a conversation from the list to view messages</p>
-                    </div>
-                </div>
-
-                <div class="msg-input-area" id="msgInputArea" style="display:none;">
-                    <textarea id="msgInput" placeholder="Type your reply..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
-                    <div class="input-actions">
-                        <button class="btn-attach">
-                            <i class="fas fa-paperclip"></i>
-                            <input type="file" id="fileInput" accept="image/*,.pdf,.txt" onchange="handleAttachment()">
-                        </button>
-                        <button class="btn-send" id="sendBtn" onclick="sendMessage()">
-                            <i class="fas fa-paper-plane"></i> Send
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="../images/miles.png" alt="MilesSpace" onerror="this.style.display='none'">
+      <div class="brand-text"><strong>MilesSpace</strong><span>Messages</span></div>
     </div>
+    <div class="nav-scroll">
+      <div class="nav-label">Navigation</div>
+      <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
+      <a href="/admin/support" class="nav-item"><span class="ic">🎫</span>Support</a>
+      <a href="/admin/messages" class="nav-item active"><span class="ic">💬</span>Messages</a>
+      <a href="/admin/notifications" class="nav-item"><span class="ic">🔔</span>Notifications</a>
+      <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span>Settings</a>
+    </div>
+    <div class="sidebar-foot">
+      <div class="av" id="adminAvatar">A</div>
+      <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Super Admin</span></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+      <a href="/admin/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> <span>Dashboard</span></a>
+      <h1>💬 Messages <span class="subtitle" id="messageCountLabel">Loading...</span></h1>
+      <div class="topbar-right">
+        <button class="btn-refresh" onclick="refreshAll()"><i class="fas fa-sync-alt"></i> <span>Refresh</span></button>
+      </div>
+    </header>
+
+    <div class="conv-stats">
+      <div class="stat"><span class="num" id="statTotal">0</span> Total</div>
+      <div class="stat"><span class="num open" id="statOpen">0</span> Open</div>
+      <div class="stat"><span class="num unread" id="statUnread">0</span> Unread</div>
+      <div class="stat"><span class="num resolved" id="statResolved">0</span> Resolved</div>
+    </div>
+
+    <div class="messages-container">
+      <div class="conversation-list">
+        <div class="header">
+          <h2>Conversations</h2>
+          <span class="count" id="convListCount">0</span>
+        </div>
+        <div class="search">
+          <input type="text" id="searchConversations" placeholder="Search conversations..." oninput="searchConversations()" autocomplete="off">
+        </div>
+        <div class="items" id="convList">
+          <div class="conv-empty">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading conversations...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="message-area">
+        <div class="conv-header" id="convHeader">
+          <div class="info">
+            <span class="subject" id="convSubject">Select a conversation</span>
+            <span class="ticket-id" id="convTicketId"></span>
+            <span class="status-badge" id="convStatusBadge"></span>
+          </div>
+          <div class="actions">
+            <button onclick="refreshMessages()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+          </div>
+        </div>
+
+        <div class="messages" id="msgContainer">
+          <div class="msg-empty">
+            <i class="fas fa-inbox"></i>
+            <h4>No conversation selected</h4>
+            <p>Select a conversation from the list to view messages</p>
+          </div>
+        </div>
+
+        <div class="msg-input-area" id="msgInputArea" style="display:none;">
+          <textarea id="msgInput" rows="1" placeholder="Type your reply..." onkeydown="handleKeyDown(event)" oninput="autoGrow(this)" onpaste="setTimeout(()=>autoGrow(this),0)"></textarea>
+          <div class="input-actions">
+            <button class="btn-attach" title="Attach file">
+              <i class="fas fa-paperclip"></i>
+              <input type="file" id="fileInput" accept="image/*,.pdf,.txt" onchange="handleAttachment()">
+            </button>
+            <button class="btn-send" id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- ─── TOAST STACK ─── -->
+<div class="img-lightbox" id="imgLightbox">
+  <button class="close" id="imgLightboxClose" aria-label="Close">✕</button>
+  <img id="imgLightboxImg" src="" alt="">
+</div>
+
 <div class="toast-stack" id="toastStack"></div>
 
 <script>
 'use strict';
 
-// ─── SESSION HELPERS ───
-function getAdminSession() {
-    try {
-        const raw = localStorage.getItem('admin_sess') || sessionStorage.getItem('admin_sess');
-        return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
-}
+const API = {
+  me:            '/api/admin/me',
+  session:       '/api/admin/session',
+  tickets:       '/api/admin/support/tickets',
+  ticket:        id => `/api/admin/support/tickets/${encodeURIComponent(id)}`,
+  messages:      id => `/api/admin/support/tickets/${encodeURIComponent(id)}/messages`,
+  read:          id => `/api/admin/support/tickets/${encodeURIComponent(id)}/read`,
+  stats:         '/api/admin/support/stats'
+};
 
-function getToken() {
-    const sess = getAdminSession();
-    return sess?.token || null;
-}
-
-function getUserId() {
-    const sess = getAdminSession();
-    return sess?.user?.id || sess?.userId || null;
-}
-
-function getAdminUsername() {
-    const sess = getAdminSession();
-    return sess?.user?.username || sess?.username || 'Admin';
-}
-
-function clearAdminSession() {
-    localStorage.removeItem('admin_sess');
-    sessionStorage.removeItem('admin_sess');
-}
-
-function redirectToLogin() {
-    clearAdminSession();
-    window.location.href = '/admin/login';
-}
-
-// ─── CHECK AUTH ───
-(function checkAuth() {
-    const token = getToken();
-    if (!token) { redirectToLogin(); return; }
-    fetch('/api/admin/verify', {
-        headers: { 'Authorization': 'Bearer ' + token }
-    })
-    .then(res => {
-        if (!res.ok) redirectToLogin();
-        return res.json();
-    })
-    .then(data => {
-        if (!data.success) redirectToLogin();
-        else {
-            const user = data.data?.user;
-            if (user) {
-                document.getElementById('adminName').textContent = user.username || 'Admin';
-                document.getElementById('adminRole').textContent = user.role || 'Super Admin';
-                const initials = (user.username || 'Admin').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-                document.getElementById('adminAvatar').textContent = initials;
-            }
-        }
-    })
-    .catch(() => redirectToLogin());
-})();
-
-// ─── STATE ───
 let currentTicketId = null;
 let currentTicketNumber = null;
 let currentStatus = null;
-let currentUserId = getUserId();
-let currentAdminName = getAdminUsername();
+let currentUserId = null;
+let currentAdminName = 'Admin';
 let allConversations = [];
-let filteredConversations = [];
-let userInfoVisible = false;
 let pollingInterval = null;
+let conversationsLoading = false;
+let messagesLoading = false;
+let lastRenderedMessageId = null;
 
-// ─── API HELPER ───
-async function apiCall(path, opts = {}) {
-    const token = getToken();
-    if (!token) { redirectToLogin(); return; }
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    
-    const response = await fetch('/api' + path, { ...opts, headers: { ...headers, ...opts.headers } });
-    const data = await response.json().catch(() => ({}));
-    if (response.status === 401) { redirectToLogin(); return; }
-    if (!response.ok) throw new Error(data.error || data.message || 'HTTP ' + response.status);
-    return data;
+const MIN_COMPOSER_PX = 46;
+const MAX_COMPOSER_PX = 220;
+
+function getToken() {
+  try {
+    const raw = localStorage.getItem('admin_sess') || sessionStorage.getItem('admin_sess');
+    return raw ? JSON.parse(raw).token : null;
+  } catch { return null; }
+}
+function redirectToLogin() {
+  localStorage.removeItem('admin_sess');
+  sessionStorage.removeItem('admin_sess');
+  window.location.href = '/admin/login';
 }
 
-// ─── TOAST ───
 function showToast(message, type = 'info') {
-    const stack = document.getElementById('toastStack');
-    if (!stack) return;
-    const el = document.createElement('div');
-    el.className = 'toast ' + type;
-    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
-    stack.appendChild(el);
-    setTimeout(() => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateX(30px)';
-        el.style.transition = 'all .25s ease';
-        setTimeout(() => el.remove(), 260);
-    }, 3200);
+  const stack = document.getElementById('toastStack');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+  el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${escapeHtml(message)}</span>`;
+  stack.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .25s';
+    setTimeout(() => el.remove(), 260);
+  }, 3200);
 }
 
-// ─── ESCAPE HTML ───
 function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  if (text === null || text === undefined) return '';
+  return String(text).replace(/[&<>"']/g, m => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[m]));
 }
 
-// ─── GET TIME AGO ───
 function getTimeAgo(dateStr) {
-    if (!dateStr) return '';
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
-    return Math.floor(diff / 604800) + 'w ago';
+  if (!dateStr) return '';
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+  return Math.floor(diff / 604800) + 'w ago';
 }
 
-// ─── LOAD CONVERSATIONS ───
+/* ─── Attachment normaliser ─── */
+function guessMimeFromUrl(url) {
+  const u = String(url || '').toLowerCase().split('?')[0].split('#')[0];
+  if (/\.(jpg|jpeg)$/.test(u)) return 'image/jpeg';
+  if (/\.png$/.test(u)) return 'image/png';
+  if (/\.gif$/.test(u)) return 'image/gif';
+  if (/\.webp$/.test(u)) return 'image/webp';
+  if (/\.svg$/.test(u)) return 'image/svg+xml';
+  if (/\.pdf$/.test(u)) return 'application/pdf';
+  if (/\.csv$/.test(u)) return 'text/csv';
+  if (/\.txt$/.test(u)) return 'text/plain';
+  return 'application/octet-stream';
+}
+function guessNameFromUrl(url) {
+  try {
+    const u = new URL(url);
+    const last = u.pathname.split('/').filter(Boolean).pop() || 'attachment';
+    return decodeURIComponent(last).slice(0, 120);
+  } catch {
+    return 'attachment';
+  }
+}
+function isImageMime(t) {
+  return String(t || '').toLowerCase().startsWith('image/');
+}
+function isLikelyImageUrl(url) {
+  return isImageMime(guessMimeFromUrl(url));
+}
+function normaliseAttachments(m) {
+  const out = [];
+  const push = (a) => {
+    if (!a) return;
+    if (typeof a === 'string') {
+      const url = a.trim();
+      if (!url) return;
+      out.push({ url, type: guessMimeFromUrl(url), name: guessNameFromUrl(url), size: null });
+      return;
+    }
+    if (typeof a !== 'object') return;
+    const url = a.url || a.secure_url || a.secureUrl || a.src || a.href || a.file_url || a.location || a.path || null;
+    if (!url) return;
+    out.push({
+      url: String(url),
+      type: String(a.type || a.mime || a.mimetype || a.content_type || a.mime_type || guessMimeFromUrl(url)),
+      name: String(a.name || a.filename || a.originalname || a.original_name || guessNameFromUrl(url)),
+      size: Number.isFinite(a.size) ? a.size : null
+    });
+  };
+
+  if (Array.isArray(m.attachments)) for (const a of m.attachments) push(a);
+  else if (m.attachments && typeof m.attachments === 'object') push(m.attachments);
+  else if (typeof m.attachments === 'string' && m.attachments.trim()) {
+    const raw = m.attachments.trim();
+    if (raw.startsWith('[') || raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) parsed.forEach(push);
+        else push(parsed);
+      } catch { push(raw); }
+    } else push(raw);
+  }
+  if (!out.length && m.attachment_url) push({ url: m.attachment_url, type: m.attachment_type || '', name: m.attachment_name || '' });
+  if (!out.length && m.file_url) push({ url: m.file_url, type: m.file_type || '', name: m.file_name || '' });
+  if (!out.length && m.image_url) push({ url: m.image_url, type: 'image/*', name: m.image_name || '' });
+  return out;
+}
+
+async function apiCall(url, opts = {}) {
+  const token = getToken();
+  if (!token) { redirectToLogin(); throw new Error('No token'); }
+
+  const headers = {
+    ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(opts.headers || {})
+  };
+
+  let res;
+  if (window.AdminSession && typeof window.AdminSession.fetch === 'function') {
+    res = await window.AdminSession.fetch(url, { ...opts, headers });
+  } else {
+    headers['Authorization'] = 'Bearer ' + token;
+    res = await fetch(url, { ...opts, headers });
+  }
+
+  let data = null;
+  try { data = await res.json(); } catch {}
+
+  if (res.status === 401) { redirectToLogin(); throw new Error('Session expired'); }
+  if (!res.ok || (data && data.success === false)) {
+    throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+async function initializePage() {
+  try {
+    const me = await apiCall(API.me);
+    const admin = me.admin || me.user || {};
+    currentUserId = admin.id;
+    currentAdminName = admin.username || admin.email?.split('@')[0] || 'Admin';
+    const role = (admin.role || 'admin').replace(/_/g, ' ');
+    document.getElementById('adminName').textContent = currentAdminName;
+    document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    document.getElementById('adminAvatar').textContent = currentAdminName.charAt(0).toUpperCase();
+  } catch (e) {
+    console.error('Auth check failed:', e.message);
+    return;
+  }
+
+  await loadConversations();
+  startPolling();
+}
+
 async function loadConversations() {
-    try {
-        const data = await apiCall('/support/admin/tickets?limit=100');
-        allConversations = data.data || [];
-        
-        // Calculate stats
-        const total = allConversations.length;
-        const open = allConversations.filter(t => t.status === 'open' || t.status === 'assigned').length;
-        const unread = allConversations.filter(t => 
-            t.messages?.some(m => !m.is_read && m.sender_type === 'user')
-        ).length;
-        const resolved = allConversations.filter(t => t.status === 'resolved').length;
-        
-        document.getElementById('statTotal').textContent = total;
-        document.getElementById('statOpen').textContent = open;
-        document.getElementById('statUnread').textContent = unread;
-        document.getElementById('statResolved').textContent = resolved;
-        document.getElementById('messageCountLabel').textContent = `${total} conversations`;
-        
-        renderConversationList();
-        document.getElementById('convListCount').textContent = allConversations.length;
-        document.getElementById('lastUpdated').textContent = 'Updated ' + getTimeAgo(new Date().toISOString());
-        
-        return allConversations;
-    } catch(e) {
-        console.error('Load conversations error:', e);
-        showToast('Failed to load conversations', 'error');
-        document.getElementById('convList').innerHTML = `
-            <div class="conv-empty">
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>Error loading conversations</p>
-                <button onclick="loadConversations()" style="margin-top:12px;padding:8px 20px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Retry</button>
-            </div>
-        `;
-        return [];
-    }
+  if (conversationsLoading) return;
+  conversationsLoading = true;
+  try {
+    const data = await apiCall(API.tickets + '?limit=100');
+    allConversations = data.tickets || [];
+
+    const total = allConversations.length;
+    const open = allConversations.filter(t => t.status === 'open' || t.status === 'assigned').length;
+    const unread = allConversations.filter(t => Number(t.unread_count || 0) > 0).length;
+    const resolved = allConversations.filter(t => t.status === 'resolved').length;
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statOpen').textContent = open;
+    document.getElementById('statUnread').textContent = unread;
+    document.getElementById('statResolved').textContent = resolved;
+    document.getElementById('messageCountLabel').textContent = `${total} conversations`;
+    document.getElementById('convListCount').textContent = total;
+
+    renderConversationList();
+    return allConversations;
+  } catch (e) {
+    console.error('Load conversations error:', e);
+    showToast('Failed to load conversations', 'error');
+    document.getElementById('convList').innerHTML = `
+      <div class="conv-empty">
+        <i>⚠️</i>
+        <p>Error loading conversations</p>
+        <button onclick="loadConversations()" style="margin-top:12px;padding:8px 20px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Retry</button>
+      </div>`;
+    return [];
+  } finally {
+    conversationsLoading = false;
+  }
 }
 
-// ─── RENDER CONVERSATION LIST ───
-function renderConversationList() {
-    const list = document.getElementById('convList');
-    
-    if (!allConversations.length) {
-        list.innerHTML = `
-            <div class="conv-empty">
-                <i class="fas fa-comments"></i>
-                <p>No conversations yet</p>
-                <p style="font-size:12px;color:var(--text-faint);">Users can start conversations from the support widget</p>
-            </div>
-        `;
-        return;
-    }
+function renderConversationList(filtered = null) {
+  const list = document.getElementById('convList');
+  const convos = filtered || allConversations;
 
-    list.innerHTML = allConversations.map(t => {
-        const isUnread = t.messages?.some(m => !m.is_read && m.sender_type === 'user') || false;
-        const lastMsg = t.messages?.[t.messages.length - 1];
-        const preview = lastMsg ? lastMsg.message.substring(0, 55) + (lastMsg.message.length > 55 ? '...' : '') : 'No messages';
-        const user = t.user || {};
-        const displayName = user.username || user.email || 'Unknown User';
-        const initials = displayName.charAt(0).toUpperCase();
-        const statusLabels = { open: 'Open', assigned: 'Assigned', in_progress: 'In Progress', resolved: 'Resolved', closed: 'Closed' };
-        const timeAgo = t.updated_at ? getTimeAgo(t.updated_at) : '';
-        const assigned = t.assigned?.username || 'Unassigned';
-        
-        return `
-            <div class="conv-item ${currentTicketId === t.id ? 'active' : ''}" 
-                 onclick="selectConversation('${t.id}')" 
-                 data-id="${t.id}">
-                <div class="avatar">${initials}</div>
-                <div class="info">
-                    <div class="top">
-                        <span class="subject">${escapeHtml(t.subject)}</span>
-                        ${isUnread ? `<span class="badge-unread">•</span>` : ''}
-                    </div>
-                    <div class="preview">${escapeHtml(preview)}</div>
-                    <div class="meta">
-                        <span class="status-dot ${t.status}"></span>
-                        <span>${displayName}</span>
-                        <span>·</span>
-                        <span>${statusLabels[t.status] || t.status}</span>
-                        <span>·</span>
-                        <span class="time-ago">${timeAgo}</span>
-                        ${assigned !== 'Unassigned' ? `<span class="assigned-badge">👤 ${assigned}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+  if (!convos.length) {
+    list.innerHTML = `<div class="conv-empty"><i>💬</i><p>No conversations yet</p></div>`;
+    return;
+  }
 
-    // Select first conversation if none selected
-    if (!currentTicketId && allConversations.length) {
-        selectConversation(allConversations[0].id);
-    }
+  list.innerHTML = convos.map(t => {
+    const unreadCount = Number(t.unread_count || 0);
+    const isUnread = unreadCount > 0;
+    const lastMsg = t.last_message;
+    const preview = lastMsg?.message ? escapeHtml(lastMsg.message.slice(0, 55)) + (lastMsg.message.length > 55 ? '...' : '') : 'No messages';
+    const user = t.user || {};
+    const displayName = user.username || user.email || 'Unknown User';
+    const initials = displayName.charAt(0).toUpperCase();
+    const statusLabels = { open: 'Open', assigned: 'Assigned', in_progress: 'In Progress', waiting_user: 'Waiting User', waiting_support: 'Waiting Support', resolved: 'Resolved', closed: 'Closed' };
+    const timeAgo = t.updated_at ? getTimeAgo(t.updated_at) : '';
+    const assigned = t.assigned?.username || null;
+
+    return `
+      <div class="conv-item ${currentTicketId === t.id ? 'active' : ''}" 
+           onclick="selectConversation('${escapeHtml(t.id)}')" 
+           data-id="${escapeHtml(t.id)}">
+        <div class="avatar">${escapeHtml(initials)}</div>
+        <div class="info">
+          <div class="top">
+            <span class="subject">${escapeHtml(t.subject || '')}</span>
+            ${isUnread ? `<span class="badge-unread">${unreadCount}</span>` : ''}
+          </div>
+          <div class="preview">${preview}</div>
+          <div class="meta">
+            <span class="status-dot ${escapeHtml(t.status)}"></span>
+            <span>${escapeHtml(displayName)}</span>
+            <span>·</span>
+            <span>${escapeHtml(statusLabels[t.status] || t.status)}</span>
+            <span>·</span>
+            <span class="time-ago">${escapeHtml(timeAgo)}</span>
+            ${assigned ? `<span class="assigned-badge">👤 ${escapeHtml(assigned)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-// ─── SEARCH CONVERSATIONS ───
 function searchConversations() {
-    const query = document.getElementById('searchConversations').value.toLowerCase().trim();
-    if (!query) {
-        renderConversationList();
-        return;
-    }
-    
-    const filtered = allConversations.filter(t => {
-        const text = (t.subject + ' ' + (t.user?.username || '') + ' ' + t.ticket_number + ' ' + (t.description || '')).toLowerCase();
-        return text.includes(query);
-    });
-    
-    const list = document.getElementById('convList');
-    if (!filtered.length) {
-        list.innerHTML = `
-            <div class="conv-empty">
-                <i class="fas fa-search"></i>
-                <p>No conversations match "${escapeHtml(query)}"</p>
-            </div>
-        `;
-        return;
-    }
-    
-    // Re-render with filtered list (using same render logic but with filtered data)
-    list.innerHTML = filtered.map(t => {
-        const isUnread = t.messages?.some(m => !m.is_read && m.sender_type === 'user') || false;
-        const lastMsg = t.messages?.[t.messages.length - 1];
-        const preview = lastMsg ? lastMsg.message.substring(0, 55) + (lastMsg.message.length > 55 ? '...' : '') : 'No messages';
-        const user = t.user || {};
-        const displayName = user.username || user.email || 'Unknown User';
-        const initials = displayName.charAt(0).toUpperCase();
-        const statusLabels = { open: 'Open', assigned: 'Assigned', in_progress: 'In Progress', resolved: 'Resolved', closed: 'Closed' };
-        const timeAgo = t.updated_at ? getTimeAgo(t.updated_at) : '';
-        
-        return `
-            <div class="conv-item ${currentTicketId === t.id ? 'active' : ''}" 
-                 onclick="selectConversation('${t.id}')" 
-                 data-id="${t.id}">
-                <div class="avatar">${initials}</div>
-                <div class="info">
-                    <div class="top">
-                        <span class="subject">${escapeHtml(t.subject)}</span>
-                        ${isUnread ? `<span class="badge-unread">•</span>` : ''}
-                    </div>
-                    <div class="preview">${escapeHtml(preview)}</div>
-                    <div class="meta">
-                        <span class="status-dot ${t.status}"></span>
-                        <span>${displayName}</span>
-                        <span>·</span>
-                        <span>${statusLabels[t.status] || t.status}</span>
-                        <span>·</span>
-                        <span class="time-ago">${timeAgo}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+  const query = document.getElementById('searchConversations').value.toLowerCase().trim();
+  if (!query) { renderConversationList(); return; }
+  const filtered = allConversations.filter(t => {
+    const text = ((t.subject || '') + ' ' + (t.user?.username || '') + ' ' + (t.ticket_number || '') + ' ' + (t.description || '')).toLowerCase();
+    return text.includes(query);
+  });
+  if (!filtered.length) {
+    document.getElementById('convList').innerHTML = `<div class="conv-empty"><i>🔍</i><p>No matches for "${escapeHtml(query)}"</p></div>`;
+    return;
+  }
+  renderConversationList(filtered);
 }
 
-// ─── SELECT CONVERSATION ───
 async function selectConversation(ticketId) {
-    currentTicketId = ticketId;
-    
-    document.querySelectorAll('.conv-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.id === ticketId);
+  currentTicketId = ticketId;
+  lastRenderedMessageId = null;
+  document.querySelectorAll('.conv-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === ticketId);
+  });
+  document.getElementById('msgInputArea').style.display = 'flex';
+  await loadMessages(ticketId);
+}
+
+async function loadMessages(ticketId, { silent = false } = {}) {
+  if (!ticketId || messagesLoading) return;
+  messagesLoading = true;
+  try {
+    const data = await apiCall(API.ticket(ticketId));
+    const ticket = data.data || {};
+    currentTicketNumber = ticket.ticket_number;
+    currentStatus = ticket.status;
+
+    document.getElementById('convSubject').textContent = ticket.subject || 'Conversation';
+    document.getElementById('convTicketId').textContent = ticket.ticket_number || '';
+    const statusLabels = { open: 'Open', assigned: 'Assigned', in_progress: 'In Progress', waiting_user: 'Waiting User', waiting_support: 'Waiting Support', resolved: 'Resolved', closed: 'Closed' };
+    const statusEl = document.getElementById('convStatusBadge');
+    statusEl.textContent = statusLabels[ticket.status] || ticket.status || 'Open';
+    statusEl.className = `status-badge ${ticket.status || 'open'}`;
+
+    const messages = ticket.messages || [];
+    const lastId = messages[messages.length - 1]?.id;
+    if (!silent || (lastId && lastId !== lastRenderedMessageId)) {
+      renderMessages(messages);
+      lastRenderedMessageId = lastId || null;
+    }
+
+    apiCall(API.read(ticketId), { method: 'POST' }).catch(() => {});
+  } catch (e) {
+    console.error('Load messages error:', e);
+    if (!silent) showToast('Failed to load messages', 'error');
+  } finally {
+    messagesLoading = false;
+  }
+}
+
+function buildAttachmentHtml(message) {
+  const attachments = normaliseAttachments(message);
+  if (!attachments.length) return '';
+
+  return attachments.map((a, idx) => {
+    const looksImage = isImageMime(a.type) || isLikelyImageUrl(a.url);
+    const safeUrl = escapeHtml(a.url);
+    const safeName = escapeHtml(a.name || 'Attachment');
+    const safeSize = a.size ? escapeHtml(formatFileSize(a.size)) : '';
+    const uid = 'att-' + Math.random().toString(36).slice(2, 8) + '-' + idx;
+    return `
+      <div class="msg-attachment" data-att-id="${uid}">
+        ${looksImage
+          ? `<img src="${safeUrl}" alt="${safeName}" loading="lazy"
+                 data-lightbox-src="${safeUrl}"
+                 onerror="this.parentElement.classList.add('broken')">`
+          : ''}
+        <div class="attachment-info">
+          <i class="fas ${looksImage ? 'fa-image' : 'fa-file'}"></i>
+          <span class="attachment-name" title="${safeName}">${safeName}</span>
+          ${safeSize ? `<span class="file-size">${safeSize}</span>` : ''}
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="Open in new tab">
+            <i class="fas fa-external-link-alt"></i>
+          </a>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function formatFileSize(b) {
+  if (!b && b !== 0) return '';
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function renderMessages(messages) {
+  const container = document.getElementById('msgContainer');
+  if (!messages.length) {
+    container.innerHTML = `<div class="msg-empty"><i>💬</i><h4>No messages yet</h4><p>Send the first reply to start the conversation</p></div>`;
+    return;
+  }
+
+  container.innerHTML = messages.map(m => {
+    const isMine = m.sender_id === currentUserId || m.sender_type === 'admin' || m.sender_type === 'support';
+    const isInternal = !!m.is_internal;
+    const cls = isInternal ? 'system' : (isMine ? 'sent' : 'received');
+    const senderName = isInternal ? '🔒 Internal' : (isMine ? 'You' : (m.sender?.username || 'User'));
+    return `
+      <div class="msg ${cls}" data-msg-id="${escapeHtml(m.id)}">
+        <div class="sender">${escapeHtml(senderName)}</div>
+        <div class="text">${escapeHtml(m.message || '')}</div>
+        ${isInternal ? '<span class="internal-badge">🔒 Internal</span>' : ''}
+        ${buildAttachmentHtml(m)}
+        <div class="time">${escapeHtml(new Date(m.created_at).toLocaleString())}</div>
+      </div>`;
+  }).join('');
+
+  container.scrollTop = container.scrollHeight;
+  wireAttachmentInteractions();
+}
+
+function appendMessage(m) {
+  const container = document.getElementById('msgContainer');
+  const emptyEl = container.querySelector('.msg-empty');
+  if (emptyEl) container.innerHTML = '';
+
+  const isMine = m.sender_id === currentUserId || m.sender_type === 'admin';
+  const isInternal = !!m.is_internal;
+  const cls = isInternal ? 'system' : (isMine ? 'sent' : 'received');
+  const senderName = isInternal ? '🔒 Internal' : (isMine ? 'You' : (m.sender?.username || 'User'));
+
+  const el = document.createElement('div');
+  el.className = `msg ${cls} sending`;
+  el.dataset.msgId = m.id;
+  el.innerHTML = `
+    <div class="sender">${escapeHtml(senderName)}</div>
+    <div class="text">${escapeHtml(m.message || '')}</div>
+    ${isInternal ? '<span class="internal-badge">🔒 Internal</span>' : ''}
+    <div class="time">${escapeHtml(new Date(m.created_at).toLocaleString())}</div>
+  `;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function wireAttachmentInteractions() {
+  const container = document.getElementById('msgContainer');
+  container.querySelectorAll('img[data-lightbox-src]').forEach(img => {
+    img.addEventListener('click', () => {
+      document.getElementById('imgLightboxImg').src = img.dataset.lightboxSrc;
+      document.getElementById('imgLightbox').classList.add('open');
     });
-    
-    document.getElementById('msgInputArea').style.display = 'flex';
-    await loadMessages(ticketId);
-    await loadUserInfo(ticketId);
+  });
+}
+function closeLightbox() {
+  document.getElementById('imgLightbox').classList.remove('open');
+  document.getElementById('imgLightboxImg').src = '';
 }
 
-// ─── LOAD MESSAGES ───
-async function loadMessages(ticketId) {
-    if (!ticketId) return;
-
-    try {
-        const data = await apiCall(`/support/tickets/${ticketId}?messages_limit=100`);
-        const ticket = data.data || {};
-        currentTicketNumber = ticket.ticket_number;
-        currentStatus = ticket.status;
-        
-        document.getElementById('convSubject').textContent = ticket.subject || 'Conversation';
-        document.getElementById('convTicketId').textContent = ticket.ticket_number || '';
-        
-        // Status badge
-        const statusLabels = { open: 'Open', assigned: 'Assigned', in_progress: 'In Progress', resolved: 'Resolved', closed: 'Closed' };
-        const statusEl = document.getElementById('convStatusBadge');
-        statusEl.textContent = statusLabels[ticket.status] || ticket.status || 'Open';
-        statusEl.className = `status-badge ${ticket.status || 'open'}`;
-        
-        const messages = ticket.messages || [];
-        const container = document.getElementById('msgContainer');
-        
-        if (!messages.length) {
-            container.innerHTML = `
-                <div class="msg-empty">
-                    <i class="fas fa-comment-dots"></i>
-                    <h4>No messages yet</h4>
-                    <p>Send the first reply to start the conversation</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = messages.map(m => {
-            const isSent = m.sender_type === 'admin' || m.sender_type === 'support';
-            const senderName = m.sender_type === 'user' ? (m.sender?.username || 'User') : 'You (Admin)';
-            const senderClass = isSent ? 'sent' : 'received';
-            const messageText = escapeHtml(m.message);
-            
-            return `
-                <div class="msg ${senderClass}">
-                    <div class="sender">${senderName}</div>
-                    <div class="text">${messageText}</div>
-                    ${m.attachments ? `<div class="attachment-indicator"><i class="fas fa-paperclip"></i> Attachment</div>` : ''}
-                    <div class="time">${new Date(m.created_at).toLocaleString()}</div>
-                </div>
-            `;
-        }).join('');
-
-        container.scrollTop = container.scrollHeight;
-        
-        // Mark messages as read
-        await markAsRead(ticketId);
-
-        // Update conversation list
-        renderConversationList();
-
-    } catch(e) {
-        console.error('Load messages error:', e);
-        showToast('Failed to load messages', 'error');
-    }
-}
-
-// ─── MARK AS READ ───
-async function markAsRead(ticketId) {
-    try {
-        await apiCall(`/support/tickets/${ticketId}/read`, { method: 'POST' });
-    } catch(e) {
-        // Silent fail
-    }
-}
-
-// ─── LOAD USER INFO ───
-async function loadUserInfo(ticketId) {
-    if (!ticketId) return;
-    try {
-        const data = await apiCall(`/support/tickets/${ticketId}`);
-        const ticket = data.data || {};
-        const user = ticket.user || {};
-        
-        const container = document.getElementById('userInfoContent');
-        container.innerHTML = `
-            <div class="grid">
-                <div class="grid-item"><span class="label">Name:</span><span class="value">${escapeHtml(user.username || 'N/A')}</span></div>
-                <div class="grid-item"><span class="label">Email:</span><span class="value">${escapeHtml(user.email || 'N/A')}</span></div>
-                <div class="grid-item"><span class="label">Wallet (NGN):</span><span class="value">₦${(user.wallet_ngn || 0).toLocaleString()}</span></div>
-                <div class="grid-item"><span class="label">Wallet (USD):</span><span class="value">$${(user.wallet_usd || 0).toFixed(2)}</span></div>
-                <div class="grid-item"><span class="label">Status:</span><span class="value">${user.status || 'active'}</span></div>
-                <div class="grid-item"><span class="label">Joined:</span><span class="value">${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span></div>
-            </div>
-            <div class="actions">
-                <button class="btn-info" onclick="window.location.href='/admin/support?ticket=${ticketId}'">🎫 View in Support</button>
-            </div>
-        `;
-    } catch(e) {
-        console.error('Load user info error:', e);
-    }
-}
-
-function toggleUserInfo() {
-    const panel = document.getElementById('userInfoPanel');
-    userInfoVisible = !userInfoVisible;
-    panel.classList.toggle('open', userInfoVisible);
-}
-
-// ─── SEND MESSAGE ───
 async function sendMessage() {
-    const input = document.getElementById('msgInput');
-    const message = input.value.trim();
-    if (!message || !currentTicketId) return;
+  const input = document.getElementById('msgInput');
+  const message = input.value.trim();
+  if (!message || !currentTicketId) return;
 
-    const btn = document.getElementById('sendBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  const fileInput = document.getElementById('fileInput');
+  const file = fileInput.files[0];
 
-    try {
-        const formData = new FormData();
-        formData.append('message', message);
-        
-        const fileInput = document.getElementById('fileInput');
-        if (fileInput.files.length > 0) {
-            formData.append('attachment', fileInput.files[0]);
-        }
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
 
-        const token = getToken();
-        const response = await fetch(`/api/support/tickets/${currentTicketId}/messages`, {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token },
-            body: formData
-        });
+  const tempId = 'tmp-' + Date.now();
+  appendMessage({
+    id: tempId,
+    message,
+    created_at: new Date().toISOString(),
+    sender_id: currentUserId,
+    sender_type: 'admin',
+    attachments: file ? [{ name: file.name, type: file.type }] : []
+  });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to send');
+  try {
+    const formData = new FormData();
+    formData.append('message', message);
+    if (file) formData.append('attachments', file);
 
-        input.value = '';
-        document.getElementById('fileInput').value = '';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+    const token = getToken();
+    const res = await fetch(API.messages(currentTicketId), {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok || data.success === false) throw new Error(data.error || 'Failed to send');
 
-        await loadMessages(currentTicketId);
-        await loadConversations();
-        showToast('Message sent', 'success');
+    input.value = '';
+    resetComposer(input);
+    fileInput.value = '';
 
-    } catch(e) {
-        console.error('Send message error:', e);
-        showToast(e.message || 'Failed to send message', 'error');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
-    }
-}
+    const el = document.querySelector(`[data-msg-id="${tempId}"]`);
+    if (el) el.remove();
+    lastRenderedMessageId = null;
+    // Reload once so the real attachments (Cloudinary URLs) render.
+    await loadMessages(currentTicketId);
 
-// ─── HANDLE KEY DOWN ───
-function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-}
-
-// ─── HANDLE ATTACHMENT ───
-function handleAttachment() {
-    const input = document.getElementById('fileInput');
-    if (input.files.length > 0) {
-        showToast(`Attached: ${input.files[0].name}`, 'info');
-    }
-}
-
-// ─── REFRESH ───
-function refreshAll() {
-    showToast('Refreshing...', 'info');
     loadConversations();
-    if (currentTicketId) {
-        loadMessages(currentTicketId);
-        loadUserInfo(currentTicketId);
-    }
+    showToast('Message sent', 'success');
+  } catch (e) {
+    const el = document.querySelector(`[data-msg-id="${tempId}"]`);
+    if (el) el.remove();
+    console.error('Send message error:', e);
+    showToast(e.message || 'Failed to send message', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function handleKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoGrow(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const next = Math.min(Math.max(el.scrollHeight, MIN_COMPOSER_PX), MAX_COMPOSER_PX);
+  el.style.height = next + 'px';
+}
+function resetComposer(el) {
+  if (!el) return;
+  el.style.height = MIN_COMPOSER_PX + 'px';
+}
+
+function handleAttachment() {
+  const input = document.getElementById('fileInput');
+  if (input.files.length > 0) {
+    showToast(`Attached: ${input.files[0].name}`, 'info');
+  }
+}
+
+function refreshAll() {
+  showToast('Refreshing...', 'info');
+  loadConversations();
+  if (currentTicketId) loadMessages(currentTicketId, { silent: true });
 }
 
 function refreshMessages() {
-    if (currentTicketId) {
-        loadMessages(currentTicketId);
-        showToast('Messages refreshed', 'success');
-    }
+  if (currentTicketId) {
+    loadMessages(currentTicketId);
+    showToast('Messages refreshed', 'success');
+  }
 }
 
-// ─── SIDEBAR TOGGLE ───
-document.getElementById('hamburger')?.addEventListener('click', function() {
-    document.getElementById('sidebar').classList.toggle('open');
-});
-
-// ─── AUTO-RESIZE TEXTAREA ───
-document.getElementById('msgInput')?.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-});
-
-// ─── CLOSE SIDEBAR ON OUTSIDE CLICK ───
-document.addEventListener('click', function(e) {
-    const sidebar = document.getElementById('sidebar');
-    if (window.innerWidth <= 1024) {
-        if (!sidebar.contains(e.target) && !e.target.closest('.hamburger')) {
-            sidebar.classList.remove('open');
-        }
-    }
-});
-
-// ─── KEYBOARD SHORTCUTS ───
-document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && e.key === 'r') {
-        e.preventDefault();
-        refreshAll();
-    }
-    if (e.ctrlKey && e.key === 'Enter' && document.activeElement?.id === 'msgInput') {
-        e.preventDefault();
-        sendMessage();
-    }
-    if (e.key === 'Escape') {
-        const panel = document.getElementById('userInfoPanel');
-        if (panel.classList.contains('open')) {
-            panel.classList.remove('open');
-            userInfoVisible = false;
-        }
-    }
-});
-
-// ─── POLLING ───
 function startPolling() {
-    if (pollingInterval) clearInterval(pollingInterval);
-    pollingInterval = setInterval(() => {
-        if (!document.hidden) {
-            loadConversations();
-            if (currentTicketId) {
-                loadMessages(currentTicketId);
-            }
-        }
-    }, 15000);
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(() => {
+    if (document.hidden) return;
+    loadConversations();
+    if (currentTicketId) loadMessages(currentTicketId, { silent: true });
+  }, 30000);
 }
-
 function stopPolling() {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-    }
+  if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
 }
 
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        stopPolling();
-    } else {
-        startPolling();
-        refreshAll();
-    }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopPolling();
+  else { startPolling(); refreshAll(); }
 });
 
-// ─── INIT ───
-(async function init() {
-    console.log('💬 Messages page loaded - focused on conversations only');
-    await loadConversations();
-    startPolling();
-})();
+document.getElementById('hamburger')?.addEventListener('click', function() {
+  document.getElementById('sidebar').classList.toggle('open');
+});
 
-// ─── GLOBAL FUNCTIONS ───
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('msgInput');
+  if (el) resetComposer(el);
+  document.getElementById('imgLightbox')?.addEventListener('click', closeLightbox);
+  document.getElementById('imgLightboxClose')?.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+});
+
+initializePage();
+
 window.selectConversation = selectConversation;
 window.loadMessages = loadMessages;
 window.sendMessage = sendMessage;
@@ -1381,9 +983,9 @@ window.handleKeyDown = handleKeyDown;
 window.searchConversations = searchConversations;
 window.refreshAll = refreshAll;
 window.refreshMessages = refreshMessages;
-window.toggleUserInfo = toggleUserInfo;
-window.showToast = showToast;
-window.escapeHtml = escapeHtml;
+window.loadConversations = loadConversations;
+window.autoGrow = autoGrow;
+window.handleAttachment = handleAttachment;
 </script>
 </body>
 </html>

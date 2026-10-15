@@ -32,7 +32,6 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
 .btn-login:disabled{opacity:.6;cursor:not-allowed}
 .error-message{background:#fdecec;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none;border-left:3px solid #dc2626}
 .error-message.show{display:block}
-.info-message{background:#e8f1fb;color:#2563a8;padding:12px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;border-left:3px solid #2563a8;line-height:1.5}
 .loading-spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .login-footer{text-align:center;margin-top:24px;font-size:13px;color:#5b7480}
@@ -50,6 +49,9 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
 .mfa-link{background:none;border:none;color:#0c3d4a;font-weight:600;font-size:12.5px;text-decoration:underline;cursor:pointer;padding:6px 0}
 .mfa-link:hover{color:#12556a}
 .mfa-actions{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.return-banner{background:#e8f1fb;color:#2563a8;padding:10px 14px;border-radius:8px;font-size:12.5px;margin-bottom:16px;border-left:3px solid #2563a8;display:none;line-height:1.5}
+.return-banner.show{display:block}
+.return-banner code{font-family:'JetBrains Mono',monospace;font-size:11.5px;background:rgba(37,99,168,.1);padding:1px 5px;border-radius:4px}
 @media (max-width:480px){
     body{padding:12px}
     .login-container{padding:28px 22px;border-radius:16px}
@@ -64,6 +66,10 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
     <div class="logo">
         <h1>Miles<span>Space</span></h1>
         <p>Admin Intelligence Portal</p>
+    </div>
+
+    <div class="return-banner" id="returnBanner">
+        Sign in to continue to <code id="returnBannerPath">/admin/dashboard.html</code>
     </div>
 
     <div class="error-message" id="errorMessage">
@@ -132,32 +138,120 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
     'use strict';
 
     // ─── DOM ─────────────────────────────────────────────────
-    const stepPassword   = document.getElementById('stepPassword');
-    const stepMfa        = document.getElementById('stepMfa');
-    const form           = document.getElementById('loginForm');
-    const mfaForm        = document.getElementById('mfaForm');
-    const emailInput     = document.getElementById('email');
-    const passwordInput  = document.getElementById('password');
-    const mfaCodeInput   = document.getElementById('mfaCode');
-    const mfaBtn         = document.getElementById('mfaBtn');
-    const mfaBtnText     = document.getElementById('mfaBtnText');
-    const mfaBtnIcon     = document.getElementById('mfaBtnIcon');
-    const loginBtn       = document.getElementById('loginBtn');
-    const loginBtnText   = document.getElementById('loginBtnText');
-    const loginBtnIcon   = document.getElementById('loginBtnIcon');
-    const errorMessage   = document.getElementById('errorMessage');
-    const errorText      = document.getElementById('errorText');
-    const passwordToggle = document.getElementById('passwordToggle');
-    const mfaBack        = document.getElementById('mfaBack');
-    const mfaUseRecovery = document.getElementById('mfaUseRecovery');
-    const mfaStepSub     = document.getElementById('mfaStepSub');
-    const mfaTimer       = document.getElementById('mfaTimer');
+    const stepPassword     = document.getElementById('stepPassword');
+    const stepMfa          = document.getElementById('stepMfa');
+    const form             = document.getElementById('loginForm');
+    const mfaForm          = document.getElementById('mfaForm');
+    const emailInput       = document.getElementById('email');
+    const passwordInput    = document.getElementById('password');
+    const mfaCodeInput     = document.getElementById('mfaCode');
+    const mfaBtn           = document.getElementById('mfaBtn');
+    const mfaBtnText       = document.getElementById('mfaBtnText');
+    const mfaBtnIcon       = document.getElementById('mfaBtnIcon');
+    const loginBtn         = document.getElementById('loginBtn');
+    const loginBtnText     = document.getElementById('loginBtnText');
+    const loginBtnIcon     = document.getElementById('loginBtnIcon');
+    const errorMessage     = document.getElementById('errorMessage');
+    const errorText        = document.getElementById('errorText');
+    const passwordToggle   = document.getElementById('passwordToggle');
+    const mfaBack          = document.getElementById('mfaBack');
+    const mfaUseRecovery   = document.getElementById('mfaUseRecovery');
+    const mfaStepSub       = document.getElementById('mfaStepSub');
+    const mfaTimer         = document.getElementById('mfaTimer');
+    const returnBanner     = document.getElementById('returnBanner');
+    const returnBannerPath = document.getElementById('returnBannerPath');
 
-    let passwordVisible = false;
-    let usingRecovery   = false;
-    let mfaToken        = null;
-    let countdownTimer  = null;
-    let secondsLeft     = 180; // 3 minutes, matches backend challenge expiry
+    let passwordVisible   = false;
+    let usingRecovery     = false;
+    let mfaToken          = null;
+    let countdownTimer    = null;
+    let secondsLeft       = 180;
+    let redirectScheduled = false;
+
+    // ─── Return-URL handling ────────────────────────────────
+    //
+    // The page reads two sources for the return destination:
+    //   1. `returnTo` in the query string (set by the session layer
+    //      when it redirected here).
+    //   2. sessionStorage['admin_return_url'] (set by admin-session.js).
+    //
+    // Both are validated against `safeReturnTo` before being used
+    // or forwarded to the server. The server never sees an
+    // untrusted value, and the client never navigates to one.
+
+    function safeReturnTo(value) {
+        if (!value || typeof value !== 'string') return '/admin/dashboard.html';
+        // Must be an internal admin path. Reject absolute, protocol-
+        // relative, and any URL carrying a scheme.
+        if (!value.startsWith('/admin/')) return '/admin/dashboard.html';
+        if (value.startsWith('//')) return '/admin/dashboard.html';
+        if (value.indexOf('://') !== -1) return '/admin/dashboard.html';
+        // Never return to the login page itself — a loop guard.
+        if (value === '/admin/index.html' || value.startsWith('/admin/index')) {
+            return '/admin/dashboard.html';
+        }
+        if (value === '/admin/login.html' || value.startsWith('/admin/login')) {
+            return '/admin/dashboard.html';
+        }
+        return value;
+    }
+
+    function getReturnTo() {
+        // Priority 1: explicit query string.
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const fromQuery = params.get('returnTo');
+            if (fromQuery) {
+                const safe = safeReturnTo(fromQuery);
+                if (safe !== '/admin/dashboard.html') return safe;
+            }
+        } catch (_) { /* ignore */ }
+
+        // Priority 2: sessionStorage.
+        try {
+            const raw = sessionStorage.getItem('admin_return_url');
+            if (raw) {
+                const safe = safeReturnTo(raw);
+                if (safe !== '/admin/dashboard.html') return safe;
+            }
+        } catch (_) { /* ignore */ }
+
+        return null;
+    }
+
+    // Compute once, on load, so the value used in the POST body is
+    // the same value shown in the banner.
+    const RETURN_TO = getReturnTo();
+
+    // ─── Return banner ──────────────────────────────────────
+    (function showReturnBanner() {
+        if (!RETURN_TO) return;
+        returnBannerPath.textContent = RETURN_TO;
+        returnBanner.classList.add('show');
+    })();
+
+    // ─── Redirect helper ────────────────────────────────────
+    //
+    // Every successful-login path goes through this. When the
+    // session layer is present, it is authoritative for the
+    // destination (it re-reads the same storage and validates).
+    // The `RETURN_TO` we captured here is the fallback.
+    function goAfterLogin() {
+        if (redirectScheduled) return;
+        redirectScheduled = true;
+
+        setTimeout(() => {
+            if (window.AdminSession && typeof window.AdminSession.redirectAfterLogin === 'function') {
+                window.AdminSession.redirectAfterLogin();
+                return;
+            }
+            // Defensive: admin-session.js should always be loaded,
+            // but we do not want to strand the operator on the login
+            // page if it isn't.
+            const target = RETURN_TO || '/admin/dashboard.html';
+            window.location.replace(target);
+        }, 150);
+    }
 
     // ─── Password toggle ────────────────────────────────────
     passwordToggle.addEventListener('click', () => {
@@ -273,10 +367,16 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
         setLoading(loginBtn, loginBtnText, loginBtnIcon, true);
 
         try {
+            // returnTo is forwarded so the server can echo it in the
+            // response. The server does NOT trust it — it is a hint
+            // for the client, and the client re-validates on receipt.
+            const body = { email, password };
+            if (RETURN_TO) body.returnTo = RETURN_TO;
+
             const res = await fetch('/api/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify(body)
             });
             const data = await res.json().catch(() => ({}));
 
@@ -284,7 +384,7 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
                 throw new Error(data.error || data.message || 'Login failed');
             }
 
-            if (data.data?.mfa_required) {
+            if (data.data && data.data.mfa_required) {
                 mfaToken = data.data.mfa_token;
                 setLoading(loginBtn, loginBtnText, loginBtnIcon, false, 'Sign In');
                 showMfaStep();
@@ -311,14 +411,12 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
     // Mode-aware sanitizer. No `pattern` attribute anywhere.
     mfaCodeInput.addEventListener('input', () => {
         if (usingRecovery) {
-            // Recovery codes: keep only A–Z, 0–9 and dash; uppercase; strip doubled dashes.
             let v = mfaCodeInput.value
                 .replace(/[^A-Za-z0-9-]/g, '')
                 .toUpperCase()
                 .replace(/-+/g, '-');
             mfaCodeInput.value = v.slice(0, 20);
         } else {
-            // TOTP: digits only, max 6
             mfaCodeInput.value = mfaCodeInput.value.replace(/\D/g, '').slice(0, 6);
         }
         hideError();
@@ -346,6 +444,7 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
             const body = usingRecovery
                 ? { mfa_token: mfaToken, recovery_code: raw }
                 : { mfa_token: mfaToken, code: raw };
+            if (RETURN_TO) body.returnTo = RETURN_TO;
 
             const res = await fetch('/api/admin/login/mfa', {
                 method: 'POST',
@@ -371,13 +470,34 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
     });
 
     // ─── Finish login ───────────────────────────────────────
+    //
+    // Two things must happen in order:
+    //   1. Persist the session (token + refresh + user).
+    //   2. Navigate to the return URL, or dashboard.
+    //
+    // The `returnTo` echoed by the server is validated with the
+    // same `safeReturnTo` used above, so an attacker who somehow
+    // gets a malicious value into the response body still cannot
+    // cause an open redirect.
     function completeLogin(payload) {
-        const { token, user, refreshToken } = payload || {};
+        const data = payload || {};
+        const token = data.token;
+        const user = data.user;
+        const refreshToken = data.refreshToken;
+        const serverReturnTo = data.returnTo;
+
         if (!token) { showError('Server did not return an authentication token'); return; }
 
-        if (typeof window.AdminSession !== 'undefined' && window.AdminSession.save) {
-            window.AdminSession.save(token, user, refreshToken);
+        if (window.AdminSession && typeof window.AdminSession.save === 'function') {
+            try {
+                window.AdminSession.save(token, user, refreshToken);
+            } catch (e) {
+                showError('Could not persist session. Please try again.');
+                return;
+            }
         } else {
+            // Defensive: persist manually so subsequent pages work
+            // even if admin-session.js failed to load.
             localStorage.setItem('admin_sess', JSON.stringify({
                 token,
                 refreshToken: refreshToken || null,
@@ -386,30 +506,74 @@ body{font-family:'Inter',sans-serif;background:#f4f7fb;min-height:100vh;display:
             }));
         }
 
-        const dashboardUrl = payload?.dashboardUrl || '/admin/dashboard.html';
-        setTimeout(() => window.location.replace(dashboardUrl), 150);
+        // Re-validate server's echo, then fall back to our own
+        // captured value, then to the dashboard.
+        let destination = '/admin/dashboard.html';
+        if (serverReturnTo) {
+            destination = safeReturnTo(serverReturnTo);
+        } else if (RETURN_TO) {
+            destination = safeReturnTo(RETURN_TO);
+        }
+
+        // If a saved return URL exists in sessionStorage and we have
+        // one, prefer it — this is what admin-session.js writes on
+        // redirectToLogin. This guarantees the same page the
+        // operator was on is where they come back to.
+        try {
+            const stored = sessionStorage.getItem('admin_return_url');
+            if (stored) {
+                const safeStored = safeReturnTo(stored);
+                if (safeStored !== '/admin/dashboard.html') destination = safeStored;
+            }
+        } catch (_) { /* ignore */ }
+
+        // Prefer the session layer's redirect if it's available —
+        // it also clears the return-URL key and logs.
+        if (window.AdminSession && typeof window.AdminSession.redirectAfterLogin === 'function') {
+            redirectScheduled = true;
+            setTimeout(() => window.AdminSession.redirectAfterLogin(), 150);
+            return;
+        }
+
+        // Fallback: navigate directly.
+        redirectScheduled = true;
+        window.location.replace(destination);
     }
 
     emailInput.addEventListener('input', hideError);
     passwordInput.addEventListener('input', hideError);
 
     // ─── Auto-redirect if already signed in ─────────────────
+    //
+    // If a valid session already exists, honour the return URL the
+    // same way a fresh login would. Runs once, on a short delay so
+    // admin-session.js has time to initialise.
+    //
+    // admin-session.js itself already does this from init() when
+    // IS_LOGIN_PAGE is true. This block is a belt-and-braces path
+    // for pages that load the login form without the session
+    // library being able to reach the same conclusion.
     setTimeout(() => {
         try {
-            const raw = localStorage.getItem('admin_sess');
-            if (!raw) return;
-            const parsed = JSON.parse(raw);
-            if (!parsed?.token) return;
-            const parts = parsed.token.split('.');
-            if (parts.length !== 3) return;
-            let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-            while (payload.length % 4) payload += '=';
-            const decoded = JSON.parse(atob(payload));
-            if (decoded.exp && decoded.exp * 1000 > Date.now()) {
-                window.location.replace('/admin/dashboard.html');
+            if (!window.AdminSession) return;
+            if (typeof window.AdminSession.isValid === 'function' && window.AdminSession.isValid()) {
+                goAfterLogin();
+                return;
             }
-        } catch (_) {}
-    }, 300);
+            const token = typeof window.AdminSession.getToken === 'function'
+                ? window.AdminSession.getToken()
+                : null;
+            if (!token) return;
+            const parts = token.split('.');
+            if (parts.length !== 3) return;
+            let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) base64 += '=';
+            const decoded = JSON.parse(atob(base64));
+            if (decoded && decoded.exp && decoded.exp * 1000 > Date.now()) {
+                goAfterLogin();
+            }
+        } catch (_) { /* ignore */ }
+    }, 350);
 })();
 </script>
 </body>

@@ -1,6 +1,8 @@
 // routes/wallet/koraDeposits.js
 // NGN → NGN (₦50 fee). Foreign → USD at admin rate.
 
+'use strict';
+
 const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
@@ -13,7 +15,8 @@ const fxService       = require('../../services/fxRateService');
 const depositService  = require('../../services/depositService');
 
 // ─── GET /api/wallet/deposit-currencies ────────────────────
-router.get('/deposit-currencies', async (req, res) => {
+// Auth required — config is not public.
+router.get('/deposit-currencies', authMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabaseAdmin
             .from('deposit_currencies')
@@ -38,7 +41,7 @@ router.get('/deposit-currencies', async (req, res) => {
             minor_unit: Number(c.minor_unit || 2)
         }));
 
-        res.json({
+        return res.json({
             success: true,
             default_currency: 'NGN',
             currencies: all.filter(c => c.enabled),
@@ -46,7 +49,7 @@ router.get('/deposit-currencies', async (req, res) => {
         });
     } catch (e) {
         console.error('[DEPOSIT] currencies error:', e.message);
-        res.status(500).json({ success: false, error: e.message });
+        return res.status(500).json({ success: false, error: 'Failed to load currencies' });
     }
 });
 
@@ -73,7 +76,7 @@ router.post('/deposits/quote', authMiddleware, async (req, res) => {
 
         const b = fxService.computeDepositBreakdown(cfg, amtNum);
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 payment_currency: b.payment_currency,
@@ -91,7 +94,7 @@ router.post('/deposits/quote', authMiddleware, async (req, res) => {
         const code = e.code || 'QUOTE_FAILED';
         const status = ['UNSUPPORTED_CURRENCY','INVALID_AMOUNT','AMOUNT_TOO_LOW','AMOUNT_TOO_HIGH','CURRENCY_MISCONFIGURED'].includes(code) ? 400
                      : code === 'FX_RATE_UNAVAILABLE' ? 503 : 500;
-        res.status(status).json({ success: false, error: e.message, code });
+        return res.status(status).json({ success: false, error: e.message, code });
     }
 });
 
@@ -163,7 +166,12 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
             console.error('[DEPOSIT] Kora init failed:', koraErr.message);
             await supabaseAdmin
                 .from('deposit_requests')
-                .update({ status: 'failed', failure_reason: 'KORA_INITIALIZATION_FAILED', provider_payload: koraErr.provider || { error: koraErr.message }, failed_at: new Date().toISOString() })
+                .update({
+                    status: 'failed',
+                    failure_reason: 'KORA_INITIALIZATION_FAILED',
+                    provider_payload: koraErr.provider || { error: koraErr.message },
+                    failed_at: new Date().toISOString()
+                })
                 .eq('id', deposit.id);
             return res.status(502).json({ success: false, error: 'Payment provider initialization failed', code: 'KORA_INITIALIZATION_FAILED' });
         }
@@ -200,12 +208,12 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
             request_fingerprint: fingerprint
         });
 
-        res.json(responsePayload);
+        return res.json(responsePayload);
     } catch (e) {
         const code = e.code || 'SERVER_ERROR';
         const status = ['UNSUPPORTED_CURRENCY','AMOUNT_TOO_LOW','AMOUNT_TOO_HIGH','INVALID_AMOUNT','CURRENCY_MISCONFIGURED'].includes(code) ? 400
                      : code === 'FX_RATE_UNAVAILABLE' ? 503 : 500;
-        res.status(status).json({ success: false, error: e.message, code });
+        return res.status(status).json({ success: false, error: e.message, code });
     }
 });
 
@@ -230,8 +238,14 @@ router.get('/deposits/kora/callback', async (req, res) => {
         try {
             const verified = await korapayService.verifyTransaction(deposit.provider_reference || ref);
             verified._verified = true;
-            const result = await depositService.completeKoraDeposit({ depositId: deposit.id, providerTransaction: verified, source: 'callback' });
-            if (result.completed) return res.redirect('/fund?deposit=success&ref=' + encodeURIComponent(deposit.internal_reference));
+            const result = await depositService.completeKoraDeposit({
+                depositId: deposit.id,
+                providerTransaction: verified,
+                source: 'callback'
+            });
+            if (result.completed) {
+                return res.redirect('/fund?deposit=success&ref=' + encodeURIComponent(deposit.internal_reference));
+            }
             return res.redirect('/fund?deposit=pending&ref=' + encodeURIComponent(deposit.internal_reference));
         } catch (e) {
             return res.redirect('/fund?deposit=pending&ref=' + encodeURIComponent(deposit.internal_reference));
@@ -242,69 +256,82 @@ router.get('/deposits/kora/callback', async (req, res) => {
 });
 
 // ─── POST /api/wallet/deposits/kora/webhook ────────────────
-router.post('/deposits/kora/webhook', express.json({
-    verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); }
-}), async (req, res) => {
-    res.status(200).json({ received: true });
+// `express` is now imported at the top of this file, so
+// express.json({verify}) works. Raw body is captured for
+// signature verification.
+router.post(
+    '/deposits/kora/webhook',
+    express.json({
+        verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); }
+    }),
+    async (req, res) => {
+        // Ack immediately so retries don't pile up.
+        res.status(200).json({ received: true });
 
-    try {
-        const signature = req.headers['x-korapay-signature'];
-        const rawBody   = req.rawBody || JSON.stringify(req.body || {});
+        try {
+            const signature = req.headers['x-korapay-signature'];
+            const rawBody   = req.rawBody || JSON.stringify(req.body || {});
 
-        const valid = korapayService.verifyWebhookSignature(rawBody, signature);
-        const parsed = korapayService.parseWebhook(req.body || {});
+            const valid = korapayService.verifyWebhookSignature(req.body?.data || req.body || {}, signature);
+            const parsed = korapayService.parseWebhook(req.body || {});
 
-        const { error: insertErr } = await supabaseAdmin
-            .from('kora_webhook_events')
-            .insert({
-                provider: 'korapay',
-                event_type: parsed.event_type,
-                provider_reference: parsed.provider_reference,
-                provider_event_ref: parsed.provider_event_ref,
-                payload: parsed.raw,
-                signature: signature || null,
-                signature_valid: valid,
-                processing_status: 'received'
+            const { error: insertErr } = await supabaseAdmin
+                .from('kora_webhook_events')
+                .insert({
+                    provider: 'korapay',
+                    event_type: parsed.event_type,
+                    provider_reference: parsed.provider_reference,
+                    provider_event_ref: parsed.provider_event_ref,
+                    payload: parsed.raw,
+                    signature: signature || null,
+                    signature_valid: valid,
+                    processing_status: 'received'
+                });
+
+            // Duplicate event — already handled.
+            if (insertErr && insertErr.code === '23505') return;
+
+            if (!valid) {
+                console.warn('[KORA WEBHOOK] invalid signature — ignoring');
+                return;
+            }
+
+            const providerRef = parsed.provider_reference;
+            if (!providerRef) return;
+
+            const { data: deposit } = await supabaseAdmin
+                .from('deposit_requests')
+                .select('*')
+                .or(`provider_reference.eq.${providerRef},merchant_reference.eq.${providerRef}`)
+                .maybeSingle();
+
+            if (!deposit) return;
+
+            const result = await depositService.completeKoraDeposit({
+                depositId: deposit.id,
+                providerTransaction: {
+                    provider_status: parsed.status,
+                    amount:          parsed.amount,
+                    currency:        parsed.currency,
+                    reference:       providerRef,
+                    _verified:       false
+                },
+                source: 'webhook'
             });
 
-        if (insertErr && insertErr.code === '23505') return;
-        if (!valid) return;
-
-        const providerRef = parsed.provider_reference;
-        if (!providerRef) return;
-
-        const { data: deposit } = await supabaseAdmin
-            .from('deposit_requests')
-            .select('*')
-            .or(`provider_reference.eq.${providerRef},merchant_reference.eq.${providerRef}`)
-            .maybeSingle();
-
-        if (!deposit) return;
-
-        const result = await depositService.completeKoraDeposit({
-            depositId: deposit.id,
-            providerTransaction: {
-                provider_status: parsed.status,
-                amount:          parsed.amount,
-                currency:        parsed.currency,
-                reference:       providerRef,
-                _verified:       false
-            },
-            source: 'webhook'
-        });
-
-        await supabaseAdmin
-            .from('kora_webhook_events')
-            .update({
-                processing_status: result.completed ? 'processed' : 'failed',
-                processing_error:  result.completed ? null : (result.reason || null),
-                processed_at:      new Date().toISOString()
-            })
-            .eq('provider_reference', providerRef);
-    } catch (e) {
-        console.error('[KORA WEBHOOK] error:', e.message);
+            await supabaseAdmin
+                .from('kora_webhook_events')
+                .update({
+                    processing_status: result.completed ? 'processed' : 'failed',
+                    processing_error:  result.completed ? null : (result.reason || null),
+                    processed_at:      new Date().toISOString()
+                })
+                .eq('provider_reference', providerRef);
+        } catch (e) {
+            console.error('[KORA WEBHOOK] error:', e.message);
+        }
     }
-});
+);
 
 // ─── GET /api/wallet/deposits/:reference ──────────────────
 router.get('/deposits/:reference', authMiddleware, async (req, res) => {
@@ -323,7 +350,7 @@ router.get('/deposits/:reference', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, error: 'Deposit not found', code: 'DEPOSIT_NOT_FOUND' });
         }
 
-        res.json({
+        return res.json({
             success: true,
             deposit: {
                 reference:        deposit.internal_reference,
@@ -342,7 +369,7 @@ router.get('/deposits/:reference', authMiddleware, async (req, res) => {
             }
         });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        return res.status(500).json({ success: false, error: 'Failed to fetch deposit' });
     }
 });
 

@@ -12,7 +12,8 @@
 //   GET /api/admin/notifications/recent
 //   GET /api/admin/me
 //   GET /api/admin/services/performance
-//   GET /api/admin/providers/health
+//   GET /api/admin/providers/health          ← delegates to
+//                                              providerHealthService
 //   GET /api/admin/needs-attention
 //   GET /api/admin/orders/failed/recent
 //   GET /api/admin/deposits/recent
@@ -24,7 +25,19 @@
 // Presence endpoints are NOT declared here — there are none.
 //
 // Nothing fabricated. Nothing swallowed.
+//
+// ─── Change log ───────────────────────────────────────────────────
+//   • /providers/health no longer maintains its own provider list.
+//     It reads from `providerHealthService.getProviderHealth()`, the
+//     same snapshot the Providers page reads. The legacy response
+//     shape is preserved so the dashboard frontend is unchanged.
+//   • Provider status vocabulary is now the one the health service
+//     produces (healthy / degraded / unreachable / auth_failed /
+//     rate_limited / circuit_open / not_configured / disabled /
+//     unknown), not the older heuristic-only "operational/degraded".
 // ─────────────────────────────────────────────────────────────────
+
+'use strict';
 
 const express = require('express');
 const router = express.Router();
@@ -32,6 +45,14 @@ const { supabaseAdmin } = require('../../db/supabase');
 const { adminAuth, requirePermission, PERMISSIONS } = require('../../middleware/adminAuth');
 const { buildPermissionMap } = require('../../middleware/adminPermissions');
 const agg = require('./dashboardAggregations');
+
+// Lazy-required to avoid any circular import at module load time.
+function providerHealthService() {
+    return require('../../services/providerHealthService');
+}
+function providerMetadata() {
+    return require('../../services/providers/providerMetadata');
+}
 
 // ─── Response helpers ────────────────────────────────────────────
 function unwrap(field) {
@@ -155,8 +176,6 @@ router.get(
                 },
 
                 // ─── Pending ───────────────────────────────────
-                // cryptoOrders is null (not 0) when the backend could
-                // not confirm the value. The frontend renders "—".
                 pending: {
                     deposits:     unwrap(deposits.pending),
                     cryptoOrders: unwrap(deposits.byProvider?.nowpayments?.pending)
@@ -187,8 +206,6 @@ router.get(
         try {
             const limit = limitOf(req.query.limit, 20, 100);
 
-            // Fetch the transactions and their users separately so a
-            // broken profile relationship never blocks the whole feed.
             const { data: txRows, error: txErr } = await supabaseAdmin
                 .from('transactions')
                 .select('id, user_id, type, status, currency, amount, description, ref, reference, created_at')
@@ -281,7 +298,6 @@ router.get(
 
 // ═════════════════════════════════════════════════════════════════
 //  GET /api/admin/transactions/recent
-//  Dashboard preview. Never the complete history.
 // ═════════════════════════════════════════════════════════════════
 
 router.get(
@@ -344,9 +360,6 @@ router.get(
                 };
             });
 
-            // Preserve the envelope shape the dashboard frontend reads.
-            // The frontend also accepts `user_name` / `user_email`; both
-            // are populated for backward compatibility.
             res.json({
                 success: true,
                 transactions: transactions.map(t => ({
@@ -361,7 +374,6 @@ router.get(
 
 // ═════════════════════════════════════════════════════════════════
 //  GET /api/admin/charts
-//  All aggregation happens in Postgres via RPC.
 // ═════════════════════════════════════════════════════════════════
 
 router.get(
@@ -385,23 +397,20 @@ router.get(
             }
 
             const revenueRows = revenueRpc.data || [];
-            const weeklyRow = Array.isArray(weeklyRpc.data) ? weeklyRpc.data[0] : weeklyRpc.data;
             const growthRows = growthRpc.data || [];
             const orderRow = Array.isArray(orderRpc.data) ? orderRpc.data[0] : orderRpc.data;
 
-            // Revenue: array of 12, one per month index (oldest first)
             const revenueNgn = new Array(12).fill('0.00');
             const revenueUsd = new Array(12).fill('0.00');
             for (const r of revenueRows) {
                 const idx = Number(r.month_offset ?? 0);
                 if (idx >= 0 && idx < 12) {
-                    const slot = 11 - idx;   // oldest → index 0
+                    const slot = 11 - idx;
                     if (r.currency === 'USD') revenueUsd[slot] = String(r.total || '0.00');
                     else revenueNgn[slot] = String(r.total || '0.00');
                 }
             }
 
-            // Weekly: 7 NGN daily buckets, oldest → newest
             const weeklyData = new Array(7).fill('0.00');
             const weeklyList = Array.isArray(weeklyRpc.data) ? weeklyRpc.data : [];
             for (const r of weeklyList) {
@@ -409,7 +418,6 @@ router.get(
                 if (idx >= 0 && idx < 7) weeklyData[idx] = String(r.total || '0.00');
             }
 
-            // User growth: cumulative by month, oldest → newest
             const userGrowth = new Array(12).fill(0);
             for (const r of growthRows) {
                 const idx = Number(r.month_offset ?? 0);
@@ -474,7 +482,6 @@ router.get(
                 smsOrders,
                 marketplaceOrders: marketOrders,
                 giftCardSales: giftOrders,
-                // Explicit "not implemented" markers. Never a fake zero.
                 expenses: { available: false, reason: 'EXPENSE_LEDGER_NOT_IMPLEMENTED' },
                 walletBreakdown: { available: false, reason: 'WITHDRAWALS_DISABLED' },
                 cashbackActivity: { available: false, reason: 'CASHBACK_NOT_USED' },
@@ -583,7 +590,6 @@ router.get('/me', adminAuth, async (req, res) => {
 
 // ═════════════════════════════════════════════════════════════════
 //  GET /api/admin/services/performance
-//  Aggregated by RPC. NGN and USD kept separate.
 // ═════════════════════════════════════════════════════════════════
 
 router.get(
@@ -635,6 +641,14 @@ router.get(
 
 // ═════════════════════════════════════════════════════════════════
 //  GET /api/admin/providers/health
+//
+//  Delegates to providerHealthService — the single authority for
+//  provider state across the whole admin surface. No hardcoded
+//  provider list, no heuristic.
+//
+//  Response shape preserved for the dashboard frontend: returns an
+//  array of { key, name, status, configured, lastSuccess, lastFailure,
+//  recentCount, lastWebhook, failedWebhooks, lastError, ... }.
 // ═════════════════════════════════════════════════════════════════
 
 router.get(
@@ -642,67 +656,44 @@ router.get(
     requirePermission(PERMISSIONS.PROVIDERS_READ),
     async (req, res) => {
         try {
-            const providerConfigs = [
-                { key: 'kora',        name: 'KoraPay',     envs: ['KORA_SECRET_KEY'],     table: 'deposit_requests', providerFilter: 'korapay', providerColumn: 'provider' },
-                { key: 'nowpayments', name: 'NowPayments', envs: ['NOWPAYMENTS_API_KEY'], table: 'crypto_deposits',  providerFilter: null,     providerColumn: null },
-                { key: 'vtpass',      name: 'VTpass',      envs: ['VTPASS_API_KEY'],      table: 'transactions',     providerFilter: 'vtpass', providerColumn: 'provider' },
-                { key: 'dtone',       name: 'DT One',      envs: ['DTONE_API_KEY'],       table: 'transactions',     providerFilter: 'dtone',  providerColumn: 'provider' }
-            ];
+            const snapshot = await providerHealthService().getProviderHealth();
+            const meta = providerMetadata().PROVIDER_METADATA || {};
 
-            const day = agg.watDayBounds();
-            const providers = [];
+            const providers = Object.values(snapshot).map(p => {
+                const m = meta[p.provider] || {};
+                return {
+                    key:              p.provider,
+                    name:             p.label || p.provider,
+                    status:           p.status,
+                    configured:       p.configured,
+                    enabled:          p.enabled !== false,
+                    reachable:        p.reachable,
+                    authenticated:    p.authenticated,
+                    functional:       p.functional,
+                    latencyMs:        p.latencyMs,
 
-            for (const p of providerConfigs) {
-                const configured = p.envs.every(e => !!process.env[e]);
-                let lastSuccess = null, lastFailure = null, recentCount = 0;
+                    lastSuccess:      p.lastSuccessAt,
+                    lastFailure:      p.lastFailureAt
+                                        ? { at: p.lastFailureAt, reason: p.errorMessage || null }
+                                        : null,
+                    recentCount:      p.metadata?.recentCount ?? 0,
+                    lastChecked:      p.lastCheckedAt,
 
-                if (configured) {
-                    try {
-                        let q = supabaseAdmin
-                            .from(p.table)
-                            .select('status, created_at')
-                            .gte('created_at', day.start);
-                        if (p.providerFilter && p.providerColumn) {
-                            q = q.eq(p.providerColumn, p.providerFilter);
-                        }
-                        const { data, error } = await q.limit(200);
-                        if (error) {
-                            console.warn('[ADMIN DASHBOARD] provider health query error for', p.key, error.message);
-                        }
-                        for (const r of data || []) {
-                            const st = String(r.status || '').toLowerCase();
-                            const ts = r.created_at;
-                            if (st === 'completed' || st === 'success') {
-                                if (!lastSuccess || ts > lastSuccess) lastSuccess = ts;
-                            } else if (st === 'failed' || st === 'cancelled') {
-                                if (!lastFailure || ts > lastFailure) lastFailure = ts;
-                            }
-                        }
-                        recentCount = (data || []).length;
-                    } catch (e) {
-                        console.warn('[ADMIN DASHBOARD] provider health exception for', p.key, e.message);
-                    }
-                }
+                    lastWebhook:      p.lastWebhookAt,
+                    failedWebhooks:   p.failedWebhooks24h ?? 0,
+                    webhookStatus:    p.webhookStatus,
 
-                const status = !configured ? 'not_configured'
-                    : (recentCount === 0) ? 'unknown'
-                    : (!lastFailure && recentCount > 0) ? 'operational'
-                    : (lastFailure && lastSuccess && lastSuccess > lastFailure) ? 'operational'
-                    : (lastFailure && (!lastSuccess || lastFailure > lastSuccess)) ? 'degraded'
-                    : 'unknown';
+                    lastError:        p.errorMessage || null,
+                    errorCategory:    p.errorCategory || null,
 
-                providers.push({
-                    key: p.key,
-                    name: p.name,
-                    status,
-                    configured,
-                    lastSuccess,
-                    lastFailure,
-                    recentCount,
-                    lastChecked: new Date().toISOString(),
-                    note: 'Heuristic: recent activity only. Not a live health check.'
-                });
-            }
+                    category:         p.category || m.category || null,
+                    critical:         p.critical === true,
+                    environment:      p.environment || m.environment || null,
+
+                    staleness:        p.staleness || 'unknown',
+                    breaker:          p.breaker || null
+                };
+            });
 
             res.json({ success: true, data: providers });
         } catch (err) { fail(res, err); }
@@ -868,7 +859,6 @@ router.get(
                     .limit(limit)
             ]);
 
-            // Profiles fetched in one pass.
             const allUserIds = [
                 ...(kora.data || []).map(r => r.user_id),
                 ...(crypto.data || []).map(r => r.user_id)
@@ -1050,7 +1040,6 @@ router.get(
 
 // ═════════════════════════════════════════════════════════════════
 //  GET /api/admin/reconciliation/exceptions/count
-//  Single RPC. Never partial.
 // ═════════════════════════════════════════════════════════════════
 
 router.get(

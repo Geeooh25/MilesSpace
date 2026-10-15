@@ -2,19 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>MilesSpace — User Management</title>
+<title>MilesSpace — User 360</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="/js/admin-session.js?v=2025-users-v2"></script>
+<script src="/js/admin-session.js?v=2025-users-v3"></script>
+<script src="/js/admin-permissions.js?v=2025-users-v3"></script>
 <style>
 :root{
   --navy:#0f4c5c;--navy-deep:#0a3542;--navy-light:#14607a;
   --gold:#f5a623;--gold-soft:#fde3ad;--white:#fff;
-  --bg:#f4f7fb;--bg-card:rgba(255,255,255,0.72);
-  --border:rgba(15,76,92,0.09);--text:#0c1f26;
+  --bg:#f4f7fb;--bg-card:rgba(255,255,255,.72);
+  --border:rgba(15,76,92,.09);--text:#0c1f26;
   --text-dim:#5b7480;--text-faint:#8fa3ab;
   --success:#16a34a;--success-bg:#e9f9ef;
   --danger:#dc2626;--danger-bg:#fdecec;
@@ -36,79 +37,82 @@ html.dark{
   --success-bg:rgba(22,163,74,.15);--danger-bg:rgba(220,38,38,.15);
   --warn-bg:rgba(245,158,11,.15);--info-bg:rgba(37,99,168,.18);
   --purple-bg:rgba(139,92,246,.18);--usd-bg:rgba(8,145,178,.18);
-  --shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 8px 24px -8px rgba(0,0,0,.5);
-  --shadow-lg:0 16px 48px -12px rgba(0,0,0,.6);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.45}
+img,svg{max-width:100%;display:block}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 .mono{font-family:'JetBrains Mono',monospace}
 ::-webkit-scrollbar{width:9px;height:9px}
 ::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
 :focus-visible{outline:2.5px solid var(--gold);outline-offset:2px;border-radius:6px}
 
-.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
+/* ─── Layout shell ────────────────────────────────────────── */
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;min-height:100dvh}
 .app.sb-collapsed{grid-template-columns:78px 1fr}
-.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;overflow-y:auto;width:var(--sidebar-w);transition:width var(--transition)}
+.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;z-index:40;overflow-y:auto;width:var(--sidebar-w);transition:width var(--transition)}
 .app.sb-collapsed .sidebar{width:78px}
 .app.sb-collapsed .brand-text,.app.sb-collapsed .nav-label,.app.sb-collapsed .nav-item span:not(.ic),.app.sb-collapsed .who{display:none}
 .app.sb-collapsed .nav-item{justify-content:center}
-.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
-.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+.brand img{width:32px;height:32px;border-radius:8px}
 .brand-text strong{font-size:15px;font-weight:800;display:block}
 .brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
-.nav-scroll{flex:1;overflow-y:auto;padding-right:2px}
+.nav-scroll{flex:1;overflow-y:auto}
 .nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:12px 10px 5px;display:block}
 .nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;text-decoration:none;transition:background var(--transition),color var(--transition);white-space:nowrap}
 .nav-item .ic{width:17px;text-align:center;font-size:13.5px;flex-shrink:0}
 .nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
 .nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
 .nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10px;font-weight:800;padding:1.5px 6px;border-radius:99px}
-.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px;flex-shrink:0}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px}
 .sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
-.sidebar-foot .who strong{font-size:12.5px;color:#fff;display:block}
+.sidebar-foot .who{min-width:0;overflow:hidden}
+.sidebar-foot .who strong{font-size:12.5px;color:#fff;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
-.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
-.sb-collapse-btn:hover{background:rgba(255,255,255,.14)}
+.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
 
 .main{min-width:0;display:flex;flex-direction:column}
-.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
-.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
-html.dark .hamburger{background:rgba(255,255,255,.05)}
+.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.hamburger{display:none;width:38px;height:38px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:17px;flex-shrink:0}
+html.dark .hamburger{background:rgba(255,255,255,.05);color:#dff0f2}
 .sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
 html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
-@media(max-width:768px){.sb-toggle-desktop{display:none}}
 .topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.page-title{min-width:0}
 .page-title h1{font-size:19px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.crumb{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px}
-.crumb .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse 1.8s infinite}
+.crumb{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse 1.8s infinite;flex-shrink:0}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
-.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
-.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px;position:relative}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:15px;flex-shrink:0}
 html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
 .icon-btn:hover{background:var(--gold-soft);color:var(--navy-deep)}
 .admin-chip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:99px;border:1px solid var(--border);background:var(--white);cursor:pointer}
 html.dark .admin-chip{background:rgba(255,255,255,.04)}
-.admin-chip .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-deep)}
-.admin-chip .info strong{font-size:12.3px;display:block}
-.admin-chip .info span{font-size:10.5px;color:var(--text-dim)}
+.admin-chip .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-deep);flex-shrink:0}
+.admin-chip .info{min-width:0;overflow:hidden}
+.admin-chip .info strong{font-size:12.3px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.admin-chip .info span{font-size:10.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:120px}
+.topbar-search{padding:9px 14px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;width:300px;background:var(--white);color:var(--text);font-family:inherit;transition:width var(--transition)}
+.topbar-search:focus{outline:none;border-color:var(--gold)}
+html.dark .topbar-search{background:rgba(255,255,255,.04);color:var(--text)}
 
 .content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
 .section-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:24px 2px 10px}
-.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
-.panel{padding:18px 20px}
-.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
-.panel-head h3{font-size:14px;font-weight:700}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow:hidden}
 
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:transform var(--transition),background var(--transition);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:9px;font-size:12.5px;font-weight:700;border:1px solid transparent;cursor:pointer;transition:transform var(--transition),background var(--transition);white-space:nowrap;text-decoration:none}
 .btn:active{transform:scale(.97)}
 .btn-primary{background:linear-gradient(135deg,var(--gold),#d97e06);color:var(--navy-deep)}
-.btn-primary:hover{filter:brightness(1.05)}
 .btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}
 .btn-ghost:hover{background:var(--bg)}
 .btn-danger{background:var(--danger);color:#fff}
 .btn-success{background:var(--success);color:#fff}
 .btn-sm{padding:5px 10px;font-size:11.5px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
 
 .badge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .badge.success{background:var(--success-bg);color:var(--success)}
@@ -117,130 +121,420 @@ html.dark .admin-chip{background:rgba(255,255,255,.04)}
 .badge.info{background:var(--info-bg);color:var(--info)}
 .badge.purple{background:var(--purple-bg);color:var(--purple)}
 .badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.badge.usd{background:var(--usd-bg);color:var(--usd)}
 
+/* ─── Grids ───────────────────────────────────────────────── */
 .grid{display:grid;gap:14px}
-.grid.cols-4{grid-template-columns:repeat(4,1fr)}
-@media(max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.grid.cols-4{grid-template-columns:1fr}}
-.kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 18px;transition:transform var(--transition),box-shadow var(--transition)}
-.kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.grid.cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.grid.cols-4{grid-template-columns:1fr}}
+.kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 18px;min-width:0}
 .kpi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:10px}
 .kpi-icon.blue{background:var(--info-bg);color:var(--info)}
 .kpi-icon.green{background:var(--success-bg);color:var(--success)}
 .kpi-icon.gold{background:var(--warn-bg);color:#b3720a}
 .kpi-icon.red{background:var(--danger-bg);color:var(--danger)}
-.kpi-icon.purple{background:var(--purple-bg);color:var(--purple)}
-.kpi-value{font-size:22px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi-value{font-size:22px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;word-break:break-word}
 .kpi-label{font-size:11.5px;color:var(--text-dim);margin-top:3px}
+.kpi-sub{font-size:10.5px;color:var(--text-faint);margin-top:2px}
 
-.table-scroll{overflow-x:auto;max-height:640px}
+/* ─── Data table ──────────────────────────────────────────── */
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table.data-table{width:100%;border-collapse:collapse;font-size:12.6px;min-width:900px}
 table.data-table th{text-align:left;padding:10px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
 table.data-table td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
 table.data-table tbody tr{transition:background var(--transition)}
 table.data-table tbody tr.row-clickable{cursor:pointer}
 table.data-table tbody tr:hover{background:rgba(245,166,35,.05)}
-.cell-user{display:flex;align-items:center;gap:10px}
+.cell-user{display:flex;align-items:center;gap:10px;min-width:0}
 .cell-user .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--navy-light),var(--navy-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.cell-user .meta strong{font-size:12.5px;display:block}
-.cell-user .meta span{font-size:11px;color:var(--text-dim)}
+.cell-user .meta{min-width:0}
+.cell-user .meta strong{font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.cell-user .meta span{font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:200px}
 .cell-actions{display:flex;gap:5px;flex-wrap:wrap}
-.icon-mini{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--text-dim)}
+.icon-mini{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--text-dim);flex-shrink:0}
 .icon-mini:hover{background:var(--bg);color:var(--navy)}
 .icon-mini.danger:hover{background:var(--danger-bg);color:var(--danger)}
 .icon-mini.success:hover{background:var(--success-bg);color:var(--success)}
+.icon-mini:disabled{opacity:.45;cursor:not-allowed}
 
-.filters-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
-.filters-bar input,.filters-bar select{padding:8px 12px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;background:var(--white);color:var(--text);font-family:inherit}
+/* ─── Filters ─────────────────────────────────────────────── */
+.filters-bar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg)}
+.filters-bar input,.filters-bar select{padding:8px 12px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;background:var(--white);color:var(--text);font-family:inherit;min-width:0}
 html.dark .filters-bar input,html.dark .filters-bar select{background:rgba(255,255,255,.04);color:var(--text)}
-.filters-bar input[type=text]{flex:1;min-width:200px}
+.filters-bar input[type=text]{flex:1 1 200px;min-width:0}
+.filters-bar select{flex:0 1 auto}
 .filters-bar input:focus,.filters-bar select:focus{outline:none;border-color:var(--gold)}
+.filters-bar .btn{flex:0 0 auto}
 .table-foot{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;font-size:12px;color:var(--text-dim);flex-wrap:wrap;gap:10px}
 .pg-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;font-size:12px;cursor:pointer;color:var(--text-dim)}
 .pg-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
-.pg-btn:hover:not(.active){background:var(--bg)}
 
-.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms}
-.drawer-scrim.show{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;height:100vh;width:min(980px,97vw);background:var(--bg);z-index:301;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform 260ms cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+/* ─── Drawer ──────────────────────────────────────────────── */
+.drawer-scrim{position:fixed;inset:0;background:rgba(8,42,51,.45);opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:60}
+.drawer-scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;height:100dvh;width:min(1000px,96vw);background:var(--bg);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:70;display:flex;flex-direction:column;box-shadow:var(--shadow-lg)}
 .drawer.open{transform:translateX(0)}
-.dd-head{display:flex;align-items:center;gap:14px;padding:20px 24px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;flex-shrink:0}
-.dd-head .dd-ic{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.dd-head .dd-titles{flex:1;min-width:0}
-.dd-head h2{margin:0;font-size:17px;font-weight:800}
-.dd-head .dd-sub{font-size:12px;color:rgba(255,255,255,.75);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dd-close{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px}
-.dd-close:hover{background:rgba(255,255,255,.2)}
+.drawer-head{padding:20px 24px;background:linear-gradient(135deg,var(--navy-deep),var(--navy));color:#eaf6f8;position:relative;flex-shrink:0}
+.drawer-head .close{position:absolute;top:16px;right:18px;width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1}
+.drawer-head .identity{display:flex;align-items:flex-start;gap:14px;padding-right:44px}
+.drawer-head .av{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:var(--navy-deep);flex-shrink:0;border:2px solid rgba(255,255,255,.25)}
+.drawer-head .who{flex:1;min-width:0}
+.drawer-head .who h2{font-size:18px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drawer-head .who .sub{font-size:12.5px;color:#b8dbe2;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drawer-head .meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;margin-top:14px;font-size:12px}
+.drawer-head .meta-grid .kv{display:flex;flex-direction:column;gap:1px;min-width:0}
+.drawer-head .meta-grid .kv .k{font-size:10.5px;color:#8fbac2;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.drawer-head .meta-grid .kv .v{color:#fff;font-size:12.5px;display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer-head .status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+.drawer-head .status-row .badge{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.18)}
+.drawer-head .status-row .badge.success{background:rgba(22,163,74,.28);color:#b9f2c8}
+.drawer-head .status-row .badge.danger{background:rgba(220,38,38,.3);color:#ffcaca}
+.drawer-head .status-row .badge.warn{background:rgba(245,158,11,.28);color:#ffe4ab}
+.drawer-head .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.drawer-head .actions .btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff}
+.drawer-head .actions .btn:hover{background:rgba(255,255,255,.16)}
+.drawer-head .actions .btn.danger{background:rgba(220,38,38,.35);border-color:rgba(220,38,38,.55);color:#ffdada}
+.drawer-head .actions .btn.danger:hover{background:rgba(220,38,38,.5)}
+.drawer-head .actions .btn.success{background:rgba(22,163,74,.32);border-color:rgba(22,163,74,.5);color:#d5f7de}
+.drawer-head .actions .btn.success:hover{background:rgba(22,163,74,.5)}
 
-.dd-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 24px;flex-shrink:0;background:var(--bg-card);overflow-x:auto}
-.dd-tab{padding:14px 16px;font-size:12.5px;font-weight:700;color:var(--text-dim);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
-.dd-tab:hover{color:var(--text)}
-.dd-tab.active{color:var(--navy);border-bottom-color:var(--gold)}
-html.dark .dd-tab.active{color:var(--gold)}
+.drawer-tabs{display:flex;gap:2px;padding:0 20px;background:var(--bg-card);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0;scrollbar-width:thin}
+.drawer-tabs::-webkit-scrollbar{height:4px}
+.drawer-tab{padding:13px 14px;font-size:12.5px;font-weight:600;color:var(--text-dim);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;transition:color var(--transition),border-color var(--transition);flex-shrink:0}
+.drawer-tab:hover{color:var(--text)}
+.drawer-tab.active{color:var(--navy);border-bottom-color:var(--gold)}
+html.dark .drawer-tab.active{color:var(--gold-soft)}
 
-.dd-body{flex:1;overflow-y:auto;padding:22px 24px 60px}
-.dd-section{margin-bottom:22px}
-.dd-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
-.dd-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
-.dd-stat{padding:12px 14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)}
-.dd-stat .k{font-size:10.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.dd-stat .v{font-size:16px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
-.dd-field{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
-.dd-field .k{color:var(--text-dim);font-weight:600;flex-shrink:0;min-width:130px}
-.dd-field .v{font-weight:700;text-align:right;word-break:break-word;overflow-wrap:anywhere}
-.dd-empty{text-align:center;color:var(--text-faint);padding:26px 10px;font-size:12.5px}
-.dd-list-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);margin-bottom:6px;font-size:12.5px}
-.dd-list-item .l{flex:1;min-width:0}
-.dd-list-item .l strong{display:block;font-size:12.5px}
-.dd-list-item .l span{font-size:10.8px;color:var(--text-dim)}
-.dd-list-item .r{text-align:right;font-size:12px;font-weight:700;white-space:nowrap}
-.dd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
-.restriction-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--danger-bg);color:var(--danger);font-size:11px;font-weight:700;margin:2px 4px 2px 0}
-.restriction-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:11px;padding:0 2px}
-.note-item{padding:10px 12px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);margin-bottom:8px}
-.note-item .meta{font-size:10.8px;color:var(--text-dim);margin-bottom:4px;display:flex;justify-content:space-between}
-.note-item .body{font-size:12.5px;line-height:1.4;white-space:pre-wrap}
-.note-item .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
-.note-item .tags span{font-size:10px;background:var(--info-bg);color:var(--info);padding:1px 7px;border-radius:99px;font-weight:700}
+.drawer-body{flex:1;overflow-y:auto;padding:20px 24px 40px;min-height:0;-webkit-overflow-scrolling:touch}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
 
-.modal-scrim{position:fixed;inset:0;background:rgba(5,15,20,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:400;padding:16px}
-.modal-scrim.show{display:flex}
-.modal{background:var(--bg);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:560px;padding:24px;max-height:90vh;overflow-y:auto}
-.modal h3{font-size:16px;font-weight:800;margin-bottom:6px}
-.modal .sub{font-size:12.5px;color:var(--text-dim);margin-bottom:16px}
-.modal .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
-.modal .field label{font-size:12px;font-weight:600;color:var(--text-dim)}
-.modal .field input,.modal .field textarea,.modal .field select{padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--white);color:var(--text);font-family:inherit;font-size:13px;width:100%}
-html.dark .modal .field input,html.dark .modal .field textarea,html.dark .modal .field select{background:rgba(255,255,255,.04);color:var(--text)}
-.modal .field textarea{resize:vertical;min-height:80px}
-.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.freshness{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-dim);margin-bottom:14px;flex-wrap:wrap}
+.freshness .dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0}
+.freshness .dot.stale{background:var(--warn)}
+.freshness .dot.error{background:var(--danger)}
 
-.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:500}
-.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;border-left:3px solid var(--gold);animation:toastIn .25s ease}
-@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
-.toast.error{border-left-color:var(--danger)}
-.toast.success{border-left-color:var(--success)}
+.fin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+@media(max-width:520px){.fin-grid{grid-template-columns:1fr}}
+.fin-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;min-width:0}
+.fin-card .ccy{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);display:flex;align-items:center;gap:6px}
+.fin-card .row{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;font-size:12.5px;gap:10px}
+.fin-card .row .k{color:var(--text-dim)}
+.fin-card .row .v{font-weight:700;font-variant-numeric:tabular-nums;text-align:right;word-break:break-all}
+.fin-card .total{border-top:1px dashed var(--border);margin-top:10px;padding-top:10px}
+.fin-card .last{font-size:11px;color:var(--text-faint);margin-top:10px;display:flex;flex-direction:column;gap:2px}
+.fin-card .last .amt{font-weight:700}
+.fin-card .last .amt.credit{color:var(--success)}
+.fin-card .last .amt.debit{color:var(--danger)}
 
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
-.scrim.show{display:block}
+.unavailable-box{background:var(--danger-bg);border:1px solid rgba(220,38,38,.25);border-radius:var(--radius-md);padding:16px;display:flex;align-items:flex-start;gap:12px;color:var(--danger)}
+.unavailable-box .ico{font-size:20px;flex-shrink:0}
+.unavailable-box .txt{min-width:0}
+.unavailable-box .txt strong{display:block;font-size:13px;margin-bottom:3px}
+.unavailable-box .txt span{font-size:12px;opacity:.85;word-break:break-word}
 
-.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
-@keyframes spin{to{transform:rotate(360deg)}}
+.mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+@media(max-width:400px){.mini-stats{grid-template-columns:1fr}}
+.mini-stat{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;min-width:0}
+.mini-stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:700}
+.mini-stat .v{font-size:18px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;word-break:break-word}
+.mini-stat .v small{font-size:11px;font-weight:600;color:var(--text-faint)}
 
+.ledger-entry{display:grid;grid-template-columns:auto 1fr auto;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);align-items:center}
+.ledger-entry:last-child{border-bottom:none}
+.ledger-entry .dir{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+.ledger-entry .dir.credit{background:var(--success-bg);color:var(--success)}
+.ledger-entry .dir.debit{background:var(--danger-bg);color:var(--danger)}
+.ledger-entry .info{min-width:0}
+.ledger-entry .info .desc{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ledger-entry .info .sub{font-size:11px;color:var(--text-dim);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap}
+.ledger-entry .amt{text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
+.ledger-entry .amt .v{font-size:13.5px;font-weight:800;white-space:nowrap}
+.ledger-entry .amt .v.credit{color:var(--success)}
+.ledger-entry .amt .v.debit{color:var(--danger)}
+.ledger-entry .amt .bal{font-size:10.5px;color:var(--text-faint);margin-top:2px}
+
+.tx-table{width:100%;border-collapse:collapse;font-size:12.3px}
+.tx-table th{text-align:left;padding:9px 12px;color:var(--text-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+.tx-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.tx-table tr:hover{background:rgba(245,166,35,.04)}
+.tx-table .ref{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:5px;word-break:break-all}
+.tx-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tx-table{min-width:720px}
+
+.audit-row{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.audit-row:last-child{border-bottom:none}
+.audit-row .ico{width:30px;height:30px;border-radius:8px;background:var(--info-bg);color:var(--info);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.audit-row .body{min-width:0}
+.audit-row .body .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.audit-row .body .action{font-size:12.5px;font-weight:700;word-break:break-word}
+.audit-row .body .when{font-size:11px;color:var(--text-faint)}
+.audit-row .body .who{font-size:11.5px;color:var(--text-dim);margin-top:3px;word-break:break-word}
+.audit-row .body .reason{font-size:11.5px;color:var(--text);margin-top:5px;background:var(--bg);padding:6px 9px;border-radius:7px;border:1px solid var(--border);word-break:break-word}
+.audit-row .body .diff{font-size:11px;margin-top:6px;font-family:'JetBrains Mono',monospace;color:var(--text-dim);word-break:break-all}
+.audit-row .body .diff .before{color:var(--danger)}
+.audit-row .body .diff .after{color:var(--success)}
+
+.empty-state{text-align:center;padding:38px 20px;color:var(--text-dim)}
+.empty-state .ico{font-size:34px;margin-bottom:10px;opacity:.5}
+.empty-state strong{display:block;font-size:14px;margin-bottom:4px;color:var(--text)}
+.empty-state span{font-size:12px}
+
+.session-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
+.session-card .dev{width:38px;height:38px;border-radius:10px;background:var(--info-bg);color:var(--info);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.session-card .body{flex:1;min-width:0}
+.session-card .body .top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+.session-card .body .top strong{font-size:13px;word-break:break-word}
+.session-card .body .meta{font-size:11.5px;color:var(--text-dim);margin-top:5px;display:flex;gap:12px;flex-wrap:wrap;word-break:break-word}
+
+.note-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-bottom:10px}
+.note-card .top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--text-dim)}
+.note-card .body{font-size:12.7px;margin-top:8px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.note-card .tags{margin-top:8px;display:flex;gap:5px;flex-wrap:wrap}
+
+.restriction-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-bottom:10px}
+.restriction-card .top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.restriction-card .top strong{font-size:13px;text-transform:capitalize}
+.restriction-card .reason{font-size:12px;color:var(--text-dim);margin-top:6px;word-break:break-word}
+.restriction-card .meta{font-size:11px;color:var(--text-faint);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
+
+.form-row{margin-bottom:12px}
+.form-row label{display:block;font-size:11.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:12.8px;background:var(--white);color:var(--text);font-family:inherit}
+html.dark .form-row input,html.dark .form-row select,html.dark .form-row textarea{background:rgba(255,255,255,.04);color:var(--text)}
+.form-row textarea{resize:vertical;min-height:80px}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:var(--gold)}
+.form-row .help{font-size:11px;color:var(--text-faint);margin-top:4px}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy-deep);color:#fff;padding:12px 18px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);z-index:200;display:flex;align-items:center;gap:9px;opacity:0;transform:translateY(10px);transition:all .25s ease;pointer-events:none;max-width:calc(100vw - 48px)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--danger)}
+.toast.warn{background:#b3720a}
+
+.modal-scrim{position:fixed;inset:0;background:rgba(8,42,51,.55);z-index:150;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-scrim.open{display:flex}
+.modal{background:var(--bg);border-radius:var(--radius-lg);width:min(480px,100%);box-shadow:var(--shadow-lg);overflow:hidden;max-height:90vh;max-height:90dvh;display:flex;flex-direction:column}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.modal-head h3{font-size:15px;font-weight:800;min-width:0;word-break:break-word}
+.modal-head .x{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--text-dim);flex-shrink:0}
+.modal-body{padding:20px 22px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+
+/* ─── Responsive: tablet ─────────────────────────────────── */
+@media(max-width:1200px){
+  :root{--sidebar-w:240px}
+  .topbar-search{width:220px}
+}
+@media(max-width:1024px){
+  .topbar-search{display:none}
+}
 @media(max-width:900px){
-  .app{grid-template-columns:1fr}
-  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);z-index:50;transition:transform .3s ease}
+  :root{--topbar-h:60px}
+  .app,.app.sb-collapsed{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);z-index:50;transition:transform .3s ease;width:var(--sidebar-w);box-shadow:var(--shadow-lg)}
   .sidebar.open{transform:translateX(0)}
+  .app.sb-collapsed .sidebar{width:var(--sidebar-w)}
   .hamburger{display:flex}
-  .content{padding:14px}
-  .topbar{padding:0 14px;gap:8px}
+  .sb-toggle-desktop{display:none}
+  .content{padding:16px}
+  .topbar{padding:0 16px;gap:10px}
+  .drawer{width:100vw;max-width:100vw;border-left:none}
+  .drawer-head{padding:18px 18px}
+  .drawer-head .identity{gap:12px;padding-right:40px}
+  .drawer-head .av{width:48px;height:48px;font-size:17px}
+  .drawer-head .who h2{font-size:16.5px}
+  .drawer-head .meta-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px}
+  .drawer-body{padding:16px 18px 40px}
+  .drawer-tabs{padding:0 12px}
+  .drawer-tab{padding:12px 11px;font-size:12px}
+}
+@media(max-width:768px){
+  .page-title h1{font-size:17px}
+  .crumb{font-size:11.5px}
+  .admin-chip .info{display:none}
+  .admin-chip{padding:4px}
+  .admin-chip .av{width:30px;height:30px;font-size:11.5px}
+  .kpi-value{font-size:20px}
+  .grid.cols-4{gap:10px}
+  .grid{gap:10px}
+  .table-scroll{max-height:none}
+  .filters-bar{padding:12px 14px;gap:6px}
+  .filters-bar input[type=text]{flex:1 1 100%}
+  .table-foot{padding:12px 14px}
+  .section-title{font-size:12px;margin:18px 0 8px}
+  .content{padding:12px}
+  .drawer-head .actions .btn{padding:6px 10px;font-size:11.5px}
+  .toast{bottom:16px;right:16px;left:16px;max-width:none}
+}
+@media(max-width:600px){
+  .sidebar{width:min(280px,86vw)}
+  .drawer-head .meta-grid{grid-template-columns:1fr 1fr;gap:8px 12px}
+  .drawer-head .meta-grid .kv .v{font-size:12px}
+  .drawer-tab{padding:11px 10px;font-size:11.5px}
+  .mini-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-card{padding:14px}
+  .modal{padding:0}
+  .modal-foot{flex-direction:column-reverse}
+  .modal-foot .btn{width:100%}
+}
+@media(max-width:480px){
+  .page-title h1{font-size:16px}
+  .crumb{font-size:11px}
+  .grid.cols-4{grid-template-columns:1fr}
+  .kpi-value{font-size:19px}
+  .drawer-head{padding:16px 14px}
+  .drawer-head .identity{padding-right:36px}
+  .drawer-head .who h2{font-size:15.5px}
+  .drawer-head .who .sub{font-size:11.5px}
+  .drawer-head .meta-grid{grid-template-columns:1fr;gap:6px}
+  .drawer-body{padding:14px 14px 32px}
+  .drawer-tabs{padding:0 6px}
+  .drawer-tab{padding:10px 9px;font-size:11px}
+  .fin-grid{grid-template-columns:1fr}
+  .mini-stats{grid-template-columns:1fr}
+  .ledger-entry{grid-template-columns:auto 1fr;gap:10px;padding:11px 12px}
+  .ledger-entry .amt{grid-column:2;text-align:left;margin-top:4px}
+  .session-card{padding:12px}
+  .session-card .dev{width:32px;height:32px;font-size:13px}
+  .filters-bar input[type=text],.filters-bar select,.filters-bar .btn{flex:1 1 100%;width:100%}
+  .toast{left:12px;right:12px;bottom:12px;font-size:12px;padding:11px 14px}
+  .modal-head,.modal-body,.modal-foot{padding-left:16px;padding-right:16px}
+  .topbar{padding:0 12px;gap:8px}
+  .icon-btn{width:34px;height:34px;font-size:14px}
+  .hamburger{width:34px;height:34px;font-size:16px}
+}
+@media(max-width:360px){
+  .content{padding:10px}
+  .drawer-tab{padding:9px 8px;font-size:10.5px}
+  .drawer-head .av{width:42px;height:42px;font-size:15px}
+  .kpi-value{font-size:18px}
+  .admin-chip{display:none}
+}
+
+/* ─── Accessibility: reduce motion ───────────────────────── */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE + DISPLAY FIXES (overrides only — placed last)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 1. Large screens: keep content readable */
+.content{max-width:1680px;width:100%;margin-left:auto;margin-right:auto}
+
+/* 2. Mobile sidebar backdrop */
+.scrim{position:fixed;inset:0;background:rgba(8,42,51,.5);opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:45}
+
+/* 3. Safe areas (notch / home bar) */
+.topbar{height:calc(var(--topbar-h) + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px)}
+.sidebar{padding-top:calc(20px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.drawer-head{padding-top:calc(20px + env(safe-area-inset-top,0px))}
+.drawer-head .close{top:calc(16px + env(safe-area-inset-top,0px))}
+.drawer-body{padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+.toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.modal-scrim{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+
+/* 4. Dark mode: drawer filter selects were white-on-white */
+html.dark .tab-panel select,
+html.dark .drawer select{
+  background:rgba(255,255,255,.06)!important;
+  color:var(--text)!important;
+  border-color:var(--border)!important;
+}
+html.dark select option{background:#12262c;color:#eaf3f5}
+
+/* 5. Desktop: collapsed sidebar layout */
+@media(min-width:901px){
+  .app.sb-collapsed .sidebar{padding-left:10px;padding-right:10px}
+  .app.sb-collapsed .brand{flex-direction:column;align-items:center;gap:10px;padding:6px 0 14px}
+  .app.sb-collapsed .sb-collapse-btn{margin-left:0}
+  .app.sb-collapsed .sb-collapse-btn i{transform:rotate(180deg)}
+  .app.sb-collapsed .sidebar-foot{justify-content:center;padding-left:0}
+}
+
+/* 6. Narrow desktop / tablet table */
+@media(max-width:1200px){
+  table.data-table{min-width:640px}
+  table.data-table th:nth-child(3),table.data-table td:nth-child(3),
+  table.data-table th:nth-child(6),table.data-table td:nth-child(6){display:none}
+}
+
+/* 7. Tablet + mobile */
+@media(max-width:900px){
+  .sidebar.open + .scrim{opacity:1;pointer-events:auto}
+  .sb-collapse-btn{display:none}
+  .app.sb-collapsed .brand-text,
+  .app.sb-collapsed .who{display:block}
+  .app.sb-collapsed .nav-label{display:block}
+  .app.sb-collapsed .nav-item span:not(.ic){display:inline}
+  .app.sb-collapsed .nav-item{justify-content:flex-start}
+  .drawer-body{padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))}
+}
+
+/* 8. Phones */
+@media(max-width:640px){
+  table.data-table{min-width:0}
+  table.data-table th,table.data-table td{padding:10px 10px}
+  table.data-table th:nth-child(5),table.data-table td:nth-child(5),
+  table.data-table th:nth-child(7),table.data-table td:nth-child(7){display:none}
+  .cell-user .meta strong,.cell-user .meta span{max-width:130px}
+  .cell-user .av{width:28px;height:28px}
+
+  .grid.cols-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-card{padding:12px}
+  .kpi-icon{width:30px;height:30px;font-size:14px;margin-bottom:8px}
+  .kpi-value{font-size:18px}
+  .kpi-label{font-size:11px}
+
+  .drawer-head{padding-left:14px;padding-right:14px;padding-bottom:14px}
+  .drawer-head .meta-grid{grid-template-columns:1fr 1fr;margin-top:10px}
+  .drawer-head .meta-grid .kv .k{font-size:9.5px}
+  .drawer-head .status-row,
+  .drawer-head .actions{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-top:10px}
+  .drawer-head .status-row::-webkit-scrollbar,
+  .drawer-head .actions::-webkit-scrollbar{display:none}
+  .drawer-head .status-row .badge,
+  .drawer-head .actions .btn{flex-shrink:0}
+
+  .drawer-tabs{scroll-snap-type:x proximity}
+  .drawer-tab{scroll-snap-align:start}
+
+  .tab-panel > div[style*="display:flex"] select,
+  .tab-panel > div[style*="display:flex"] .btn{flex:1 1 calc(50% - 4px);min-width:0}
+
+  .fin-card .row .v{word-break:normal;overflow-wrap:anywhere}
+  .note-card .top,.audit-row .body .top{flex-direction:column;gap:2px}
+}
+
+/* 9. Very small phones */
+@media(max-width:380px){
+  .cell-user .meta strong,.cell-user .meta span{max-width:100px}
+  .badge{font-size:10px;padding:3px 6px}
+}
+
+/* 10. Landscape phones */
+@media(max-width:900px) and (max-height:520px){
+  .drawer-head .meta-grid{display:none}
+  .drawer-head{padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:10px}
+  .drawer-head .actions,.drawer-head .status-row{margin-top:8px}
+}
+
+/* 11. Touch devices */
+@media(hover:none) and (pointer:coarse){
+  .icon-mini{width:36px;height:36px}
+  .pg-btn{width:36px;height:36px}
+  .btn-sm{padding:8px 12px}
+  .drawer-tab{padding-top:14px;padding-bottom:14px}
+  input,select,textarea{font-size:16px!important}
 }
 </style>
 </head>
 <body>
 <div class="app" id="appRoot">
 
-<!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="brand">
     <img src="/images/miles.png" alt="" onerror="this.style.display='none'">
@@ -263,7 +557,6 @@ html.dark .modal .field input,html.dark .modal .field textarea,html.dark .modal 
 
     <span class="nav-label">System</span>
     <a href="/admin/approvals" class="nav-item"><span class="ic">✅</span><span>Approvals</span><span class="badge-count" id="approvalBadge" style="display:none">0</span></a>
-    <a href="/admin/audit-logs" class="nav-item"><span class="ic">🗂️</span><span>Audit Logs</span></a>
     <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span><span>Settings</span></a>
   </nav>
   <div class="sidebar-foot">
@@ -271,87 +564,106 @@ html.dark .modal .field input,html.dark .modal .field textarea,html.dark .modal 
     <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
   </div>
 </aside>
+
 <div class="scrim" id="scrim"></div>
 
-<!-- MAIN -->
 <div class="main">
   <header class="topbar">
-    <button class="hamburger" id="hamburger">☰</button>
-    <button class="sb-toggle-desktop" id="sbToggleDesktop"><i class="fas fa-bars"></i></button>
+    <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+    <button class="sb-toggle-desktop" id="sbToggleDesktop" aria-label="Toggle sidebar"><i class="fas fa-bars"></i></button>
     <div class="topbar-left">
       <div class="page-title">
-        <h1>User Management</h1>
+        <h1>User 360</h1>
         <div class="crumb"><span class="live-dot"></span><span id="lastUpdated">updating…</span></div>
       </div>
     </div>
     <div class="topbar-right">
-      <input type="text" id="globalSearch" placeholder="Search users…" style="padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--white);font-size:12.5px;width:220px;font-family:inherit" onkeydown="if(event.key==='Enter')applySearch()">
-      <button class="icon-btn" id="darkToggle" title="Theme">🌙</button>
-      <button class="icon-btn" onclick="refreshAll()" title="Refresh">🔄</button>
-      <div class="admin-chip" id="adminChip" role="button" tabindex="0">
+      <input type="text" id="globalSearch" class="topbar-search" placeholder="Search user ID, email, username, phone…">
+      <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme"><i class="fas fa-moon"></i></button>
+      <div class="admin-chip">
         <div class="av" id="chipAvatar">AD</div>
-        <div class="info"><strong id="chipName">Admin</strong><span id="chipRole">Admin</span></div>
+        <div class="info">
+          <strong id="chipName">Admin</strong>
+          <span id="chipRole">admin</span>
+        </div>
       </div>
     </div>
   </header>
 
   <div class="content">
 
-    <div class="section-title">Overview</div>
-    <div class="grid cols-4" id="kpiGrid">
-      <div class="kpi-card"><div class="kpi-icon blue">👥</div><div class="kpi-value" id="kpiTotal">—</div><div class="kpi-label">Total Users</div></div>
-      <div class="kpi-card"><div class="kpi-icon green">🟢</div><div class="kpi-value" id="kpiActive">—</div><div class="kpi-label">Active</div></div>
-      <div class="kpi-card"><div class="kpi-icon red">🚫</div><div class="kpi-value" id="kpiSuspended">—</div><div class="kpi-label">Suspended</div></div>
-      <div class="kpi-card"><div class="kpi-icon gold">✅</div><div class="kpi-value" id="kpiVerified">—</div><div class="kpi-label">Verified</div></div>
+    <div class="grid cols-4" id="kpiRow">
+      <div class="kpi-card">
+        <div class="kpi-icon blue"><i class="fas fa-users"></i></div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-label">Total Users</div>
+        <div class="kpi-sub" id="kpiTotalSub">all time</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon green"><i class="fas fa-user-check"></i></div>
+        <div class="kpi-value" id="kpiActive">—</div>
+        <div class="kpi-label">Active</div>
+        <div class="kpi-sub" id="kpiActiveSub">verified &amp; active</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon gold"><i class="fas fa-user-plus"></i></div>
+        <div class="kpi-value" id="kpiNewWeek">—</div>
+        <div class="kpi-label">New This Week</div>
+        <div class="kpi-sub" id="kpiNewToday">today: —</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon red"><i class="fas fa-user-slash"></i></div>
+        <div class="kpi-value" id="kpiSuspended">—</div>
+        <div class="kpi-label">Suspended</div>
+        <div class="kpi-sub">needs review</div>
+      </div>
     </div>
 
-    <div class="section-title">All Users</div>
+    <div class="section-title"><i class="fas fa-list"></i> User Directory</div>
+
     <div class="card">
       <div class="filters-bar">
-        <input type="text" id="searchInput" placeholder="🔍 Search username, email or phone…">
+        <input type="text" id="searchInput" placeholder="Search username, email, phone…">
         <select id="statusFilter">
-          <option value="">All Status</option>
+          <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
           <option value="suspended">Suspended</option>
           <option value="banned">Banned</option>
         </select>
         <select id="roleFilter">
-          <option value="">All Roles</option>
+          <option value="">All roles</option>
           <option value="user">User</option>
           <option value="admin">Admin</option>
-          <option value="super_admin">Super Admin</option>
           <option value="finance">Finance</option>
           <option value="operations">Operations</option>
           <option value="support">Support</option>
           <option value="auditor">Auditor</option>
-          <option value="read_only">Read Only</option>
         </select>
+        <button class="btn btn-primary" id="refreshBtn"><i class="fas fa-rotate"></i> Refresh</button>
       </div>
       <div class="table-scroll">
         <table class="data-table">
           <thead>
             <tr>
               <th>User</th>
-              <th>Phone</th>
-              <th>Role</th>
               <th>Status</th>
+              <th>Role</th>
               <th>Wallet NGN</th>
               <th>Wallet USD</th>
-              <th>Registered</th>
-              <th>Last Login</th>
+              <th>Last Seen</th>
               <th>Restrictions</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="usersTbody">
-            <tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:40px;">Loading…</td></tr>
+            <tr><td colspan="8"><div class="empty-state"><div class="ico">⏳</div><strong>Loading users…</strong></div></td></tr>
           </tbody>
         </table>
       </div>
       <div class="table-foot">
-        <span id="userRange">—</span>
-        <div id="userPager" style="display:flex;gap:4px;"></div>
+        <span id="tableFootInfo">—</span>
+        <div id="pagination" style="display:flex;gap:5px;flex-wrap:wrap"></div>
       </div>
     </div>
 
@@ -359,1058 +671,1344 @@ html.dark .modal .field input,html.dark .modal .field textarea,html.dark .modal 
 </div>
 </div>
 
-<!-- USER DETAIL DRAWER -->
 <div class="drawer-scrim" id="drawerScrim"></div>
-<aside class="drawer" id="userDrawer" role="dialog" aria-modal="true">
-  <div class="dd-head">
-    <div class="dd-ic" id="ddIcon">👤</div>
-    <div class="dd-titles">
-      <h2 id="ddTitle">User</h2>
-      <div class="dd-sub" id="ddSub"></div>
+<aside class="drawer" id="userDrawer" aria-hidden="true">
+
+  <div class="drawer-head">
+    <button class="close" id="drawerClose" aria-label="Close"><i class="fas fa-xmark"></i></button>
+    <div class="identity">
+      <div class="av" id="dhAvatar">—</div>
+      <div class="who">
+        <h2 id="dhName">—</h2>
+        <div class="sub" id="dhSub">—</div>
+      </div>
     </div>
-    <button class="dd-close" id="ddClose" aria-label="Close">✕</button>
+    <div class="meta-grid" id="dhMeta">
+      <div class="kv"><span class="k">User ID</span><span class="v mono" id="dhUserId">—</span></div>
+      <div class="kv"><span class="k">Email</span><span class="v" id="dhEmail">—</span></div>
+      <div class="kv"><span class="k">Phone</span><span class="v" id="dhPhone">—</span></div>
+      <div class="kv"><span class="k">Created</span><span class="v" id="dhCreated">—</span></div>
+      <div class="kv"><span class="k">Last Login</span><span class="v" id="dhLastLogin">—</span></div>
+      <div class="kv"><span class="k">Last Seen</span><span class="v" id="dhLastSeen">—</span></div>
+    </div>
+    <div class="status-row" id="dhStatusRow"></div>
+    <div class="actions" id="dhActions"></div>
   </div>
 
-  <div class="dd-tabs" id="ddTabs">
-    <button class="dd-tab active" data-tab="overview">Overview</button>
-    <button class="dd-tab" data-tab="wallets">Wallets</button>
-    <button class="dd-tab" data-tab="ledger">Ledger</button>
-    <button class="dd-tab" data-tab="transactions">Transactions</button>
-    <button class="dd-tab" data-tab="security">Security</button>
-    <button class="dd-tab" data-tab="support">Support</button>
-    <button class="dd-tab" data-tab="notes">Notes</button>
+  <div class="drawer-tabs" id="drawerTabs">
+    <div class="drawer-tab active" data-tab="overview">Overview</div>
+    <div class="drawer-tab" data-tab="wallets">Wallets</div>
+    <div class="drawer-tab" data-tab="transactions">Transactions</div>
+    <div class="drawer-tab" data-tab="orders">Orders</div>
+    <div class="drawer-tab" data-tab="ledger">Ledger</div>
+    <div class="drawer-tab" data-tab="support">Support</div>
+    <div class="drawer-tab" data-tab="security">Security</div>
+    <div class="drawer-tab" data-tab="notes">Notes</div>
+    <div class="drawer-tab" data-tab="audit">Audit</div>
   </div>
 
-  <div class="dd-body" id="ddBody">
-    <div class="dd-empty">Select a user…</div>
+  <div class="drawer-body">
+
+    <div class="tab-panel active" data-panel="overview">
+      <div class="freshness" id="ovFreshness"><span class="dot"></span><span>loading…</span></div>
+      <div id="ovWalletUnavailable"></div>
+      <div class="fin-grid" id="ovFinGrid"></div>
+      <div class="mini-stats" id="ovMiniStats"></div>
+
+      <div class="section-title" style="margin-top:22px"><i class="fas fa-triangle-exclamation"></i> Restrictions</div>
+      <div id="ovRestrictions"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="wallets">
+      <div class="freshness" id="walFreshness"><span class="dot"></span><span>loading…</span></div>
+      <div id="walUnavailable"></div>
+      <div class="fin-grid" id="walGrid"></div>
+      <div class="section-title" style="margin-top:20px"><i class="fas fa-hourglass-half"></i> Pending</div>
+      <div class="mini-stats" id="walPending"></div>
+      <div class="section-title" style="margin-top:20px"><i class="fas fa-clock-rotate-left"></i> Last Ledger Movement</div>
+      <div id="walLastMovement"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="transactions">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <select id="txTypeFilter" style="padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:12px">
+          <option value="">All types</option>
+          <option value="deposit">Deposit</option>
+          <option value="withdrawal">Withdrawal</option>
+          <option value="transfer">Transfer</option>
+          <option value="purchase">Purchase</option>
+          <option value="refund">Refund</option>
+          <option value="admin_adjustment">Admin Adjustment</option>
+        </select>
+        <select id="txStatusFilter" style="padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:12px">
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="processing">Processing</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+          <option value="reversed">Reversed</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="txReload"><i class="fas fa-rotate"></i> Reload</button>
+      </div>
+      <div class="tx-table-wrap">
+        <table class="tx-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Reference</th>
+              <th>Provider</th>
+              <th>Provider Ref</th>
+            </tr>
+          </thead>
+          <tbody id="txTbody">
+            <tr><td colspan="7"><div class="empty-state"><div class="ico">⏳</div><strong>Open the Transactions tab to load.</strong></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="orders">
+      <div class="tx-table-wrap">
+        <table class="tx-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Order Ref</th>
+              <th>Product</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>Provider</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTbody">
+            <tr><td colspan="7"><div class="empty-state"><div class="ico">📦</div><strong>Orders will load here.</strong></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="ledger">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <select id="ledgerCurrency" style="padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:12px">
+          <option value="">All currencies</option>
+          <option value="NGN">NGN</option>
+          <option value="USD">USD</option>
+        </select>
+        <select id="ledgerEntryType" style="padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--white);color:var(--text);font-size:12px">
+          <option value="">All entries</option>
+          <option value="CREDIT">Credits only</option>
+          <option value="DEBIT">Debits only</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="ledgerReload"><i class="fas fa-rotate"></i> Reload</button>
+      </div>
+      <div id="ledgerAccounts" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+      <div class="card" style="margin-top:14px" id="ledgerEntriesCard">
+        <div id="ledgerEntries"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="support">
+      <div id="supportBody">
+        <div class="empty-state"><div class="ico">💬</div><strong>Open Support to load tickets.</strong></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="security">
+      <div class="section-title" style="margin-top:0"><i class="fas fa-display"></i> Active Sessions</div>
+      <div id="secActiveSessions"></div>
+      <div class="section-title"><i class="fas fa-clock-rotate-left"></i> Session History</div>
+      <div id="secAllSessions"></div>
+      <div class="section-title"><i class="fas fa-shield-halved"></i> Security Events</div>
+      <div id="secEvents"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="notes">
+      <div class="card" style="padding:16px;margin-bottom:14px">
+        <div class="form-row">
+          <label for="noteBody">Add a note</label>
+          <textarea id="noteBody" placeholder="Context for the next admin…"></textarea>
+          <div class="help">Notes are append-only. Use a correction note instead of editing.</div>
+        </div>
+        <div class="form-row">
+          <label for="noteTags">Tags (comma separated)</label>
+          <input type="text" id="noteTags" placeholder="fraud, refund, follow-up">
+        </div>
+        <button class="btn btn-primary" id="noteAddBtn"><i class="fas fa-plus"></i> Add note</button>
+      </div>
+      <div id="notesList"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="audit">
+      <div class="freshness" id="auditFreshness"><span class="dot"></span><span>loading…</span></div>
+      <div id="auditList"></div>
+    </div>
+
   </div>
 </aside>
 
-<!-- MODAL -->
+<div class="toast" id="toast"></div>
+
 <div class="modal-scrim" id="modalScrim">
-  <div class="modal" id="modalBox">
-    <h3 id="modalTitle">Confirm</h3>
-    <div class="sub" id="modalSub"></div>
-    <div id="modalBody"></div>
-    <div class="modal-actions">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Action</h3>
+      <button class="x" id="modalClose" aria-label="Close"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
       <button class="btn btn-ghost" id="modalCancel">Cancel</button>
       <button class="btn btn-primary" id="modalConfirm">Confirm</button>
     </div>
   </div>
 </div>
 
-<div class="toast-stack" id="toastStack"></div>
-
 <script>
+/* ═══════════════════════════════════════════════════════════════
+   MilesSpace — User 360 client
+   All API calls go through window.AdminSession.fetch() so the
+   Authorization: Bearer <token> header is attached.
+   ═══════════════════════════════════════════════════════════════ */
 'use strict';
 
-/* ════════════════════════════════════════════════════════════════
-   CONFIG
-   ════════════════════════════════════════════════════════════════ */
+async function apiFetch(path, opts = {}) {
+  if (window.AdminSession && typeof window.AdminSession.fetch === 'function') {
+    return window.AdminSession.fetch(path, opts);
+  }
+  const headers = Object.assign({ Accept: 'application/json' }, opts.headers || {});
+  try {
+    const token = window.AdminSession && typeof window.AdminSession.getToken === 'function'
+      ? window.AdminSession.getToken()
+      : null;
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+  } catch (_) {}
+  if (opts.body && !headers['Content-Type'] && !(opts.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return fetch(path, { credentials: 'include', cache: 'no-store', ...opts, headers });
+}
+
+async function apiJson(path, opts = {}) {
+  const res = await apiFetch(path, opts);
+  let body = null;
+  try { body = await res.json(); } catch (_) {}
+  if (res.status === 401) {
+    const err = new Error('Admin session expired');
+    err.code = 'SESSION_EXPIRED';
+    err.status = 401;
+    throw err;
+  }
+  if (res.status === 403) {
+    const err = new Error(body?.error || 'You do not have permission to perform this action.');
+    err.code = body?.code || 'PERMISSION_DENIED';
+    err.status = 403;
+    throw err;
+  }
+  if (!body) {
+    return { success: false, error: 'Invalid response', code: 'BAD_RESPONSE' };
+  }
+  return body;
+}
+
 const API = {
-  users:       '/api/admin/users',
-  userById:    (id) => `/api/admin/users/${encodeURIComponent(id)}`,
-  overview:    (id) => `/api/admin/users/${encodeURIComponent(id)}/overview`,
-  wallets:     (id) => `/api/admin/users/${encodeURIComponent(id)}/wallets`,
-  ledger:      (id) => `/api/admin/users/${encodeURIComponent(id)}/ledger`,
-  transactions:(id) => `/api/admin/users/${encodeURIComponent(id)}/transactions`,
-  security:    (id) => `/api/admin/users/${encodeURIComponent(id)}/security`,
-  support:     (id) => `/api/admin/users/${encodeURIComponent(id)}/support`,
-  notes:       (id) => `/api/admin/users/${encodeURIComponent(id)}/notes`,
-  restrictions:(id) => `/api/admin/users/${encodeURIComponent(id)}/restrictions`,
-  restrictOne: (id, r) => `/api/admin/users/${encodeURIComponent(id)}/restrictions/${encodeURIComponent(r)}`,
-  forceLogout: (id) => `/api/admin/users/${encodeURIComponent(id)}/force-logout`,
-  requirePwd:  (id) => `/api/admin/users/${encodeURIComponent(id)}/require-password-reset`,
-  require2FA:  (id) => `/api/admin/users/${encodeURIComponent(id)}/require-2fa`,
-  status:      (id) => `/api/admin/users/${encodeURIComponent(id)}/status`,
-  wallet:      (id) => `/api/admin/users/${encodeURIComponent(id)}/wallet`,
-  stats:       '/api/admin/users/stats',
-  me:          '/api/admin/me',
-  approvals:   '/api/admin/approvals'
+  list:         (q) => apiJson(`/api/admin/users?${q}`),
+  recent:       () => apiJson('/api/admin/users/recent'),
+  stats:        () => apiJson('/api/admin/users/stats'),
+  overview:     (id) => apiJson(`/api/admin/users/${id}/overview`),
+  wallets:      (id) => apiJson(`/api/admin/users/${id}/wallets`),
+  ledger:       (id, q) => apiJson(`/api/admin/users/${id}/ledger?${q}`),
+  transactions: (id, q) => apiJson(`/api/admin/users/${id}/transactions?${q}`),
+  orders:       (id, q) => apiJson(`/api/admin/users/${id}/orders?${q}`),
+  security:     (id) => apiJson(`/api/admin/users/${id}/security`),
+  support:      (id) => apiJson(`/api/admin/users/${id}/support`),
+  notes:        (id) => apiJson(`/api/admin/users/${id}/notes`),
+  audit:        (id, q) => apiJson(`/api/admin/users/${id}/audit?${q}`),
+  addNote:      (id, body) => apiJson(`/api/admin/users/${id}/notes`, { method:'POST', body: JSON.stringify(body) }),
+  restriction:  (id, body) => apiJson(`/api/admin/users/${id}/restrictions`, { method:'POST', body: JSON.stringify(body) }),
+  liftRestr:    (id, r, reason) => apiJson(`/api/admin/users/${id}/restrictions/${encodeURIComponent(r)}`, { method:'DELETE', body: JSON.stringify({reason}) }),
+  forceLogout:  (id, reason) => apiJson(`/api/admin/users/${id}/force-logout`, { method:'POST', body: JSON.stringify({reason}) }),
+  reqPwd:       (id, reason) => apiJson(`/api/admin/users/${id}/require-password-reset`, { method:'POST', body: JSON.stringify({reason}) }),
+  req2fa:       (id, reason) => apiJson(`/api/admin/users/${id}/require-2fa`, { method:'POST', body: JSON.stringify({reason}) }),
+  setStatus:    (id, status, reason) => apiJson(`/api/admin/users/${id}/status`, { method:'PUT', body: JSON.stringify({status, reason}) }),
+  adjustWallet: (id, body) => apiJson(`/api/admin/users/${id}/wallet`, { method:'POST', body: JSON.stringify(body) }),
+  approvals:    (q) => apiJson(`/api/admin/approvals?${q}`)
 };
 
-const RESTRICTIONS = [
-  { key: 'deposits',      label: 'Deposits',         icon: '📥' },
-  { key: 'withdrawals',   label: 'Withdrawals',      icon: '📤' },
-  { key: 'gift_cards',    label: 'Gift Card Trading',icon: '🎁' },
-  { key: 'virtual_cards', label: 'Virtual Cards',    icon: '💳' },
-  { key: 'transactions',  label: 'All Transactions', icon: '🚫' },
-  { key: 'login',         label: 'Account Login',    icon: '🔒' },
-  { key: 'payouts',       label: 'Payouts',          icon: '💰' },
-  { key: 'trading',       label: 'Trading',          icon: '📈' }
-];
-
-const State = {
-  users: [],
+const state = {
   page: 1,
   limit: 20,
-  total: 0,
-  totalPages: 1,
-  currentUserId: null,
-  currentTab: 'overview',
-  drawerData: {},
-  adminPermissions: {}
+  search: '',
+  status: '',
+  role: '',
+  count: 0,
+  currentUser: null,
+  activeTab: 'overview',
+  perms: window.AdminPermissions || null
 };
 
-/* ════════════════════════════════════════════════════════════════
-   HELPERS
-   ════════════════════════════════════════════════════════════════ */
-function escapeHtml(s) {
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+function esc(s) {
   if (s === null || s === undefined) return '';
-  return String(s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-function getInitials(name) {
-  if (!name) return 'U';
-  return name.split(/\s+/).map(w => w[0]).filter(Boolean).join('').toUpperCase().slice(0, 2) || 'U';
+
+function fmtNum(n, opts={}) {
+  if (n === null || n === undefined || n === '') return '—';
+  const num = Number(n);
+  if (!Number.isFinite(num)) return '—';
+  return num.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2, ...opts });
 }
-function fmtMoney(amount, currency) {
-  const ccy = String(currency || '').toUpperCase();
-  const n = Number(amount);
-  if (!Number.isFinite(n)) return '—';
-  const sym = { NGN:'₦', USD:'$', GHS:'GH₵', KES:'KSh', ZAR:'R', EUR:'€', GBP:'£' }[ccy] || '';
-  const fmt = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return sym ? `${sym}${fmt}` : `${ccy} ${fmt}`;
+
+function fmtCcy(n, ccy='NGN') {
+  if (n === null || n === undefined) return '—';
+  const num = Number(n);
+  if (!Number.isFinite(num)) return '—';
+  const symbol = ccy === 'USD' ? '$' : '₦';
+  return symbol + num.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function fmtNum(n) {
-  if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—';
-  return Number(n).toLocaleString('en-US');
-}
+
 function fmtDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleString('en-US', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  return dt.toLocaleString('en-NG', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
 }
-function timeAgo(d) {
+
+function relTime(d) {
   if (!d) return '—';
-  const diff = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
-  if (diff < 0) return 'just now';
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
-  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
-  if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
-  return Math.floor(diff/604800) + 'w ago';
-}
-function statusBadge(s) {
-  const m = {
-    active:'success', completed:'success', success:'success', delivered:'success',
-    inactive:'neutral', pending:'warn', processing:'warn', confirming:'warn',
-    suspended:'danger', banned:'danger', failed:'danger', cancelled:'danger', reversed:'danger',
-    admin:'info', super_admin:'purple', finance:'purple', operations:'info',
-    support:'warn', auditor:'neutral', read_only:'neutral', user:'neutral',
-    manual_review:'purple'
-  };
-  return m[String(s||'').toLowerCase()] || 'neutral';
-}
-function toast(msg, type = 'info') {
-  const stack = document.getElementById('toastStack');
-  const el = document.createElement('div');
-  el.className = 'toast ' + type;
-  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
-  el.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${escapeHtml(msg)}</span>`;
-  stack.appendChild(el);
-  setTimeout(() => el.remove(), 3600);
-}
-function setLoading(btn, loading) {
-  if (!btn) return;
-  if (loading) {
-    btn.dataset.original = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Please wait…';
-  } else {
-    btn.disabled = false;
-    btn.innerHTML = btn.dataset.original || btn.innerHTML;
-  }
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  const diff = (Date.now() - dt.getTime()) / 1000;
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+  return fmtDate(d);
 }
 
-/* ════════════════════════════════════════════════════════════════
-   FETCH WRAPPER
-   ════════════════════════════════════════════════════════════════ */
-async function api(url, options) {
-  try {
-    const res = await AdminSession.fetch(url, options);
-    if (res.status === 404) return { ok:false, status:404, reason:'not_found' };
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || json.success === false) {
-      return { ok:false, status:res.status, reason:json.error || 'Request failed', code:json.code };
-    }
-    return { ok:true, data: json.data !== undefined ? json.data : json, raw: json };
-  } catch (e) {
-    return { ok:false, status:0, reason: e.message || 'Network error' };
-  }
+function initials(name) {
+  if (!name) return '—';
+  const parts = String(name).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
 }
 
-/* ════════════════════════════════════════════════════════════════
-   MODAL
-   ════════════════════════════════════════════════════════════════ */
-function openModal({ title, subtitle, body, confirmText, onConfirm, cancelText, hideConfirm }) {
-  document.getElementById('modalTitle').textContent = title || 'Confirm';
-  document.getElementById('modalSub').textContent = subtitle || '';
-  document.getElementById('modalBody').innerHTML = body || '';
-  const confirmBtn = document.getElementById('modalConfirm');
-  const cancelBtn = document.getElementById('modalCancel');
-  confirmBtn.textContent = confirmText || 'Confirm';
-  cancelBtn.textContent = cancelText || 'Cancel';
-  confirmBtn.style.display = hideConfirm ? 'none' : 'inline-flex';
-  confirmBtn.onclick = async (e) => {
-    if (onConfirm) {
-      const proceed = await onConfirm(e);
-      if (proceed === false) return;
-    }
-    closeModal();
-  };
-  document.getElementById('modalScrim').classList.add('show');
-}
-function closeModal() {
-  document.getElementById('modalScrim').classList.remove('show');
-}
-document.getElementById('modalScrim').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) closeModal();
-});
-
-/* ════════════════════════════════════════════════════════════════
-   SIDEBAR / THEME / TOPBAR
-   ════════════════════════════════════════════════════════════════ */
-document.getElementById('hamburger').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('scrim').classList.toggle('show');
-});
-document.getElementById('scrim').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('scrim').classList.remove('show');
-});
-document.getElementById('sbToggleDesktop').addEventListener('click', () => {
-  document.getElementById('appRoot').classList.toggle('sb-collapsed');
-});
-document.getElementById('sbCollapseBtn').addEventListener('click', () => {
-  document.getElementById('appRoot').classList.toggle('sb-collapsed');
-});
-document.getElementById('darkToggle').addEventListener('click', () => {
-  document.documentElement.classList.toggle('dark');
-  document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
-  try { localStorage.setItem('admin_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); } catch (_) {}
-});
-try {
-  if (localStorage.getItem('admin_theme') === 'dark') {
-    document.documentElement.classList.add('dark');
-    document.getElementById('darkToggle').textContent = '☀️';
-  }
-} catch (_) {}
-
-document.getElementById('adminChip').addEventListener('click', () => {
-  if (confirm('Log out?')) AdminSession.logout();
-});
-
-/* ════════════════════════════════════════════════════════════════
-   ADMIN PROFILE
-   ════════════════════════════════════════════════════════════════ */
-async function loadAdminProfile() {
-  const r = await api(API.me);
-  if (!r.ok) return;
-  const user = r.data.user || r.data;
-  const name = user.username || user.email?.split('@')[0] || 'Admin';
-  const role = user.role || 'admin';
-  const initials = getInitials(name);
-  document.getElementById('adminName').textContent = name;
-  document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-  document.getElementById('adminAvatar').textContent = initials;
-  document.getElementById('chipName').textContent = name;
-  document.getElementById('chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-  document.getElementById('chipAvatar').textContent = initials;
-  State.adminPermissions = r.data.permissions || {};
+function toast(msg, kind='') {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (kind ? ' ' + kind : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.className = 'toast'; }, 3200);
 }
 
-/* ════════════════════════════════════════════════════════════════
-   KPI STATS
-   ════════════════════════════════════════════════════════════════ */
+function hasPerm(perm) {
+  if (!state.perms) return true;
+  if (typeof state.perms.has === 'function') return state.perms.has(perm);
+  if (typeof state.perms.can === 'function') return state.perms.can(perm);
+  return true;
+}
+
+function badgeClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (['active','completed','verified','success','approved'].includes(s)) return 'success';
+  if (['suspended','banned','failed','rejected','error'].includes(s)) return 'danger';
+  if (['pending','processing','in_progress','open','waiting'].includes(s)) return 'warn';
+  if (['refunded','reversed','info'].includes(s)) return 'info';
+  return 'neutral';
+}
+
+/* ─── KPI + list ───────────────────────────────────────────── */
+
 async function loadStats() {
-  const r = await api(API.stats);
-  const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmtNum(v) || '—'; };
-  if (!r.ok) {
-    setEl('kpiTotal', null); setEl('kpiActive', null); setEl('kpiSuspended', null); setEl('kpiVerified', null);
-    return;
+  try {
+    const res = await API.stats();
+    if (!res.success) return;
+    const s = res.stats || {};
+    $('#kpiTotal').textContent = fmtNum(s.total, { minimumFractionDigits:0, maximumFractionDigits:0 });
+    $('#kpiActive').textContent = fmtNum(s.active, { minimumFractionDigits:0, maximumFractionDigits:0 });
+    $('#kpiNewWeek').textContent = fmtNum(s.newThisWeek, { minimumFractionDigits:0, maximumFractionDigits:0 });
+    $('#kpiSuspended').textContent = fmtNum(s.suspended, { minimumFractionDigits:0, maximumFractionDigits:0 });
+    $('#kpiNewToday').textContent = 'today: ' + fmtNum(s.newToday, { minimumFractionDigits:0, maximumFractionDigits:0 });
+    $('#userCountBadge').textContent = fmtNum(s.total, { minimumFractionDigits:0, maximumFractionDigits:0 });
+    const lu = $('#lastUpdated');
+    if (lu) lu.textContent = 'updated ' + new Date().toLocaleTimeString('en-NG', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) { toast('You do not have permission to view users.', 'error'); return; }
+    console.error(e);
   }
-  const s = r.data.stats || r.data;
-  setEl('kpiTotal', s.total);
-  setEl('kpiActive', s.active);
-  setEl('kpiSuspended', s.suspended);
-  setEl('kpiVerified', s.verified);
-  document.getElementById('userCountBadge').textContent = fmtNum(s.total) || '0';
 }
 
-/* ════════════════════════════════════════════════════════════════
-   USERS TABLE
-   ════════════════════════════════════════════════════════════════ */
-function currentFilters() {
-  return {
-    search: (document.getElementById('searchInput').value || '').trim(),
-    status: (document.getElementById('statusFilter').value || '').trim(),
-    role: (document.getElementById('roleFilter').value || '').trim(),
-    page: State.page,
-    limit: State.limit
-  };
-}
 async function loadUsers() {
-  const tbody = document.getElementById('usersTbody');
-  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:40px;">Loading…</td></tr>';
-  const f = currentFilters();
   const params = new URLSearchParams();
-  if (f.search) params.set('search', f.search);
-  if (f.status) params.set('status', f.status);
-  if (f.role) params.set('role', f.role);
-  params.set('page', f.page);
-  params.set('limit', f.limit);
+  params.set('page', state.page);
+  params.set('limit', state.limit);
+  if (state.search) params.set('search', state.search);
+  if (state.status) params.set('status', state.status);
+  if (state.role) params.set('role', state.role);
 
-  const r = await api(`${API.users}?${params.toString()}`);
-  if (!r.ok) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--danger);padding:40px;">Failed to load users: ${escapeHtml(r.reason)}</td></tr>`;
-    return;
+  const tbody = $('#usersTbody');
+  tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div></td></tr>`;
+
+  try {
+    const res = await API.list(params.toString());
+    if (!res.success) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed to load users')}</strong><span>${esc(res.code || '')}</span></div></td></tr>`;
+      return;
+    }
+    state.count = res.count || 0;
+    const users = res.users || [];
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="ico">🔍</div><strong>No users match those filters.</strong></div></td></tr>`;
+    } else {
+      tbody.innerHTML = users.map(u => {
+        const name = u.username || (u.email ? u.email.split('@')[0] : 'User');
+        const restrictions = (u.restrictions || []).length;
+        return `
+          <tr class="row-clickable" data-user-id="${esc(u.id)}">
+            <td>
+              <div class="cell-user">
+                <div class="av">${esc(initials(name))}</div>
+                <div class="meta">
+                  <strong>${esc(name)}</strong>
+                  <span>${esc(u.email || '—')}</span>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge ${badgeClass(u.status)}">${esc(u.status || 'unknown')}</span></td>
+            <td><span class="badge neutral">${esc(u.role || 'user')}</span></td>
+            <td class="mono">${fmtCcy(u.wallet_ngn, 'NGN')}</td>
+            <td class="mono">${fmtCcy(u.wallet_usd, 'USD')}</td>
+            <td>${esc(relTime(u.last_seen || u.last_login))}</td>
+            <td>${restrictions ? `<span class="badge warn">${restrictions}</span>` : '<span class="badge neutral">none</span>'}</td>
+            <td>
+              <div class="cell-actions" onclick="event.stopPropagation()">
+                <button class="icon-mini" data-open-user="${esc(u.id)}" title="Open User 360"><i class="fas fa-eye"></i></button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+    const totalPages = Math.max(1, Math.ceil(state.count / state.limit));
+    $('#tableFootInfo').textContent = `${state.count} user${state.count === 1 ? '' : 's'} • page ${state.page} of ${totalPages}`;
+    renderPagination(totalPages);
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="ico">🔒</div><strong>You do not have permission to view users.</strong></div></td></tr>`;
+      return;
+    }
+    console.error(e);
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div></td></tr>`;
   }
-  const users = r.data.users || r.data.data || r.data;
-  const total = r.raw?.count ?? r.data.count ?? users.length;
-  const totalPages = r.raw?.totalPages ?? r.data.totalPages ?? 1;
+}
 
-  State.users = users;
-  State.total = total;
-  State.totalPages = totalPages;
-
-  if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:40px;">No users found</td></tr>';
-    document.getElementById('userRange').textContent = '0 users';
-    document.getElementById('userPager').innerHTML = '';
-    return;
-  }
-
-  tbody.innerHTML = users.map(u => {
-    const name = u.username || u.email || 'User';
-    const restrictions = Array.isArray(u.restrictions) ? u.restrictions : [];
-    return `<tr class="row-clickable" onclick="openUserDrawer('${escapeHtml(u.id)}')">
-      <td>
-        <div class="cell-user">
-          <div class="av">${escapeHtml(getInitials(name))}</div>
-          <div class="meta">
-            <strong>${escapeHtml(name)}</strong>
-            <span>${escapeHtml(u.email || '')}</span>
-          </div>
-        </div>
-      </td>
-      <td>${escapeHtml(u.phone || '—')}</td>
-      <td><span class="badge ${statusBadge(u.role)}">${escapeHtml(u.role || 'user')}</span></td>
-      <td><span class="badge ${statusBadge(u.status)}">${escapeHtml(u.status || 'active')}</span></td>
-      <td class="mono">${fmtMoney(u.wallet_ngn, 'NGN')}</td>
-      <td class="mono">${fmtMoney(u.wallet_usd, 'USD')}</td>
-      <td>${timeAgo(u.created_at)}</td>
-      <td>${timeAgo(u.last_login || u.last_seen)}</td>
-      <td>${restrictions.length
-        ? restrictions.map(x => `<span class="badge danger">🔒 ${escapeHtml(x)}</span>`).join(' ')
-        : '<span class="badge neutral">—</span>'}</td>
-      <td onclick="event.stopPropagation()">
-        <div class="cell-actions">
-          <button class="icon-mini" title="View" onclick="openUserDrawer('${escapeHtml(u.id)}')">👁️</button>
-          <button class="icon-mini ${u.status === 'suspended' ? 'success' : 'danger'}" title="${u.status === 'suspended' ? 'Activate' : 'Suspend'}" onclick="quickToggleStatus('${escapeHtml(u.id)}','${escapeHtml(u.status || 'active')}','${escapeHtml(name)}')">${u.status === 'suspended' ? '▶️' : '⏸️'}</button>
-          <button class="icon-mini" title="Adjust wallet" onclick="openWalletAdjust('${escapeHtml(u.id)}','${escapeHtml(name)}','${escapeHtml(u.wallet_ngn || 0)}','${escapeHtml(u.wallet_usd || 0)}')">💰</button>
-          <button class="icon-mini" title="Add note" onclick="openAddNote('${escapeHtml(u.id)}','${escapeHtml(name)}')">📝</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('userRange').textContent = `${(State.page-1)*State.limit+1}–${Math.min(State.page*State.limit, total)} of ${total}`;
-
-  // Pagination
-  const pager = document.getElementById('userPager');
+function renderPagination(totalPages) {
+  const el = $('#pagination');
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
   let html = '';
-  const maxPages = Math.min(totalPages, 8);
-  for (let i = 1; i <= maxPages; i++) {
-    html += `<button class="pg-btn ${i === State.page ? 'active' : ''}" onclick="gotoPage(${i})">${i}</button>`;
+  const start = Math.max(1, state.page - 2);
+  const end = Math.min(totalPages, state.page + 2);
+  if (start > 1) html += `<button class="pg-btn" data-page="1">1</button>`;
+  if (start > 2) html += `<span style="padding:0 4px;color:var(--text-dim)">…</span>`;
+  for (let i = start; i <= end; i++) {
+    html += `<button class="pg-btn ${i === state.page ? 'active' : ''}" data-page="${i}">${i}</button>`;
   }
-  if (totalPages > maxPages) {
-    html += `<button class="pg-btn ${State.page === totalPages ? 'active' : ''}" onclick="gotoPage(${totalPages})">…${totalPages}</button>`;
-  }
-  pager.innerHTML = html;
-}
-function gotoPage(p) {
-  State.page = p;
-  loadUsers();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-function applySearch() {
-  document.getElementById('searchInput').value = document.getElementById('globalSearch').value.trim();
-  State.page = 1;
-  loadUsers();
+  if (end < totalPages - 1) html += `<span style="padding:0 4px;color:var(--text-dim)">…</span>`;
+  if (end < totalPages) html += `<button class="pg-btn" data-page="${totalPages}">${totalPages}</button>`;
+  el.innerHTML = html;
 }
 
-let searchTimer;
-document.getElementById('searchInput').addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { State.page = 1; loadUsers(); }, 300);
-});
-document.getElementById('statusFilter').addEventListener('change', () => { State.page = 1; loadUsers(); });
-document.getElementById('roleFilter').addEventListener('change', () => { State.page = 1; loadUsers(); });
+/* ─── Drawer ─────────────────────────────────────────────── */
 
-function refreshAll() {
-  loadAdminProfile();
-  loadStats();
-  loadUsers();
-  loadApprovalsCount();
-  document.getElementById('lastUpdated').textContent = 'updated ' + new Date().toLocaleTimeString();
-  toast('Refreshed', 'success');
-}
-
-/* ════════════════════════════════════════════════════════════════
-   DRAWER
-   ════════════════════════════════════════════════════════════════ */
 function openDrawer() {
-  document.getElementById('userDrawer').classList.add('open');
-  document.getElementById('drawerScrim').classList.add('show');
+  $('#userDrawer').classList.add('open');
+  $('#drawerScrim').classList.add('open');
+  $('#userDrawer').setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
 }
 function closeDrawer() {
-  document.getElementById('userDrawer').classList.remove('open');
-  document.getElementById('drawerScrim').classList.remove('show');
-  State.currentUserId = null;
-  State.currentTab = 'overview';
-  State.drawerData = {};
+  $('#userDrawer').classList.remove('open');
+  $('#drawerScrim').classList.remove('open');
+  $('#userDrawer').setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  state.currentUser = null;
 }
-document.getElementById('ddClose').addEventListener('click', closeDrawer);
-document.getElementById('drawerScrim').addEventListener('click', closeDrawer);
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { closeDrawer(); closeModal(); }
-});
 
-document.getElementById('ddTabs').addEventListener('click', (e) => {
-  const btn = e.target.closest('.dd-tab');
-  if (!btn) return;
-  const tab = btn.dataset.tab;
-  if (!tab || tab === State.currentTab) return;
-  document.querySelectorAll('.dd-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  State.currentTab = tab;
-  renderTab(tab);
-});
-
-async function openUserDrawer(userId) {
-  if (!userId) return;
-  State.currentUserId = userId;
-  State.currentTab = 'overview';
-  State.drawerData = {};
-  document.querySelectorAll('.dd-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'overview'));
-  document.getElementById('ddIcon').textContent = '👤';
-  document.getElementById('ddTitle').textContent = 'Loading…';
-  document.getElementById('ddSub').textContent = userId;
-  document.getElementById('ddBody').innerHTML = '<div class="dd-empty">Loading user…</div>';
+async function openUser(id) {
   openDrawer();
-
-  // Fetch overview for header
-  const r = await api(API.overview(userId));
-  if (!r.ok) {
-    document.getElementById('ddBody').innerHTML = `<div class="dd-empty">Failed to load user: ${escapeHtml(r.reason)}</div>`;
-    return;
-  }
-  const profile = r.data.profile;
-  const name = profile.username || profile.email || 'User';
-  document.getElementById('ddTitle').textContent = name;
-  document.getElementById('ddSub').textContent = profile.email || userId;
-  State.drawerData.overview = r.data;
-  renderTab('overview');
-}
-
-function renderTab(tab) {
-  const body = document.getElementById('ddBody');
-  switch (tab) {
-    case 'overview': return renderOverviewTab(body);
-    case 'wallets': return renderWalletsTab(body);
-    case 'ledger': return renderLedgerTab(body);
-    case 'transactions': return renderTransactionsTab(body);
-    case 'security': return renderSecurityTab(body);
-    case 'support': return renderSupportTab(body);
-    case 'notes': return renderNotesTab(body);
+  resetDrawer();
+  try {
+    const res = await API.overview(id);
+    if (!res.success) {
+      toast(res.error || 'Failed to load user', 'error');
+      closeDrawer();
+      return;
+    }
+    state.currentUser = res.data;
+    renderDrawerHeader(res.data);
+    renderOverview(res.data);
+    if (state.activeTab && state.activeTab !== 'overview') {
+      loadTab(state.activeTab);
+    }
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) { toast('You do not have permission to view this user.', 'error'); closeDrawer(); return; }
+    console.error(e);
+    toast('Network error loading user', 'error');
+    closeDrawer();
   }
 }
 
-/* ─── OVERVIEW TAB ─── */
-function renderOverviewTab(body) {
-  const id = State.currentUserId;
-  const d = State.drawerData.overview;
-  if (!d) {
-    body.innerHTML = '<div class="dd-empty">Loading…</div>';
-    return;
-  }
-  const p = d.profile;
-  const w = d.wallet || {};
-  const restrictions = d.restrictions || [];
-  const activeRestrictions = restrictions.map(r => r.restriction);
-
-  body.innerHTML = `
-    <div class="dd-stat-grid">
-      <div class="dd-stat"><div class="k">NGN Wallet</div><div class="v">${fmtMoney(w.ngn, 'NGN')}</div></div>
-      <div class="dd-stat"><div class="k">USD Wallet</div><div class="v">${fmtMoney(w.usd, 'USD')}</div></div>
-      <div class="dd-stat"><div class="k">Pending Deposits</div><div class="v">${fmtNum(d.pending?.deposits ?? 0)}</div></div>
-      <div class="dd-stat"><div class="k">Open Tickets</div><div class="v">${fmtNum(d.support_open ?? 0)}</div></div>
-    </div>
-
-    <div class="dd-section">
-      <div class="dd-section-title">Account Information</div>
-      <div class="dd-field"><span class="k">User ID</span><span class="v mono" style="font-size:11px">${escapeHtml(p.id)}</span></div>
-      <div class="dd-field"><span class="k">Username</span><span class="v">${escapeHtml(p.username || '—')}</span></div>
-      <div class="dd-field"><span class="k">Email</span><span class="v">${escapeHtml(p.email || '—')}</span></div>
-      <div class="dd-field"><span class="k">Phone</span><span class="v">${escapeHtml(p.phone || '—')}</span></div>
-      <div class="dd-field"><span class="k">Role</span><span class="v"><span class="badge ${statusBadge(p.role)}">${escapeHtml(p.role || 'user')}</span></span></div>
-      <div class="dd-field"><span class="k">Status</span><span class="v"><span class="badge ${statusBadge(p.status)}">${escapeHtml(p.status || 'active')}</span></span></div>
-      <div class="dd-field"><span class="k">Email Verified</span><span class="v">${p.is_verified ? '<span class="badge success">✓ Verified</span>' : '<span class="badge neutral">Not verified</span>'}</span></div>
-      <div class="dd-field"><span class="k">2FA</span><span class="v">${p.two_factor_enabled ? '<span class="badge success">Enabled</span>' : '<span class="badge neutral">Not configured</span>'}</span></div>
-      <div class="dd-field"><span class="k">KYC Status</span><span class="v"><span class="badge neutral">Not tracked</span></span></div>
-      <div class="dd-field"><span class="k">Risk Level</span><span class="v">${p.risk_level ? `<span class="badge warn">${escapeHtml(p.risk_level)}</span>` : '<span class="badge neutral">Not set</span>'}</span></div>
-      <div class="dd-field"><span class="k">Referral Code</span><span class="v mono">${escapeHtml(p.referral_code || '—')}</span></div>
-      <div class="dd-field"><span class="k">Registered</span><span class="v">${fmtDate(p.created_at)}</span></div>
-      <div class="dd-field"><span class="k">Last Login</span><span class="v">${fmtDate(p.last_login)}</span></div>
-      <div class="dd-field"><span class="k">Last Seen</span><span class="v">${fmtDate(p.last_seen)}</span></div>
-      <div class="dd-field"><span class="k">Last Location</span><span class="v">${escapeHtml(p.last_location || '—')}</span></div>
-    </div>
-
-    <div class="dd-section">
-      <div class="dd-section-title">
-        Restrictions
-        <button class="btn btn-ghost btn-sm" onclick="openAddRestriction('${escapeHtml(id)}')">➕ Add</button>
-      </div>
-      ${restrictions.length
-        ? restrictions.map(r => `
-            <div class="restriction-chip">
-              🔒 ${escapeHtml(r.restriction)} — ${escapeHtml(r.reason || '')}
-              <button onclick="removeRestriction('${escapeHtml(id)}','${escapeHtml(r.restriction)}')" title="Lift">✕</button>
-            </div>`).join('')
-        : '<div class="dd-empty" style="padding:12px">No active restrictions</div>'}
-    </div>
-
-    <div class="dd-section">
-      <div class="dd-section-title">Account Actions</div>
-      <div class="dd-actions">
-        <button class="btn ${p.status === 'suspended' ? 'btn-success' : 'btn-danger'}" onclick="toggleStatusAction('${escapeHtml(p.id)}','${escapeHtml(p.status || 'active')}')">
-          ${p.status === 'suspended' ? '▶️ Activate Account' : '⏸️ Suspend Account'}
-        </button>
-        <button class="btn btn-ghost" onclick="openWalletAdjust('${escapeHtml(p.id)}','${escapeHtml(p.username || p.email)}',${Number(w.ngn || 0)},${Number(w.usd || 0)})">💰 Adjust Wallet</button>
-        <button class="btn btn-ghost" onclick="openAddNote('${escapeHtml(p.id)}','${escapeHtml(p.username || p.email)}')">📝 Add Note</button>
-        <button class="btn btn-ghost" onclick="forceLogout('${escapeHtml(p.id)}')">🚪 Force Logout</button>
-        <button class="btn btn-ghost" onclick="requirePasswordReset('${escapeHtml(p.id)}')">🔑 Require Password Reset</button>
-        <button class="btn btn-ghost" onclick="require2FA('${escapeHtml(p.id)}')">🔐 Require 2FA</button>
-      </div>
-    </div>
-  `;
+function resetDrawer() {
+  const db = document.querySelector('.drawer-body'); if (db) db.scrollTop = 0;
+  state.activeTab = 'overview';
+  $$('.drawer-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'overview'));
+  $$('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === 'overview'));
+  ['ovFinGrid','ovMiniStats','ovRestrictions','ovWalletUnavailable','walGrid','walPending','walLastMovement','txTbody','ordersTbody','ledgerEntries','ledgerAccounts','secActiveSessions','secAllSessions','secEvents','notesList','auditList','supportBody'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
 }
 
-/* ─── WALLETS TAB ─── */
-async function renderWalletsTab(body) {
-  body.innerHTML = '<div class="dd-empty">Loading wallets…</div>';
-  const r = await api(API.wallets(State.currentUserId));
-  if (!r.ok) {
-    body.innerHTML = `<div class="dd-empty">Failed to load wallets: ${escapeHtml(r.reason)}</div>`;
-    return;
+function renderDrawerHeader(data) {
+  const p = data.profile || {};
+  const name = p.username || (p.email ? p.email.split('@')[0] : 'User');
+  $('#dhAvatar').textContent = initials(name);
+  $('#dhName').textContent = name;
+  $('#dhSub').textContent = p.email || '—';
+  $('#dhUserId').textContent = p.id || '—';
+  $('#dhEmail').textContent = p.email || '—';
+  $('#dhPhone').textContent = p.phone || '—';
+  $('#dhCreated').textContent = fmtDate(p.created_at);
+  $('#dhLastLogin').textContent = fmtDate(p.last_login);
+  $('#dhLastSeen').textContent = fmtDate(p.last_seen);
+
+  const statusRow = [];
+  statusRow.push(`<span class="badge ${badgeClass(p.status)}">${esc((p.status || 'unknown').toUpperCase())}</span>`);
+  if (p.is_verified) statusRow.push('<span class="badge success">VERIFIED</span>');
+  else statusRow.push('<span class="badge neutral">UNVERIFIED</span>');
+  if (p.two_factor_enabled) statusRow.push('<span class="badge info">2FA ON</span>');
+  else statusRow.push('<span class="badge neutral">2FA OFF</span>');
+  if (p.is_admin) statusRow.push('<span class="badge purple">ADMIN</span>');
+  if (p.risk_level) statusRow.push(`<span class="badge warn">RISK: ${esc(String(p.risk_level).toUpperCase())}</span>`);
+  $('#dhStatusRow').innerHTML = statusRow.join('');
+
+  const canManage = hasPerm('users.manage');
+  const canAdjust = hasPerm('wallets.adjust');
+  const actions = [];
+  actions.push(`<button class="btn btn-sm" data-action="copy-userid"><i class="fas fa-copy"></i> Copy ID</button>`);
+  if (canManage) {
+    if (p.status === 'active') {
+      actions.push(`<button class="btn btn-sm danger" data-action="suspend"><i class="fas fa-ban"></i> Suspend</button>`);
+    } else {
+      actions.push(`<button class="btn btn-sm success" data-action="activate"><i class="fas fa-check"></i> Activate</button>`);
+    }
+    actions.push(`<button class="btn btn-sm" data-action="force-logout"><i class="fas fa-right-from-bracket"></i> Force Logout</button>`);
   }
-  const w = r.data.wallets || {};
-  const pending = r.data.pending || {};
-
-  body.innerHTML = `
-    <div class="dd-stat-grid">
-      <div class="dd-stat"><div class="k">NGN Available</div><div class="v">${fmtMoney(w.NGN?.available, 'NGN')}</div></div>
-      <div class="dd-stat"><div class="k">NGN Held</div><div class="v">${fmtMoney(w.NGN?.held, 'NGN')}</div></div>
-      <div class="dd-stat"><div class="k">USD Available</div><div class="v">${fmtMoney(w.USD?.available, 'USD')}</div></div>
-      <div class="dd-stat"><div class="k">USD Held</div><div class="v">${fmtMoney(w.USD?.held, 'USD')}</div></div>
-      <div class="dd-stat"><div class="k">Cashback</div><div class="v">${fmtMoney(w.CASHBACK?.available, 'NGN')}</div></div>
-    </div>
-
-    <div class="dd-section">
-      <div class="dd-section-title">Pending Movement</div>
-      <div class="dd-field"><span class="k">Pending Deposits (NGN)</span><span class="v">${fmtMoney(pending.deposits_ngn, 'NGN')}</span></div>
-      <div class="dd-field"><span class="k">Pending Deposits (USD)</span><span class="v">${fmtMoney(pending.deposits_usd, 'USD')}</span></div>
-    </div>
-
-    <div class="dd-section">
-      <div class="dd-section-title">Actions</div>
-      <div class="dd-actions">
-        <button class="btn btn-ghost" onclick="openWalletAdjust('${escapeHtml(State.currentUserId)}','user',${Number(w.NGN?.available||0)},${Number(w.USD?.available||0)})">💰 Adjust Wallet</button>
-      </div>
-    </div>
-
-    <div class="dd-empty" style="margin-top:14px">Source: ${escapeHtml(r.data.source || 'ledger_accounts')}</div>
-  `;
+  if (canAdjust) {
+    actions.push(`<button class="btn btn-sm" data-action="adjust-wallet"><i class="fas fa-coins"></i> Adjust Wallet</button>`);
+  }
+  $('#dhActions').innerHTML = actions.join('');
 }
 
-/* ─── LEDGER TAB ─── */
-async function renderLedgerTab(body) {
-  body.innerHTML = '<div class="dd-empty">Loading ledger…</div>';
-  const r = await api(`${API.ledger(State.currentUserId)}?limit=50`);
-  if (!r.ok) {
-    body.innerHTML = `<div class="dd-empty">Failed to load ledger: ${escapeHtml(r.reason)}</div>`;
-    return;
+/* ─── Overview ─────────────────────────────────────────────── */
+
+function renderOverview(data) {
+  const w = data.wallet || {};
+  const s = data.summary || {};
+  const fresh = $('#ovFreshness');
+
+  if (w && w.available === false) {
+    fresh.innerHTML = `<span class="dot error"></span><span>financial data unavailable</span>`;
+    $('#ovWalletUnavailable').innerHTML = `
+      <div class="unavailable-box">
+        <div class="ico"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="txt">
+          <strong>Financial data could not be retrieved</strong>
+          <span>${esc(w.error_code || 'LEDGER_UNAVAILABLE')}${w.error ? ' — ' + esc(String(w.error).slice(0,140)) : ''}</span>
+        </div>
+      </div>`;
+    $('#ovFinGrid').innerHTML = '';
+  } else {
+    fresh.innerHTML = `<span class="dot"></span><span>ledger source • updated ${esc(relTime(w?.generated_at || new Date().toISOString()))}</span>`;
+    $('#ovWalletUnavailable').innerHTML = '';
+    const cur = w.currencies || {};
+    const cards = ['NGN','USD'].map(ccy => {
+      const c = cur[ccy];
+      if (!c) return '';
+      const symbol = ccy === 'USD' ? '$' : '₦';
+      return `
+        <div class="fin-card">
+          <div class="ccy"><i class="fas fa-wallet"></i> ${esc(ccy)} Wallet</div>
+          <div class="row"><span class="k">Available</span><span class="v">${symbol}${fmtNum(c.available)}</span></div>
+          <div class="row"><span class="k">Held</span><span class="v">${symbol}${fmtNum(c.held)}</span></div>
+          <div class="row total"><span class="k">Total</span><span class="v">${symbol}${fmtNum(c.total)}</span></div>
+        </div>`;
+    }).join('');
+    $('#ovFinGrid').innerHTML = cards || '<div class="empty-state"><div class="ico">💰</div><strong>No wallets yet.</strong></div>';
   }
-  const rows = r.data.data || r.data || [];
-  if (!rows.length) {
-    body.innerHTML = '<div class="dd-empty">No ledger entries</div>';
-    return;
+
+  const mini = [];
+  mini.push(`<div class="mini-stat"><div class="k">Active Sessions</div><div class="v">${s.active_sessions ?? '—'}</div></div>`);
+  mini.push(`<div class="mini-stat"><div class="k">Open Tickets</div><div class="v">${s.open_tickets ?? '—'}</div></div>`);
+  mini.push(`<div class="mini-stat"><div class="k">Pending Deposits</div><div class="v">${s.pending_deposits ?? '—'}</div></div>`);
+  mini.push(`<div class="mini-stat"><div class="k">Pending Withdrawals</div><div class="v">${s.pending_withdrawals ?? '—'}</div></div>`);
+  mini.push(`<div class="mini-stat"><div class="k">Total Transactions</div><div class="v">${s.total_transactions ?? '—'}</div></div>`);
+  mini.push(`<div class="mini-stat"><div class="k">Login Count</div><div class="v">${data.profile?.login_count ?? '—'}</div></div>`);
+  $('#ovMiniStats').innerHTML = mini.join('');
+
+  const restr = data.restrictions || [];
+  if (!restr.length) {
+    $('#ovRestrictions').innerHTML = `<div class="empty-state" style="padding:18px"><div class="ico">✅</div><strong>No active restrictions.</strong></div>`;
+  } else {
+    $('#ovRestrictions').innerHTML = restr.map(r => `
+      <div class="restriction-card">
+        <div class="top">
+          <strong>${esc(r.restriction)}</strong>
+          <span class="badge danger">ACTIVE</span>
+        </div>
+        <div class="reason">${esc(r.reason || '—')}</div>
+        <div class="meta">
+          <span>imposed: ${esc(fmtDate(r.imposed_at))}</span>
+          ${r.expires_at ? `<span>expires: ${esc(fmtDate(r.expires_at))}</span>` : '<span>permanent</span>'}
+        </div>
+      </div>`).join('');
   }
-  body.innerHTML = rows.map(e => `
-    <div class="dd-list-item">
-      <div class="l">
-        <strong>${escapeHtml(e.entry_type)} ${fmtMoney(e.amount, e.currency)}</strong>
-        <span>${escapeHtml(e.description || '')} · ${fmtDate(e.created_at)}</span>
-      </div>
-      <div class="r">
-        <div>${fmtMoney(e.balance_after, e.currency)}</div>
-        <span style="color:var(--text-faint)">before ${fmtMoney(e.balance_before, e.currency)}</span>
-      </div>
-    </div>
-  `).join('');
 }
 
-/* ─── TRANSACTIONS TAB ─── */
-async function renderTransactionsTab(body) {
-  body.innerHTML = `
-    <div class="filters-bar" style="border-radius:10px;margin-bottom:14px">
-      <select id="txTypeFilter">
-        <option value="">All Types</option>
-        <option value="deposit">Deposits</option>
-        <option value="withdrawal">Withdrawals</option>
-        <option value="admin_adjustment">Admin Adjustments</option>
-        <option value="refund">Refunds</option>
-        <option value="fee_revenue">Fees</option>
-      </select>
-      <select id="txStatusFilter">
-        <option value="">All Status</option>
-        <option value="completed">Completed</option>
-        <option value="pending">Pending</option>
-        <option value="processing">Processing</option>
-        <option value="failed">Failed</option>
-        <option value="manual_review">Manual Review</option>
-      </select>
-      <select id="txCurrencyFilter">
-        <option value="">All Currencies</option>
-        <option value="NGN">NGN</option>
-        <option value="USD">USD</option>
-      </select>
-      <button class="btn btn-ghost btn-sm" onclick="loadTransactionsTab()">Apply</button>
-    </div>
-    <div id="txList"><div class="dd-empty">Loading transactions…</div></div>
-  `;
-  loadTransactionsTab();
+/* ─── Wallets tab ──────────────────────────────────────────── */
+
+async function loadWallets(userId) {
+  const fresh = $('#walFreshness');
+  fresh.innerHTML = `<span class="dot stale"></span><span>loading…</span>`;
+  $('#walUnavailable').innerHTML = '';
+  $('#walGrid').innerHTML = '';
+  $('#walPending').innerHTML = '';
+  $('#walLastMovement').innerHTML = '';
+
+  try {
+    const res = await API.wallets(userId);
+    if (!res.success || !res.data) {
+      fresh.innerHTML = `<span class="dot error"></span><span>unavailable</span>`;
+      $('#walUnavailable').innerHTML = `<div class="unavailable-box"><div class="ico"><i class="fas fa-triangle-exclamation"></i></div><div class="txt"><strong>Wallet data unavailable</strong><span>${esc(res.error || res.code || 'unknown')}</span></div></div>`;
+      return;
+    }
+    const d = res.data;
+    if (d.available === false) {
+      fresh.innerHTML = `<span class="dot error"></span><span>unavailable</span>`;
+      $('#walUnavailable').innerHTML = `<div class="unavailable-box"><div class="ico"><i class="fas fa-triangle-exclamation"></i></div><div class="txt"><strong>Ledger unavailable</strong><span>${esc(d.error_code || '')}</span></div></div>`;
+      return;
+    }
+    fresh.innerHTML = `<span class="dot"></span><span>ledger source • updated ${esc(relTime(d.generated_at))}</span>`;
+    const cur = d.wallets || {};
+    $('#walGrid').innerHTML = ['NGN','USD'].map(ccy => {
+      const c = cur[ccy];
+      if (!c) return '';
+      const symbol = ccy === 'USD' ? '$' : '₦';
+      return `
+        <div class="fin-card">
+          <div class="ccy"><i class="fas fa-wallet"></i> ${esc(ccy)} Wallet</div>
+          <div class="row"><span class="k">Available</span><span class="v">${symbol}${fmtNum(c.available)}</span></div>
+          <div class="row"><span class="k">Held</span><span class="v">${symbol}${fmtNum(c.held)}</span></div>
+          <div class="row total"><span class="k">Total</span><span class="v">${symbol}${fmtNum(c.total)}</span></div>
+        </div>`;
+    }).join('') || '<div class="empty-state"><div class="ico">💰</div><strong>No wallets.</strong></div>';
+
+    const p = d.pending || {};
+    $('#walPending').innerHTML = `
+      <div class="mini-stat"><div class="k">Pending Deposits NGN</div><div class="v">${fmtCcy(p.deposits_ngn, 'NGN')}</div></div>
+      <div class="mini-stat"><div class="k">Pending Deposits USD</div><div class="v">${fmtCcy(p.deposits_usd, 'USD')}</div></div>
+      <div class="mini-stat"><div class="k">Pending Withdrawals NGN</div><div class="v">${fmtCcy(p.withdrawals_ngn, 'NGN')}</div></div>
+      <div class="mini-stat"><div class="k">Pending Withdrawals USD</div><div class="v">${fmtCcy(p.withdrawals_usd, 'USD')}</div></div>`;
+
+    const lm = d.last_movement;
+    if (lm) {
+      const credit = String(lm.entry_type || '').toUpperCase() === 'CREDIT';
+      $('#walLastMovement').innerHTML = `
+        <div class="ledger-entry">
+          <div class="dir ${credit ? 'credit' : 'debit'}">${credit ? '↓' : '↑'}</div>
+          <div class="info">
+            <div class="desc">${esc(lm.description || 'Ledger movement')}</div>
+            <div class="sub"><span>${esc(fmtDate(lm.created_at))}</span><span>bal after: ${fmtCcy(lm.balance_after, lm.currency)}</span></div>
+          </div>
+          <div class="amt">
+            <div class="v ${credit ? 'credit' : 'debit'}">${credit ? '+' : '−'}${fmtCcy(lm.amount, lm.currency)}</div>
+          </div>
+        </div>`;
+    } else {
+      $('#walLastMovement').innerHTML = `<div class="empty-state" style="padding:18px"><div class="ico">📒</div><strong>No ledger movements yet.</strong></div>`;
+    }
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) {
+      fresh.innerHTML = `<span class="dot error"></span><span>no permission</span>`;
+      $('#walUnavailable').innerHTML = `<div class="unavailable-box"><div class="ico"><i class="fas fa-lock"></i></div><div class="txt"><strong>You do not have permission to view wallet data.</strong></div></div>`;
+      return;
+    }
+    console.error(e);
+    fresh.innerHTML = `<span class="dot error"></span><span>network error</span>`;
+  }
 }
-async function loadTransactionsTab() {
-  const el = document.getElementById('txList');
-  if (!el) return;
-  const type = document.getElementById('txTypeFilter')?.value || '';
-  const status = document.getElementById('txStatusFilter')?.value || '';
-  const currency = document.getElementById('txCurrencyFilter')?.value || '';
-  const params = new URLSearchParams({ limit: 30 });
+
+/* ─── Transactions ─────────────────────────────────────────── */
+
+async function loadTransactions(userId) {
+  const tbody = $('#txTbody');
+  tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div></td></tr>`;
+  const params = new URLSearchParams();
+  params.set('limit', '50');
+  const type = $('#txTypeFilter')?.value || '';
+  const status = $('#txStatusFilter')?.value || '';
   if (type) params.set('type', type);
   if (status) params.set('status', status);
-  if (currency) params.set('currency', currency);
-
-  const r = await api(`${API.transactions(State.currentUserId)}?${params}`);
-  if (!r.ok) { el.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
-  const rows = r.data.data || r.data || [];
-  if (!rows.length) { el.innerHTML = '<div class="dd-empty">No transactions</div>'; return; }
-  el.innerHTML = rows.map(t => `
-    <div class="dd-list-item">
-      <div class="l">
-        <strong>${escapeHtml(t.type || 'txn')} · ${escapeHtml(t.description || '')}</strong>
-        <span class="mono">${escapeHtml(t.ref || t.reference || t.id)}</span>
-        <span style="margin-left:6px">${fmtDate(t.created_at)}</span>
-      </div>
-      <div class="r">
-        <div>${fmtMoney(t.amount, t.currency)}</div>
-        <span class="badge ${statusBadge(t.status)}">${escapeHtml(t.status || '')}</span>
-      </div>
-    </div>
-  `).join('');
-}
-
-/* ─── SECURITY TAB ─── */
-async function renderSecurityTab(body) {
-  body.innerHTML = '<div class="dd-empty">Loading security data…</div>';
-  const r = await api(API.security(State.currentUserId));
-  if (!r.ok) { body.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
-  const sessions = r.data.sessions || [];
-  const active = r.data.active_sessions || [];
-
-  body.innerHTML = `
-    <div class="dd-stat-grid">
-      <div class="dd-stat"><div class="k">Active Sessions</div><div class="v">${active.length}</div></div>
-      <div class="dd-stat"><div class="k">Total Sessions</div><div class="v">${sessions.length}</div></div>
-      <div class="dd-stat"><div class="k">Failed Logins</div><div class="v">${r.data.failed_logins_available === false ? 'Not tracked' : fmtNum(r.data.failed_logins)}</div></div>
-    </div>
-
-    <div class="dd-section">
-      <div class="dd-section-title">
-        Sessions &amp; Devices
-        <button class="btn btn-ghost btn-sm" onclick="forceLogout('${escapeHtml(State.currentUserId)}')">🚪 Force Logout All</button>
-      </div>
-      ${sessions.length
-        ? sessions.slice(0, 20).map(s => `
-            <div class="dd-list-item">
-              <div class="l">
-                <strong>${escapeHtml(s.browser || 'Unknown browser')} on ${escapeHtml(s.os || 'Unknown OS')} · ${escapeHtml(s.device_type || 'device')}</strong>
-                <span>IP: ${escapeHtml(s.ip || s.ip_address || '—')} · ${escapeHtml(s.location || 'Location unknown')}</span>
-                <span>Created ${fmtDate(s.created_at)} · Last activity ${timeAgo(s.last_activity_at)}</span>
-              </div>
-              <div class="r">
-                ${s.is_active && !s.revoked_at ? '<span class="badge success">Active</span>' : '<span class="badge neutral">Ended</span>'}
-                ${s.is_current ? '<span class="badge info">Current</span>' : ''}
-              </div>
-            </div>`).join('')
-        : '<div class="dd-empty">No sessions recorded</div>'}
-    </div>
-  `;
-}
-
-/* ─── SUPPORT TAB ─── */
-async function renderSupportTab(body) {
-  body.innerHTML = '<div class="dd-empty">Loading support tickets…</div>';
-  const r = await api(API.support(State.currentUserId));
-  if (!r.ok) { body.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
-  const tickets = r.data.data || r.data || [];
-  if (!tickets.length) { body.innerHTML = '<div class="dd-empty">No support tickets</div>'; return; }
-  body.innerHTML = tickets.map(t => `
-    <div class="dd-list-item">
-      <div class="l">
-        <strong>${escapeHtml(t.title || 'Ticket')}</strong>
-        <span>${escapeHtml(t.last_message || '')}</span>
-        <span>Created ${timeAgo(t.created_at)}</span>
-      </div>
-      <div class="r">
-        <span class="badge ${statusBadge(t.status)}">${escapeHtml(t.status)}</span>
-      </div>
-    </div>
-  `).join('');
-}
-
-/* ─── NOTES TAB ─── */
-async function renderNotesTab(body) {
-  body.innerHTML = `
-    <div class="dd-section">
-      <div class="dd-section-title">
-        Internal Notes
-        <button class="btn btn-ghost btn-sm" onclick="openAddNote('${escapeHtml(State.currentUserId)}','user')">➕ Add Note</button>
-      </div>
-      <div id="notesList"><div class="dd-empty">Loading notes…</div></div>
-    </div>
-  `;
-  loadNotesList();
-}
-async function loadNotesList() {
-  const el = document.getElementById('notesList');
-  if (!el) return;
-  const r = await api(API.notes(State.currentUserId));
-  if (!r.ok) { el.innerHTML = `<div class="dd-empty">Failed: ${escapeHtml(r.reason)}</div>`; return; }
-  const notes = r.data.data || r.data || [];
-  if (!notes.length) { el.innerHTML = '<div class="dd-empty">No notes yet</div>'; return; }
-  el.innerHTML = notes.map(n => `
-    <div class="note-item">
-      <div class="meta">
-        <span class="mono">${escapeHtml((n.author_id || '').slice(0,8))}</span>
-        <span>${fmtDate(n.created_at)}</span>
-      </div>
-      <div class="body">${escapeHtml(n.body)}</div>
-      ${(n.tags || []).length ? `<div class="tags">${n.tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-    </div>
-  `).join('');
-}
-
-/* ════════════════════════════════════════════════════════════════
-   ACTIONS
-   ════════════════════════════════════════════════════════════════ */
-
-/* Quick status toggle from table */
-function quickToggleStatus(userId, currentStatus, name) {
-  const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
-  const isSuspend = newStatus === 'suspended';
-  openModal({
-    title: isSuspend ? 'Suspend User' : 'Activate User',
-    subtitle: name,
-    body: `
-      <div class="field">
-        <label>Reason ${isSuspend ? '(required)' : ''}</label>
-        <textarea id="statusReason" placeholder="${isSuspend ? 'Why is this account being suspended?' : 'Optional context'}">${isSuspend ? '' : 'Admin reactivation'}</textarea>
-      </div>
-    `,
-    confirmText: isSuspend ? 'Suspend' : 'Activate',
-    onConfirm: async () => {
-      const reason = (document.getElementById('statusReason')?.value || '').trim();
-      if (isSuspend && reason.length < 4) { toast('Reason required (min 4 chars)', 'error'); return false; }
-      const r = await api(API.status(userId), {
-        method: 'PUT',
-        body: JSON.stringify({ status: newStatus, reason })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      toast(`User ${newStatus}`, 'success');
-      loadUsers();
-      loadStats();
-      if (State.currentUserId === userId) openUserDrawer(userId);
+  try {
+    const res = await API.transactions(userId, params.toString());
+    if (!res.success) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed')}</strong></div></td></tr>`;
+      return;
     }
-  });
-}
-function toggleStatusAction(userId, current) {
-  const user = State.users.find(u => u.id === userId);
-  const name = user?.username || user?.email || 'user';
-  quickToggleStatus(userId, current, name);
-}
-
-/* Wallet adjust */
-function openWalletAdjust(userId, name, walletNgn, walletUsd) {
-  openModal({
-    title: 'Adjust Wallet',
-    subtitle: name,
-    body: `
-      <div class="field">
-        <label>Currency</label>
-        <select id="adjCurrency">
-          <option value="NGN">NGN (₦${Number(walletNgn).toLocaleString()})</option>
-          <option value="USD">USD ($${Number(walletUsd).toLocaleString()})</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Amount (positive = credit, negative = debit)</label>
-        <input type="number" id="adjAmount" step="0.01" placeholder="e.g. 5000 or -5000">
-      </div>
-      <div class="field">
-        <label>Reason (required, min 4 chars)</label>
-        <textarea id="adjReason" placeholder="Why is this adjustment being made?"></textarea>
-      </div>
-      <div style="font-size:11.5px;color:var(--text-dim);padding:10px;background:var(--warn-bg);border-radius:8px;border-left:3px solid var(--warn)">
-        ⚠️ Large adjustments may require second-admin approval.
-      </div>
-    `,
-    confirmText: 'Adjust',
-    onConfirm: async () => {
-      const currency = document.getElementById('adjCurrency').value;
-      const amount = Number(document.getElementById('adjAmount').value);
-      const reason = (document.getElementById('adjReason').value || '').trim();
-      if (!Number.isFinite(amount) || amount === 0) { toast('Enter a non-zero amount', 'error'); return false; }
-      if (reason.length < 4) { toast('Reason required (min 4 chars)', 'error'); return false; }
-      const r = await api(API.wallet(userId), {
-        method: 'POST',
-        body: JSON.stringify({ currency, amount, reason })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      if (r.raw?.pending_approval) {
-        toast('Adjustment submitted for approval', 'warning');
-      } else {
-        toast(`Wallet adjusted: ${fmtMoney(amount, currency)}`, 'success');
-      }
-      loadUsers();
-      if (State.currentUserId === userId) openUserDrawer(userId);
+    const list = res.data || [];
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">🧾</div><strong>No transactions.</strong></div></td></tr>`;
+      return;
     }
-  });
-}
-
-/* Add note */
-function openAddNote(userId, name) {
-  openModal({
-    title: 'Add Internal Note',
-    subtitle: name,
-    body: `
-      <div class="field">
-        <label>Note (min 3 chars)</label>
-        <textarea id="noteBody" placeholder="Internal note visible to admins only"></textarea>
-      </div>
-      <div class="field">
-        <label>Tags (comma separated, optional)</label>
-        <input type="text" id="noteTags" placeholder="e.g. suspicious, follow-up, vip">
-      </div>
-    `,
-    confirmText: 'Save Note',
-    onConfirm: async () => {
-      const body = (document.getElementById('noteBody').value || '').trim();
-      const tagsRaw = (document.getElementById('noteTags').value || '').trim();
-      const tags = tagsRaw ? tagsRaw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10) : [];
-      if (body.length < 3) { toast('Note too short', 'error'); return false; }
-      const r = await api(API.notes(userId), {
-        method: 'POST',
-        body: JSON.stringify({ body, tags })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      toast('Note saved', 'success');
-      if (State.currentUserId === userId && State.currentTab === 'notes') loadNotesList();
+    tbody.innerHTML = list.map(t => `
+      <tr>
+        <td>${esc(fmtDate(t.created_at))}</td>
+        <td><span class="badge neutral">${esc(t.type || '—')}</span></td>
+        <td class="mono">${esc(t.currency || '')} ${fmtNum(t.amount)}</td>
+        <td><span class="badge ${badgeClass(t.status)}">${esc(t.status || '—')}</span></td>
+        <td><div class="ref">${esc(t.customer_reference || '—')}</div></td>
+        <td>${esc(t.provider || '—')}</td>
+        <td><div class="ref">${esc(t.provider_reference || '—')}</div></td>
+      </tr>`).join('');
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">🔒</div><strong>No permission to view transactions.</strong></div></td></tr>`;
+      return;
     }
-  });
-}
-
-/* Add restriction */
-function openAddRestriction(userId) {
-  openModal({
-    title: 'Add Restriction',
-    subtitle: 'Lock a specific feature for this user',
-    body: `
-      <div class="field">
-        <label>Restriction</label>
-        <select id="restrictionType">
-          ${RESTRICTIONS.map(r => `<option value="${r.key}">${r.icon} ${r.label}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Reason (required, min 4 chars)</label>
-        <textarea id="restrictionReason" placeholder="Why is this restriction being applied?"></textarea>
-      </div>
-    `,
-    confirmText: 'Apply Restriction',
-    onConfirm: async () => {
-      const restriction = document.getElementById('restrictionType').value;
-      const reason = (document.getElementById('restrictionReason').value || '').trim();
-      if (reason.length < 4) { toast('Reason required (min 4 chars)', 'error'); return false; }
-      const r = await api(API.restrictions(userId), {
-        method: 'POST',
-        body: JSON.stringify({ restriction, reason })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      toast('Restriction applied', 'success');
-      if (State.currentUserId === userId) openUserDrawer(userId);
-      loadUsers();
-    }
-  });
-}
-function removeRestriction(userId, restriction) {
-  openModal({
-    title: 'Lift Restriction',
-    subtitle: restriction,
-    body: `
-      <div class="field">
-        <label>Reason (required, min 4 chars)</label>
-        <textarea id="liftReason" placeholder="Why is this restriction being lifted?"></textarea>
-      </div>
-    `,
-    confirmText: 'Lift',
-    onConfirm: async () => {
-      const reason = (document.getElementById('liftReason').value || '').trim();
-      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
-      const r = await api(API.restrictOne(userId, restriction), {
-        method: 'DELETE',
-        body: JSON.stringify({ reason })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      toast('Restriction lifted', 'success');
-      if (State.currentUserId === userId) openUserDrawer(userId);
-      loadUsers();
-    }
-  });
-}
-
-/* Force logout */
-function forceLogout(userId) {
-  openModal({
-    title: 'Force Logout',
-    subtitle: 'Revoke all active sessions for this user',
-    body: `
-      <div class="field">
-        <label>Reason (required, min 4 chars)</label>
-        <textarea id="logoutReason" placeholder="Why are you forcing logout?"></textarea>
-      </div>
-    `,
-    confirmText: 'Force Logout',
-    onConfirm: async () => {
-      const reason = (document.getElementById('logoutReason').value || '').trim();
-      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
-      const r = await api(API.forceLogout(userId), {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      toast(`Logged out ${r.raw?.revoked || 0} session(s)`, 'success');
-      if (State.currentUserId === userId && State.currentTab === 'security') renderSecurityTab(document.getElementById('ddBody'));
-    }
-  });
-}
-
-/* Require password reset */
-function requirePasswordReset(userId) {
-  openModal({
-    title: 'Require Password Reset',
-    subtitle: 'Force user to reset their password on next login',
-    body: `
-      <div class="field">
-        <label>Reason (required, min 4 chars)</label>
-        <textarea id="pwdReason" placeholder="e.g. suspected compromise"></textarea>
-      </div>
-    `,
-    confirmText: 'Require Reset',
-    onConfirm: async () => {
-      const reason = (document.getElementById('pwdReason').value || '').trim();
-      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
-      const r = await api(API.requirePwd(userId), {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      toast('Password reset required', 'success');
-    }
-  });
-}
-
-/* Require 2FA */
-function require2FA(userId) {
-  openModal({
-    title: 'Require 2FA Setup',
-    subtitle: 'Force user to enable two-factor authentication',
-    body: `
-      <div class="field">
-        <label>Reason (required, min 4 chars)</label>
-        <textarea id="twofaReason" placeholder="Why is 2FA being required?"></textarea>
-      </div>
-    `,
-    confirmText: 'Require 2FA',
-    onConfirm: async () => {
-      const reason = (document.getElementById('twofaReason').value || '').trim();
-      if (reason.length < 4) { toast('Reason required', 'error'); return false; }
-      const r = await api(API.require2FA(userId), {
-        method: 'POST',
-        body: JSON.stringify({ reason })
-      });
-      if (!r.ok) { toast(r.reason || 'Failed', 'error'); return false; }
-      toast('2FA required on next login', 'success');
-    }
-  });
-}
-
-/* Approvals badge */
-async function loadApprovalsCount() {
-  const r = await api(`${API.approvals}?status=pending`);
-  if (!r.ok) return;
-  const list = r.data.data || r.data || [];
-  const badge = document.getElementById('approvalBadge');
-  if (list.length > 0) {
-    badge.textContent = list.length;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
+    console.error(e);
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div></td></tr>`;
   }
 }
 
-/* ════════════════════════════════════════════════════════════════
-   INIT
-   ════════════════════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', async () => {
-  const token = AdminSession.getToken();
-  if (!token) { AdminSession.redirectToLogin(); return; }
+/* ─── Orders ───────────────────────────────────────────────── */
 
-  loadAdminProfile();
-  await loadStats();
-  await loadUsers();
-  loadApprovalsCount();
-  document.getElementById('lastUpdated').textContent = 'updated just now';
+async function loadOrders(userId) {
+  const tbody = $('#ordersTbody');
+  tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div></td></tr>`;
+  try {
+    const res = await API.orders(userId, 'limit=50');
+    if (!res.success) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed')}</strong></div></td></tr>`;
+      return;
+    }
+    const list = res.data || [];
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">📦</div><strong>${esc(res.note || 'No orders yet.')}</strong></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = list.map(o => `
+      <tr>
+        <td>${esc(fmtDate(o.created_at))}</td>
+        <td><div class="ref">${esc(o.order_ref || o.order_id || '—')}</div></td>
+        <td>${esc(o.product_name || o.product_type || '—')}</td>
+        <td class="mono">${esc(o.currency || '')} ${fmtNum(o.amount)}</td>
+        <td><span class="badge ${badgeClass(o.status)}">${esc(o.status || '—')}</span></td>
+        <td><span class="badge ${badgeClass(o.payment_status)}">${esc(o.payment_status || '—')}</span></td>
+        <td>${esc(o.provider || '—')}</td>
+      </tr>`).join('');
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">🔒</div><strong>No permission to view orders.</strong></div></td></tr>`;
+      return;
+    }
+    console.error(e);
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div></td></tr>`;
+  }
+}
 
-  setInterval(loadApprovalsCount, 60_000);
-  setInterval(() => {
-    document.getElementById('lastUpdated').textContent = 'updated ' + timeAgo(new Date());
-  }, 30_000);
+/* ─── Ledger ───────────────────────────────────────────────── */
+
+async function loadLedger(userId) {
+  const params = new URLSearchParams();
+  params.set('limit', '50');
+  const ccy = $('#ledgerCurrency')?.value || '';
+  const type = $('#ledgerEntryType')?.value || '';
+  if (ccy) params.set('currency', ccy);
+  if (type) params.set('entry_type', type);
+
+  $('#ledgerAccounts').innerHTML = '';
+  $('#ledgerEntries').innerHTML = `<div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div>`;
+
+  try {
+    const res = await API.ledger(userId, params.toString());
+    if (!res.success) {
+      $('#ledgerEntries').innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed')}</strong></div>`;
+      return;
+    }
+    const accounts = res.accounts || [];
+    if (accounts.length) {
+      $('#ledgerAccounts').innerHTML = accounts.map(a => `
+        <div class="fin-card" style="min-width:180px;flex:0 1 220px">
+          <div class="ccy"><i class="fas fa-book"></i> ${esc(a.currency)} account</div>
+          <div class="row"><span class="k">Available</span><span class="v">${fmtCcy(a.available_balance, a.currency)}</span></div>
+          <div class="row"><span class="k">Held</span><span class="v">${fmtCcy(a.held_balance, a.currency)}</span></div>
+        </div>`).join('');
+    }
+    const entries = res.data || [];
+    if (!entries.length) {
+      $('#ledgerEntries').innerHTML = `<div class="empty-state"><div class="ico">📒</div><strong>${esc(res.note || 'No ledger entries.')}</strong></div>`;
+      return;
+    }
+    $('#ledgerEntries').innerHTML = entries.map(e => {
+      const credit = String(e.entry_type || '').toUpperCase() === 'CREDIT';
+      return `
+        <div class="ledger-entry">
+          <div class="dir ${credit ? 'credit' : 'debit'}">${credit ? '↓' : '↑'}</div>
+          <div class="info">
+            <div class="desc">${esc(e.description || 'Ledger entry')}</div>
+            <div class="sub">
+              <span>${esc(fmtDate(e.created_at))}</span>
+              <span>before: ${fmtCcy(e.balance_before, e.currency)}</span>
+              <span>after: ${fmtCcy(e.balance_after, e.currency)}</span>
+            </div>
+          </div>
+          <div class="amt">
+            <div class="v ${credit ? 'credit' : 'debit'}">${credit ? '+' : '−'}${fmtCcy(e.amount, e.currency)}</div>
+            <div class="bal">${esc(e.transaction_id ? String(e.transaction_id).slice(0,12) : '')}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) {
+      $('#ledgerEntries').innerHTML = `<div class="empty-state"><div class="ico">🔒</div><strong>No permission to view ledger.</strong></div>`;
+      return;
+    }
+    console.error(e);
+    $('#ledgerEntries').innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div>`;
+  }
+}
+
+/* ─── Support ──────────────────────────────────────────────── */
+
+async function loadSupport(userId) {
+  const wrap = $('#supportBody');
+  wrap.innerHTML = `<div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div>`;
+  try {
+    const res = await API.support(userId);
+    if (!res.success) {
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed')}</strong></div>`;
+      return;
+    }
+    const list = res.data || [];
+    if (!list.length) {
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">💬</div><strong>${esc(res.note || 'No support tickets.')}</strong></div>`;
+      return;
+    }
+    wrap.innerHTML = list.map(t => `
+      <div class="session-card">
+        <div class="dev"><i class="fas fa-ticket"></i></div>
+        <div class="body">
+          <div class="top">
+            <strong>${esc(t.subject || t.ticket_number || 'Ticket')}</strong>
+            <span class="badge ${badgeClass(t.status)}">${esc(t.status || '—')}</span>
+          </div>
+          <div class="meta">
+            <span>#${esc(t.ticket_number || t.id || '')}</span>
+            <span>priority: ${esc(t.priority || '—')}</span>
+            <span>created: ${esc(fmtDate(t.created_at))}</span>
+            <span>updated: ${esc(fmtDate(t.updated_at || t.last_message_at))}</span>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) { wrap.innerHTML = `<div class="empty-state"><div class="ico">🔒</div><strong>No permission to view support tickets.</strong></div>`; return; }
+    console.error(e);
+    wrap.innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div>`;
+  }
+}
+
+/* ─── Security ─────────────────────────────────────────────── */
+
+async function loadSecurity(userId) {
+  $('#secActiveSessions').innerHTML = `<div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div>`;
+  $('#secAllSessions').innerHTML = '';
+  $('#secEvents').innerHTML = '';
+  try {
+    const res = await API.security(userId);
+    if (!res.success || !res.data) {
+      $('#secActiveSessions').innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed')}</strong></div>`;
+      return;
+    }
+    const d = res.data;
+    const active = d.active_sessions || [];
+    const all = d.sessions || [];
+    const events = d.events;
+
+    $('#secActiveSessions').innerHTML = active.length ? active.map(s => `
+      <div class="session-card">
+        <div class="dev"><i class="fas fa-display"></i></div>
+        <div class="body">
+          <div class="top">
+            <strong>${esc(s.device_name || s.browser || 'Unknown device')}</strong>
+            ${s.is_current ? '<span class="badge success">CURRENT</span>' : '<span class="badge neutral">ACTIVE</span>'}
+          </div>
+          <div class="meta">
+            <span>IP: ${esc(s.ip || s.ip_address || '—')}</span>
+            <span>${esc(s.os || '')} ${esc(s.browser || '')}</span>
+            <span>${esc(s.location || '')}</span>
+            <span>last: ${esc(relTime(s.last_activity_at))}</span>
+          </div>
+        </div>
+      </div>`).join('') : `<div class="empty-state" style="padding:18px"><div class="ico">✅</div><strong>No active sessions.</strong></div>`;
+
+    $('#secAllSessions').innerHTML = all.length ? all.map(s => `
+      <div class="session-card" style="opacity:${s.is_active && !s.revoked_at ? 1 : .7}">
+        <div class="dev"><i class="fas fa-${s.is_active && !s.revoked_at ? 'circle-check' : 'circle-xmark'}"></i></div>
+        <div class="body">
+          <div class="top">
+            <strong>${esc(s.device_name || s.browser || 'Unknown')}</strong>
+            <span class="badge ${s.is_active && !s.revoked_at ? 'success' : 'neutral'}">${s.is_active && !s.revoked_at ? 'ACTIVE' : 'REVOKED'}</span>
+          </div>
+          <div class="meta">
+            <span>created: ${esc(fmtDate(s.created_at))}</span>
+            <span>last: ${esc(fmtDate(s.last_activity_at))}</span>
+            ${s.revoked_at ? `<span>revoked: ${esc(fmtDate(s.revoked_at))}</span>` : ''}
+          </div>
+        </div>
+      </div>`).join('') : `<div class="empty-state" style="padding:18px"><strong>No session history.</strong></div>`;
+
+    if (events && events.length) {
+      $('#secEvents').innerHTML = events.map(ev => `
+        <div class="audit-row">
+          <div class="ico"><i class="fas fa-shield-halved"></i></div>
+          <div class="body">
+            <div class="top">
+              <span class="action">${esc(ev.event_type)}</span>
+              <span class="when">${esc(fmtDate(ev.created_at))}</span>
+            </div>
+            <div class="who">${esc(ev.ip_address || '')} ${ev.user_agent ? '• ' + esc(String(ev.user_agent).slice(0,60)) : ''}</div>
+            ${ev.detail ? `<div class="reason">${esc(typeof ev.detail === 'string' ? ev.detail : JSON.stringify(ev.detail))}</div>` : ''}
+          </div>
+        </div>`).join('');
+    } else {
+      $('#secEvents').innerHTML = `<div class="empty-state" style="padding:18px"><div class="ico">🛡️</div><strong>${d.events_available ? 'No security events recorded.' : 'Security event feed not available.'}</strong></div>`;
+    }
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) { $('#secActiveSessions').innerHTML = `<div class="empty-state"><div class="ico">🔒</div><strong>No permission to view security data.</strong></div>`; return; }
+    console.error(e);
+    $('#secActiveSessions').innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div>`;
+  }
+}
+
+/* ─── Notes ────────────────────────────────────────────────── */
+
+async function loadNotes(userId) {
+  const wrap = $('#notesList');
+  wrap.innerHTML = `<div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div>`;
+  try {
+    const res = await API.notes(userId);
+    if (!res.success) {
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed')}</strong></div>`;
+      return;
+    }
+    const list = res.data || [];
+    if (!list.length) {
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">📝</div><strong>No notes yet.</strong></div>`;
+      return;
+    }
+    wrap.innerHTML = list.map(n => `
+      <div class="note-card">
+        <div class="top">
+          <span>by ${esc(n.author_id || 'admin')}</span>
+          <span>${esc(fmtDate(n.created_at))}</span>
+        </div>
+        <div class="body">${esc(n.body)}</div>
+        ${(n.tags && n.tags.length) ? `<div class="tags">${n.tags.map(t => `<span class="badge neutral">${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>`).join('');
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) { wrap.innerHTML = `<div class="empty-state"><div class="ico">🔒</div><strong>No permission to view notes.</strong></div>`; return; }
+    console.error(e);
+    wrap.innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div>`;
+  }
+}
+
+/* ─── Audit ────────────────────────────────────────────────── */
+
+async function loadAudit(userId) {
+  const fresh = $('#auditFreshness');
+  fresh.innerHTML = `<span class="dot stale"></span><span>loading…</span>`;
+  const wrap = $('#auditList');
+  wrap.innerHTML = `<div class="empty-state"><div class="ico">⏳</div><strong>Loading…</strong></div>`;
+  try {
+    const res = await API.audit(userId, 'limit=200');
+    if (!res.success) {
+      fresh.innerHTML = `<span class="dot error"></span><span>unavailable</span>`;
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>${esc(res.error || 'Failed')}</strong></div>`;
+      return;
+    }
+    const list = res.data || [];
+    fresh.innerHTML = `<span class="dot"></span><span>${list.length} audit record${list.length === 1 ? '' : 's'}</span>`;
+    if (!list.length) {
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">🧾</div><strong>No admin audit history for this user.</strong></div>`;
+      return;
+    }
+    wrap.innerHTML = list.map(a => {
+      let diff = '';
+      try {
+        if (a.before || a.after) {
+          const b = a.before ? JSON.stringify(a.before) : '';
+          const af = a.after ? JSON.stringify(a.after) : '';
+          diff = `<div class="diff"><span class="before">${esc(b)}</span> → <span class="after">${esc(af)}</span></div>`;
+        }
+      } catch (_) {}
+      return `
+        <div class="audit-row">
+          <div class="ico"><i class="fas fa-history"></i></div>
+          <div class="body">
+            <div class="top">
+              <span class="action">${esc(a.action || 'action')}</span>
+              <span class="when">${esc(fmtDate(a.created_at))}</span>
+            </div>
+            <div class="who">by ${esc(a.admin_email || a.admin_id || 'admin')}${a.ip_address ? ' • ' + esc(a.ip_address) : ''}</div>
+            ${a.reason ? `<div class="reason">${esc(a.reason)}</div>` : ''}
+            ${diff}
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    if (e && e.status === 401) return;
+    if (e && e.status === 403) {
+      fresh.innerHTML = `<span class="dot error"></span><span>no permission</span>`;
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">🔒</div><strong>No permission to view audit history.</strong></div>`;
+      return;
+    }
+    console.error(e);
+    fresh.innerHTML = `<span class="dot error"></span><span>network error</span>`;
+    wrap.innerHTML = `<div class="empty-state"><div class="ico">⚠️</div><strong>Network error</strong></div>`;
+  }
+}
+
+/* ─── Tab routing ──────────────────────────────────────────── */
+
+function loadTab(tab) {
+  state.activeTab = tab;
+  const db = document.querySelector('.drawer-body'); if (db) db.scrollTop = 0;
+  $$('.drawer-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  $$('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === tab));
+  const id = state.currentUser?.profile?.id;
+  if (!id) return;
+  if (tab === 'wallets') loadWallets(id);
+  else if (tab === 'transactions') loadTransactions(id);
+  else if (tab === 'orders') loadOrders(id);
+  else if (tab === 'ledger') loadLedger(id);
+  else if (tab === 'support') loadSupport(id);
+  else if (tab === 'security') loadSecurity(id);
+  else if (tab === 'notes') loadNotes(id);
+  else if (tab === 'audit') loadAudit(id);
+  else if (tab === 'overview') renderOverview(state.currentUser);
+}
+
+/* ─── Modals ───────────────────────────────────────────────── */
+
+function openModal({ title, bodyHtml, confirmText = 'Confirm', confirmKind = 'primary', onConfirm }) {
+  $('#modalTitle').textContent = title;
+  $('#modalBody').innerHTML = bodyHtml;
+  const btn = $('#modalConfirm');
+  btn.textContent = confirmText;
+  btn.className = 'btn ' + (confirmKind === 'danger' ? 'btn-danger' : confirmKind === 'success' ? 'btn-success' : 'btn-primary');
+  $('#modalScrim').classList.add('open');
+  const close = () => {
+    $('#modalScrim').classList.remove('open');
+    btn.onclick = null;
+  };
+  $('#modalClose').onclick = close;
+  $('#modalCancel').onclick = close;
+  btn.onclick = async () => { await onConfirm(); };
+  return close;
+}
+
+function reasonPrompt(title, confirmText, kind, action) {
+  openModal({
+    title,
+    bodyHtml: `
+      <div class="form-row">
+        <label for="actReason">Reason (required, min 4 chars)</label>
+        <textarea id="actReason" placeholder="Why are you doing this?"></textarea>
+      </div>`,
+    confirmText,
+    confirmKind: kind,
+    onConfirm: async () => {
+      const reason = ($('#actReason')?.value || '').trim();
+      if (reason.length < 4) { toast('Reason must be at least 4 characters', 'warn'); return; }
+      $('#modalScrim').classList.remove('open');
+      await action(reason);
+    }
+  });
+}
+
+function adjustWalletModal(userId) {
+  openModal({
+    title: 'Adjust Wallet (ledger-backed)',
+    bodyHtml: `
+      <div class="form-row">
+        <label for="adjCcy">Currency</label>
+        <select id="adjCcy"><option value="NGN">NGN</option><option value="USD">USD</option></select>
+      </div>
+      <div class="form-row">
+        <label for="adjAmount">Amount (positive credit, negative debit)</label>
+        <input type="number" id="adjAmount" step="0.01" placeholder="e.g. 5000 or -5000">
+      </div>
+      <div class="form-row">
+        <label for="adjReason">Reason (required)</label>
+        <textarea id="adjReason" placeholder="Manual correction, case reference, etc."></textarea>
+      </div>
+      <div class="help" style="font-size:11px;color:var(--text-faint)">Large adjustments may require a second approver. The ledger is the source of truth; profile mirrors are updated best-effort.</div>`,
+    confirmText: 'Submit adjustment',
+    confirmKind: 'primary',
+    onConfirm: async () => {
+      const currency = $('#adjCcy').value;
+      const amount = Number($('#adjAmount').value);
+      const reason = ($('#adjReason').value || '').trim();
+      if (!Number.isFinite(amount) || amount === 0) { toast('Enter a non-zero amount', 'warn'); return; }
+      if (reason.length < 4) { toast('Reason required', 'warn'); return; }
+      $('#modalScrim').classList.remove('open');
+      try {
+        const res = await API.adjustWallet(userId, { currency, amount, reason });
+        if (res.success) {
+          if (res.pending_approval) toast(`Pending second approver (id ${res.approval_id})`, 'warn');
+          else toast('Wallet adjusted', 'success');
+          loadWallets(userId);
+          loadTransactions(userId);
+        } else {
+          toast(res.error || 'Adjustment failed', 'error');
+        }
+      } catch (e) {
+        if (e && e.status === 403) { toast('You do not have permission to adjust wallets.', 'error'); return; }
+        if (e && e.status === 401) return;
+        toast(e.message || 'Adjustment failed', 'error');
+      }
+    }
+  });
+}
+
+/* ─── Event wiring ─────────────────────────────────────────── */
+
+function debounce(fn, ms=350) {
+  let t; return (...a) => { clearTimeout(t); t = setTimeout(()=>fn(...a), ms); };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+
+  try {
+    if (window.AdminSession && typeof window.AdminSession.getUser === 'function') {
+      const u = window.AdminSession.getUser();
+      if (u) {
+        const name = u.name || u.email || 'Admin';
+        $('#adminName').textContent = name;
+        $('#chipName').textContent = name;
+        $('#adminRole').textContent = u.role || 'admin';
+        $('#chipRole').textContent = u.role || 'admin';
+        $('#adminAvatar').textContent = initials(name);
+        $('#chipAvatar').textContent = initials(name);
+      }
+    }
+  } catch (_) {}
+
+  // Sidebar
+  $('#hamburger')?.addEventListener('click', () => $('#sidebar').classList.toggle('open'));
+  $('#sbCollapseBtn')?.addEventListener('click', () => $('#appRoot').classList.toggle('sb-collapsed'));
+  $('#sbToggleDesktop')?.addEventListener('click', () => $('#appRoot').classList.toggle('sb-collapsed'));
+
+  // Close sidebar when tapping outside on mobile
+  document.addEventListener('click', e => {
+    if (window.innerWidth > 900) return;
+    const sb = $('#sidebar');
+    if (!sb.classList.contains('open')) return;
+    if (e.target.closest('#sidebar') || e.target.closest('#hamburger')) return;
+    sb.classList.remove('open');
+  });
+
+  // Theme
+  $('#themeToggle')?.addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('ms_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); } catch(_){}
+  });
+  try {
+    if (localStorage.getItem('ms_theme') === 'dark') document.documentElement.classList.add('dark');
+  } catch(_){}
+
+  // Filters
+  $('#searchInput').addEventListener('input', debounce(e => { state.search = e.target.value.trim(); state.page = 1; loadUsers(); }));
+  $('#globalSearch').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      state.search = e.target.value.trim();
+      state.page = 1;
+      $('#searchInput').value = state.search;
+      loadUsers();
+    }
+  });
+  $('#statusFilter').addEventListener('change', e => { state.status = e.target.value; state.page = 1; loadUsers(); });
+  $('#roleFilter').addEventListener('change', e => { state.role = e.target.value; state.page = 1; loadUsers(); });
+  $('#refreshBtn').addEventListener('click', () => { loadStats(); loadUsers(); });
+
+  $('#pagination').addEventListener('click', e => {
+    const b = e.target.closest('[data-page]');
+    if (!b) return;
+    state.page = Number(b.dataset.page);
+    loadUsers();
+  });
+
+  // Row / button click
+  $('#usersTbody').addEventListener('click', e => {
+    const openBtn = e.target.closest('[data-open-user]');
+    if (openBtn) { openUser(openBtn.dataset.openUser); return; }
+    const row = e.target.closest('tr[data-user-id]');
+    if (row) openUser(row.dataset.userId);
+  });
+
+  // Drawer
+  $('#drawerClose').addEventListener('click', closeDrawer);
+  $('#drawerScrim').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); $('#modalScrim').classList.remove('open'); } });
+
+  // Tabs
+  $('#drawerTabs').addEventListener('click', e => {
+    const t = e.target.closest('.drawer-tab');
+    if (t) loadTab(t.dataset.tab);
+  });
+
+  // Copy buttons (delegated)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    const id = btn.dataset.copy;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const text = el.textContent.replace(/\s+/g, ' ').trim();
+    navigator.clipboard.writeText(text).then(() => toast('Copied', 'success')).catch(() => toast('Copy failed', 'error'));
+  });
+
+  // Drawer actions
+  $('#dhActions').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const id = state.currentUser?.profile?.id;
+    if (!id) return;
+
+    if (action === 'copy-userid') {
+      navigator.clipboard.writeText(id).then(()=>toast('User ID copied','success')).catch(()=>toast('Copy failed','error'));
+      return;
+    }
+    if (action === 'suspend') {
+      reasonPrompt('Suspend User', 'Suspend', 'danger', async reason => {
+        try {
+          const res = await API.setStatus(id, 'suspended', reason);
+          if (res.success) { toast('User suspended', 'success'); openUser(id); }
+          else toast(res.error || 'Failed', 'error');
+        } catch (e) {
+          if (e && e.status === 403) { toast('No permission to change status.', 'error'); return; }
+          if (e && e.status === 401) return;
+          toast(e.message || 'Failed', 'error');
+        }
+      });
+      return;
+    }
+    if (action === 'activate') {
+      reasonPrompt('Activate User', 'Activate', 'success', async reason => {
+        try {
+          const res = await API.setStatus(id, 'active', reason);
+          if (res.success) { toast('User activated', 'success'); openUser(id); }
+          else toast(res.error || 'Failed', 'error');
+        } catch (e) {
+          if (e && e.status === 403) { toast('No permission to change status.', 'error'); return; }
+          if (e && e.status === 401) return;
+          toast(e.message || 'Failed', 'error');
+        }
+      });
+      return;
+    }
+    if (action === 'force-logout') {
+      reasonPrompt('Force Logout — all active sessions will be revoked', 'Force logout', 'danger', async reason => {
+        try {
+          const res = await API.forceLogout(id, reason);
+          if (res.success) { toast(`Revoked ${res.revoked || 0} session(s)`, 'success'); loadTab('security'); }
+          else toast(res.error || 'Failed', 'error');
+        } catch (e) {
+          if (e && e.status === 403) { toast('No permission to force logout.', 'error'); return; }
+          if (e && e.status === 401) return;
+          toast(e.message || 'Failed', 'error');
+        }
+      });
+      return;
+    }
+    if (action === 'adjust-wallet') { adjustWalletModal(id); return; }
+  });
+
+  // Tab filter reloads
+  $('#txReload')?.addEventListener('click', () => { const id = state.currentUser?.profile?.id; if (id) loadTransactions(id); });
+  $('#txTypeFilter')?.addEventListener('change', () => { const id = state.currentUser?.profile?.id; if (id) loadTransactions(id); });
+  $('#txStatusFilter')?.addEventListener('change', () => { const id = state.currentUser?.profile?.id; if (id) loadTransactions(id); });
+  $('#ledgerReload')?.addEventListener('click', () => { const id = state.currentUser?.profile?.id; if (id) loadLedger(id); });
+  $('#ledgerCurrency')?.addEventListener('change', () => { const id = state.currentUser?.profile?.id; if (id) loadLedger(id); });
+  $('#ledgerEntryType')?.addEventListener('change', () => { const id = state.currentUser?.profile?.id; if (id) loadLedger(id); });
+
+  // Notes
+  $('#noteAddBtn').addEventListener('click', async () => {
+    const id = state.currentUser?.profile?.id;
+    if (!id) return;
+    const body = ($('#noteBody').value || '').trim();
+    const tags = ($('#noteTags').value || '').split(',').map(s=>s.trim()).filter(Boolean);
+    if (body.length < 3) { toast('Note is too short', 'warn'); return; }
+    try {
+      const res = await API.addNote(id, { body, tags });
+      if (res.success) {
+        toast('Note added', 'success');
+        $('#noteBody').value = '';
+        $('#noteTags').value = '';
+        loadNotes(id);
+      } else {
+        toast(res.error || 'Failed', 'error');
+      }
+    } catch (e) {
+      if (e && e.status === 403) { toast('No permission to add notes.', 'error'); return; }
+      if (e && e.status === 401) return;
+      toast(e.message || 'Failed', 'error');
+    }
+  });
+
+  // Boot
+  loadStats();
+  loadUsers();
+
+  // Approvals badge
+  (async () => {
+    try {
+      const res = await API.approvals('status=pending&limit=50');
+      if (res.success && Array.isArray(res.data) && res.data.length) {
+        const b = $('#approvalBadge');
+        b.textContent = res.data.length;
+        b.style.display = 'inline-block';
+      }
+    } catch(_){}
+  })();
 });
-
-window.openUserDrawer = openUserDrawer;
-window.gotoPage = gotoPage;
-window.applySearch = applySearch;
-window.refreshAll = refreshAll;
-window.quickToggleStatus = quickToggleStatus;
-window.toggleStatusAction = toggleStatusAction;
-window.openWalletAdjust = openWalletAdjust;
-window.openAddNote = openAddNote;
-window.openAddRestriction = openAddRestriction;
-window.removeRestriction = removeRestriction;
-window.forceLogout = forceLogout;
-window.requirePasswordReset = requirePasswordReset;
-window.require2FA = require2FA;
-window.loadTransactionsTab = loadTransactionsTab;
 </script>
 </body>
 </html>

@@ -1,7 +1,17 @@
-// services/vtpassService.js - PRODUCTION READY
+// services/vtpassService.js — PRODUCTION READY (lazy env access)
 // Complete VTpass integration for MilesSpace
 // Supports: Airtime, Data, Electricity, Cable TV, Education
 // Includes: Phone number lookup + sandbox test-number bypass
+//
+// IMPORTANT — why every credential is a getter:
+//   The service is a singleton (module.exports = new VTpassService()).
+//   The constructor runs once. If the module is required before
+//   dotenv has populated process.env, any field captured in the
+//   constructor is frozen to `undefined` forever.
+//   Reading process.env in getters on every call makes the module
+//   load-order-independent, which is what production needs.
+
+'use strict';
 
 const axios = require('axios');
 const crypto = require('crypto');
@@ -9,16 +19,6 @@ const https = require('https');
 
 class VTpassService {
     constructor() {
-        this.apiKey = process.env.VTPASS_API_KEY;
-        this.publicKey = process.env.VTPASS_PUBLIC_KEY;
-        this.secretKey = process.env.VTPASS_SECRET_KEY;
-        this.environment = process.env.VTPASS_ENV || 'sandbox';
-        this.isSandbox = this.environment === 'sandbox';
-
-        this.baseUrl = this.isSandbox
-            ? 'https://sandbox.vtpass.com/api'
-            : 'https://vtpass.com/api';
-
         // ─── HTTP agent with keep-alive ───
         this.httpsAgent = new https.Agent({
             keepAlive: true,
@@ -97,18 +97,45 @@ class VTpassService {
             }
         };
 
-        this.validateConfiguration();
+        // Log once with whatever is set right now. If dotenv hasn't
+        // run yet, this warns — that's fine, because the getters
+        // below will pick up the real values on the first API call.
+        this._logBootState();
+    }
 
-        console.log(`🔌 VTpass Service initialized`);
+    // ────────────────────────────────────────────────────────────────
+    // LAZY ENV ACCESS — the fix
+    // ────────────────────────────────────────────────────────────────
+
+    get apiKey()      { return process.env.VTPASS_API_KEY     || null; }
+    get publicKey()   { return process.env.VTPASS_PUBLIC_KEY  || null; }
+    get secretKey()   { return process.env.VTPASS_SECRET_KEY  || null; }
+    get environment() { return (process.env.VTPASS_ENV || 'sandbox').toLowerCase(); }
+    get isSandbox()   { return this.environment === 'sandbox'; }
+    get baseUrl() {
+        return this.isSandbox
+            ? 'https://sandbox.vtpass.com/api'
+            : 'https://vtpass.com/api';
+    }
+
+    _logBootState() {
+        const creds = {
+            apiKey:    !!this.apiKey,
+            publicKey: !!this.publicKey,
+            secretKey: !!this.secretKey,
+            env:       this.environment
+        };
+        console.log('[VTPASS] initialized');
         console.log(`   Environment: ${this.environment.toUpperCase()}`);
-        console.log(`   Base URL: ${this.baseUrl}`);
+        console.log(`   Base URL:    ${this.baseUrl}`);
+        console.log(`   Credentials: apiKey=${creds.apiKey} publicKey=${creds.publicKey} secretKey=${creds.secretKey}`);
         if (this.isSandbox) {
-            console.log(`   ⚠️  SANDBOX MODE — test numbers active:`);
-            console.log(`       08011111111  → success`);
-            console.log(`       201000000000 → pending`);
-            console.log(`       500000000000 → unexpected response`);
-            console.log(`       400000000000 → no response`);
-            console.log(`       300000000000 → timeout`);
+            console.log('   SANDBOX MODE — test numbers active:');
+            console.log('       08011111111  → success');
+            console.log('       201000000000 → pending');
+            console.log('       500000000000 → unexpected response');
+            console.log('       400000000000 → no response');
+            console.log('       300000000000 → timeout');
         }
     }
 
@@ -116,8 +143,9 @@ class VTpassService {
         const required = ['VTPASS_API_KEY', 'VTPASS_PUBLIC_KEY', 'VTPASS_SECRET_KEY'];
         const missing = required.filter(key => !process.env[key]);
         if (missing.length) {
-            console.warn(`⚠️ Missing VTpass configuration: ${missing.join(', ')}`);
+            console.warn(`[VTPASS] missing env: ${missing.join(', ')}`);
         }
+        return missing.length === 0;
     }
 
     isConfigured() {
@@ -130,11 +158,11 @@ class VTpassService {
 
     getSandboxTestNumbers() {
         return {
-            '08011111111': 'mtn',       // success
-            '201000000000': 'mtn',      // pending
-            '500000000000': 'mtn',      // unexpected response
-            '400000000000': 'mtn',      // no response
-            '300000000000': 'mtn',      // timeout
+            '08011111111': 'mtn',
+            '201000000000': 'mtn',
+            '500000000000': 'mtn',
+            '400000000000': 'mtn',
+            '300000000000': 'mtn'
         };
     }
 
@@ -150,16 +178,16 @@ class VTpassService {
 
     getPostHeaders() {
         return {
-            'api-key': this.apiKey,
-            'secret-key': this.secretKey,
+            'api-key':     this.apiKey,
+            'secret-key':  this.secretKey,
             'Content-Type': 'application/json'
         };
     }
 
     getGetHeaders() {
         return {
-            'api-key': this.apiKey,
-            'public-key': this.publicKey,
+            'api-key':     this.apiKey,
+            'public-key':  this.publicKey,
             'Content-Type': 'application/json'
         };
     }
@@ -182,14 +210,11 @@ class VTpassService {
 
         const values = {};
         for (const part of parts) {
-            if (part.type !== 'literal') {
-                values[part.type] = part.value;
-            }
+            if (part.type !== 'literal') values[part.type] = part.value;
         }
 
         const timestamp = `${values.year}${values.month}${values.day}${values.hour}${values.minute}`;
         const random = crypto.randomBytes(6).toString('hex').toUpperCase();
-
         return `${timestamp}${random}`;
     }
 
@@ -210,7 +235,6 @@ class VTpassService {
     detectNetwork(phone) {
         const normalized = this.normalizePhone(phone);
 
-        // Sandbox test numbers take precedence
         if (this.isSandbox) {
             const sandboxMap = this.getSandboxTestNumbers();
             if (sandboxMap[normalized]) return sandboxMap[normalized];
@@ -228,25 +252,18 @@ class VTpassService {
     validatePhone(phone) {
         const normalized = this.normalizePhone(phone);
 
-        // Sandbox test numbers bypass strict validation
         if (this.isSandbox && this.isSandboxTestNumber(normalized)) {
             const network = this.getSandboxTestNumbers()[normalized];
             return { valid: true, network, phone: normalized, sandbox: true };
         }
 
         if (!/^0\d{10}$/.test(normalized)) {
-            return {
-                valid: false,
-                error: 'Enter a valid Nigerian phone number (e.g. 08012345678)'
-            };
+            return { valid: false, error: 'Enter a valid Nigerian phone number (e.g. 08012345678)' };
         }
 
         const network = this.detectNetwork(normalized);
         if (!network) {
-            return {
-                valid: false,
-                error: 'Unable to detect network for this number. Please select manually.'
-            };
+            return { valid: false, error: 'Unable to detect network for this number. Please select manually.' };
         }
 
         return { valid: true, network, phone: normalized };
@@ -259,7 +276,6 @@ class VTpassService {
     async lookupPhoneNetwork(phone) {
         const normalized = this.normalizePhone(phone);
 
-        // Sandbox test numbers
         if (this.isSandbox && this.isSandboxTestNumber(normalized)) {
             const network = this.getSandboxTestNumbers()[normalized];
             const networkMeta = this.getNetworks().find(n => n.id === network);
@@ -352,53 +368,30 @@ class VTpassService {
 
     normalizeTransactionStatus(data) {
         const code = String(data?.code || '').trim();
-        const providerStatus = String(
-            data?.content?.transactions?.status || ''
-        ).toLowerCase().trim();
+        const providerStatus = String(data?.content?.transactions?.status || '').toLowerCase().trim();
 
         if (providerStatus === 'delivered') {
             return { state: 'completed', providerStatus, code, definitive: true };
         }
 
-        if (
-            providerStatus === 'pending' ||
-            providerStatus === 'initiated' ||
-            providerStatus === 'processing'
-        ) {
+        if (['pending', 'initiated', 'processing'].includes(providerStatus)) {
             return { state: 'processing', providerStatus, code, definitive: false };
         }
 
-        const failedCodes = new Set([
-            '010', '011', '013', '014', '015', '016', '017', '018', '091'
-        ]);
+        const failedCodes = new Set(['010', '011', '013', '014', '015', '016', '017', '018', '091']);
         if (failedCodes.has(code)) {
             return { state: 'failed', providerStatus, code, definitive: true };
         }
 
         if (code === '099') {
-            return {
-                state: 'processing',
-                providerStatus: providerStatus || 'processing',
-                code,
-                definitive: false
-            };
+            return { state: 'processing', providerStatus: providerStatus || 'processing', code, definitive: false };
         }
 
         if (code === '000') {
-            return {
-                state: 'processing',
-                providerStatus: providerStatus || 'unknown',
-                code,
-                definitive: false
-            };
+            return { state: 'processing', providerStatus: providerStatus || 'unknown', code, definitive: false };
         }
 
-        return {
-            state: 'processing',
-            providerStatus: providerStatus || 'unknown',
-            code,
-            definitive: false
-        };
+        return { state: 'processing', providerStatus: providerStatus || 'unknown', code, definitive: false };
     }
 
     getFriendlyError(code) {
@@ -487,11 +480,7 @@ class VTpassService {
         const result = await this.getVariations(serviceID);
 
         if (!result.success || !result.variations.length) {
-            return {
-                success: false,
-                error: 'No data plans available for this network',
-                plans: []
-            };
+            return { success: false, error: 'No data plans available for this network', plans: [] };
         }
 
         return {
@@ -514,11 +503,7 @@ class VTpassService {
         const result = await this.getVariations(serviceID);
 
         if (!result.success || !result.variations.length) {
-            return {
-                success: false,
-                error: 'No packages available for this provider',
-                packages: []
-            };
+            return { success: false, error: 'No packages available for this provider', packages: [] };
         }
 
         return {
@@ -575,7 +560,7 @@ class VTpassService {
         } catch (error) {
             console.error('VTpass verifyElectricityMeter failed:', {
                 provider,
-                meterNumber: meterNumber?.slice(0, 4) + '****',
+                meterNumber: meterNumber ? String(meterNumber).slice(0, 4) + '****' : null,
                 status: error.response?.status,
                 message: error.message
             });
@@ -620,7 +605,7 @@ class VTpassService {
         } catch (error) {
             console.error('VTpass verifyTvCustomer failed:', {
                 provider,
-                customerId: customerId?.slice(0, 4) + '****',
+                customerId: customerId ? String(customerId).slice(0, 4) + '****' : null,
                 status: error.response?.status,
                 message: error.message
             });
@@ -640,11 +625,8 @@ class VTpassService {
         const validation = this.validatePhone(phone);
         if (!validation.valid) {
             return {
-                success: false,
-                state: 'failed',
-                error: validation.error,
-                requestId: null,
-                friendlyError: validation.error
+                success: false, state: 'failed', error: validation.error,
+                requestId: null, friendlyError: validation.error
             };
         }
 
@@ -653,8 +635,7 @@ class VTpassService {
 
         if (!serviceID) {
             return {
-                success: false,
-                state: 'failed',
+                success: false, state: 'failed',
                 error: `Unsupported network: ${finalNetwork}`,
                 requestId: null,
                 friendlyError: `Unsupported network: ${finalNetwork}`
@@ -662,17 +643,11 @@ class VTpassService {
         }
 
         const requestId = this.generateRequestId();
-        const payload = {
-            request_id: requestId,
-            serviceID,
-            amount,
-            phone: validation.phone
-        };
+        const payload = { request_id: requestId, serviceID, amount, phone: validation.phone };
 
         try {
             const response = await this.axiosInstance.post(
-                `${this.baseUrl}/pay`,
-                payload,
+                `${this.baseUrl}/pay`, payload,
                 { headers: this.getPostHeaders(), timeout: 30000 }
             );
 
@@ -704,7 +679,7 @@ class VTpassService {
             const isTimeout =
                 error.code === 'ECONNABORTED' ||
                 error.code === 'ETIMEDOUT' ||
-                error.message?.toLowerCase().includes('timeout');
+                (error.message || '').toLowerCase().includes('timeout');
 
             console.error('VTpass airtime request failed:', {
                 requestId,
@@ -715,12 +690,8 @@ class VTpassService {
 
             if (isTimeout || !error.response) {
                 return {
-                    success: false,
-                    state: 'processing',
-                    requestId,
-                    transactionId: null,
-                    providerStatus: 'unknown',
-                    code: 'TIMEOUT',
+                    success: false, state: 'processing', requestId,
+                    transactionId: null, providerStatus: 'unknown', code: 'TIMEOUT',
                     error: 'Provider response not received',
                     friendlyError: this.getFriendlyError('TIMEOUT'),
                     data: apiData || null
@@ -728,11 +699,8 @@ class VTpassService {
             }
 
             return {
-                success: false,
-                state: 'failed',
-                requestId,
-                transactionId: null,
-                providerStatus: 'failed',
+                success: false, state: 'failed', requestId,
+                transactionId: null, providerStatus: 'failed',
                 code: apiData?.code || 'CONNECTION_ERROR',
                 error: apiData?.response_description || error.message || 'VTpass request failed',
                 friendlyError: this.getFriendlyError(apiData?.code) || this.getFriendlyError('default'),
@@ -747,11 +715,8 @@ class VTpassService {
         const validation = this.validatePhone(phone);
         if (!validation.valid) {
             return {
-                success: false,
-                state: 'failed',
-                error: validation.error,
-                requestId: null,
-                friendlyError: validation.error
+                success: false, state: 'failed', error: validation.error,
+                requestId: null, friendlyError: validation.error
             };
         }
 
@@ -760,8 +725,7 @@ class VTpassService {
 
         if (!serviceID) {
             return {
-                success: false,
-                state: 'failed',
+                success: false, state: 'failed',
                 error: `Unsupported network: ${finalNetwork}`,
                 requestId: null,
                 friendlyError: `Unsupported network: ${finalNetwork}`
@@ -775,10 +739,7 @@ class VTpassService {
         } catch (e) {
             console.error('Failed to fetch plan details:', e.message);
             return {
-                success: false,
-                state: 'failed',
-                requestId: null,
-                transactionId: null,
+                success: false, state: 'failed', requestId: null, transactionId: null,
                 error: 'Unable to load data plan. Please refresh and try again.',
                 friendlyError: 'Unable to load data plan. Please refresh and try again.',
                 code: 'PLAN_FETCH_FAILED'
@@ -787,10 +748,7 @@ class VTpassService {
 
         if (!planData) {
             return {
-                success: false,
-                state: 'failed',
-                requestId: null,
-                transactionId: null,
+                success: false, state: 'failed', requestId: null, transactionId: null,
                 error: `Data plan "${variationCode}" is unavailable for ${finalNetwork}`,
                 friendlyError: 'Selected data plan is no longer available. Please select another plan.',
                 code: 'INVALID_PLAN'
@@ -800,10 +758,7 @@ class VTpassService {
         const planAmount = planData.amount || 0;
         if (planAmount <= 0) {
             return {
-                success: false,
-                state: 'failed',
-                requestId: null,
-                transactionId: null,
+                success: false, state: 'failed', requestId: null, transactionId: null,
                 error: 'Invalid data plan amount',
                 friendlyError: 'Invalid data plan. Please select another plan.',
                 code: 'INVALID_PLAN_AMOUNT'
@@ -822,8 +777,7 @@ class VTpassService {
 
         try {
             const response = await this.axiosInstance.post(
-                `${this.baseUrl}/pay`,
-                payload,
+                `${this.baseUrl}/pay`, payload,
                 { headers: this.getPostHeaders(), timeout: 30000 }
             );
 
@@ -856,7 +810,7 @@ class VTpassService {
             const isTimeout =
                 error.code === 'ECONNABORTED' ||
                 error.code === 'ETIMEDOUT' ||
-                error.message?.toLowerCase().includes('timeout');
+                (error.message || '').toLowerCase().includes('timeout');
 
             console.error('VTpass data request failed:', {
                 requestId,
@@ -867,12 +821,8 @@ class VTpassService {
 
             if (isTimeout || !error.response) {
                 return {
-                    success: false,
-                    state: 'processing',
-                    requestId,
-                    transactionId: null,
-                    providerStatus: 'unknown',
-                    code: 'TIMEOUT',
+                    success: false, state: 'processing', requestId,
+                    transactionId: null, providerStatus: 'unknown', code: 'TIMEOUT',
                     amount: planAmount,
                     error: 'Provider response not received',
                     friendlyError: this.getFriendlyError('TIMEOUT'),
@@ -881,11 +831,8 @@ class VTpassService {
             }
 
             return {
-                success: false,
-                state: 'failed',
-                requestId,
-                transactionId: null,
-                providerStatus: 'failed',
+                success: false, state: 'failed', requestId,
+                transactionId: null, providerStatus: 'failed',
                 code: apiData?.code || 'CONNECTION_ERROR',
                 amount: planAmount,
                 error: apiData?.response_description || error.message || 'VTpass request failed',
@@ -900,8 +847,7 @@ class VTpassService {
         const serviceID = this.getServiceID('electricity', provider);
         if (!serviceID) {
             return {
-                success: false,
-                state: 'failed',
+                success: false, state: 'failed',
                 error: `Unsupported electricity provider: ${provider}`,
                 requestId: null,
                 friendlyError: `Unsupported electricity provider: ${provider}`
@@ -920,8 +866,7 @@ class VTpassService {
 
         try {
             const response = await this.axiosInstance.post(
-                `${this.baseUrl}/pay`,
-                payload,
+                `${this.baseUrl}/pay`, payload,
                 { headers: this.getPostHeaders(), timeout: 30000 }
             );
 
@@ -962,7 +907,7 @@ class VTpassService {
             const isTimeout =
                 error.code === 'ECONNABORTED' ||
                 error.code === 'ETIMEDOUT' ||
-                error.message?.toLowerCase().includes('timeout');
+                (error.message || '').toLowerCase().includes('timeout');
 
             console.error('VTpass electricity request failed:', {
                 requestId,
@@ -973,12 +918,8 @@ class VTpassService {
 
             if (isTimeout || !error.response) {
                 return {
-                    success: false,
-                    state: 'processing',
-                    requestId,
-                    transactionId: null,
-                    providerStatus: 'unknown',
-                    code: 'TIMEOUT',
+                    success: false, state: 'processing', requestId,
+                    transactionId: null, providerStatus: 'unknown', code: 'TIMEOUT',
                     error: 'Provider response not received',
                     friendlyError: this.getFriendlyError('TIMEOUT'),
                     data: apiData || null
@@ -986,11 +927,8 @@ class VTpassService {
             }
 
             return {
-                success: false,
-                state: 'failed',
-                requestId,
-                transactionId: null,
-                providerStatus: 'failed',
+                success: false, state: 'failed', requestId,
+                transactionId: null, providerStatus: 'failed',
                 code: apiData?.code || 'CONNECTION_ERROR',
                 error: apiData?.response_description || error.message || 'VTpass request failed',
                 friendlyError: this.getFriendlyError(apiData?.code) || this.getFriendlyError('default'),
@@ -1004,8 +942,7 @@ class VTpassService {
         const serviceID = this.getServiceID('tv', provider);
         if (!serviceID) {
             return {
-                success: false,
-                state: 'failed',
+                success: false, state: 'failed',
                 error: `Unsupported TV provider: ${provider}`,
                 requestId: null,
                 friendlyError: `Unsupported TV provider: ${provider}`
@@ -1025,8 +962,7 @@ class VTpassService {
 
         try {
             const response = await this.axiosInstance.post(
-                `${this.baseUrl}/pay`,
-                payload,
+                `${this.baseUrl}/pay`, payload,
                 { headers: this.getPostHeaders(), timeout: 30000 }
             );
 
@@ -1058,7 +994,7 @@ class VTpassService {
             const isTimeout =
                 error.code === 'ECONNABORTED' ||
                 error.code === 'ETIMEDOUT' ||
-                error.message?.toLowerCase().includes('timeout');
+                (error.message || '').toLowerCase().includes('timeout');
 
             console.error('VTpass TV request failed:', {
                 requestId,
@@ -1069,12 +1005,8 @@ class VTpassService {
 
             if (isTimeout || !error.response) {
                 return {
-                    success: false,
-                    state: 'processing',
-                    requestId,
-                    transactionId: null,
-                    providerStatus: 'unknown',
-                    code: 'TIMEOUT',
+                    success: false, state: 'processing', requestId,
+                    transactionId: null, providerStatus: 'unknown', code: 'TIMEOUT',
                     error: 'Provider response not received',
                     friendlyError: this.getFriendlyError('TIMEOUT'),
                     data: apiData || null
@@ -1082,11 +1014,8 @@ class VTpassService {
             }
 
             return {
-                success: false,
-                state: 'failed',
-                requestId,
-                transactionId: null,
-                providerStatus: 'failed',
+                success: false, state: 'failed', requestId,
+                transactionId: null, providerStatus: 'failed',
                 code: apiData?.code || 'CONNECTION_ERROR',
                 error: apiData?.response_description || error.message || 'VTpass request failed',
                 friendlyError: this.getFriendlyError(apiData?.code) || this.getFriendlyError('default'),
@@ -1102,8 +1031,7 @@ class VTpassService {
     async queryTransaction(requestId) {
         if (!requestId) {
             return {
-                success: false,
-                state: 'failed',
+                success: false, state: 'failed',
                 error: 'No request ID provided',
                 friendlyError: 'Transaction reference missing. Please contact support.',
                 requestId: null
@@ -1111,7 +1039,7 @@ class VTpassService {
         }
 
         try {
-            console.log(`🔄 Querying transaction: ${requestId}`);
+            console.log(`Querying transaction: ${requestId}`);
 
             const response = await this.axiosInstance.post(
                 `${this.baseUrl}/requery`,
@@ -1152,9 +1080,7 @@ class VTpassService {
 
             if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
                 return {
-                    success: false,
-                    state: 'processing',
-                    requestId,
+                    success: false, state: 'processing', requestId,
                     error: 'Request timed out',
                     friendlyError: this.getFriendlyError('TIMEOUT'),
                     code: 'TIMEOUT'
@@ -1162,9 +1088,7 @@ class VTpassService {
             }
 
             return {
-                success: false,
-                state: 'failed',
-                requestId,
+                success: false, state: 'failed', requestId,
                 error: error.response?.data?.response_description || error.message,
                 friendlyError: this.getFriendlyError('default'),
                 code: error.response?.data?.code || 'UNKNOWN_ERROR'
@@ -1218,7 +1142,7 @@ class VTpassService {
     clearCache() {
         this.catalogCache.clear();
         this.catalogPending.clear();
-        console.log('🗑️ VTpass cache cleared');
+        console.log('VTpass cache cleared');
     }
 
     getCacheStats() {

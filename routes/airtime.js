@@ -1,19 +1,37 @@
 // routes/airtime.js
 // PRODUCTION-READY DT ONE AIRTIME ROUTES
+// ─────────────────────────────────────────────────────────────────────────
+// CUSTOMER FLOW:
 //
-// FIXES APPLIED:
-// 1. NULL-safe reconciliation (.or + is.null on the sweep query handled in service)
-// 2. 25-minute hard age cap (not 20) so DT One has time to finalize SUBMITTED
-// 3. NOT_FOUND is a distinct state
-// 4. No premature refund on ambiguous DECLINED from provider
-// 5. Crash rollback only when provider confirm was NEVER started
-// 6. Webhook stores raw payload in metadata
-// 7. Admin route to bulk force-reconcile stuck transactions
-// 8. /operators returns NETWORKS ONLY
-// 9. /quote parses source.amount.min/max correctly, captures real wholesale
-// 10. CALLBACK_URL GUARD — DT One rejects localhost / HTTP URLs.
-//     We only register callback_url when it's a public HTTPS URL.
-// 11. GET /:reference syncs with DT One only within the 25-minute window
+//   Step 1 — Fill form → Proceed
+//     Frontend only. 2% fee. Breakdown shown locally. NO backend call.
+//
+//   Step 2 — Review → Proceed again
+//     GET /me → wallet balances. Display NGN + USD wallet cards.
+//     NO DT One call.
+//
+//   Step 3 — Select wallet → Pay Now → PIN
+//     POST /purchase → atomic debit + DT One create + confirm.
+//     DT One is contacted for the FIRST TIME here.
+//
+// ── FIXES IN THIS REVISION ─────────────────────────────────────────────
+//   A. Nigeria "no networks" bug:
+//        • Reject empty operator/country lists (never cache []).
+//        • Accept every DT One response shape.
+//        • Bump cache keys (v22 for operators, v24 for countries).
+//        • /operators returns 503 with OPERATORS_UNAVAILABLE — not a
+//          misleading empty 200.
+//
+//   B. [CRITICAL] Money-safety hardening:
+//        • Ledger debit is atomic (see LedgerService.debitWallet — the
+//          process_transaction RPC enforces sufficient funds).
+//        • Every refund uses a deterministic refund_reference so a
+//          second call cannot double-credit.
+//        • Refund is only attempted after a definitive provider outcome.
+//        • Webhook refuses to run without DTONE_WEBHOOK_SECRET in prod.
+//        • Idempotency claim is atomic; no silent fallback.
+//        • PIN attempts use the RPC; the non-atomic fallback is removed.
+// ─────────────────────────────────────────────────────────────────────────
 
 const express = require('express');
 const router = express.Router();
@@ -28,16 +46,55 @@ const { LedgerService } = require('../services/ledgerService');
 const IdempotencyService = require('../services/idempotencyService');
 const dtoneService = require('../services/dtoneService');
 const cacheService = require('../services/cacheService');
+const airtimeReconciliation = require('../services/airtimeReconciliationService');
 
 countriesLib.registerLocale(require('i18n-iso-countries/langs/en.json'));
 
-const QUOTE_EXPIRY_SECONDS   = 300;
+// ─── SANITY CHECK: fail fast if any dependency is missing ───────────
+(function verifyDependencies() {
+    const checks = [
+        ['supabaseAdmin', supabaseAdmin, 'object'],
+        ['authMiddleware', authMiddleware, 'function'],
+        ['LedgerService', LedgerService, 'function'],
+        ['LedgerService.getAllBalances', LedgerService?.getAllBalances, 'function'],
+        ['LedgerService.debitWallet', LedgerService?.debitWallet, 'function'],
+        ['LedgerService.creditWallet', LedgerService?.creditWallet, 'function'],
+        ['IdempotencyService', IdempotencyService, 'function'],
+        ['IdempotencyService.claim', IdempotencyService?.claim, 'function'],
+        ['IdempotencyService.release', IdempotencyService?.release, 'function'],
+        ['dtoneService', dtoneService, 'object'],
+        ['dtoneService.getOperators', dtoneService?.getOperators, 'function'],
+        ['dtoneService.createQuote', dtoneService?.createQuote, 'function'],
+        ['dtoneService.confirmTransaction', dtoneService?.confirmTransaction, 'function'],
+        ['cacheService', cacheService, 'object'],
+        ['airtimeReconciliation', airtimeReconciliation, 'object'],
+        ['airtimeReconciliation.forceReconcileAirtime', airtimeReconciliation?.forceReconcileAirtime, 'function']
+    ];
+    const missing = checks.filter(([, value, kind]) => typeof value !== kind);
+    if (missing.length) {
+        const names = missing.map(([name]) => name).join(', ');
+        throw new Error(`[airtime] Missing or malformed dependencies: ${names}`);
+    }
+    console.log('✅ [airtime] All dependencies verified');
+})();
+
+// ═══ CONFIG ═══
 const MAX_PIN_ATTEMPTS       = 4;
 const PIN_LOCK_DURATION      = 60 * 60 * 1000;
-const MILESSPACE_FEE_PERCENT = Number(process.env.MILESSPACE_FEE_PERCENT || 0.05);
+const MILESSPACE_FEE_PERCENT = Number(process.env.MILESSPACE_FEE_PERCENT || 0.02);   // 2%
 const MIN_USD                = 0.5;
 const MAX_USD                = Number(process.env.AIRTIME_MAX_USD || 1000);
-const MAX_PROCESSING_MS      = 25 * 60 * 1000; // 25-min hard cap (matches reconciliation)
+const MAX_PROCESSING_MS      = 25 * 60 * 1000;
+const DTONE_WEBHOOK_SECRET   = process.env.DTONE_WEBHOOK_SECRET || null;
+const IS_PRODUCTION          = process.env.NODE_ENV === 'production';
+
+// [CRITICAL] Refuse to start in production without a webhook secret.
+if (IS_PRODUCTION && !DTONE_WEBHOOK_SECRET) {
+    throw new Error(
+        '[airtime] DTONE_WEBHOOK_SECRET must be set in production. ' +
+        'An unsigned webhook endpoint that can refund wallets is not safe.'
+    );
+}
 
 // ═══ FX TABLE ═══
 const USD_TO_LOCAL = {
@@ -71,9 +128,10 @@ function getLocalRate(currency) {
 
 // ═══ CACHES ═══
 const inflightOperators = new Map();
-const inflightCountries = { promise: null };
 const swrOperators = new Map();
 const SWR_TTL_MS = 30 * 60 * 1000;
+
+let adminReconcileRunning = false;
 
 // ═══ HELPERS ═══
 function generateReference() {
@@ -122,25 +180,11 @@ function normalizeCountryCodes(value) {
     return null;
 }
 
-// ═══ CALLBACK URL HELPER ═══
-// DT One rejects localhost, HTTP, and non-public URLs.
-// Only return a callback URL if it's a public HTTPS URL.
 function getPublicCallbackUrl() {
     const appUrl = process.env.APP_URL;
-    if (!appUrl) {
-        console.log('ℹ️ [CALLBACK] No APP_URL set — callback will not be registered');
-        return undefined;
-    }
-
+    if (!appUrl) return undefined;
     const base = String(appUrl).replace(/\/+$/, '');
-
-    // Must be HTTPS
-    if (!/^https:\/\//i.test(base)) {
-        console.warn(`⚠️ [CALLBACK] Skipping callback_url — APP_URL is not HTTPS: ${base}`);
-        return undefined;
-    }
-
-    // Must not be localhost / loopback / private
+    if (!/^https:\/\//i.test(base)) return undefined;
     const lower = base.toLowerCase();
     if (
         lower.includes('localhost') ||
@@ -148,83 +192,170 @@ function getPublicCallbackUrl() {
         lower.includes('0.0.0.0') ||
         lower.includes('::1') ||
         /\.local(\/|$)/.test(lower)
-    ) {
-        console.warn(`⚠️ [CALLBACK] Skipping callback_url — APP_URL points to local: ${base}`);
-        return undefined;
-    }
-
+    ) return undefined;
     return `${base}/api/airtime/webhook`;
 }
 
-// ═══ CACHED DATA ═══
+// ═══════════════════════════════════════════════════════════════════════
+// [FIX-A]  NORMALIZERS — defensive against DT One response shape changes
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Accept every shape DT One uses for its operator endpoint:
+ *   [...]  |  { data: [...] }  |  { operators: [...] }  |  { results: [...] }
+ * Throw on anything else so the caller never caches garbage.
+ */
+function normalizeOperatorList(raw) {
+    const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+            ? raw.data
+            : Array.isArray(raw?.operators)
+                ? raw.operators
+                : Array.isArray(raw?.results)
+                    ? raw.results
+                    : null;
+
+    if (!list) {
+        throw new Error('Unexpected DT One operators response shape');
+    }
+
+    return list
+        .filter(op => op && op.id != null && String(op.id).trim() !== '')
+        .map(op => ({
+            ...op,
+            id: String(op.id),
+            name: String(op.name || `Operator ${op.id}`).trim()
+        }));
+}
+
+/**
+ * Accept every ISO-3 field DT One might send:
+ *   iso3  |  iso_code  |  country_iso_code  |  code
+ * Throw on zero valid countries so we never cache a poisoned empty list.
+ */
+function normalizeCountryList(raw) {
+    const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+            ? raw.data
+            : Array.isArray(raw?.results)
+                ? raw.results
+                : [];
+
+    const mapped = list
+        .map(c => {
+            if (!c) return null;
+            const alpha3 = String(
+                c.iso3 || c.iso_code || c.country_iso_code || c.code || ''
+            ).trim().toUpperCase();
+            if (!/^[A-Z]{3}$/.test(alpha3)) return null;
+
+            const name = String(c.name || c.country_name || '').trim();
+            if (!name) return null;
+
+            return { iso3: alpha3, name };
+        })
+        .filter(Boolean);
+
+    if (mapped.length === 0) {
+        throw new Error('No valid countries returned by DT One');
+    }
+    return mapped;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// [FIX-A]  CACHED CATALOG — rejects empty, bumps keys, SWR-safe
+// ═══════════════════════════════════════════════════════════════════════
+
 async function getCachedCountries() {
-    return await cacheService.getOrSet('dtone_countries_v21', async () => {
-        const countries = await dtoneService.getCountries('AIRTIME');
-        countries.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        return countries
-            .filter(c => c?.iso_code && c?.name)
-            .map(c => {
-                const alpha3 = String(c.iso_code).toUpperCase();
-                const iso2 = countriesLib.alpha3ToAlpha2(alpha3);
-                return {
-                    code: alpha3,
-                    iso2: iso2 || null,
-                    name: c.name,
-                    flag: getFlagFromAlpha3(alpha3),
-                    dial: getDialCode(alpha3)
-                };
-            });
+    // Cache key bumped from v23 → v24 to invalidate any empty-catalog
+    // entries that were written by the old filter that only read `iso3`.
+    return await cacheService.getOrSet('dtone_countries_v24', async () => {
+        const raw = await dtoneService.getCountries('AIRTIME');
+        const normalized = normalizeCountryList(raw);
+
+        const mapped = normalized.map(c => ({
+            code: c.iso3,
+            iso3: c.iso3,
+            iso2: countriesLib.alpha3ToAlpha2(c.iso3) || null,
+            name: c.name,
+            flag: getFlagFromAlpha3(c.iso3),
+            dial: getDialCode(c.iso3)
+        }));
+
+        mapped.sort((a, b) => a.name.localeCompare(b.name));
+
+        console.info('[AIRTIME] Country catalog loaded', { count: mapped.length });
+        return mapped;
     }, 24 * 60 * 60);
 }
 
 async function getCachedOperators(countryIso3) {
-    const key = `dtone_operators_v21_${countryIso3.toUpperCase()}`;
-    return await cacheService.getOrSet(key, async () => {
-        return await dtoneService.getOperators(countryIso3.toUpperCase(), 'AIRTIME');
+    const country = String(countryIso3 || '').trim().toUpperCase();
+
+    if (!/^[A-Z]{3}$/.test(country)) {
+        throw new Error(`Invalid ISO-3 country code: ${country}`);
+    }
+
+    // Cache key bumped from v21 → v22 to invalidate poisoned NGA entry.
+    const key = `dtone_operators_v22_${country}`;
+
+    return cacheService.getOrSet(key, async () => {
+        const raw = await dtoneService.getOperators(country, 'AIRTIME');
+        const operators = normalizeOperatorList(raw);
+
+        if (operators.length === 0) {
+            // Throw so cacheService does NOT persist an empty list.
+            throw new Error(`DT One returned no airtime operators for ${country}`);
+        }
+
+        console.info('[AIRTIME] Operator catalog loaded', {
+            country,
+            count: operators.length
+        });
+
+        return operators;
     }, 60 * 60);
 }
 
 async function getCachedOperatorsFast(countryIso3) {
-    const key = countryIso3.toUpperCase();
-    const cached = swrOperators.get(key);
+    const country = String(countryIso3 || '').trim().toUpperCase();
 
-    if (cached && (Date.now() - cached.time) < SWR_TTL_MS) {
-        return cached.data;
+    if (!/^[A-Z]{3}$/.test(country)) {
+        throw new Error(`Invalid ISO-3 country code: ${country}`);
     }
-    if (inflightOperators.has(key)) {
-        return inflightOperators.get(key);
-    }
-    if (cached) {
-        const refreshPromise = (async () => {
-            try {
-                const fresh = await getCachedOperators(key);
-                swrOperators.set(key, { data: fresh, time: Date.now() });
-                return fresh;
-            } catch (e) {
-                console.error(`❌ Background refresh failed for ${key}:`, e.message);
-                return cached.data;
-            } finally {
-                inflightOperators.delete(key);
-            }
-        })();
-        inflightOperators.set(key, refreshPromise);
-        return cached.data;
-    }
+
+    const cached = swrOperators.get(country);
+    if (cached && Date.now() - cached.time < SWR_TTL_MS) return cached.data;
+    if (inflightOperators.has(country)) return inflightOperators.get(country);
+
     const promise = (async () => {
         try {
-            const fresh = await getCachedOperators(key);
-            swrOperators.set(key, { data: fresh, time: Date.now() });
+            const fresh = await getCachedOperators(country);
+            swrOperators.set(country, { data: fresh, time: Date.now() });
             return fresh;
         } finally {
-            inflightOperators.delete(key);
+            inflightOperators.delete(country);
         }
     })();
-    inflightOperators.set(key, promise);
+
+    inflightOperators.set(country, promise);
+
+    // Return last-known-good while refreshing in background
+    if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
+        return cached.data;
+    }
     return promise;
 }
 
 async function getAirtimeProductsForOperator(iso3, operatorId) {
-    return await dtoneService.getProducts({
+    const method =
+        dtoneService.getProductsRaw ||
+        dtoneService.getProducts ||
+        dtoneService.getProductsForOperator;
+    if (typeof method !== 'function') throw new Error('dtoneService has no product-fetch method.');
+    return await method.call(dtoneService, {
         countryIsoCode: iso3,
         operatorId: Number(operatorId),
         serviceId: 1,
@@ -232,70 +363,9 @@ async function getAirtimeProductsForOperator(iso3, operatorId) {
     });
 }
 
-// ═══ QUOTE DB ═══
-async function createQuoteRecord(data) {
-    const { data: quote, error } = await supabaseAdmin
-        .from('airtime_quotes')
-        .insert({
-            quote_id: data.quote_id,
-            user_id: data.user_id,
-            dtone_transaction_id: data.dtone_transaction_id,
-            dtone_external_id: data.dtone_external_id,
-            country_iso3: data.country_iso3,
-            country_iso2: data.country_iso2,
-            operator_id: data.operator_id,
-            operator_name: data.operator_name,
-            product_id: data.product_id,
-            product_type: data.product_type,
-            phone_number: data.phone_number,
-            source_amount: data.source_amount,
-            source_currency: data.source_currency,
-            destination_amount: data.destination_amount,
-            destination_currency: data.destination_currency,
-            provider_wholesale: data.provider_wholesale,
-            provider_currency: data.provider_currency,
-            milespace_fee: data.milespace_fee,
-            customer_usd: data.customer_usd,
-            customer_ngn: data.customer_ngn,
-            status: 'created',
-            expires_at: data.expires_at,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-    if (error) throw new Error('Failed to save quote: ' + error.message);
-    return quote;
-}
-
-async function getQuoteForUser(quoteId, userId) {
-    const { data, error } = await supabaseAdmin
-        .from('airtime_quotes')
-        .select('*')
-        .eq('quote_id', quoteId)
-        .eq('user_id', userId)
-        .single();
-    if (error || !data) return null;
-    return data;
-}
-
-async function consumeQuote(quoteId) {
-    const { data, error } = await supabaseAdmin
-        .from('airtime_quotes')
-        .update({
-            status: 'consumed',
-            consumed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        })
-        .eq('quote_id', quoteId)
-        .eq('status', 'created')
-        .select()
-        .maybeSingle();
-    if (error) return null;
-    return data;
-}
-
-// ═══ PIN ═══
+// ═══════════════════════════════════════════════════════════════════════
+// [CRITICAL] PIN — RPC required, no non-atomic fallback
+// ═══════════════════════════════════════════════════════════════════════
 async function verifyTransactionPin(userId, pin) {
     if (!userId) return { valid: false, error: 'User ID required', code: 'USER_ID_REQUIRED' };
     if (!pin || !/^\d{4}$/.test(String(pin))) {
@@ -317,6 +387,7 @@ async function verifyTransactionPin(userId, pin) {
             const mins = Math.ceil((lockUntil.getTime() - Date.now()) / 60000);
             return { valid: false, error: `Try again in ${mins} minute(s).`, code: 'PIN_LOCKED', remaining_minutes: mins, can_reset: true };
         }
+        // Clear the expired lock before comparing
         await supabaseAdmin
             .from('profiles')
             .update({ transaction_pin_attempts: 0, transaction_pin_locked_until: null })
@@ -324,18 +395,53 @@ async function verifyTransactionPin(userId, pin) {
     }
 
     const isValid = await bcrypt.compare(String(pin), profile.transaction_pin_hash);
+
     if (!isValid) {
-        const attempts = Number(profile.transaction_pin_attempts || 0) + 1;
-        if (attempts >= MAX_PIN_ATTEMPTS) {
-            const lockUntil = new Date(Date.now() + PIN_LOCK_DURATION);
-            await supabaseAdmin.from('profiles').update({
-                transaction_pin_attempts: 0,
-                transaction_pin_locked_until: lockUntil.toISOString()
-            }).eq('id', userId);
+        // [CRITICAL] Use the atomic RPC. If it is missing in production,
+        // refuse the request rather than silently falling back to a
+        // read-modify-write that can be raced.
+        let rpcRes = null;
+        let rpcError = null;
+        try {
+            const r = await supabaseAdmin.rpc('increment_pin_attempts', {
+                p_user_id: userId,
+                p_max: MAX_PIN_ATTEMPTS,
+                p_lock_ms: PIN_LOCK_DURATION
+            });
+            rpcRes = r?.data;
+            rpcError = r?.error;
+        } catch (e) {
+            rpcError = e;
+        }
+
+        if (rpcError || !rpcRes || typeof rpcRes.attempts !== 'number') {
+            console.error('❌ [AIRTIME] increment_pin_attempts RPC unavailable:', rpcError?.message || rpcError);
+            if (IS_PRODUCTION) {
+                return {
+                    valid: false,
+                    error: 'PIN verification is temporarily unavailable.',
+                    code: 'PIN_SERVICE_UNAVAILABLE'
+                };
+            }
+            // Dev fallback: proceed with a numeric guess so local dev still works.
+            rpcRes = { attempts: Number(profile.transaction_pin_attempts || 0) + 1, locked: false };
+        }
+
+        if (rpcRes.locked) {
             return { valid: false, error: 'PIN locked for 1 hour.', code: 'PIN_LOCKED', remaining_minutes: 60, can_reset: true };
         }
-        await supabaseAdmin.from('profiles').update({ transaction_pin_attempts: attempts }).eq('id', userId);
-        return { valid: false, error: `Incorrect PIN. ${MAX_PIN_ATTEMPTS - attempts} attempts left.`, code: 'INVALID_PIN', attempts_remaining: MAX_PIN_ATTEMPTS - attempts };
+
+        const remaining = Math.max(0, MAX_PIN_ATTEMPTS - rpcRes.attempts);
+        if (remaining === 0) {
+            return { valid: false, error: 'PIN locked for 1 hour.', code: 'PIN_LOCKED', remaining_minutes: 60, can_reset: true };
+        }
+
+        return {
+            valid: false,
+            error: `Incorrect PIN. ${remaining} attempts left.`,
+            code: 'INVALID_PIN',
+            attempts_remaining: remaining
+        };
     }
 
     await supabaseAdmin.from('profiles').update({
@@ -345,52 +451,27 @@ async function verifyTransactionPin(userId, pin) {
     return { valid: true };
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// PROVIDER STATUS SYNC
-// ═══════════════════════════════════════════════════════════════════════
+// ═══ PROVIDER STATUS SYNC ═══
 async function syncAirtimeProviderStatus(transaction) {
-    if (!transaction?.provider_transaction_id) {
-        return transaction;
-    }
+    if (!transaction?.provider_transaction_id) return transaction;
 
     const currentStatus = String(transaction.status || '').toLowerCase();
-    if (['completed', 'failed', 'refunded', 'manual_review', 'cancelled', 'reversed'].includes(currentStatus)) {
-        return transaction;
-    }
+    if (['completed', 'failed', 'refunded', 'manual_review', 'cancelled',
+         'reversed', 'provider_unknown'].includes(currentStatus)) return transaction;
 
-    // HARD 25-MINUTE CAP
     const ageMs = Date.now() - new Date(transaction.created_at).getTime();
     if (ageMs >= MAX_PROCESSING_MS) {
-        console.log(`⏰ [AIRTIME SYNC] ${transaction.reference} exceeded 25-minute cap`);
-        return {
-            ...transaction,
-            _stuck: true,
-            _stuck_reason: 'Exceeded 25-minute processing cap'
-        };
+        return { ...transaction, _stuck: true, _stuck_reason: 'Exceeded 25-minute processing cap' };
     }
 
     try {
-        const provider = await dtoneService.queryTransaction(
-            transaction.provider_transaction_id
-        );
+        const provider = await dtoneService.queryTransaction(transaction.provider_transaction_id);
+        if (!provider || !provider.status) return transaction;
 
-        console.log('📡 [AIRTIME SYNC]', {
-            reference: transaction.reference,
-            providerStatus: provider?.providerStatus,
-            normalizedStatus: provider?.status,
-            errorCode: provider?.errorCode,
-            errorMessage: provider?.errorMessage,
-            notFound: provider?.notFound
-        });
+        const providerStatus = String(provider.status).toLowerCase();
 
-        if (!provider || !provider.status) {
-            return transaction;
-        }
-
-        const normalizedStatus = String(provider.status).toLowerCase();
-
-        if (normalizedStatus === 'completed') {
-            const { data: updated, error } = await supabaseAdmin
+        if (providerStatus === 'completed') {
+            const { data: updated } = await supabaseAdmin
                 .from('airtime_transactions')
                 .update({
                     status: 'completed',
@@ -402,82 +483,73 @@ async function syncAirtimeProviderStatus(transaction) {
                 .in('status', ['processing', 'pending'])
                 .select('*')
                 .maybeSingle();
-
-            if (error) {
-                console.error('❌ Sync completed update failed:', error.message);
-                return transaction;
-            }
-
-            return updated || {
-                ...transaction,
-                status: 'completed',
-                provider_status: provider.providerStatus || 'COMPLETED',
-                completed_at: new Date().toISOString()
-            };
+            return updated || { ...transaction, status: 'completed' };
         }
 
-        if (normalizedStatus === 'not_found' || provider.notFound) {
-            console.warn(`⚠️ [AIRTIME SYNC] ${transaction.reference} not found by DT One ID — reconciliation will retry`);
-
+        if (providerStatus === 'not_found' || provider.notFound) {
             await supabaseAdmin
                 .from('airtime_transactions')
                 .update({
                     provider_status: provider.providerStatus || 'NOT_FOUND',
-                    updated_at: new Date().toISOString(),
-                    metadata: {
-                        ...(transaction.metadata || {}),
-                        last_sync_status: 'not_found',
-                        last_sync_at: new Date().toISOString(),
-                        needs_external_id_lookup: true
-                    }
+                    updated_at: new Date().toISOString()
                 })
-                .eq('id', transaction.id);
-
-            return {
-                ...transaction,
-                provider_status: 'NOT_FOUND',
-                metadata: {
-                    ...(transaction.metadata || {}),
-                    last_sync_status: 'not_found',
-                    last_sync_at: new Date().toISOString(),
-                    needs_external_id_lookup: true
-                }
-            };
+                .eq('id', transaction.id)
+                .in('status', ['processing', 'pending']);
+            return { ...transaction, provider_status: 'NOT_FOUND' };
         }
 
-        if (
-            normalizedStatus === 'failed' ||
-            normalizedStatus === 'cancelled' ||
-            normalizedStatus === 'reversed'
-        ) {
-            const { data: updated, error } = await supabaseAdmin
+        if (['failed', 'cancelled', 'reversed'].includes(providerStatus)) {
+            const { data: updated } = await supabaseAdmin
                 .from('airtime_transactions')
                 .update({
-                    provider_status: provider.providerStatus || normalizedStatus.toUpperCase(),
+                    provider_status: provider.providerStatus || providerStatus.toUpperCase(),
                     failure_code: provider.errorCode || null,
                     failure_message: provider.errorMessage || null,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', transaction.id)
+                .in('status', ['processing', 'pending'])
                 .select('*')
                 .maybeSingle();
-
-            if (error) {
-                console.error('❌ Sync failed update failed:', error.message);
-                return transaction;
-            }
-
             return updated || transaction;
         }
 
-        return {
-            ...transaction,
-            provider_status: provider.providerStatus || transaction.provider_status
-        };
-
+        return { ...transaction, provider_status: provider.providerStatus || transaction.provider_status };
     } catch (error) {
         console.warn(`⚠️ [AIRTIME SYNC] ${transaction.reference}:`, error.message);
         return transaction;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// [CRITICAL] IDEMPOTENT REFUND
+// Every refund uses a DETERMINISTIC refund_reference so two calls with
+// the same underlying reference cannot double-credit. The ledger itself
+// is expected to reject duplicate credit against the same reference —
+// see LedgerService.creditWallet which forwards `refund_reference` to
+// its RPC, and the unique constraint on ledger_entries.reference.
+// ═══════════════════════════════════════════════════════════════════════
+async function refundAirtime({ userId, amount, currency, reference, reason, kind }) {
+    const refundRef = `REF-${String(kind || 'AT').toUpperCase()}-${reference}`;
+    try {
+        await LedgerService.creditWallet(
+            userId,
+            amount,
+            currency,
+            `Refund (${kind || 'airtime'}): ${reason}`,
+            { refund_reference: refundRef }
+        );
+        return { ok: true, refundReference: refundRef };
+    } catch (err) {
+        // Ledger rejects duplicate refunds with a unique-violation. Treat
+        // that as "already refunded" — the money is safe, no double-credit.
+        const msg = String(err?.message || '');
+        if (msg.includes('duplicate') || msg.includes('23505') || msg.includes('unique')) {
+            console.warn(`ℹ️ [AIRTIME] Refund already recorded for ${refundRef} — skipping`);
+            return { ok: true, refundReference: refundRef, alreadyRefunded: true };
+        }
+        console.error('❌ [AIRTIME] Refund failed:', msg);
+        return { ok: false, error: msg, refundReference: refundRef };
     }
 }
 
@@ -492,7 +564,9 @@ router.get('/health', (req, res) => {
         service: 'airtime',
         provider: 'dtone',
         env: dtoneService.env,
+        fee_percent: MILESSPACE_FEE_PERCENT,
         callbackConfigured: Boolean(getPublicCallbackUrl()),
+        webhookSignatureRequired: Boolean(DTONE_WEBHOOK_SECRET),
         timestamp: new Date().toISOString()
     });
 });
@@ -500,46 +574,56 @@ router.get('/health', (req, res) => {
 router.get('/countries', async (req, res) => {
     try {
         res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=7200');
-        if (inflightCountries.promise) {
-            const countries = await inflightCountries.promise;
-            return res.json({ success: true, total: countries.length, data: countries });
-        }
-        inflightCountries.promise = getCachedCountries();
-        try {
-            const countries = await inflightCountries.promise;
-            res.json({ success: true, total: countries.length, data: countries });
-        } finally {
-            inflightCountries.promise = null;
-        }
+        const countries = await getCachedCountries();
+        return res.json({ success: true, total: countries.length, data: countries });
     } catch (error) {
         console.error('❌ Countries error:', error.message);
-        res.status(500).json({ success: false, error: 'Failed to load countries', code: 'SERVER_ERROR' });
+        return res.status(503).json({
+            success: false,
+            error: 'Countries temporarily unavailable. Please retry shortly.',
+            code: 'PROVIDER_UNAVAILABLE'
+        });
     }
 });
 
+// ─── [FIX-A] /operators returns 503 on empty, not a misleading 200 ──
 router.get('/operators', async (req, res) => {
     try {
         const { country } = req.query;
         if (!country) {
-            return res.status(400).json({
-                success: false,
-                error: 'Country required',
-                code: 'COUNTRY_REQUIRED'
-            });
+            return res.status(400).json({ success: false, error: 'Country required', code: 'COUNTRY_REQUIRED' });
         }
 
-        const normalized = normalizeCountryCodes(country);
-        if (!normalized?.iso3) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid country',
-                code: 'INVALID_COUNTRY'
-            });
+        const normalizedCountry = normalizeCountryCodes(country);
+        if (!normalizedCountry?.iso3) {
+            return res.status(400).json({ success: false, error: 'Invalid country', code: 'INVALID_COUNTRY' });
         }
 
         res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=3600');
 
-        const operators = await getCachedOperatorsFast(normalized.iso3);
+        let operators = [];
+        try {
+            operators = await getCachedOperatorsFast(normalizedCountry.iso3);
+        } catch (err) {
+            console.error(`❌ [AIRTIME] Operator lookup failed for ${normalizedCountry.iso3}:`, err.message);
+            return res.status(503).json({
+                success: false,
+                error: 'Networks are temporarily unavailable for this country. Please retry shortly.',
+                code: 'OPERATORS_UNAVAILABLE',
+                country: normalizedCountry.iso3,
+                data: []
+            });
+        }
+
+        if (!Array.isArray(operators) || operators.length === 0) {
+            return res.status(503).json({
+                success: false,
+                error: 'Networks are temporarily unavailable for this country. Please retry shortly.',
+                code: 'OPERATORS_UNAVAILABLE',
+                country: normalizedCountry.iso3,
+                data: []
+            });
+        }
 
         const data = operators.map(op => ({
             id: Number(op.id),
@@ -549,23 +633,15 @@ router.get('/operators', async (req, res) => {
             logoLarge: op.logo_large || dtoneService.getOperatorLogo(op.id, 3)
         }));
 
-        res.json({
+        return res.json({
             success: true,
-            country: {
-                iso3: normalized.iso3,
-                iso2: normalized.iso2
-            },
+            country: { iso3: normalizedCountry.iso3, iso2: normalizedCountry.iso2 },
             total: data.length,
             data
         });
-
     } catch (error) {
         console.error('❌ Operators error:', error.message);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to load operators',
-            code: 'SERVER_ERROR'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to load operators', code: 'SERVER_ERROR' });
     }
 });
 
@@ -576,8 +652,7 @@ router.get('/me', authMiddleware, async (req, res) => {
             success: true,
             data: {
                 wallet_ngn: balances.NGN || 0,
-                wallet_usd: balances.USD || 0,
-                cashback: balances.CASHBACK || 0
+                wallet_usd: balances.USD || 0
             }
         });
     } catch (error) {
@@ -586,37 +661,47 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-router.post('/quote', authMiddleware, async (req, res) => {
+// ═══════════════════════════════════════════════════════════════════════
+// PURCHASE — the ONLY endpoint that touches DT One
+// ═══════════════════════════════════════════════════════════════════════
+router.post('/purchase', authMiddleware, async (req, res) => {
+    let airtimeTxId = null;
+    let debitedAmount = 0;
+    let debitedCurrency = null;
+    let idempotencyClaimed = false;
+    let providerConfirmStarted = false;
+    const userId = req.user.id;
+    const idempotencyKey = req.headers['idempotency-key'];
+
     try {
-        const { country, phone, operator_id, source_amount_usd } = req.body;
+        const {
+            country, phone, operator_id,
+            source_amount_usd, wallet_type, transaction_pin
+        } = req.body;
 
-        console.log('\n═══════════════════════════════════════════════');
-        console.log('📡 [QUOTE REQUEST]', {
-            country,
-            phone: maskPhone(phone),
-            operator_id,
-            source_amount_usd
-        });
-
-        if (!country || !phone || !operator_id || source_amount_usd == null) {
+        // ── 1. Basic input validation ──
+        if (!idempotencyKey || typeof idempotencyKey !== 'string' || idempotencyKey.length > 128) {
+            return res.status(400).json({
+                success: false,
+                error: 'Idempotency-Key header is required',
+                code: 'IDEMPOTENCY_REQUIRED'
+            });
+        }
+        if (!country || !phone || !operator_id || source_amount_usd == null || !wallet_type || !transaction_pin) {
             return res.status(400).json({
                 success: false,
                 error: 'Missing required fields',
-                code: 'REQUIRED_FIELDS'
+                code: 'MISSING_FIELDS'
             });
         }
 
-        const normalized = normalizeCountryCodes(country);
-        if (!normalized?.iso3 || !normalized?.iso2) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid country',
-                code: 'INVALID_COUNTRY'
-            });
+        const normalizedCountry = normalizeCountryCodes(country);
+        if (!normalizedCountry?.iso3 || !normalizedCountry?.iso2) {
+            return res.status(400).json({ success: false, error: 'Invalid country', code: 'INVALID_COUNTRY' });
         }
 
-        const iso3 = normalized.iso3;
-        const iso2 = normalized.iso2;
+        const iso3 = normalizedCountry.iso3;
+        const iso2 = normalizedCountry.iso2;
         const srcAmountUSD = Number(source_amount_usd);
 
         if (!Number.isFinite(srcAmountUSD) || srcAmountUSD < MIN_USD || srcAmountUSD > MAX_USD) {
@@ -629,14 +714,56 @@ router.post('/quote', authMiddleware, async (req, res) => {
 
         const parsed = parsePhoneNumberFromString(phone, iso2);
         if (!parsed || !parsed.isValid()) {
+            return res.status(400).json({ success: false, error: `Invalid phone for ${iso3}`, code: 'INVALID_PHONE' });
+        }
+
+        const walletType = String(wallet_type).toUpperCase();
+        if (!['USD', 'NGN'].includes(walletType)) {
+            return res.status(400).json({ success: false, error: 'Unsupported wallet', code: 'INVALID_WALLET' });
+        }
+
+        // ── 2. Recompute fee + total on the server ──
+        const feeUSD    = Number((srcAmountUSD * MILESSPACE_FEE_PERCENT).toFixed(2));
+        const totalUSD  = Number((srcAmountUSD + feeUSD).toFixed(2));
+        const usdToNgn  = Number(process.env.MILESSPACE_USD_TO_NGN || 1600);
+        const totalNgn  = Number((totalUSD * usdToNgn).toFixed(2));
+
+        const paymentCurrency = walletType;
+        const paymentAmount   = walletType === 'USD' ? totalUSD : totalNgn;
+
+        if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+            return res.status(400).json({ success: false, error: 'Invalid payment amount', code: 'INVALID_AMOUNT' });
+        }
+
+        // ── 3. Verify PIN ──
+        const pinResult = await verifyTransactionPin(userId, transaction_pin);
+        if (!pinResult.valid) {
             return res.status(400).json({
                 success: false,
-                error: `Invalid phone for ${iso3}`,
-                code: 'INVALID_PHONE'
+                error: pinResult.error,
+                code: pinResult.code,
+                attempts_remaining: pinResult.attempts_remaining,
+                can_reset: pinResult.can_reset
             });
         }
 
-        const operators = await getCachedOperatorsFast(iso3);
+        // ── 4. Idempotency fast path ──
+        const idempotentCheck = await IdempotencyService.check(userId, idempotencyKey, '/api/airtime/purchase');
+        if (idempotentCheck) {
+            return res.json({ success: true, already_processed: true, data: idempotentCheck });
+        }
+
+        // ── 5. Operator must exist in the cached catalog ──
+        let operators = [];
+        try {
+            operators = await getCachedOperatorsFast(iso3);
+        } catch (err) {
+            return res.status(503).json({
+                success: false,
+                error: 'Networks are temporarily unavailable for this country.',
+                code: 'OPERATORS_UNAVAILABLE'
+            });
+        }
         const selectedOp = operators.find(op => String(op.id) === String(operator_id));
         if (!selectedOp) {
             return res.status(400).json({
@@ -646,12 +773,112 @@ router.post('/quote', authMiddleware, async (req, res) => {
             });
         }
 
+        // ── 6. Early balance feedback (the ledger debit is the real gate) ──
+        const balancesBefore = await LedgerService.getAllBalances(userId);
+        const balance = walletType === 'USD' ? (balancesBefore.USD || 0) : (balancesBefore.NGN || 0);
+        if (balance < paymentAmount) {
+            return res.status(400).json({
+                success: false,
+                error: `Insufficient ${paymentCurrency}. Need ${paymentAmount.toFixed(2)}, have ${balance.toFixed(2)}`,
+                code: 'INSUFFICIENT_BALANCE',
+                required: paymentAmount,
+                balance
+            });
+        }
+
+        // ── 7. Atomic idempotency claim (no silent fallback) ──
+        const claimed = await IdempotencyService.claim(
+            userId, idempotencyKey, '/api/airtime/purchase',
+            { country: iso3, phone: parsed.number, operator_id, amount: srcAmountUSD, wallet_type: walletType }
+        );
+        if (!claimed) {
+            return res.status(409).json({
+                success: false,
+                error: 'This request is already being processed. Please wait.',
+                code: 'IDEMPOTENCY_IN_FLIGHT'
+            });
+        }
+        idempotencyClaimed = true;
+
+        // ── 8. Insert airtime order in 'processing' state ──
+        const reference = generateReference();
+        const { data: airtimeTx, error: airtimeError } = await supabaseAdmin
+            .from('airtime_transactions')
+            .insert({
+                user_id: userId,
+                reference,
+                country_code: iso3,
+                phone_number: parsed.number,
+                operator_id: String(selectedOp.id),
+                operator_name: selectedOp.name,
+                destination_amount: 0,
+                destination_currency: null,
+                provider_cost: null,
+                fee: feeUSD,
+                total_amount: paymentAmount,
+                currency: paymentCurrency,
+                wallet_type: walletType,
+                status: 'processing',
+                provider: 'dtone',
+                idempotency_key: idempotencyKey,
+                reconciliation_attempts: 0,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (airtimeError) {
+            if (idempotencyClaimed) {
+                await IdempotencyService.release(userId, idempotencyKey, '/api/airtime/purchase');
+                idempotencyClaimed = false;
+            }
+            throw airtimeError;
+        }
+        airtimeTxId = airtimeTx.id;
+
+        // ── 9. Ledger debit (atomic; RPC enforces sufficient funds) ──
+        try {
+            await LedgerService.debitWallet(
+                userId,
+                paymentAmount,
+                paymentCurrency,
+                `Airtime: ${iso3} ${maskPhone(parsed.number)}`,
+                { airtime_reference: reference }
+            );
+            debitedAmount = paymentAmount;
+            debitedCurrency = paymentCurrency;
+        } catch (debitError) {
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed',
+                failure_message: debitError.message,
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).in('status', ['processing', 'pending']);
+
+            return res.status(400).json({ success: false, error: debitError.message, code: 'DEBIT_FAILED' });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //  ★ DT ONE IS CONTACTED FOR THE FIRST TIME HERE ★
+        // ═══════════════════════════════════════════════════════════════
+
+        // ── 10. Fetch products ──
         let products = [];
         try {
-            products = await getAirtimeProductsForOperator(iso3, operator_id);
+            products = await getAirtimeProductsForOperator(iso3, selectedOp.id);
         } catch (productsError) {
-            console.error('❌ [QUOTE] Product fetch failed:', productsError.message);
-            return res.status(400).json({
+            console.error('❌ [PURCHASE] Product fetch failed:', productsError.message);
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: 'Product fetch failed', kind: 'PROD'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_message: 'Product fetch failed — auto-refunded',
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
+            return res.status(503).json({
                 success: false,
                 error: 'Could not load available products for this network',
                 code: 'PRODUCT_FETCH_FAILED'
@@ -659,6 +886,16 @@ router.post('/quote', authMiddleware, async (req, res) => {
         }
 
         if (!Array.isArray(products) || products.length === 0) {
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: 'No products available', kind: 'NOP'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_message: 'No products available — auto-refunded',
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
             return res.status(400).json({
                 success: false,
                 error: 'This network currently has no available products',
@@ -666,21 +903,11 @@ router.post('/quote', authMiddleware, async (req, res) => {
             });
         }
 
-        const rangedSourceProducts = products.filter(product => {
-            if (product.type !== 'RANGED_VALUE_RECHARGE') return false;
-            const modes = Array.isArray(product.accepted_calculation_modes)
-                ? product.accepted_calculation_modes
-                : [];
+        const rangedSourceProducts = products.filter(p => {
+            if (p.type !== 'RANGED_VALUE_RECHARGE') return false;
+            const modes = Array.isArray(p.accepted_calculation_modes) ? p.accepted_calculation_modes : [];
             return modes.includes('SOURCE_AMOUNT');
         });
-
-        if (rangedSourceProducts.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'This network does not support variable recharge amounts. Please select another network.',
-                code: 'RANGED_NOT_SUPPORTED'
-            });
-        }
 
         let selectedProduct = rangedSourceProducts.find(p =>
             String(p.source?.unit || '').toUpperCase() === 'USD'
@@ -705,10 +932,20 @@ router.post('/quote', authMiddleware, async (req, res) => {
         }
 
         if (!selectedProduct) {
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: 'Network does not support variable amounts', kind: 'UNS'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_message: 'Network does not support variable amounts — auto-refunded',
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
             return res.status(400).json({
                 success: false,
-                error: 'This network does not support a variable amount in a supported currency.',
-                code: 'NO_SUPPORTED_CURRENCY'
+                error: 'This network does not support variable recharge amounts.',
+                code: 'RANGED_NOT_SUPPORTED'
             });
         }
 
@@ -716,12 +953,21 @@ router.post('/quote', authMiddleware, async (req, res) => {
             ? Math.round(srcAmountUSD * rate)
             : srcAmountUSD;
 
-        // source.amount is an object { min, max } per DT One docs
         const pMin = Number(selectedProduct.source?.amount?.min);
         const pMax = Number(selectedProduct.source?.amount?.max);
 
         if (Number.isFinite(pMin) && sourceAmountForProvider < pMin) {
             const humanMin = needsConversion ? (pMin / rate).toFixed(2) : pMin.toFixed(2);
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: `Below minimum $${humanMin}`, kind: 'MIN'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_message: `Amount below minimum $${humanMin} — auto-refunded`,
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
             return res.status(400).json({
                 success: false,
                 error: `Minimum amount for this network is $${humanMin}`,
@@ -730,6 +976,16 @@ router.post('/quote', authMiddleware, async (req, res) => {
         }
         if (Number.isFinite(pMax) && sourceAmountForProvider > pMax) {
             const humanMax = needsConversion ? (pMax / rate).toFixed(2) : pMax.toFixed(2);
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: `Above maximum $${humanMax}`, kind: 'MAX'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_message: `Amount above maximum $${humanMax} — auto-refunded`,
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
             return res.status(400).json({
                 success: false,
                 error: `Maximum amount for this network is $${humanMax}`,
@@ -737,16 +993,8 @@ router.post('/quote', authMiddleware, async (req, res) => {
             });
         }
 
-        console.log(`📡 [QUOTE] Product=${selectedProduct.id} sourceCurrency=${sourceCurrency} amount=${sourceAmountForProvider}`);
-
-        // ═══ CALLBACK URL GUARD — DT One requires public HTTPS ═══
+        // ── 11. Create the DT One quote ──
         const callbackUrl = getPublicCallbackUrl();
-        if (callbackUrl) {
-            console.log(`🔔 [QUOTE] Callback URL: ${callbackUrl}`);
-        } else {
-            console.log('ℹ️ [QUOTE] No callback URL — status will be polled by reconciliation');
-        }
-
         let quoteResult;
         try {
             quoteResult = await dtoneService.createQuote({
@@ -754,19 +1002,80 @@ router.post('/quote', authMiddleware, async (req, res) => {
                 phone: parsed.number,
                 mode: 'RANGED_SOURCE',
                 sourceAmount: sourceAmountForProvider,
-                sourceCurrency: sourceCurrency,
+                sourceCurrency,
                 callbackUrl
             });
         } catch (error) {
-            console.error('❌ [QUOTE] DT One error:', error.message);
+            console.error('❌ [PURCHASE] DT One createQuote error:', error.message);
+
+            const providerData = error.providerData || {};
+            const providerCode = String(
+                providerData?.errors?.[0]?.code || providerData?.error?.code || ''
+            );
+            const messageUp = String(error.message || '').toUpperCase();
+
+            // [CRITICAL] Ambiguous timeouts must NOT trigger an immediate
+            // refund. Reconciliation owns the resolution when the provider
+            // might have accepted the request.
+            const isAmbiguous =
+                error.code === 'PROVIDER_UNKNOWN' ||
+                error.ambiguous === true ||
+                (providerCode === '' && /TIMEOUT|NETWORK|FETCH FAILED|SOCKET/i.test(messageUp));
+
+            if (isAmbiguous) {
+                await supabaseAdmin.from('airtime_transactions').update({
+                    status: 'processing',
+                    failure_message: 'Ambiguous provider response — reconciliation will resolve',
+                    updated_at: new Date().toISOString()
+                }).eq('id', airtimeTx.id).in('status', ['processing', 'pending']);
+
+                return res.status(202).json({
+                    success: true,
+                    reference,
+                    status: 'processing',
+                    refunded: false,
+                    message: 'We could not confirm the provider response. Your transaction is being reconciled.',
+                    data: { transaction_id: airtimeTx.id, reference, status: 'processing' }
+                });
+            }
+
+            const isProviderUnfunded =
+                providerCode === '1006001' ||
+                messageUp.includes('INSUFFICIENT-BALANCE') ||
+                messageUp.includes('INSUFFICIENT BALANCE');
+
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: `Provider rejected: ${error.message}`, kind: 'PRJ'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_code: isProviderUnfunded ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_ERROR',
+                failure_message: error.message,
+                failed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
             return res.status(400).json({
                 success: false,
-                error: error.message || 'Provider could not process this amount',
-                code: 'PROVIDER_ERROR'
+                error: isProviderUnfunded
+                    ? 'This top-up service is temporarily unavailable. Please try another network.'
+                    : (error.message || 'Provider could not process this amount'),
+                code: isProviderUnfunded ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_ERROR'
             });
         }
 
         if (!quoteResult.success) {
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: 'Invalid quote', kind: 'INQ'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_message: 'Provider did not return a valid quote',
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
             return res.status(400).json({
                 success: false,
                 error: 'Provider did not return a valid quote',
@@ -778,8 +1087,17 @@ router.post('/quote', authMiddleware, async (req, res) => {
         const destCurrency = quoteResult.destination?.unit;
 
         if (!destAmount || destAmount <= 0 || !destCurrency) {
-            console.error('❌ [QUOTE] Missing destination amount');
             try { await dtoneService.cancelTransaction(quoteResult.transactionId); } catch (e) {}
+            await refundAirtime({
+                userId, amount: paymentAmount, currency: paymentCurrency,
+                reference, reason: 'Missing destination amount', kind: 'MDD'
+            });
+            await supabaseAdmin.from('airtime_transactions').update({
+                status: 'failed', refunded: true,
+                failure_message: 'Provider did not return a recipient amount',
+                updated_at: new Date().toISOString()
+            }).eq('id', airtimeTx.id).eq('refunded', false);
+
             return res.status(400).json({
                 success: false,
                 error: 'Provider did not return a recipient amount',
@@ -787,311 +1105,48 @@ router.post('/quote', authMiddleware, async (req, res) => {
             });
         }
 
-        // Capture ACTUAL DT One wholesale price when returned
-        const providerWholesale =
-            quoteResult.wholesale?.amount ??
-            sourceAmountForProvider;
-        const providerCurrency =
-            quoteResult.wholesale?.unit ??
-            sourceCurrency;
+        const providerWholesale = quoteResult.wholesale?.amount ?? sourceAmountForProvider;
+        const providerCurrency  = quoteResult.wholesale?.unit ?? sourceCurrency;
 
-        const feeUSD = Number((srcAmountUSD * MILESSPACE_FEE_PERCENT).toFixed(2));
-        const totalPriceUSD = Number((srcAmountUSD + feeUSD).toFixed(2));
-        const usdToNgn = Number(process.env.MILESSPACE_USD_TO_NGN || 1600);
-        const customerNgn = Number((totalPriceUSD * usdToNgn).toFixed(2));
+        await supabaseAdmin.from('airtime_transactions').update({
+            destination_amount: destAmount,
+            destination_currency: destCurrency,
+            provider_cost: providerWholesale,
+            provider_transaction_id: quoteResult.transactionId,
+            dtone_external_id: quoteResult.externalId,
+            product_id: selectedProduct.id,
+            updated_at: new Date().toISOString()
+        }).eq('id', airtimeTx.id);
 
-        const balances = await LedgerService.getAllBalances(req.user.id);
-        const usdBalance = balances.USD || 0;
-        const ngnBalance = balances.NGN || 0;
-
-        const quoteId = generateReference();
-        const expiresAt = new Date(Date.now() + QUOTE_EXPIRY_SECONDS * 1000);
-
-        try {
-            await createQuoteRecord({
-                quote_id: quoteId,
-                user_id: req.user.id,
-                dtone_transaction_id: quoteResult.transactionId,
-                dtone_external_id: quoteResult.externalId,
-                country_iso3: iso3,
-                country_iso2: iso2,
-                operator_id: selectedOp.id,
-                operator_name: selectedOp.name,
-                product_id: selectedProduct.id,
-                product_type: 'RANGED_SOURCE',
-                phone_number: parsed.number,
-                source_amount: sourceAmountForProvider,
-                source_currency: sourceCurrency,
-                destination_amount: destAmount,
-                destination_currency: destCurrency,
-                provider_wholesale: providerWholesale,
-                provider_currency: providerCurrency,
-                milespace_fee: feeUSD,
-                customer_usd: totalPriceUSD,
-                customer_ngn: customerNgn,
-                expires_at: expiresAt.toISOString()
-            });
-        } catch (dbError) {
-            console.error('❌ Quote save failed:', dbError.message);
-            try { await dtoneService.cancelTransaction(quoteResult.transactionId); } catch (e) {}
-            return res.status(503).json({
-                success: false,
-                error: 'Unable to create quote. Try again.',
-                code: 'QUOTE_SAVE_FAILED'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: {
-                quote_id: quoteId,
-                expires_at: expiresAt.toISOString(),
-                seconds_remaining: QUOTE_EXPIRY_SECONDS,
-                country: {
-                    iso3, iso2,
-                    name: countriesLib.getName(iso3, 'en') || iso3,
-                    flag: getFlagFromAlpha3(iso3),
-                    dial: getDialCode(iso3)
-                },
-                operator: {
-                    id: selectedOp.id,
-                    name: selectedOp.name,
-                    logo: dtoneService.getOperatorLogo(selectedOp.id)
-                },
-                phone_masked: maskPhone(parsed.number),
-                source: { amount: srcAmountUSD, currency: 'USD' },
-                destination: { amount: destAmount, currency: destCurrency },
-                pricing: {
-                    provider_cost: { amount: srcAmountUSD, currency: 'USD' },
-                    platform_fee: { amount: feeUSD, currency: 'USD' },
-                    customer_total: { amount: totalPriceUSD, currency: 'USD' }
-                },
-                wallets: {
-                    USD: {
-                        balance: usdBalance,
-                        debit: totalPriceUSD,
-                        remaining: usdBalance - totalPriceUSD,
-                        sufficient: usdBalance >= totalPriceUSD
-                    },
-                    NGN: {
-                        balance: ngnBalance,
-                        debit: customerNgn,
-                        remaining: ngnBalance - customerNgn,
-                        sufficient: ngnBalance >= customerNgn
-                    }
-                },
-                quote_mode: 'RANGED_SOURCE'
-            }
-        });
-    } catch (error) {
-        console.error('❌ Quote error:', error.message);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to generate quote',
-            code: 'SERVER_ERROR'
-        });
-    }
-});
-
-router.post('/purchase', authMiddleware, async (req, res) => {
-    let airtimeTxId = null;
-    let debitedAmount = 0;
-    let debitedCurrency = null;
-    let providerConfirmStarted = false;
-
-    try {
-        const userId = req.user.id;
-        const { quote_id, wallet_type, transaction_pin } = req.body;
-        const idempotencyKey = req.headers['idempotency-key'];
-
-        if (!idempotencyKey || typeof idempotencyKey !== 'string' || idempotencyKey.length > 128) {
-            return res.status(400).json({
-                success: false,
-                error: 'Idempotency-Key header is required',
-                code: 'IDEMPOTENCY_REQUIRED'
-            });
-        }
-        if (!quote_id || !wallet_type || !transaction_pin) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required fields',
-                code: 'MISSING_FIELDS'
-            });
-        }
-
-        const walletType = String(wallet_type).toUpperCase();
-        if (!['USD', 'NGN'].includes(walletType)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Unsupported wallet',
-                code: 'INVALID_WALLET'
-            });
-        }
-
-        const idempotentCheck = await IdempotencyService.check(userId, idempotencyKey, '/api/airtime/purchase');
-        if (idempotentCheck) {
-            return res.json({ success: true, already_processed: true, data: idempotentCheck });
-        }
-
-        const quote = await getQuoteForUser(quote_id, userId);
-        if (!quote) return res.status(400).json({ success: false, error: 'Invalid quote', code: 'QUOTE_INVALID' });
-        if (new Date(quote.expires_at) < new Date()) {
-            return res.status(400).json({ success: false, error: 'Quote expired', code: 'QUOTE_EXPIRED' });
-        }
-        if (quote.status !== 'created') {
-            return res.status(400).json({ success: false, error: 'Quote already used', code: 'QUOTE_CONSUMED' });
-        }
-
-        const pinResult = await verifyTransactionPin(userId, transaction_pin);
-        if (!pinResult.valid) {
-            return res.status(400).json({
-                success: false,
-                error: pinResult.error,
-                code: pinResult.code,
-                attempts_remaining: pinResult.attempts_remaining,
-                can_reset: pinResult.can_reset
-            });
-        }
-
-        let paymentCurrency, paymentAmount;
-        if (walletType === 'USD') {
-            paymentCurrency = 'USD';
-            paymentAmount = parseFloat(quote.customer_usd);
-        } else {
-            paymentCurrency = 'NGN';
-            const usdToNgn = Number(process.env.MILESSPACE_USD_TO_NGN || 1600);
-            paymentAmount = Number((parseFloat(quote.customer_usd) * usdToNgn).toFixed(2));
-        }
-
-        if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
-            return res.status(400).json({ success: false, error: 'Invalid payment amount', code: 'INVALID_AMOUNT' });
-        }
-
-        const balances = await LedgerService.getAllBalances(userId);
-        const balance = paymentCurrency === 'USD' ? (balances.USD || 0) : (balances.NGN || 0);
-        if (balance < paymentAmount) {
-            return res.status(400).json({
-                success: false,
-                error: `Insufficient ${paymentCurrency}. Need ${paymentAmount.toFixed(2)}, have ${balance.toFixed(2)}`,
-                code: 'INSUFFICIENT_BALANCE',
-                required: paymentAmount,
-                balance
-            });
-        }
-
-        const consumedQuote = await consumeQuote(quote_id);
-        if (!consumedQuote) {
-            return res.status(409).json({
-                success: false,
-                error: 'Quote already in use',
-                code: 'QUOTE_CONCURRENT_USE'
-            });
-        }
-
-        const reference = generateReference();
-        const { data: airtimeTx, error: airtimeError } = await supabaseAdmin
-            .from('airtime_transactions')
-            .insert({
-                user_id: userId,
-                reference,
-                quote_id,
-                country_code: quote.country_iso3,
-                phone_number: quote.phone_number,
-                operator_id: String(quote.operator_id),
-                operator_name: quote.operator_name,
-                destination_amount: quote.destination_amount,
-                destination_currency: quote.destination_currency,
-                provider_cost: quote.provider_wholesale,
-                fee: quote.milespace_fee,
-                total_amount: paymentAmount,
-                currency: paymentCurrency,
-                wallet_type: walletType,
-                status: 'processing',
-                provider: 'dtone',
-                product_id: quote.product_id,
-                idempotency_key: idempotencyKey,
-                provider_transaction_id: quote.dtone_transaction_id,
-                dtone_external_id: quote.dtone_external_id,
-                reconciliation_attempts: 0,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-
-        if (airtimeError) throw airtimeError;
-        airtimeTxId = airtimeTx.id;
-
-        try {
-            await LedgerService.debitWallet(
-                userId,
-                paymentAmount,
-                paymentCurrency,
-                `Airtime: ${quote.country_iso3} ${maskPhone(quote.phone_number)}`,
-                {
-                    airtime_reference: reference,
-                    quote_id,
-                    dtone_transaction_id: quote.dtone_transaction_id
-                }
-            );
-            debitedAmount = paymentAmount;
-            debitedCurrency = paymentCurrency;
-        } catch (debitError) {
-            try {
-                await dtoneService.cancelTransaction(quote.dtone_transaction_id);
-            } catch (cancelError) {
-                console.error('❌ Failed to cancel DT One quote after debit failure:', cancelError.message);
-            }
-
-            await supabaseAdmin.from('airtime_transactions').update({
-                status: 'failed',
-                failure_message: debitError.message,
-                updated_at: new Date().toISOString()
-            }).eq('id', airtimeTx.id);
-
-            return res.status(400).json({
-                success: false,
-                error: debitError.message,
-                code: 'DEBIT_FAILED'
-            });
-        }
-
-        // ── Confirm with DT One ──
+        // ── 12. Confirm the DT One transaction ──
         let confirmResult;
         let providerAmbiguous = false;
         providerConfirmStarted = true;
         try {
-            confirmResult = await dtoneService.confirmTransaction(quote.dtone_transaction_id);
+            confirmResult = await dtoneService.confirmTransaction(quoteResult.transactionId);
             console.log('📡 [DTONE CONFIRM]', {
-                transactionId: quote.dtone_transaction_id,
+                transactionId: quoteResult.transactionId,
                 status: confirmResult?.status
             });
         } catch (error) {
             console.error('❌ DT One confirm error (ambiguous):', error.message);
             providerAmbiguous = true;
+            if (error.definitiveRejection) {
+                confirmResult = {
+                    status: error.normalized?.code || 'REJECTED',
+                    errorCode: error.providerErrorCode || error.normalized?.code || null,
+                    errorMessage: error.message
+                };
+            }
         }
 
-        let normalized = dtoneService.normalizeStatus(confirmResult?.status);
+        let normalizedProviderStatus = dtoneService.normalizeStatus(confirmResult?.status);
 
-        // Post-confirm status check
-        if (!providerAmbiguous && !normalized.final) {
+        if (!providerAmbiguous && !normalizedProviderStatus.final) {
             try {
-                const freshProvider = await dtoneService.queryTransaction(
-                    quote.dtone_transaction_id
-                );
-                console.log('📡 [DTONE POST-CONFIRM STATUS]', {
-                    transactionId: quote.dtone_transaction_id,
-                    status: freshProvider.status,
-                    providerStatus: freshProvider.providerStatus,
-                    errorCode: freshProvider.errorCode,
-                    errorMessage: freshProvider.errorMessage,
-                    notFound: freshProvider.notFound
-                });
+                const freshProvider = await dtoneService.queryTransaction(quoteResult.transactionId);
                 if (freshProvider?.status && !freshProvider.notFound) {
-                    normalized = {
-                        status: freshProvider.status,
-                        final: freshProvider.isFinal
-                    };
+                    normalizedProviderStatus = { status: freshProvider.status, final: freshProvider.isFinal };
                     confirmResult = {
                         ...confirmResult,
                         status: freshProvider.providerStatus || freshProvider.status,
@@ -1104,81 +1159,32 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             }
         }
 
+        // ── 13. Final status. No synchronous refund here for ambiguous
+        //         states — reconciliation owns that.
         let finalStatus = 'processing';
-        let refunded = false;
+        if (normalizedProviderStatus.status === 'completed') finalStatus = 'completed';
 
-        if (normalized.status === 'completed') {
-            finalStatus = 'completed';
-        } else if (!providerAmbiguous && (normalized.status === 'failed' || normalized.status === 'cancelled')) {
-            finalStatus = 'failed';
-            refunded = true;
-        }
-
-        // DO NOT REFUND ON AMBIGUOUS FAILURE
-        // Only refund synchronously if failure is 100% final and unambiguous.
-        if (refunded && normalized.final && !providerAmbiguous) {
-            try {
-                const { data: updated } = await supabaseAdmin
-                    .from('airtime_transactions')
-                    .update({
-                        status: 'failed',
-                        refunded: true,
-                        failed_at: new Date().toISOString(),
-                        failure_code: confirmResult?.errorCode || null,
-                        failure_message: confirmResult?.errorMessage || 'Provider declined',
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', airtimeTx.id)
-                    .eq('refunded', false)
-                    .select('id')
-                    .maybeSingle();
-
-                if (updated) {
-                    await LedgerService.creditWallet(
-                        userId,
-                        paymentAmount,
-                        paymentCurrency,
-                        `Refund: ${reference}`,
-                        { refund_reference: `REF-${reference}` }
-                    );
-                } else {
-                    refunded = false;
-                    finalStatus = 'manual_review';
-                }
-            } catch (refundError) {
-                finalStatus = 'manual_review';
-                refunded = false;
-                console.error('❌ Refund failed:', refundError.message);
-            }
-        } else if (refunded) {
-            console.log(`⏳ [PURCHASE] ${reference} ambiguous failure state — reconciliation will resolve`);
-            refunded = false;
-            finalStatus = 'processing';
-        }
-
-        if (finalStatus !== 'failed') {
-            await supabaseAdmin.from('airtime_transactions').update({
-                status: finalStatus,
-                provider_status: confirmResult?.status?.message || confirmResult?.status || null,
-                failure_code: confirmResult?.errorCode || null,
-                failure_message: confirmResult?.errorMessage || null,
-                completed_at: finalStatus === 'completed' ? new Date().toISOString() : null,
-                updated_at: new Date().toISOString()
-            }).eq('id', airtimeTx.id);
-        }
+        await supabaseAdmin.from('airtime_transactions').update({
+            status: finalStatus,
+            provider_status: confirmResult?.status?.message || confirmResult?.status || null,
+            failure_code: confirmResult?.errorCode || null,
+            failure_message: confirmResult?.errorMessage || null,
+            completed_at: finalStatus === 'completed' ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString()
+        }).eq('id', airtimeTx.id).in('status', ['processing', 'pending']);
 
         const responseData = {
             transaction_id: airtimeTx.id,
             reference,
             status: finalStatus,
-            refunded,
-            destination_amount: quote.destination_amount,
-            destination_currency: quote.destination_currency,
+            refunded: false,
+            destination_amount: destAmount,
+            destination_currency: destCurrency,
             amount_paid: paymentAmount,
             currency_paid: paymentCurrency,
-            country: quote.country_iso3,
-            phone: maskPhone(quote.phone_number),
-            operator: quote.operator_name,
+            country: iso3,
+            phone: maskPhone(parsed.number),
+            operator: selectedOp.name,
             provider_ambiguous: providerAmbiguous,
             failure_code: confirmResult?.errorCode || null,
             failure_message: confirmResult?.errorMessage || null
@@ -1192,11 +1198,10 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             success: true,
             reference,
             status: finalStatus,
-            refunded,
+            refunded: false,
             message: finalStatus === 'completed' ? 'Airtime sent successfully!'
                 : finalStatus === 'processing' ? 'Airtime is being processed...'
-                : finalStatus === 'manual_review' ? 'Transaction under review.'
-                : 'Airtime failed. Funds refunded.',
+                : 'Airtime failed. Funds will be refunded.',
             data: {
                 ...responseData,
                 wallet_balance: {
@@ -1208,31 +1213,36 @@ router.post('/purchase', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error('❌ Purchase error:', error.message);
 
+        // Crash rollback: only when we have NOT started the provider call.
         if (airtimeTxId && debitedAmount > 0 && !providerConfirmStarted) {
             try {
-                await LedgerService.creditWallet(
-                    req.user.id,
-                    debitedAmount,
-                    debitedCurrency,
-                    `Rollback (crash before provider call): ${airtimeTxId}`,
-                    { refund_reference: `ROLLBACK-${airtimeTxId}` }
-                );
+                await refundAirtime({
+                    userId, amount: debitedAmount, currency: debitedCurrency,
+                    reference: airtimeTxId, reason: 'Crash before provider call', kind: 'ROLLBACK'
+                });
                 await supabaseAdmin.from('airtime_transactions').update({
-                    status: 'failed',
-                    refunded: true,
-                    failure_message: 'Crashed before provider confirm — auto-refunded',
+                    status: 'failed', refunded: true,
+                    failure_message: 'Crashed before provider call — auto-refunded',
                     updated_at: new Date().toISOString()
-                }).eq('id', airtimeTxId).eq('refunded', false);
+                }).eq('id', airtimeTxId).eq('refunded', false).in('status', ['processing', 'pending']);
             } catch (e) {
                 console.error('❌ Crash rollback failed:', e.message);
+                await supabaseAdmin.from('airtime_transactions').update({
+                    status: 'manual_review',
+                    failure_message: `Crash rollback failed: ${e.message}`,
+                    updated_at: new Date().toISOString()
+                }).eq('id', airtimeTxId);
             }
         } else if (airtimeTxId && providerConfirmStarted) {
-            console.warn(`⚠️ [PURCHASE] Ambiguous provider state for ${airtimeTxId} — reconciliation will resolve`);
             await supabaseAdmin.from('airtime_transactions').update({
                 status: 'processing',
                 failure_message: 'Ambiguous provider state — reconciliation will resolve',
                 updated_at: new Date().toISOString()
             }).eq('id', airtimeTxId).in('status', ['processing', 'pending']);
+        }
+
+        if (idempotencyClaimed && !airtimeTxId) {
+            try { await IdempotencyService.release(userId, idempotencyKey, '/api/airtime/purchase'); } catch (_) {}
         }
 
         res.status(500).json({
@@ -1243,10 +1253,13 @@ router.post('/purchase', authMiddleware, async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════════════════════════
 router.get('/history', authMiddleware, async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 20), 100);
         const offset = (page - 1) * limit;
 
         const { data, error, count } = await supabaseAdmin
@@ -1254,6 +1267,7 @@ router.get('/history', authMiddleware, async (req, res) => {
             .select('*', { count: 'exact' })
             .eq('user_id', req.user.id)
             .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
             .range(offset, offset + limit - 1);
 
         if (error) throw error;
@@ -1280,6 +1294,9 @@ router.get('/history', authMiddleware, async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// GET /:reference
+// ═══════════════════════════════════════════════════════════════════════
 router.get('/:reference', authMiddleware, async (req, res) => {
     try {
         const { data: transaction, error } = await supabaseAdmin
@@ -1289,131 +1306,94 @@ router.get('/:reference', authMiddleware, async (req, res) => {
             .eq('user_id', req.user.id)
             .single();
 
-        if (error || !transaction) {
-            return res.status(404).json({
-                success: false,
-                error: 'Transaction not found'
-            });
-        }
+        if (error || !transaction) return res.status(404).json({ success: false, error: 'Transaction not found' });
 
         const tx = await syncAirtimeProviderStatus(transaction);
-
         tx.flag = getFlagFromAlpha3(tx.country_code);
         tx.dial = getDialCode(tx.country_code);
+        if (tx.operator_id) tx.operator_logo = dtoneService.getOperatorLogo(tx.operator_id);
 
-        if (tx.operator_id) {
-            tx.operator_logo = dtoneService.getOperatorLogo(tx.operator_id);
-        }
-
-        res.json({
-            success: true,
-            data: tx
-        });
+        res.json({ success: true, data: tx });
     } catch (error) {
         console.error('❌ Transaction error:', error.message);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch transaction'
-        });
+        res.status(500).json({ success: false, error: 'Failed to fetch transaction' });
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// WEBHOOK — signature required in production
+// ═══════════════════════════════════════════════════════════════════════
 router.post('/webhook', async (req, res) => {
     try {
-        const payload = req.body;
-        console.log('📡 Webhook received');
+        const payload = req.body || {};
+
+        // [CRITICAL] Never accept an unsigned webhook in production.
+        if (IS_PRODUCTION && !DTONE_WEBHOOK_SECRET) {
+            return res.status(503).json({ success: false, error: 'Webhook not configured' });
+        }
+
+        if (DTONE_WEBHOOK_SECRET) {
+            const signature =
+                req.headers['x-dtone-signature'] ||
+                req.headers['x-signature'] ||
+                req.headers['x-hub-signature'];
+
+            if (!signature) return res.status(401).json({ success: false, error: 'Missing signature' });
+
+            const rawBody = typeof req.rawBody === 'string' ? req.rawBody : JSON.stringify(payload);
+            const expected = crypto.createHmac('sha256', DTONE_WEBHOOK_SECRET).update(rawBody).digest('hex');
+            const provided = String(signature).replace(/^sha256=/, '');
+            const providedBuf = Buffer.from(provided, 'hex');
+            const expectedBuf = Buffer.from(expected, 'hex');
+
+            if (providedBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(providedBuf, expectedBuf)) {
+                return res.status(401).json({ success: false, error: 'Invalid signature' });
+            }
+        }
 
         const transactionId = payload.transaction_id || payload.id;
         const externalId = payload.external_id;
-        const status = payload.status?.message || payload.status?.class?.message || payload.status || payload.state;
+        if (!transactionId && !externalId) return res.status(400).json({ success: false, error: 'Missing identifier' });
 
-        if (!transactionId && !externalId) {
-            return res.status(400).json({ success: false, error: 'Missing identifier' });
+        let rows = [];
+        if (transactionId) {
+            const r = await supabaseAdmin.from('airtime_transactions').select('*').eq('provider_transaction_id', String(transactionId));
+            rows = r.data || [];
+        }
+        if ((!rows || rows.length === 0) && externalId) {
+            const r = await supabaseAdmin.from('airtime_transactions').select('*').eq('dtone_external_id', externalId);
+            rows = r.data || [];
         }
 
-        let query = supabaseAdmin.from('airtime_transactions').select('*');
-        if (transactionId) query = query.eq('provider_transaction_id', String(transactionId));
-        else if (externalId) query = query.eq('dtone_external_id', externalId);
+        if (!rows || rows.length === 0) return res.status(200).json({ success: true, message: 'Not found' });
 
-        const { data: transactions, error: findError } = await query;
-        if (findError || !transactions || !transactions.length) {
-            return res.status(200).json({ success: true, message: 'Not found' });
-        }
-
-        const transaction = transactions[0];
-        if (['completed', 'failed', 'refunded'].includes(transaction.status)) {
-            return res.status(200).json({ success: true, message: 'Already processed' });
-        }
-
-        const normalized = dtoneService.normalizeStatus(status);
-        let newStatus = 'processing';
-        let doRefund = false;
-
-        if (normalized.status === 'completed') newStatus = 'completed';
-        else if (normalized.status === 'failed' || normalized.status === 'cancelled') {
-            newStatus = 'failed';
-            doRefund = true;
-        }
-
-        const lastWebhook = {
-            received_at: new Date().toISOString(),
-            payload
-        };
-
-        if (doRefund && !transaction.refunded) {
-            try {
-                const { data: updated } = await supabaseAdmin
-                    .from('airtime_transactions')
-                    .update({
-                        status: 'failed',
-                        refunded: true,
-                        provider_status: status,
-                        failed_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                        metadata: {
-                            ...(transaction.metadata || {}),
-                            last_webhook: lastWebhook
-                        }
-                    })
-                    .eq('id', transaction.id)
-                    .eq('refunded', false)
-                    .select('id')
-                    .maybeSingle();
-
-                if (updated) {
-                    await LedgerService.creditWallet(
-                        transaction.user_id,
-                        parseFloat(transaction.total_amount),
-                        transaction.currency,
-                        `Refund (webhook): ${transaction.reference}`,
-                        { refund_reference: `REF-WEBHOOK-${transaction.reference}` }
-                    );
-                }
-            } catch (refundError) {
-                console.error('❌ Webhook refund failed:', refundError.message);
+        if (rows.length > 1) {
+            for (const r of rows) {
                 await supabaseAdmin.from('airtime_transactions').update({
                     status: 'manual_review',
-                    provider_status: status,
                     updated_at: new Date().toISOString()
-                }).eq('id', transaction.id);
+                }).eq('id', r.id).in('status', ['processing', 'pending']);
             }
-        } else {
+            return res.status(200).json({ success: true, message: 'Ambiguous — flagged for review' });
+        }
+
+        const transaction = rows[0];
+        try {
+            const result = await airtimeReconciliation.forceReconcileAirtime(transaction.id);
+            return res.status(200).json({ success: true, reconciled: true, result });
+        } catch (reconcileErr) {
             await supabaseAdmin.from('airtime_transactions').update({
-                status: newStatus,
-                provider_status: status,
-                completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
                 updated_at: new Date().toISOString(),
                 metadata: {
                     ...(transaction.metadata || {}),
-                    last_webhook: lastWebhook
+                    last_webhook: { received_at: new Date().toISOString(), payload, reconciliation_error: reconcileErr.message }
                 }
             }).eq('id', transaction.id);
+            return res.status(500).json({ success: false, error: 'Reconciliation failed' });
         }
-
-        res.json({ success: true, status: newStatus });
     } catch (error) {
         console.error('❌ Webhook error:', error.message);
-        res.status(200).json({ success: false, error: error.message });
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
@@ -1421,15 +1401,15 @@ router.post('/webhook', async (req, res) => {
 // ADMIN — Bulk force reconcile
 // ═══════════════════════════════════════════════════════════════════════
 router.post('/admin/force-reconcile-all', authMiddleware, async (req, res) => {
-    const adminEmails = (process.env.ADMIN_EMAILS || '')
-        .split(',')
-        .map(s => s.trim().toLowerCase())
-        .filter(Boolean);
-
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     if (!adminEmails.includes(String(req.user.email || '').toLowerCase())) {
         return res.status(403).json({ success: false, error: 'Admin access required' });
     }
-
+    if (adminReconcileRunning) {
+        return res.status(409).json({ success: false, error: 'A reconciliation run is already in progress', code: 'ALREADY_RUNNING' });
+    }
+    adminReconcileRunning = true;
+    const startedAt = new Date().toISOString();
     try {
         const { data: stuck, error } = await supabaseAdmin
             .from('airtime_transactions')
@@ -1437,25 +1417,23 @@ router.post('/admin/force-reconcile-all', authMiddleware, async (req, res) => {
             .in('status', ['processing', 'pending'])
             .order('created_at', { ascending: true })
             .limit(100);
-
         if (error) throw error;
 
-        const reconciliation = require('../services/dtoneReconciliationService');
         const results = [];
-
         for (const row of (stuck || [])) {
             try {
-                const r = await reconciliation.forceReconcileAirtime(row.id);
+                const r = await airtimeReconciliation.forceReconcileAirtime(row.id);
                 results.push({ id: row.id, ...r });
             } catch (e) {
                 results.push({ id: row.id, success: false, error: e.message });
             }
         }
-
-        res.json({ success: true, count: results.length, results });
+        res.json({ success: true, count: results.length, started_at: startedAt, results });
     } catch (error) {
         console.error('❌ Force reconcile all error:', error);
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        adminReconcileRunning = false;
     }
 });
 

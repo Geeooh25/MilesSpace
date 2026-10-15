@@ -1,7 +1,13 @@
-// routes/billsRoutes.js - COMPLETE BILLS API
+// routes/billsRoutes.js — COMPLETE BILLS API
 // Handles: Airtime, Data, Electricity, TV
 // Uses VTpass as provider, normal NGN wallet for payment
-// Supports: auto network detection + manual override
+//
+// BALANCE SOURCE: profiles.wallet_ngn (matches dashboard)
+//
+// HISTORY: merges three sources:
+//   • bill_payment_transactions  (VTpass purchases)
+//   • airtime_transactions       (DT One international airtime)
+//   • transactions               (unified model — for any legacy rows)
 
 const express = require('express');
 const router = express.Router();
@@ -18,8 +24,11 @@ const MAX_AMOUNT = { airtime: 50000, data: 100000, electricity: 500000, tv: 1000
 const VALID_NETWORKS = ['mtn', 'airtel', 'glo', '9mobile'];
 
 const MAX_PIN_ATTEMPTS = 4;
-const PIN_LOCK_DURATION = 60 * 60 * 1000; // 1 hour
+const PIN_LOCK_DURATION = 60 * 60 * 1000;
 const IDEMPOTENCY_TTL = 24 * 60 * 60 * 1000;
+
+// Service types for bill pages.
+const BILL_TYPES = ['airtime', 'data', 'electricity', 'tv', 'bills'];
 
 // ─── RATE LIMITING ───────────────────────────────────────────────────
 const rateLimitStore = new Map();
@@ -47,14 +56,16 @@ function generateReference(prefix = 'BILL') {
     const random = crypto.randomBytes(4).toString('hex').toUpperCase();
     return `${prefix}-${timestamp}-${random}`;
 }
-
 function hashString(str) {
     return crypto.createHash('sha256').update(str).digest('hex');
 }
-
 function createFingerprint(data) {
     const normalized = JSON.stringify(data, Object.keys(data).sort());
     return hashString(normalized);
+}
+function num(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
 }
 
 async function getUserProfile(userId) {
@@ -132,16 +143,41 @@ async function verifyTransactionPin(userId, pin) {
     return { valid: true };
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  BALANCE — reads profiles.wallet_ngn (same as dashboard).
+// ═══════════════════════════════════════════════════════════════════
 async function getWalletBalance(userId, currency = 'NGN') {
-    const { data, error } = await supabaseAdmin
-        .from('ledger_accounts')
-        .select('available_balance')
-        .eq('user_id', userId)
-        .eq('currency', currency)
+    const ccy = String(currency).toUpperCase();
+
+    const { data: profile, error: profErr } = await supabaseAdmin
+        .from('profiles')
+        .select('wallet_ngn, wallet_usd')
+        .eq('id', userId)
         .maybeSingle();
 
-    if (error) throw error;
-    return parseFloat(data?.available_balance) || 0;
+    if (profErr) {
+        console.error('[BILLS] profile balance error:', profErr.message);
+    }
+
+    const profileBal = ccy === 'USD'
+        ? num(profile?.wallet_usd)
+        : num(profile?.wallet_ngn);
+
+    if (profileBal > 0) return profileBal;
+
+    // Ledger fallback only if profiles is zero.
+    try {
+        const { data: ledger } = await supabaseAdmin
+            .from('ledger_accounts')
+            .select('available_balance')
+            .eq('user_id', userId)
+            .eq('currency', ccy)
+            .maybeSingle();
+        const ledgerBal = num(ledger?.available_balance);
+        if (ledgerBal > 0) return ledgerBal;
+    } catch (e) { /* non-fatal */ }
+
+    return profileBal;
 }
 
 async function createTransaction(data) {
@@ -230,9 +266,6 @@ function resolveNetwork(body, detectedNetwork) {
 }
 
 // ─── WALLET DEBIT HELPERS ───────────────────────────────────────────
-// These wrap LedgerService with the object-style signature it expects,
-// and always pass a unique `reference` so refunds can find the debit.
-
 async function debitWalletWithReference({ userId, amount, currency = 'NGN', reference, description, metadata }) {
     return await LedgerService.debitWallet({
         userId,
@@ -532,12 +565,6 @@ router.post('/airtime/purchase', authMiddleware, async (req, res) => {
 
         const manuallyOverridden = !!detectedNetwork && detectedNetwork !== finalNetwork;
 
-        console.log('📡 Airtime network:', {
-            detected: detectedNetwork,
-            selected: finalNetwork,
-            overridden: manuallyOverridden
-        });
-
         const fingerprint = createFingerprint({
             phone: phoneValidation.phone,
             network: finalNetwork,
@@ -555,7 +582,6 @@ router.post('/airtime/purchase', authMiddleware, async (req, res) => {
             if (existing.found && existing.status === 'pending') {
                 return res.status(409).json({ success: false, error: 'This purchase is already being processed', code: 'DUPLICATE_REQUEST' });
             }
-
             const reserved = await reserveIdempotencyKey(userId, idempotencyKey, '/api/bills/airtime/purchase', fingerprint);
             if (!reserved.reserved && reserved.reason === 'duplicate') {
                 return res.status(409).json({ success: false, error: 'This purchase is already being processed', code: 'DUPLICATE_REQUEST' });
@@ -607,7 +633,6 @@ router.post('/airtime/purchase', authMiddleware, async (req, res) => {
             }
         });
 
-        // ─── Debit wallet (object-style call, with reference) ───
         let debitResult;
         try {
             debitResult = await debitWalletWithReference({
@@ -642,19 +667,10 @@ router.post('/airtime/purchase', authMiddleware, async (req, res) => {
             ledger_transaction_id: debitResult.transaction_id
         });
 
-        console.log(`📡 Calling VTpass for airtime: ${reference}`);
-
         const vtpassResult = await vtpassService.purchaseAirtime({
             phone: phoneValidation.phone,
             network: finalNetwork,
             amount: numericAmount
-        });
-
-        console.log(`📡 VTpass airtime result for ${reference}:`, {
-            state: vtpassResult.state,
-            requestId: vtpassResult.requestId,
-            code: vtpassResult.code,
-            error: vtpassResult.error
         });
 
         let responseData;
@@ -761,7 +777,6 @@ router.post('/airtime/purchase', authMiddleware, async (req, res) => {
         }
 
         const newBalance = await getWalletBalance(userId, 'NGN');
-
         res.json({ success: true, data: { ...responseData, new_balance: newBalance } });
 
     } catch (error) {
@@ -779,13 +794,6 @@ router.post('/data/purchase', authMiddleware, async (req, res) => {
 
     try {
         const { phone, variationId, transaction_pin } = req.body;
-
-        console.log('📝 Data purchase request:', {
-            hasPhone: !!phone,
-            variationId,
-            hasPin: !!transaction_pin,
-            hasIdempotencyKey: !!idempotencyKey
-        });
 
         if (!phone || !variationId) {
             return res.status(400).json({ success: false, error: 'Phone and plan are required', code: 'MISSING_PARAMETERS' });
@@ -936,19 +944,10 @@ router.post('/data/purchase', authMiddleware, async (req, res) => {
             ledger_transaction_id: debitResult.transaction_id
         });
 
-        console.log(`📡 Calling VTpass for data: ${reference}`);
-
         const vtpassResult = await vtpassService.purchaseData({
             phone: phoneValidation.phone,
             network: finalNetwork,
             variationCode: variationId
-        });
-
-        console.log(`📡 VTpass data result for ${reference}:`, {
-            state: vtpassResult.state,
-            requestId: vtpassResult.requestId,
-            code: vtpassResult.code,
-            error: vtpassResult.error
         });
 
         let responseData;
@@ -1212,8 +1211,6 @@ router.post('/electricity/purchase', authMiddleware, async (req, res) => {
             ledger_transaction_id: debitResult.transaction_id
         });
 
-        console.log(`📡 Calling VTpass for electricity: ${reference}`);
-
         const vtpassResult = await vtpassService.purchaseElectricity({
             provider: serviceId,
             meterNumber: customerId,
@@ -1474,8 +1471,6 @@ router.post('/tv/purchase', authMiddleware, async (req, res) => {
             ledger_transaction_id: debitResult.transaction_id
         });
 
-        console.log(`📡 Calling VTpass for TV: ${reference}`);
-
         const vtpassResult = await vtpassService.purchaseTv({
             provider: serviceId,
             customerId,
@@ -1594,9 +1589,8 @@ router.post('/tv/purchase', authMiddleware, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// STATUS & HISTORY
+// STATUS
 // ═══════════════════════════════════════════════════════════════════════
-
 router.get('/status/:id', authMiddleware, async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -1754,52 +1748,89 @@ router.post('/status/:id/refresh', authMiddleware, async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// HISTORY — merges bill_payment_transactions + airtime_transactions
+//
+// This is THE FIX. Bills history comes from two tables:
+//   • bill_payment_transactions  (VTpass — new bills.html purchases)
+//   • airtime_transactions       (DT One — international airtime)
+//
+// We merge, sort by created_at, paginate in-memory.
+// ═══════════════════════════════════════════════════════════════════════
 router.get('/history', authMiddleware, async (req, res) => {
     try {
         const userId = req.user?.id;
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
         const offset = (page - 1) * limit;
+        const serviceType = req.query.service_type
+            ? String(req.query.service_type).toLowerCase()
+            : null;
+        const statusFilter = req.query.status
+            ? String(req.query.status).toLowerCase()
+            : null;
 
-        let query = supabaseAdmin
+        // ─── 1. Bills (VTpass) ─────────────────────────────────
+        let billQuery = supabaseAdmin
             .from('bill_payment_transactions')
-            .select('*', { count: 'exact' })
+            .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(500);
 
-        if (req.query.service_type) query = query.eq('service_type', req.query.service_type);
-        if (req.query.status) query = query.eq('status', req.query.status);
+        if (serviceType && BILL_TYPES.includes(serviceType)) {
+            billQuery = billQuery.eq('service_type', serviceType);
+        }
+        if (statusFilter) {
+            billQuery = billQuery.eq('status', statusFilter);
+        }
 
-        const { data: transactions, count, error } = await query;
-        if (error) throw error;
+        // ─── 2. Airtime (DT One) ───────────────────────────────
+        // Only include if no service filter, or filter is 'airtime'.
+        let airtimeQuery = null;
+        if (!serviceType || serviceType === 'airtime') {
+            airtimeQuery = supabaseAdmin
+                .from('airtime_transactions')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(500);
+            if (statusFilter) {
+                airtimeQuery = airtimeQuery.eq('status', statusFilter);
+            }
+        }
 
-        const normalized = (transactions || []).map(t => ({
-            id: t.id,
-            reference: t.reference,
-            service_type: t.service_type,
-            service_id: t.service_id,
-            status: t.status,
-            recipient: t.recipient,
-            network: t.network,
-            customer_amount: parseFloat(t.customer_amount) || 0,
-            currency: t.currency || 'NGN',
-            provider_status: t.provider_status,
-            token: t.token || null,
-            units: t.units || null,
-            refunded: t.refunded || false,
-            created_at: t.created_at,
-            completed_at: t.completed_at,
-            failure_reason: t.failure_reason
-        }));
+        const [billResult, airtimeResult] = await Promise.all([
+            billQuery,
+            airtimeQuery || Promise.resolve({ data: [], error: null })
+        ]);
+
+        if (billResult.error && billResult.error.code !== '42P01') {
+            console.error('❌ Bills history error:', billResult.error.message);
+            throw billResult.error;
+        }
+
+        const bills = (billResult.data || []).map(mapBillRow);
+        const airtime = (airtimeResult.data || []).map(mapAirtimeRow);
+
+        // ─── 3. Merge & sort ───────────────────────────────────
+        const merged = [...bills, ...airtime].sort((a, b) => {
+            const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return tb - ta;
+        });
+
+        const total = merged.length;
+        const paged = merged.slice(offset, offset + limit);
 
         res.json({
             success: true,
-            data: normalized,
+            data: paged,
             meta: {
-                page, limit,
-                total: count || 0,
-                hasMore: offset + normalized.length < (count || 0)
+                page,
+                limit,
+                total,
+                hasMore: offset + paged.length < total
             }
         });
     } catch (error) {
@@ -1808,6 +1839,75 @@ router.get('/history', authMiddleware, async (req, res) => {
     }
 });
 
+// ─── Row mappers ────────────────────────────────────────────────────
+
+function mapBillRow(t) {
+    const amt = num(t.customer_amount);
+    const status = String(t.status || 'pending').toLowerCase();
+
+    return {
+        id: t.id,
+        source: 'vtpass',
+        reference: t.reference,
+        service_type: t.service_type,
+        service_id: t.service_id,
+        status,
+        recipient: t.recipient || '—',
+        network: t.network || null,
+        customer_amount: amt,
+        currency: t.currency || 'NGN',
+        provider_status: t.provider_status || null,
+        provider_code: t.provider_code || null,
+        token: t.token || null,
+        units: t.units || null,
+        refunded: !!t.refunded,
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+        completed_at: t.completed_at,
+        failed_at: t.failed_at,
+        failure_reason: t.failure_reason || null,
+        metadata: t.metadata || {}
+    };
+}
+
+function mapAirtimeRow(a) {
+    // Prefer total_amount_ngn if wallet was NGN, else total_amount.
+    const walletType = String(a.wallet_type || 'USD').toUpperCase();
+    const amountNGN = num(a.total_amount_ngn);
+    const amountUSD = num(a.total_amount);
+    const amount = walletType === 'NGN' && amountNGN ? amountNGN : amountUSD;
+    const currency = walletType === 'NGN' && amountNGN ? 'NGN' : (a.currency || 'USD');
+
+    return {
+        id: a.id,
+        source: 'dtone',
+        reference: a.reference,
+        service_type: 'airtime',
+        service_id: a.operator_name || a.operator_id || 'airtime',
+        status: String(a.status || 'pending').toLowerCase(),
+        recipient: a.phone_number || '—',
+        network: a.operator_name || a.operator_id || null,
+        customer_amount: amount,
+        currency,
+        // Destination info — the recipient's local amount
+        destination_amount: num(a.destination_amount),
+        destination_currency: a.destination_currency || null,
+        country_code: a.country_code || null,
+        country_name: a.country_name || null,
+        provider_status: a.provider_status || null,
+        refunded: !!a.refunded || String(a.status).toLowerCase() === 'refunded',
+        created_at: a.created_at,
+        updated_at: a.updated_at,
+        completed_at: a.completed_at,
+        failed_at: a.failed_at,
+        failure_reason: a.failure_message || null,
+        metadata: a.metadata || {}
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// WALLET BALANCE
+// ═══════════════════════════════════════════════════════════════════════
 router.get('/wallet/balance', authMiddleware, async (req, res) => {
     try {
         const userId = req.user?.id;

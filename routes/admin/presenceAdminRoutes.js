@@ -1,23 +1,14 @@
 // routes/admin/presenceAdminRoutes.js
-// ─────────────────────────────────────────────────────────────────
-// Admin presence — read-only.
-//
-//   - Online Now = last_seen within 90s.
-//   - Active Today = last_seen since WAT midnight (separate query).
-//   - Admin/customer classification uses profiles.role.
-//   - No profiles fallback. A successful COUNT of 0 is a real 0.
-//   - No fake active_5min / active_30min — those fields are honest.
-//   - /heartbeat writes presence for admins the same way as users.
-// ─────────────────────────────────────────────────────────────────
+'use strict';
 
 const express = require('express');
 const router = express.Router();
-const { supabaseAdmin } = require('../../db/supabase');
-const { adminAuthMiddleware } = require('../../middleware/auth');
+const { supabaseAdmin, withSupabaseRetry } = require('../../db/supabase');
+const { requirePermission, PERMISSIONS } = require('../../middleware/adminAuth');
+const { classifyRole } = require('../../middleware/roles');
 
 const ONLINE_THRESHOLD_MS = 90 * 1000;
 
-// ─── Time helpers (WAT = UTC+1) ──────────────────────────────────
 function watDayStartIso() {
     const OFFSET_MS = 60 * 60 * 1000;
     const now = new Date();
@@ -40,20 +31,24 @@ function formatTimeAgo(date) {
     return `${Math.floor(s / 86400)} days ago`;
 }
 
-// ─── Admin heartbeat (writes to user_presence) ───────────────────
-// Admin pages post here. Same table as customers; distinguished by
-// the server-derived `is_admin` flag (from the authenticated role).
+function safeString(v, maxLen) {
+    if (v == null || typeof v !== 'string') return null;
+    const t = v.trim();
+    if (!t) return null;
+    return t.slice(0, maxLen);
+}
 
-router.post('/heartbeat', adminAuthMiddleware, async (req, res) => {
+// ─── POST /heartbeat ───────────────────────────────────────────
+router.post('/heartbeat', requirePermission(PERMISSIONS.SYSTEM_HEALTH_READ), async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.adminContext.id;
         const now = new Date().toISOString();
-        const { page, action, tab_id } = req.body || {};
+        const page = safeString(req.body?.page, 128);
+        const action = safeString(req.body?.action, 64) || 'viewing admin';
+        const tab_id = safeString(req.body?.tab_id, 64);
         const ua = req.headers['user-agent'] || '';
 
-        // Server derives admin role from the authenticated user.
-        const role = String(req.user.role || '').toLowerCase();
-        const isAdmin = role === 'admin' || role === 'super_admin';
+        const { isAdmin } = classifyRole(req.adminContext.role);
 
         const browser = /Edg/.test(ua) ? 'Edge'
             : /Firefox/.test(ua) ? 'Firefox'
@@ -70,74 +65,79 @@ router.post('/heartbeat', adminAuthMiddleware, async (req, res) => {
             : /Tablet|iPad/.test(ua) ? 'Tablet'
             : 'Desktop';
 
-        const { error } = await supabaseAdmin
-            .from('user_presence')
-            .upsert({
+        const result = await withSupabaseRetry(() =>
+            supabaseAdmin.from('user_presence').upsert({
                 user_id: userId,
                 last_seen: now,
-                current_page: page || null,
-                current_action: action || 'viewing admin',
-                tab_id: tab_id || null,
+                current_page: page,
+                current_action: action,
+                tab_id,
                 is_visible: true,
                 is_admin: isAdmin,
-                browser,
-                os,
-                device,
+                browser, os, device,
                 ip_address: req.ip || null,
                 updated_at: now,
                 last_heartbeat: now
-            }, { onConflict: 'user_id' });
+            }, { onConflict: 'user_id' })
+        );
 
-        if (error) {
-            console.error('[ADMIN PRESENCE] heartbeat error:', error.message);
-            return res.status(500).json({ success: false, error: 'heartbeat failed', code: 'PRESENCE_UPSERT_FAILED' });
+        if (result.error) {
+            console.error('[ADMIN PRESENCE] heartbeat error:', result.error.message);
+            return res.status(503).json({
+                success: false,
+                error: 'heartbeat failed',
+                code: 'PRESENCE_UPSERT_FAILED'
+            });
         }
 
         return res.json({ success: true, data: { user_id: userId, last_seen: now } });
     } catch (err) {
         console.error('[ADMIN PRESENCE] heartbeat exception:', err.message);
-        return res.status(500).json({ success: false, error: 'heartbeat exception', code: 'PRESENCE_HEARTBEAT_EXCEPTION' });
+        return res.status(500).json({
+            success: false,
+            error: 'heartbeat exception',
+            code: 'PRESENCE_HEARTBEAT_EXCEPTION'
+        });
     }
 });
 
-// ─── GET /api/admin/presence/online ──────────────────────────────
-
-router.get('/online', adminAuthMiddleware, async (req, res) => {
+// ─── GET /online ───────────────────────────────────────────────
+router.get('/online', requirePermission(PERMISSIONS.SYSTEM_HEALTH_READ), async (req, res) => {
     try {
         const onlineThreshold = new Date(Date.now() - ONLINE_THRESHOLD_MS).toISOString();
 
-        // ─── 1. Online users (join profiles for role/username) ──
-        const { data, error } = await supabaseAdmin
-            .from('user_presence')
-            .select(`
-                user_id,
-                last_seen,
-                current_page,
-                current_action,
-                browser,
-                os,
-                device,
-                profiles!user_presence_user_id_fkey (id, username, email, avatar_url, role)
-            `)
-            .gte('last_seen', onlineThreshold)
-            .order('last_seen', { ascending: false })
-            .limit(200);
+        const { data, error } = await withSupabaseRetry(() =>
+            supabaseAdmin
+                .from('user_presence')
+                .select(`
+                    user_id, last_seen, current_page, current_action,
+                    browser, os, device,
+                    profiles!user_presence_user_id_fkey (id, username, email, avatar_url, role)
+                `)
+                .gte('last_seen', onlineThreshold)
+                .order('last_seen', { ascending: false })
+                .limit(200)
+        );
 
         if (error) {
             console.error('[ADMIN PRESENCE] online query failed:', error.message);
-            return res.status(503).json({ success: false, error: 'presence query failed', code: 'PRESENCE_QUERY_FAILED' });
+            return res.status(503).json({
+                success: false,
+                error: 'presence query failed',
+                code: 'PRESENCE_QUERY_FAILED'
+            });
         }
 
         const rows = (data || []).map(p => {
             const prof = p.profiles || {};
-            const r = String(prof.role || 'user').toLowerCase();
+            const { role, isAdmin } = classifyRole(prof.role);
             return {
                 user_id: p.user_id,
                 username: prof.username || prof.email?.split('@')[0] || 'Unknown',
                 email: prof.email || '',
                 avatar_url: prof.avatar_url || null,
-                role: r,
-                is_admin: r === 'admin' || r === 'super_admin',
+                role,
+                is_admin: isAdmin,
                 last_seen: p.last_seen,
                 last_seen_human: formatTimeAgo(p.last_seen),
                 current_page: p.current_page || '/dashboard',
@@ -148,7 +148,6 @@ router.get('/online', adminAuthMiddleware, async (req, res) => {
             };
         });
 
-        // Dedupe by user_id (most recent wins).
         const byUser = new Map();
         for (const u of rows) {
             const existing = byUser.get(u.user_id);
@@ -160,15 +159,17 @@ router.get('/online', adminAuthMiddleware, async (req, res) => {
         const customers = distinct.filter(u => !u.is_admin);
         const admins = distinct.filter(u => u.is_admin);
 
-        // ─── 2. Active today (separate COUNT) ───────────────────
         const todayStart = watDayStartIso();
-        const { count: activeTodayCount, error: activeErr } = await supabaseAdmin
-            .from('user_presence')
-            .select('user_id', { count: 'exact', head: true })
-            .gte('last_seen', todayStart);
+        const todayResult = await withSupabaseRetry(() =>
+            supabaseAdmin
+                .from('user_presence')
+                .select('user_id', { count: 'exact', head: true })
+                .gte('last_seen', todayStart)
+        );
 
-        if (activeErr) {
-            console.warn('[ADMIN PRESENCE] active-today query failed:', activeErr.message);
+        const activeTodayCount = todayResult.error ? null : (todayResult.count || 0);
+        if (todayResult.error) {
+            console.warn('[ADMIN PRESENCE] active-today query failed:', todayResult.error.message);
         }
 
         return res.json({
@@ -177,7 +178,7 @@ router.get('/online', adminAuthMiddleware, async (req, res) => {
                 online_now: distinct.length,
                 online_users: customers.length,
                 online_admins: admins.length,
-                active_today: activeErr ? null : (activeTodayCount || 0),
+                active_today: activeTodayCount,
                 threshold_seconds: ONLINE_THRESHOLD_MS / 1000,
                 timestamp: new Date().toISOString(),
                 users: {
@@ -189,20 +190,24 @@ router.get('/online', adminAuthMiddleware, async (req, res) => {
         });
     } catch (err) {
         console.error('[ADMIN PRESENCE] online exception:', err.message);
-        return res.status(500).json({ success: false, error: 'presence exception', code: 'PRESENCE_EXCEPTION' });
+        return res.status(500).json({
+            success: false,
+            error: 'presence exception',
+            code: 'PRESENCE_EXCEPTION'
+        });
     }
 });
 
-// ─── GET /api/admin/presence/count ───────────────────────────────
-// Cheap: uses COUNT only. For KPI tiles that just need a number.
-
-router.get('/count', adminAuthMiddleware, async (req, res) => {
+// ─── GET /count ────────────────────────────────────────────────
+router.get('/count', requirePermission(PERMISSIONS.SYSTEM_HEALTH_READ), async (req, res) => {
     try {
         const threshold = new Date(Date.now() - ONLINE_THRESHOLD_MS).toISOString();
-        const { count, error } = await supabaseAdmin
-            .from('user_presence')
-            .select('user_id', { count: 'exact', head: true })
-            .gte('last_seen', threshold);
+        const { count, error } = await withSupabaseRetry(() =>
+            supabaseAdmin
+                .from('user_presence')
+                .select('user_id', { count: 'exact', head: true })
+                .gte('last_seen', threshold)
+        );
 
         if (error) {
             console.error('[ADMIN PRESENCE] count failed:', error.message);
@@ -222,8 +227,5 @@ router.get('/count', adminAuthMiddleware, async (req, res) => {
         return res.status(500).json({ success: false, error: 'count exception', code: 'PRESENCE_COUNT_EXCEPTION' });
     }
 });
-
-// NOTE: /offline has been intentionally REMOVED. Offline is decided
-// by server-side aging of last_seen.
 
 module.exports = router;

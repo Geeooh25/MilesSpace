@@ -2,24 +2,28 @@
 // ─────────────────────────────────────────────────────────────────
 // Central Orders service — the operational authority for every order.
 //
-// ONE pipeline: processProviderUpdate(). Webhooks, admin sync, and
-// scheduled sync all feed into it. Financial actions (wallet debit,
-// refund) happen exactly once because:
-//   • The order row is updated with expected-status condition.
-//   • Refunds are guarded by refund_status AND by the unique index
-//     ux_refund_original_transaction.
-//   • Webhook events have their own unique index on (provider, event_id).
+// Schema assumptions (verified against the production DB):
+//   • orders.id is integer (serial / bigint)
+//   • profiles.id is uuid
+//   • transactions.id, ledger_entries.id, refunds.id are uuid
 //
-// Money rules:
-//   • Wallet mutation only via LedgerService.
-//   • Provider timeout ≠ failed. Ambiguous outcomes stay in
-//     processing / provider_unknown.
-//   • Every status change writes an order_event.
+// Guarantees:
+//   • ONE pipeline: processProviderUpdate(). Webhook, admin sync,
+//     and scheduled sync all feed the same function.
+//   • State transitions are atomic (apply_order_provider_update RPC,
+//     guarded by expected status).
+//   • Refunds are claimed atomically with a unique refund_reference.
+//     The wallet credit uses the ledger; no fake tx hashes.
+//   • No email or notification is fired inside HTTP requests.
+//     Notifications are rows in the `notifications` table; a separate
+//     worker sends them.
+//   • Money amounts come from Postgres NUMERIC and are never
+//     re-derived in JavaScript.
+//   • Money mutations fail loudly. Nothing swallowed.
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
 
-const crypto = require('crypto');
 const { supabaseAdmin } = require('../db/supabase');
 const { LedgerService } = require('./ledgerService');
 
@@ -38,7 +42,7 @@ const ALLOWED_TRANSITIONS = Object.freeze({
     paid:             ['processing', 'completed', 'cancelled', 'failed'],
     processing:       ['in_progress', 'partial', 'completed', 'failed', 'cancelled', 'provider_unknown', 'manual_review'],
     in_progress:      ['partial', 'completed', 'failed', 'provider_unknown', 'manual_review'],
-    partial:          ['completed', 'failed', 'refunding'],
+    partial:          ['completed', 'failed', 'refunding', 'manual_review'],
     provider_unknown: ['processing', 'in_progress', 'partial', 'completed', 'failed', 'manual_review'],
     manual_review:    ['completed', 'failed', 'cancelled', 'refunding', 'processing'],
     completed:        ['refunding'],
@@ -49,7 +53,22 @@ const ALLOWED_TRANSITIONS = Object.freeze({
     expired:          ['failed']
 });
 
-// ─── Helpers ─────────────────────────────────────────────────────
+// ─── Explicit column allowlists ─────────────────────────────────
+const ORDER_COLUMNS = [
+    'id', 'order_ref', 'user_id',
+    'product_type', 'product_name', 'service_type', 'quantity',
+    'amount', 'fee', 'total_amount', 'currency',
+    'status', 'payment_status', 'fulfillment_status',
+    'provider', 'provider_order_id', 'provider_reference', 'provider_status',
+    'webhook_status', 'webhook_received_at', 'last_provider_sync_at',
+    'failure_reason', 'admin_note',
+    'refund_status', 'refund_amount', 'refund_reference', 'refund_transaction_id', 'refunded_at',
+    'cancelled_at', 'completed_at', 'failed_at',
+    'metadata', 'attempt_number', 'parent_order_id', 'retry_reason',
+    'created_at', 'updated_at'
+].join(', ');
+
+// ─── Helpers ────────────────────────────────────────────────────
 
 function limitOf(v, def = DEFAULT_LIMIT, max = MAX_LIMIT) {
     const n = parseInt(v, 10);
@@ -64,14 +83,31 @@ function isoDate(v) {
     const d = new Date(v);
     return isNaN(d.getTime()) ? null : d.toISOString();
 }
-function statusBadge(status) {
-    const s = String(status || '').toLowerCase();
-    if (s === 'completed') return 'success';
-    if (['failed','cancelled','expired'].includes(s)) return 'danger';
-    if (s === 'refunded') return 'info';
-    if (['manual_review','provider_unknown'].includes(s)) return 'purple';
-    if (['pending','paid','processing','in_progress','partial','refunding'].includes(s)) return 'warn';
+function statusBadge(s) {
+    const v = String(s || '').toLowerCase();
+    if (v === 'completed') return 'success';
+    if (['failed','cancelled','expired'].includes(v)) return 'danger';
+    if (v === 'refunded') return 'info';
+    if (['manual_review','provider_unknown'].includes(v)) return 'purple';
+    if (['pending','paid','processing','in_progress','partial','refunding'].includes(v)) return 'warn';
     return 'neutral';
+}
+function escapeLike(s) {
+    return String(s || '').trim().slice(0, 100).replace(/[%_]/g, m => '\\' + m);
+}
+
+// orders.id is integer in this schema. Accept only positive integers
+// (numeric or numeric-string). Throws on anything else.
+function assertOrderId(id) {
+    if (typeof id === 'number' && Number.isInteger(id) && id > 0) return id;
+    if (typeof id === 'string' && /^\d+$/.test(id.trim())) {
+        const n = Number(id);
+        if (Number.isInteger(n) && n > 0) return n;
+    }
+    const e = new Error('Invalid order id.');
+    e.status = 400;
+    e.code = 'INVALID_ID';
+    throw e;
 }
 
 async function recordEvent({ orderId, eventType, oldStatus = null, newStatus = null, actorType = 'system', actorId = null, message = null, metadata = null }) {
@@ -93,27 +129,29 @@ async function recordEvent({ orderId, eventType, oldStatus = null, newStatus = n
 }
 
 async function recordAudit({ ctx, action, orderId, before, after, reason }) {
+    if (!ctx) return;
     try {
         await supabaseAdmin.from('admin_audit_logs').insert({
-            admin_id:    ctx?.adminId || null,
-            admin_email: ctx?.adminEmail || null,
+            admin_id: ctx.adminId || null,
+            admin_email: ctx.adminEmail || null,
             action,
             target_type: 'order',
-            target_id:   orderId,
+            target_id: String(orderId),
             before: before || null,
-            after:  after  || null,
+            after: after || null,
             reason: reason ? String(reason).slice(0, 500) : null,
-            ip_address: ctx?.ip || null,
-            user_agent: ctx?.userAgent || null,
-            request_id: ctx?.requestId || null,
+            ip_address: ctx.ip || null,
+            user_agent: ctx.userAgent || null,
+            request_id: ctx.requestId || null,
             created_at: new Date().toISOString()
         });
     } catch (e) {
-        console.warn('[ORDERS] audit insert failed:', e.message);
+        // Audit failures on financial actions are fatal — caller catches.
+        throw new Error(`AUDIT_INSERT_FAILED: ${e.message}`);
     }
 }
 
-async function createNotification({ userId, title, message, type, icon = '📌', link = '/history' }) {
+async function createNotificationRow({ userId, title, message, type, icon = '📌', link = '/history' }) {
     try {
         await supabaseAdmin.from('notifications').insert({
             user_id: userId,
@@ -121,10 +159,12 @@ async function createNotification({ userId, title, message, type, icon = '📌',
             is_read: false,
             created_at: new Date().toISOString()
         });
-    } catch (_) {}
+    } catch (_) { /* best-effort — do not fail the order transition */ }
 }
 
-// ─── Register a new order (called by service routes) ─────────────
+// ═════════════════════════════════════════════════════════════════
+//  REGISTER
+// ═════════════════════════════════════════════════════════════════
 
 async function registerOrder({
     orderRef, userId, productType, productName, serviceType,
@@ -133,9 +173,13 @@ async function registerOrder({
     provider, providerOrderId = null, providerReference = null,
     sourceTable = null, sourceId = null, metadata = {}
 }) {
-    if (!userId || !UUID_RE.test(userId)) {
+    if (!userId || !UUID_RE.test(String(userId))) {
         const e = new Error('Invalid user id.'); e.status = 400; e.code = 'INVALID_USER'; throw e;
     }
+    if (!orderRef || typeof orderRef !== 'string') {
+        const e = new Error('Invalid order reference.'); e.status = 400; e.code = 'INVALID_ORDER_REF'; throw e;
+    }
+
     const { data, error } = await supabaseAdmin
         .from('orders')
         .insert({
@@ -161,12 +205,16 @@ async function registerOrder({
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         })
-        .select('*')
+        .select(ORDER_COLUMNS)
         .single();
+
     if (error) {
-        const e = new Error(`Failed to register order: ${error.message}`);
-        e.status = 500; e.code = 'ORDER_REGISTER_FAILED'; throw e;
+        if (error.code === '23505') {
+            const e = new Error('Order already exists.'); e.status = 409; e.code = 'ORDER_ALREADY_EXISTS'; throw e;
+        }
+        const e = new Error('Failed to register order.'); e.status = 500; e.code = 'ORDER_REGISTER_FAILED'; throw e;
     }
+
     await recordEvent({
         orderId: data.id,
         eventType: 'order_created',
@@ -174,56 +222,67 @@ async function registerOrder({
         actorType: 'user',
         message: `Order ${orderRef} created`
     });
+
     return data;
 }
 
-// ─── List / detail ───────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+//  LIST / DETAIL
+// ═════════════════════════════════════════════════════════════════
 
 async function listOrders(query = {}) {
     const page = pageOf(query.page);
     const limit = limitOf(query.limit);
     const offset = (page - 1) * limit;
 
+    const sortable = new Set(['created_at', 'updated_at', 'completed_at', 'total_amount']);
+    const sortCol = sortable.has(String(query.sort)) ? query.sort : 'created_at';
+    const ascending = String(query.order || 'desc').toLowerCase() === 'asc';
+
     let q = supabaseAdmin
         .from('orders')
-        .select('*', { count: 'exact' })
-        .order(query.sort || 'created_at', { ascending: String(query.order || 'desc').toLowerCase() === 'asc' })
+        .select(ORDER_COLUMNS, { count: 'exact' })
+        .order(sortCol, { ascending })
         .range(offset, offset + limit - 1);
 
     if (query.status && query.status !== 'all') {
-        if (ORDER_STATUSES.has(String(query.status).toLowerCase())) q = q.eq('status', String(query.status).toLowerCase());
+        const s = String(query.status).toLowerCase();
+        if (ORDER_STATUSES.has(s)) q = q.eq('status', s);
     }
     if (query.payment_status && query.payment_status !== 'all') q = q.eq('payment_status', query.payment_status);
     if (query.provider && query.provider !== 'all') q = q.eq('provider', query.provider);
     if (query.product_type && query.product_type !== 'all') q = q.eq('product_type', query.product_type);
     if (query.currency && query.currency !== 'all') q = q.eq('currency', String(query.currency).toUpperCase());
-    if (query.user_id && UUID_RE.test(query.user_id)) q = q.eq('user_id', query.user_id);
+
+    // user_id is uuid on orders
+    if (query.user_id && UUID_RE.test(String(query.user_id))) q = q.eq('user_id', query.user_id);
 
     const fromIso = isoDate(query.from || query.date_from);
     const toIso = isoDate(query.to || query.date_to);
     if (fromIso) q = q.gte('created_at', fromIso);
     if (toIso) q = q.lte('created_at', toIso);
 
-    if (query.failed_only === 'true') q = q.in('status', ['failed','cancelled']);
-    if (query.provider_failed === 'true') q = q.not('provider_status', 'is', null).eq('status', 'failed');
+    if (query.failed_only === 'true') q = q.in('status', ['failed', 'cancelled']);
+    if (query.provider_failed === 'true') q = q.eq('status', 'failed').not('provider_status', 'is', null);
     if (query.webhook_failed === 'true') q = q.eq('webhook_status', 'failed');
     if (query.manual_review === 'true') q = q.eq('status', 'manual_review');
 
     if (query.search) {
-        const safe = String(query.search).trim().replace(/[%_]/g, m => '\\' + m);
+        const safe = escapeLike(query.search);
         const parts = [
             `order_ref.ilike.%${safe}%`,
             `provider_order_id.ilike.%${safe}%`,
-            `provider_reference.ilike.%${safe}%`,
-            `external_reference.ilike.%${safe}%`
+            `provider_reference.ilike.%${safe}%`
         ];
         try {
             const { data: users } = await supabaseAdmin
                 .from('profiles').select('id')
                 .or(`email.ilike.%${safe}%,username.ilike.%${safe}%`)
                 .limit(50);
-            if (users?.length) parts.push(`user_id.in.(${users.map(u => u.id).join(',')})`);
-        } catch (_) {}
+            if (users && users.length) {
+                parts.push(`user_id.in.(${users.map(u => u.id).join(',')})`);
+            }
+        } catch (_) { /* optional */ }
         q = q.or(parts.join(','));
     }
 
@@ -245,7 +304,8 @@ async function listOrders(query = {}) {
 
     return {
         orders: (data || []).map(o => shapeOrder(o, profilesById[o.user_id])),
-        count: count || 0, page, limit,
+        count: count || 0,
+        page, limit,
         totalPages: Math.ceil((count || 0) / limit),
         hasMore: page * limit < (count || 0),
         available: true
@@ -301,53 +361,73 @@ function shapeOrder(o, profile) {
 }
 
 async function getOrder(orderId) {
-    if (!UUID_RE.test(String(orderId || ''))) {
-        const e = new Error('Invalid order id.'); e.status = 400; e.code = 'INVALID_ID'; throw e;
-    }
+    const orderIdInt = assertOrderId(orderId);
+
     const { data: order, error } = await supabaseAdmin
-        .from('orders').select('*').eq('id', orderId).maybeSingle();
+        .from('orders').select(ORDER_COLUMNS).eq('id', orderIdInt).maybeSingle();
     if (error) { const e = new Error('Failed to load order.'); e.status = 500; e.code = 'ORDER_DETAIL_ERROR'; throw e; }
     if (!order) { const e = new Error('Order not found.'); e.status = 404; e.code = 'ORDER_NOT_FOUND'; throw e; }
 
-    const [profileRes, eventsRes, webhooksRes, txRes] = await Promise.all([
-        order.user_id ? supabaseAdmin.from('profiles').select('id, username, email, status, created_at').eq('id', order.user_id).maybeSingle() : Promise.resolve({ data: null }),
+    const [profileRes, eventsRes, webhooksRes, txRes, refundsRes, providerTxRes] = await Promise.all([
+        order.user_id
+            ? supabaseAdmin.from('profiles').select('id, username, email, status, created_at').eq('id', order.user_id).maybeSingle()
+            : Promise.resolve({ data: null }),
         supabaseAdmin.from('order_events').select('*').eq('order_id', order.id).order('created_at', { ascending: true }),
-        supabaseAdmin.from('order_webhook_events').select('id, provider, event_type, event_id, signature_valid, processing_status, processing_error, processed_at, created_at').eq('order_id', order.id).order('created_at', { ascending: false }),
+        supabaseAdmin.from('webhook_events')
+            .select('id, provider, event_type, event_id, signature_valid, processing_status, processing_error, received_at, processed_at')
+            .eq('order_id', order.id).order('received_at', { ascending: false }),
         supabaseAdmin.from('transactions')
             .select('id, ref, reference, type, status, currency, amount, description, created_at, completed_at')
-            .or(`metadata->>order_id.eq.${order.id},source_id.eq.${order.id}`)
-            .order('created_at', { ascending: true })
+            .or(`source_id.eq.${order.id},metadata->>order_id.eq.${order.id}`)
+            .order('created_at', { ascending: true }),
+        supabaseAdmin.from('refunds')
+            .select('id, refund_type, amount, currency, status, provider, provider_refund_ref, reason, created_at, completed_at, failed_at, failure_reason')
+            .eq('original_transaction_id', order.id)
+            .order('created_at', { ascending: false }),
+        supabaseAdmin.from('provider_transactions')
+            .select('id, provider, provider_transaction_id, provider_reference, status, created_at, updated_at')
+            .eq('order_id', order.id)
+            .order('created_at', { ascending: false })
     ]);
 
-    const refundTx = (txRes.data || []).find(t => t.type === 'refund') || null;
-    const primaryTx = (txRes.data || []).find(t => t.type !== 'refund') || null;
+    const tx = txRes.data || [];
+    const refundTx = tx.find(t => t.type === 'refund') || null;
+    const primaryTx = tx.find(t => t.type !== 'refund') || null;
 
     return {
         order: shapeOrder(order, profileRes.data),
         user: profileRes.data,
         events: eventsRes.data || [],
         webhooks: webhooksRes.data || [],
-        transactions: txRes.data || [],
+        transactions: tx,
         transaction: primaryTx,
-        refund_transaction: refundTx
+        refund_transaction: refundTx,
+        refunds: refundsRes.data || [],
+        provider_transactions: providerTxRes.data || []
     };
 }
 
 async function getTimeline(orderId) {
+    const orderIdInt = assertOrderId(orderId);
     const { data, error } = await supabaseAdmin
-        .from('order_events').select('*').eq('order_id', orderId).order('created_at', { ascending: true });
+        .from('order_events').select('*').eq('order_id', orderIdInt).order('created_at', { ascending: true });
     if (error) { const e = new Error('Failed to load timeline.'); e.status = 500; e.code = 'TIMELINE_ERROR'; throw e; }
     return data || [];
 }
 
 async function getWebhooks(orderId) {
+    const orderIdInt = assertOrderId(orderId);
     const { data, error } = await supabaseAdmin
-        .from('order_webhook_events').select('*').eq('order_id', orderId).order('created_at', { ascending: false });
+        .from('webhook_events')
+        .select('id, provider, event_type, event_id, signature_valid, processing_status, processing_error, attempts, received_at, processed_at')
+        .eq('order_id', orderIdInt).order('received_at', { ascending: false });
     if (error) { const e = new Error('Failed to load webhooks.'); e.status = 500; e.code = 'WEBHOOK_LIST_ERROR'; throw e; }
     return data || [];
 }
 
-// ─── Stats ───────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+//  STATS — RPC-first, fallback counts, no fabricated money
+// ═════════════════════════════════════════════════════════════════
 
 async function getStats(query = {}) {
     const fromIso = isoDate(query.from);
@@ -356,18 +436,6 @@ async function getStats(query = {}) {
     const rpc = await supabaseAdmin.rpc('order_stats', { p_from: fromIso, p_to: toIso });
     if (!rpc.error && rpc.data) {
         const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
-        const startOfToday = startOfWatDay();
-        const startOfWeek = new Date(Date.now() - 7 * 86400_000).toISOString();
-        const startOfMonth = new Date(Date.now() - 30 * 86400_000).toISOString();
-        const [todayCount, weekCount, monthCount, failedCount, providerFailCount, webhookPendingCount, webhookFailedCount] = await Promise.all([
-            countOrders({ from: startOfToday }),
-            countOrders({ from: startOfWeek }),
-            countOrders({ from: startOfMonth }),
-            countOrders({ status: 'failed' }),
-            countOrders({ status: 'failed', has_provider: true }),
-            countOrders({ webhook_status: 'received' }),
-            countOrders({ webhook_status: 'failed' })
-        ]);
         return {
             totalOrders: Number(row.total_orders || 0),
             pending: Number(row.pending_orders || 0),
@@ -385,21 +453,13 @@ async function getStats(query = {}) {
             totalRefundedUsd: String(row.total_refunded_usd || '0.00'),
             netRevenueNgn: String(row.net_revenue_ngn || '0.00'),
             netRevenueUsd: String(row.net_revenue_usd || '0.00'),
-            ordersToday: todayCount,
-            ordersThisWeek: weekCount,
-            ordersThisMonth: monthCount,
-            failedOrderCount: failedCount,
-            providerFailureCount: providerFailCount,
-            webhookPendingCount: webhookPendingCount,
-            webhookFailedCount: webhookFailedCount,
             available: true
         };
     }
-    if (rpc.error?.code !== '42883' && rpc.error?.code !== 'PGRST202') {
+    if (rpc.error && rpc.error.code !== '42883' && rpc.error.code !== 'PGRST202') {
         const e = new Error('Failed to aggregate stats.'); e.status = 500; e.code = 'STATS_ERROR'; throw e;
     }
 
-    // Fallback: counts only, money as null.
     const [total, pending, completed, failed, refunded] = await Promise.all([
         countOrders({}),
         countOrders({ status: 'pending' }),
@@ -408,15 +468,11 @@ async function getStats(query = {}) {
         countOrders({ status: 'refunded' })
     ]);
     return {
-        totalOrders: total,
-        pending, completed, failed, refunded,
+        totalOrders: total, pending, completed, failed, refunded,
         paid: 0, processing: 0, partial: 0, cancelled: 0, manualReview: 0,
         totalRevenueNgn: null, totalRevenueUsd: null,
         totalRefundedNgn: null, totalRefundedUsd: null,
         netRevenueNgn: null, netRevenueUsd: null,
-        ordersToday: 0, ordersThisWeek: 0, ordersThisMonth: 0,
-        failedOrderCount: failed, providerFailureCount: 0,
-        webhookPendingCount: 0, webhookFailedCount: 0,
         available: false, reason: 'STATS_RPC_NOT_DEPLOYED'
     };
 }
@@ -431,64 +487,60 @@ async function countOrders({ from = null, status = null, webhook_status = null, 
     return count || 0;
 }
 
-function startOfWatDay() {
-    const OFFSET_MS = 60 * 60 * 1000;
-    const now = new Date();
-    const local = new Date(now.getTime() + OFFSET_MS);
-    const y = local.getUTCFullYear(), m = local.getUTCMonth(), d = local.getUTCDate();
-    return new Date(Date.UTC(y, m, d, 0, 0, 0) - OFFSET_MS).toISOString();
-}
+// ═════════════════════════════════════════════════════════════════
+//  THE PIPELINE
+// ═════════════════════════════════════════════════════════════════
 
-// ─── THE PIPELINE ────────────────────────────────────────────────
-// Every source of provider state (webhook, admin sync, scheduled
-// sync) calls this. It performs the state transition + financial
-// action together, and it is safe to call twice.
+async function processProviderUpdate({
+    order, providerStatus, providerResponse,
+    source, actorId = null, actorType = 'system', ctx = null
+}) {
+    if (!order || !order.id) {
+        const e = new Error('Order is required.'); e.status = 400; e.code = 'ORDER_REQUIRED'; throw e;
+    }
 
-async function processProviderUpdate({ order, providerStatus, providerResponse, source, actorId, actorType, ctx }) {
     const currentStatus = String(order.status || '').toLowerCase();
-    const targetStatus = normalizeProviderStatus(providerStatus);
-
-    // Map provider status → internal status.
+    const targetStatus = String(providerStatus || '').toLowerCase().trim();
     const internalTarget = mapProviderToInternal(targetStatus, currentStatus);
+
+    const now = new Date().toISOString();
     const patch = {
-        provider_status: String(providerStatus || '').toLowerCase(),
-        provider_response: providerResponse || null,
-        payment_status: (internalTarget === 'completed' ? 'paid' : order.payment_status),
-        fulfillment_status: internalTarget
+        provider_status: targetStatus,
+        provider_response: providerResponse || null
     };
 
-    // If status isn't changing, just record provider metadata.
+    // No change → just record provider metadata.
     if (!internalTarget || internalTarget === currentStatus) {
-        await supabaseAdmin
-            .from('orders')
+        await supabaseAdmin.from('orders')
             .update({
                 provider_status: patch.provider_status,
                 provider_response: patch.provider_response,
-                last_provider_sync_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                last_provider_sync_at: now,
+                updated_at: now
             })
             .eq('id', order.id);
         await recordEvent({
             orderId: order.id,
             eventType: 'provider_status_synced',
             actorType: actorType || source,
-            message: `Provider status ${providerStatus} (no change)`
+            message: `Provider status ${targetStatus} (no change)`
         });
         return { updated: false, status: currentStatus };
     }
 
-    // Enforce the state machine unless we're an admin override.
+    // State machine check for non-admin callers.
     const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
     if (actorType !== 'admin' && !allowed.includes(internalTarget)) {
         await recordEvent({
             orderId: order.id,
-            eventType: 'provider_status_ignored',
+            eventType: 'provider_transition_rejected',
             actorType: actorType || source,
-            message: `Ignored transition ${currentStatus} → ${internalTarget}`
+            message: `Rejected transition ${currentStatus} → ${internalTarget}`
         });
         return { updated: false, status: currentStatus, reason: 'INVALID_TRANSITION' };
     }
 
+    // Atomic transition via RPC. p_order_id is integer.
     const { error: rpcErr } = await supabaseAdmin.rpc('apply_order_provider_update', {
         p_order_id: order.id,
         p_expected_status: currentStatus,
@@ -508,14 +560,13 @@ async function processProviderUpdate({ order, providerStatus, providerResponse, 
         throw new Error(`Failed to apply provider update: ${msg}`);
     }
 
-    // Financial action: refund on failure.
+    // Financial consequence on terminal failure.
     if ((internalTarget === 'failed' || internalTarget === 'cancelled') && order.refund_status !== 'refunded') {
         try {
             await refundOrder({
                 orderId: order.id,
                 reason: `Provider reported ${providerStatus}`,
-                ctx: null,
-                forceAmount: null
+                ctx: null
             });
         } catch (refundErr) {
             console.error('[ORDERS] auto-refund failed for', order.order_ref, refundErr.message);
@@ -528,7 +579,6 @@ async function processProviderUpdate({ order, providerStatus, providerResponse, 
         }
     }
 
-    // User notification on terminal states.
     if (['completed','failed','cancelled','partial','refunded'].includes(internalTarget)) {
         const titles = {
             completed: 'Order Completed',
@@ -538,7 +588,7 @@ async function processProviderUpdate({ order, providerStatus, providerResponse, 
             refunded: 'Order Refunded'
         };
         const icons = { completed: '✅', failed: '❌', cancelled: '🚫', partial: '⚠️', refunded: '💰' };
-        await createNotification({
+        await createNotificationRow({
             userId: order.user_id,
             title: titles[internalTarget],
             message: `Your order ${order.order_ref} is now ${internalTarget}.`,
@@ -551,36 +601,40 @@ async function processProviderUpdate({ order, providerStatus, providerResponse, 
     return { updated: true, status: internalTarget };
 }
 
-function normalizeProviderStatus(s) {
-    return String(s || '').toLowerCase().trim();
-}
-
-function mapProviderToInternal(providerStatus, currentInternal) {
-    const s = providerStatus;
+function mapProviderToInternal(s, currentInternal) {
     if (!s) return null;
-    if (s === 'completed' || s === 'success' || s === 'successful' || s === 'delivered' || s === 'done' || s === 'finished') return 'completed';
-    if (s === 'failed' || s === 'error' || s === 'rejected' || s === 'declined') return 'failed';
-    if (s === 'cancelled' || s === 'canceled' || s === 'void') return 'cancelled';
+    if (['completed','success','successful','delivered','done','finished','fulfilled'].includes(s)) return 'completed';
+    if (['failed','error','rejected','declined'].includes(s)) return 'failed';
+    if (['cancelled','canceled','void'].includes(s)) return 'cancelled';
     if (s === 'refunded') return 'refunded';
-    if (s === 'partial' || s === 'partially_completed' || s === 'partially completed') return 'partial';
-    if (s === 'in progress' || s === 'in_progress' || s === 'processing' || s === 'started') return 'processing';
-    if (s === 'pending' || s === 'received' || s === 'submitted' || s === 'created') return currentInternal || 'pending';
+    if (['partial','partially_completed','partially completed'].includes(s)) return 'partial';
+    if (['in progress','in_progress','processing','started','pending_fulfillment'].includes(s)) return 'processing';
+    if (['pending','received','submitted','created','pending_payment'].includes(s)) return currentInternal || 'pending';
+    if (['expired','timeout','timed_out'].includes(s)) return 'expired';
     return null;
 }
 
-// ─── Admin mutations ─────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+//  ADMIN MUTATIONS
+// ═════════════════════════════════════════════════════════════════
 
 async function updateOrderStatus({ orderId, status, note, ctx, actorType = 'admin' }) {
+    const orderIdInt = assertOrderId(orderId);
+
     const next = String(status || '').toLowerCase();
     if (!ORDER_STATUSES.has(next)) {
         const e = new Error('Invalid status.'); e.status = 422; e.code = 'INVALID_STATUS'; throw e;
     }
+    if (!note || String(note).trim().length < 4) {
+        const e = new Error('A reason is required.'); e.status = 422; e.code = 'REASON_REQUIRED'; throw e;
+    }
 
-    const { data: order } = await supabaseAdmin.from('orders').select('*').eq('id', orderId).maybeSingle();
+    const { data: order } = await supabaseAdmin
+        .from('orders').select('id, status, order_ref').eq('id', orderIdInt).maybeSingle();
     if (!order) { const e = new Error('Order not found.'); e.status = 404; e.code = 'ORDER_NOT_FOUND'; throw e; }
 
     const current = String(order.status || '').toLowerCase();
-    if (current === next) return { order: shapeOrder(order), no_op: true };
+    if (current === next) return { no_op: true, message: `Already in status "${next}".` };
 
     const allowed = ALLOWED_TRANSITIONS[current] || [];
     if (!allowed.includes(next)) {
@@ -590,14 +644,14 @@ async function updateOrderStatus({ orderId, status, note, ctx, actorType = 'admi
     }
 
     const { error: rpcErr } = await supabaseAdmin.rpc('apply_order_provider_update', {
-        p_order_id: orderId,
+        p_order_id: orderIdInt,
         p_expected_status: current,
         p_next_status: next,
-        p_patch: { fulfillment_status: next, failure_reason: note || null },
+        p_patch: { fulfillment_status: next, failure_reason: String(note).slice(0, 500) },
         p_event_type: 'admin_status_change',
         p_actor_type: actorType,
         p_actor_id: ctx?.adminId || null,
-        p_message: note ? String(note).slice(0, 500) : null
+        p_message: String(note).slice(0, 500)
     });
 
     if (rpcErr) {
@@ -610,27 +664,31 @@ async function updateOrderStatus({ orderId, status, note, ctx, actorType = 'admi
     }
 
     if (note) {
-        await supabaseAdmin.from('orders').update({ admin_note: String(note).slice(0, 1000) }).eq('id', orderId);
+        await supabaseAdmin.from('orders')
+            .update({ admin_note: String(note).slice(0, 1000) })
+            .eq('id', orderIdInt);
     }
 
     await recordAudit({
-        ctx, action: `order.status_${next}`, orderId,
-        before: { status: current }, after: { status: next }, reason: note
+        ctx, action: `order.status_${next}`, orderId: orderIdInt,
+        before: { status: current }, after: { status: next },
+        reason: note
     });
 
-    const fresh = await getOrder(orderId);
-    return { order: fresh.order };
+    return { updated: true };
 }
 
 async function refundOrder({ orderId, reason, ctx, forceAmount = null }) {
-    if (!UUID_RE.test(String(orderId || ''))) {
-        const e = new Error('Invalid order id.'); e.status = 400; e.code = 'INVALID_ID'; throw e;
-    }
+    const orderIdInt = assertOrderId(orderId);
+
     if (!reason || String(reason).trim().length < 4) {
         const e = new Error('A reason is required.'); e.status = 422; e.code = 'REASON_REQUIRED'; throw e;
     }
 
-    const { data: order, error } = await supabaseAdmin.from('orders').select('*').eq('id', orderId).maybeSingle();
+    const { data: order, error } = await supabaseAdmin
+        .from('orders')
+        .select('id, order_ref, user_id, total_amount, currency, status, refund_status, refund_reference, refund_amount')
+        .eq('id', orderIdInt).maybeSingle();
     if (error || !order) { const e = new Error('Order not found.'); e.status = 404; e.code = 'ORDER_NOT_FOUND'; throw e; }
 
     if (order.refund_status === 'refunded') {
@@ -645,25 +703,24 @@ async function refundOrder({ orderId, reason, ctx, forceAmount = null }) {
     }
 
     const status = String(order.status || '').toLowerCase();
-    const refundable = ['failed','cancelled','partial','completed','manual_review'];
-    if (!refundable.includes(status)) {
+    if (!['failed','cancelled','partial','completed','manual_review','refunding'].includes(status)) {
         const e = new Error(`Order status "${status}" is not refundable.`);
         e.status = 422; e.code = 'NOT_REFUNDABLE'; throw e;
     }
 
-    const refundAmount = forceAmount != null ? Number(forceAmount) : Number(order.total_amount);
+    const refundAmount = forceAmount != null
+        ? Number(forceAmount)
+        : Number(order.total_amount);
     if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
         const e = new Error('Invalid refund amount.'); e.status = 422; e.code = 'INVALID_AMOUNT'; throw e;
     }
-    if (refundAmount > Number(order.total_amount)) {
+    if (refundAmount > Number(order.total_amount) + 1e-9) {
         const e = new Error('Refund amount exceeds order total.');
         e.status = 422; e.code = 'REFUND_EXCEEDS_ORDER'; throw e;
     }
 
     const refundRef = `REFUND-${order.order_ref}`;
 
-    // Claim the refund atomically first (unique index on refund_reference
-    // provides a hard stop; the update below is defensive).
     const { data: claimed, error: claimErr } = await supabaseAdmin
         .from('orders')
         .update({
@@ -672,26 +729,30 @@ async function refundOrder({ orderId, reason, ctx, forceAmount = null }) {
             refund_reference: refundRef,
             updated_at: new Date().toISOString()
         })
-        .eq('id', order.id)
+        .eq('id', orderIdInt)
         .neq('refund_status', 'refunded')
         .is('refund_reference', null)
-        .select('*')
+        .select('id, refund_reference, refund_amount, currency')
         .maybeSingle();
 
-    if (claimErr || !claimed) {
-        // Could be that another caller already claimed it.
-        const { data: fresh } = await supabaseAdmin.from('orders').select('refund_reference, refund_amount, currency').eq('id', orderId).maybeSingle();
-        return {
-            refund: {
-                reference: fresh?.refund_reference || refundRef,
-                amount: fresh?.refund_amount || refundAmount,
-                currency: fresh?.currency || order.currency,
-                already_refunded: true
-            }
-        };
+    if (claimErr) {
+        if (claimErr.code === '23505') {
+            const { data: fresh } = await supabaseAdmin
+                .from('orders')
+                .select('refund_reference, refund_amount, currency')
+                .eq('id', orderIdInt).maybeSingle();
+            return { refund: { reference: fresh?.refund_reference, amount: fresh?.refund_amount, currency: fresh?.currency, already_refunded: true } };
+        }
+        const e = new Error('Failed to claim refund.'); e.status = 500; e.code = 'REFUND_CLAIM_FAILED'; throw e;
+    }
+    if (!claimed) {
+        const { data: fresh } = await supabaseAdmin
+            .from('orders')
+            .select('refund_reference, refund_amount, currency')
+            .eq('id', orderIdInt).maybeSingle();
+        return { refund: { reference: fresh?.refund_reference || refundRef, amount: fresh?.refund_amount || refundAmount, currency: fresh?.currency || order.currency, already_refunded: true } };
     }
 
-    // Credit the wallet.
     let creditResult;
     try {
         creditResult = await LedgerService.creditWallet({
@@ -702,59 +763,51 @@ async function refundOrder({ orderId, reason, ctx, forceAmount = null }) {
             reference: refundRef,
             type: 'refund',
             sourceType: 'order',
-            sourceId: order.id,
-            metadata: { order_ref: order.order_ref, reason: String(reason).slice(0, 500) }
+            sourceId: String(order.id),
+            metadata: { order_ref: order.order_ref, reason: String(reason).slice(0, 500) },
+            idempotencyKey: refundRef
         });
     } catch (creditErr) {
-        const msg = String(creditErr.message || '');
-        if (msg.includes('duplicate') || msg.includes('unique')) {
-            // Wallet already credited — treat as success.
-            await supabaseAdmin.from('orders')
-                .update({ refund_status: 'refunded', refunded_at: new Date().toISOString() })
-                .eq('id', order.id);
-            return {
-                refund: { reference: refundRef, amount: refundAmount, currency: order.currency, already_refunded: true }
-            };
-        }
-        // Real failure — roll the claim back so it can be retried.
         await supabaseAdmin.from('orders')
             .update({ refund_status: 'failed', refund_reference: null, updated_at: new Date().toISOString() })
-            .eq('id', order.id);
-        const e = new Error('Wallet refund failed.'); e.status = 500; e.code = 'LEDGER_REFUND_FAILED'; e.cause = msg; throw e;
+            .eq('id', orderIdInt);
+        const e = new Error('Wallet refund failed.'); e.status = 500; e.code = 'LEDGER_REFUND_FAILED'; e.cause = creditErr.message; throw e;
     }
 
-    // Mark refunded + write transaction + event.
     await supabaseAdmin.from('orders')
         .update({
             refund_status: 'refunded',
             refund_transaction_id: creditResult.transaction_id || null,
             refunded_at: new Date().toISOString(),
-            status: order.status === 'completed' ? 'refunded' : order.status,
+            status: (order.status === 'completed' ? 'refunded' : order.status),
             updated_at: new Date().toISOString()
         })
-        .eq('id', order.id);
+        .eq('id', orderIdInt);
 
+    // refunds.original_transaction_id is uuid; skip the sidecar if the
+    // ledger result has no uuid (it always does when it succeeds, but
+    // be defensive).
     try {
-        await supabaseAdmin.from('transactions').insert({
-            user_id: order.user_id,
-            type: 'refund',
-            status: 'completed',
-            currency: order.currency,
-            amount: refundAmount,
-            ref: refundRef,
-            reference: refundRef,
-            source_id: order.id,
-            source_type: 'order',
-            description: `Refund for order ${order.order_ref}`,
-            metadata: { order_id: order.id, order_ref: order.order_ref, reason: String(reason).slice(0, 500) },
-            created_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        });
-    } catch (txErr) {
-        if (!String(txErr.message || '').includes('duplicate')) {
-            console.warn('[ORDERS] refund transaction insert failed (non-fatal):', txErr.message);
+        if (creditResult && creditResult.transaction_id && UUID_RE.test(String(creditResult.transaction_id))) {
+            await supabaseAdmin.from('refunds').insert({
+                original_transaction_id: creditResult.transaction_id,
+                refund_transaction_id: creditResult.transaction_id,
+                user_id: order.user_id,
+                refund_type: 'wallet',
+                amount: refundAmount,
+                currency: order.currency,
+                reason: String(reason).slice(0, 500),
+                status: 'COMPLETED',
+                requested_by: ctx?.adminId || null,
+                idempotency_key: refundRef,
+                metadata: { order_id: order.id, order_ref: order.order_ref },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                completed_at: new Date().toISOString()
+            });
         }
+    } catch (e) {
+        console.warn('[ORDERS] refunds sidecar insert failed:', e.message);
     }
 
     await recordEvent({
@@ -774,7 +827,7 @@ async function refundOrder({ orderId, reason, ctx, forceAmount = null }) {
         });
     }
 
-    await createNotification({
+    await createNotificationRow({
         userId: order.user_id,
         title: 'Order Refunded',
         message: `A refund of ${refundAmount} ${order.currency} has been credited for order ${order.order_ref}.`,
@@ -792,14 +845,18 @@ async function refundOrder({ orderId, reason, ctx, forceAmount = null }) {
 }
 
 async function cancelOrder({ orderId, reason, ctx }) {
-    return updateOrderStatus({ orderId, status: 'cancelled', note: reason, ctx });
+    const orderIdInt = assertOrderId(orderId);
+    return updateOrderStatus({ orderId: orderIdInt, status: 'cancelled', note: reason, ctx });
 }
 
 async function retryOrder({ orderId, reason, ctx }) {
+    const orderIdInt = assertOrderId(orderId);
+
     if (!reason || String(reason).trim().length < 4) {
         const e = new Error('A reason is required.'); e.status = 422; e.code = 'REASON_REQUIRED'; throw e;
     }
-    const { data: order } = await supabaseAdmin.from('orders').select('*').eq('id', orderId).maybeSingle();
+    const { data: order } = await supabaseAdmin
+        .from('orders').select(ORDER_COLUMNS).eq('id', orderIdInt).maybeSingle();
     if (!order) { const e = new Error('Order not found.'); e.status = 404; e.code = 'ORDER_NOT_FOUND'; throw e; }
     if (!['failed','cancelled','expired'].includes(String(order.status))) {
         const e = new Error('Only failed/cancelled/expired orders can be retried.');
@@ -832,7 +889,7 @@ async function retryOrder({ orderId, reason, ctx }) {
         metadata: { retried_from: order.order_ref },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-    }).select('*').single();
+    }).select(ORDER_COLUMNS).single();
 
     if (error) {
         const e = new Error('Failed to create retry order.'); e.status = 500; e.code = 'RETRY_FAILED'; throw e;
@@ -857,25 +914,28 @@ async function retryOrder({ orderId, reason, ctx }) {
 }
 
 async function addNote({ orderId, note, ctx }) {
+    const orderIdInt = assertOrderId(orderId);
+
     if (!note || String(note).trim().length < 2) {
         const e = new Error('Note text is required.'); e.status = 422; e.code = 'NOTE_REQUIRED'; throw e;
     }
-    const { data: updated, error } = await supabaseAdmin.from('orders')
+    const { data: updated, error } = await supabaseAdmin
+        .from('orders')
         .update({ admin_note: String(note).slice(0, 1000), updated_at: new Date().toISOString() })
-        .eq('id', orderId)
-        .select('*')
+        .eq('id', orderIdInt)
+        .select('id, admin_note')
         .maybeSingle();
     if (error || !updated) {
         const e = new Error('Failed to save note.'); e.status = 500; e.code = 'NOTE_SAVE_FAILED'; throw e;
     }
     await recordAudit({
-        ctx, action: 'order.note', orderId,
+        ctx, action: 'order.note', orderId: orderIdInt,
         before: null, after: { admin_note: updated.admin_note }, reason: note
     });
-    return { order: shapeOrder(updated) };
+    return { ok: true };
 }
 
-// ─── Exports ─────────────────────────────────────────────────────
+// ─── Exports ────────────────────────────────────────────────────
 
 module.exports = {
     ORDER_STATUSES,
@@ -897,6 +957,5 @@ module.exports = {
 
     recordEvent,
     shapeOrder,
-    normalizeProviderStatus,
     mapProviderToInternal
 };

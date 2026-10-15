@@ -3,6 +3,26 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#fbfaf7">
+<link rel="canonical" href="https://www.milesspaceedigital.com/">
+<link rel="icon" href="/images/miles.png" type="image/png">
+<link rel="apple-touch-icon" href="/images/miles.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MilesSpace">
+<meta property="og:title" content="MilesSpace — Digital Wallet & Digital Services">
+<meta property="og:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta property="og:url" content="https://www.milesspaceedigital.com/">
+<meta property="og:image" content="https://www.milesspaceedigital.com/images/social-preview.png">
+<meta property="og:image:secure_url" content="https://www.milesspaceedigital.com/images/social-preview.png">
+<meta property="og:image:alt" content="MilesSpace digital wallet and services dashboard">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MilesSpace — Digital Wallet & Digital Services">
+<meta name="twitter:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta name="twitter:image" content="https://www.milesspaceedigital.com/images/social-preview.png">
 <title>MilesSpace | Global Airtime</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -41,413 +61,112 @@
   --fd: 'Syne', sans-serif;
   --fb: 'DM Sans', sans-serif;
   --tr: all .2s cubic-bezier(.25,.8,.25,1);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
 }
-
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-html { font-size: 15px; scroll-behavior: smooth; }
-body {
-  font-family: var(--fb);
-  background: var(--bg);
-  color: var(--t1);
-  min-height: 100vh;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { font-size: 15px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html, body { max-width: 100vw; overflow-x: hidden; }
+body { font-family: var(--fb); background: var(--bg); color: var(--t1); min-height: 100vh; min-height: 100dvh; -webkit-font-smoothing: antialiased; }
+body.sb-open { overflow: hidden; }
 a { text-decoration: none; color: inherit; }
-button { font-family: inherit; cursor: pointer; border: none; background: none; }
-input, select { font-family: inherit; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select { font-family: inherit; font-size: 16px; color: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
-/* SKELETON SHIMMER */
 @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: calc(200px + 100%) 0; } }
-.skel {
-  background: linear-gradient(90deg, var(--srf2) 25%, #eef2f6 37%, var(--srf2) 63%);
-  background-size: 400px 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
-  border-radius: var(--r);
-}
+.skel { background: linear-gradient(90deg, var(--srf2) 25%, #eef2f6 37%, var(--srf2) 63%); background-size: 400px 100%; animation: shimmer 1.4s ease-in-out infinite; border-radius: var(--r); }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; background: var(--srf2); } }
 
-/* OVERLAY */
-.ov {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(10,37,48,.4);
-  backdrop-filter: blur(5px);
-  z-index: 490;
-}
-.ov.on { display: block; }
+.ov { display: none; position: fixed; inset: 0; background: rgba(10,37,48,.45); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); z-index: 590; opacity: 0; pointer-events: none; transition: opacity .25s var(--tr); }
+.ov.on { display: block; opacity: 1; pointer-events: auto; }
 
-/* PIN MODAL */
-.pin-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 600;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.pin-modal.on { display: flex; }
-.pin-modal .pm-bg {
-  position: absolute;
-  inset: 0;
-  background: rgba(10,37,48,.6);
-  backdrop-filter: blur(8px);
-}
-.pin-modal .pm-box {
-  position: relative;
-  background: var(--srf);
-  border-radius: var(--rxl);
-  padding: 28px 24px;
-  max-width: 380px;
-  width: 100%;
-  box-shadow: 0 20px 60px rgba(0,0,0,.15);
-}
-.pm-title {
-  font-family: var(--fd);
-  font-size: 1rem;
-  font-weight: 800;
-  text-align: center;
-  margin-bottom: 4px;
-}
-.pm-sub {
-  font-size: .74rem;
-  color: var(--t3);
-  text-align: center;
-  margin-bottom: 18px;
-}
-.pm-input-wrap {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 18px;
-}
-.pm-input {
-  width: 50px;
-  height: 56px;
-  border: 2px solid var(--bdr);
-  border-radius: var(--r);
-  text-align: center;
-  font-size: 1.2rem;
-  font-weight: 700;
-  background: var(--srf);
-  transition: var(--tr);
-  outline: none;
-}
-.pm-input:focus { border-color: var(--p); }
-.pm-input.filled { border-color: var(--ok); background: var(--okl); }
-.pm-input.err { border-color: var(--err); background: var(--erl); }
-.pm-actions { display: flex; gap: 8px; }
-.pm-actions button {
-  flex: 1;
-  padding: 10px;
-  border-radius: var(--rp);
-  font-weight: 700;
-  font-size: .82rem;
-  transition: var(--tr);
-}
-.pm-cancel { background: var(--srf2); color: var(--t2); border: 1px solid var(--bdr); }
-.pm-cancel:hover { background: var(--bg); }
-.pm-confirm { background: var(--p); color: #fff; }
-.pm-confirm:hover { background: var(--pm); }
-.pm-confirm:disabled { opacity: .4; cursor: not-allowed; }
-.pm-error {
-  color: var(--err);
-  font-size: .7rem;
-  text-align: center;
-  margin-bottom: 12px;
-  display: none;
-}
-.pm-error.show { display: block; }
-.pm-forgot { text-align: center; margin-top: 12px; font-size: .7rem; }
-.pm-forgot a { color: var(--p); font-weight: 600; cursor: pointer; }
-.pm-forgot a:hover { text-decoration: underline; }
-
-/* RESET PIN MODAL */
-.reset-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 601;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.reset-modal.on { display: flex; }
-.reset-modal .rm-bg {
-  position: absolute;
-  inset: 0;
-  background: rgba(10,37,48,.6);
-  backdrop-filter: blur(8px);
-}
-.reset-modal .rm-box {
-  position: relative;
-  background: var(--srf);
-  border-radius: var(--rxl);
-  padding: 28px 24px;
-  max-width: 400px;
-  width: 100%;
-  box-shadow: 0 20px 60px rgba(0,0,0,.15);
-}
-.rm-title { font-family: var(--fd); font-size: 1rem; font-weight: 800; text-align: center; margin-bottom: 4px; }
-.rm-sub { font-size: .74rem; color: var(--t3); text-align: center; margin-bottom: 18px; }
-.rm-steps { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
-.rm-step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bdr); transition: var(--tr); }
-.rm-step-dot.active { background: var(--p); width: 20px; border-radius: var(--rp); }
-.rm-step-dot.done { background: var(--ok); }
-.rm-step { display: none; }
-.rm-step.active { display: block; animation: fadeIn .3s ease; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.rm-step .step-title { font-size: .9rem; font-weight: 700; margin-bottom: 2px; }
-.rm-step .step-desc { font-size: .74rem; color: var(--t3); margin-bottom: 14px; }
-.rm-step .masked-email {
-  text-align: center;
-  font-size: .85rem;
-  font-weight: 600;
-  color: var(--p);
-  background: var(--pl);
-  padding: 10px;
-  border-radius: var(--r);
-  margin-bottom: 14px;
-}
-.rm-otp-inputs { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
-.rm-otp-input {
-  width: 44px;
-  height: 48px;
-  border: 2px solid var(--bdr);
-  border-radius: var(--r);
-  text-align: center;
-  font-size: 1.1rem;
-  font-weight: 700;
-  background: var(--srf);
-  transition: var(--tr);
-  outline: none;
-}
-.rm-otp-input:focus { border-color: var(--p); }
-.rm-otp-input.filled { border-color: var(--ok); background: var(--okl); }
-.rm-otp-input.err { border-color: var(--err); background: var(--erl); }
-.rm-actions { display: flex; gap: 8px; }
-.rm-actions button { flex: 1; padding: 10px; border-radius: var(--rp); font-weight: 700; font-size: .82rem; transition: var(--tr); }
-.rm-cancel { background: var(--srf2); color: var(--t2); border: 1px solid var(--bdr); }
-.rm-cancel:hover { background: var(--bg); }
-.rm-confirm { background: var(--p); color: #fff; }
-.rm-confirm:hover { background: var(--pm); }
-.rm-confirm:disabled { opacity: .4; cursor: not-allowed; }
-.rm-resend { text-align: center; font-size: .7rem; color: var(--t3); margin-top: 10px; }
-.rm-resend a { color: var(--p); font-weight: 600; cursor: pointer; }
-.rm-resend a.disabled { color: var(--t3); cursor: not-allowed; pointer-events: none; }
-.rm-error { color: var(--err); font-size: .7rem; text-align: center; margin-bottom: 10px; display: none; }
-.rm-error.show { display: block; }
-.rm-success { text-align: center; padding: 10px 0; }
-.rm-success .icon { font-size: 2.4rem; color: var(--ok); margin-bottom: 8px; }
-
-/* SIDEBAR */
 .sidebar {
-  width: var(--sw);
+  position: fixed; top: 0; left: 0;
+  height: 100vh; height: 100dvh;
+  width: min(86vw, 290px); max-width: 290px;
   background: var(--srf);
-  border-right: 1px solid var(--bdr);
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  z-index: 500;
-  transition: transform .3s var(--tr);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
+  z-index: 600; display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  transform: translateX(-100%); visibility: hidden;
+  transition: transform .3s var(--tr), visibility .3s;
+  box-shadow: 0 0 40px rgba(10,37,48,.18);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bdr) transparent;
+  padding-bottom: calc(16px + var(--safe-b));
 }
-.sidebar::-webkit-scrollbar { display: none; }
-@media(min-width: 1025px) {
-  .sidebar { transform: translateX(0) !important; }
-  .tb-hbg { display: none !important; }
-}
-@media(max-width: 1024px) {
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); }
-  .main { margin-left: 0 !important; }
-}
-.sb-brand { padding: 18px 16px 14px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; }
-.sb-logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1rem; color: var(--t1); font-family: var(--fd); }
-.sb-lic {
-  width: 30px;
-  height: 30px;
-  background: var(--acc);
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-size: .8rem;
-  color: #fff;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-.sb-lic img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
-.sb-sec { padding: 16px 16px 5px; font-size: .65rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--t3); }
-.sb-nav { padding: 0 8px; }
-.sb-lnk {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: var(--r);
-  color: var(--t2);
-  font-size: .85rem;
-  font-weight: 500;
-  transition: var(--tr);
-  margin-bottom: 2px;
-  text-decoration: none;
-}
-.sb-lnk i { width: 16px; text-align: center; font-size: .85rem; flex-shrink: 0; }
+.sidebar.open { transform: none; visibility: visible; }
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--bdr); border-radius: 6px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: var(--t3); }
+.sb-brand { padding: 20px 18px 14px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.05rem; flex-shrink: 0; font-family: var(--fd); }
+.sb-lic { width: 32px; height: 32px; border-radius: 9px; background: var(--p); overflow: hidden; flex-shrink: 0; display: grid; place-items: center; color: #fff; font-size: .8rem; }
+.sb-lic img { width: 100%; height: 100%; object-fit: cover; }
+.sb-sec { padding: 16px 18px 6px; font-size: .72rem; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: .05em; }
+.sb-nav { padding: 0 10px; }
+.sb-lnk { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; color: var(--t2); font-size: .9rem; font-weight: 600; margin-bottom: 2px; min-height: 44px; text-decoration: none; transition: background .15s, color .15s; cursor: pointer; }
+.sb-lnk i { width: 18px; text-align: center; font-size: .9rem; flex-shrink: 0; }
 .sb-lnk:hover { background: var(--bg); color: var(--t1); }
-.sb-lnk.active { background: var(--pl); color: var(--p); font-weight: 600; }
-.sb-lnk.active i { color: var(--p); }
-.sb-foot { margin-top: auto; padding: 12px 8px; border-top: 1px solid var(--bdr); flex-shrink: 0; }
-.sb-prof { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: var(--r); transition: var(--tr); cursor: pointer; text-decoration: none; }
-.sb-prof:hover { background: var(--bg); }
-.sb-av { width: 32px; height: 32px; border-radius: 50%; background: var(--p); display: grid; place-items: center; font-weight: 700; font-size: .82rem; color: #fff; flex-shrink: 0; overflow: hidden; }
-.sb-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.sb-lnk.active { background: var(--pl); color: var(--p); }
+.sb-foot { margin-top: auto; padding: 12px 10px; padding-bottom: calc(12px + var(--safe-b)); border-top: 1px solid var(--bdr); flex-shrink: 0; }
+.sb-prof { display: flex; align-items: center; gap: 10px; padding: 8px; }
+.sb-prof-link { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; text-decoration: none; cursor: pointer; }
+.sb-av { width: 34px; height: 34px; border-radius: 50%; background: var(--p); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: .85rem; flex-shrink: 0; overflow: hidden; }
 .sb-ui { flex: 1; min-width: 0; }
-.sb-un { font-size: .8rem; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sb-ue { font-size: .68rem; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sb-out { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: var(--t3); font-size: .78rem; transition: var(--tr); cursor: pointer; border: none; background: none; }
+.sb-un { font-size: .82rem; font-weight: 700; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-ue { font-size: .7rem; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-out { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--t3); font-size: .85rem; transition: all .18s; cursor: pointer; border: none; background: none; flex-shrink: 0; }
 .sb-out:hover { background: var(--erl); color: var(--err); }
 
-/* MAIN LAYOUT */
 .app { display: flex; min-height: 100vh; }
-.main { margin-left: var(--sw); flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
-/* TOPBAR */
-.topbar {
-  background: var(--srf);
-  border-bottom: 1px solid var(--bdr);
-  padding: 0 16px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 400;
-  gap: 10px;
-}
-.tb-hbg { width: 38px; height: 38px; border-radius: 10px; background: var(--pl); color: var(--p); font-size: .9rem; display: grid; place-items: center; flex-shrink: 0; cursor: pointer; transition: var(--tr); border: none; }
+.topbar { background: var(--srf); border-bottom: 1px solid var(--bdr); padding: calc(10px + var(--safe-t)) 16px 10px; min-height: 60px; display: flex; align-items: center; position: sticky; top: 0; z-index: 400; gap: 10px; }
+.tb-hbg { width: 44px; height: 44px; border-radius: 12px; background: var(--pl); color: var(--p); font-size: 1rem; display: grid; place-items: center; flex-shrink: 0; cursor: pointer; transition: all .2s; border: none; }
 .tb-hbg:hover { background: var(--p); color: #fff; }
-.tb-brand { font-family: var(--fd); font-size: .9rem; font-weight: 700; color: var(--t1); flex: 1; }
+.tb-brand { font-family: var(--fd); font-size: .9rem; font-weight: 700; color: var(--t1); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.tb-icon-btn { width: 36px; height: 36px; border-radius: 9px; background: var(--srf2); border: 1px solid var(--bdr); display: grid; place-items: center; color: var(--t2); font-size: .85rem; cursor: pointer; transition: var(--tr); position: relative; text-decoration: none; }
+.tb-icon-btn { width: 42px; height: 42px; border-radius: 11px; background: var(--srf2); border: 1px solid var(--bdr); display: grid; place-items: center; color: var(--t2); font-size: .9rem; cursor: pointer; transition: var(--tr); position: relative; text-decoration: none; }
 .tb-icon-btn:hover { background: var(--pl); color: var(--p); }
-.notif-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--err); border: 2px solid var(--srf); }
-.tb-av { width: 34px; height: 34px; border-radius: 50%; background: var(--p); display: grid; place-items: center; font-family: var(--fd); font-weight: 800; font-size: .8rem; color: #fff; border: 2px solid var(--acc); cursor: pointer; overflow: hidden; flex-shrink: 0; }
-.tb-av img { width: 100%; height: 100%; object-fit: cover; }
-.content { padding: 16px; flex: 1; }
+.notif-dot { position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--err); border: 2px solid var(--srf); }
+.tb-av { width: 40px; height: 40px; border-radius: 50%; background: var(--p); display: grid; place-items: center; font-family: var(--fd); font-weight: 800; font-size: .85rem; color: #fff; border: 2px solid var(--acc); cursor: pointer; overflow: hidden; flex-shrink: 0; text-decoration: none; }
 
-/* AIRTIME PAGE */
+.content { padding: 16px; padding-bottom: calc(20px + var(--safe-b)); flex: 1; }
+@media (max-width: 768px) { .content { padding: 12px; padding-bottom: calc(90px + var(--safe-b)); } }
+
 .air-page { max-width: 640px; margin: 0 auto; }
 .page-title { font-family: var(--fd); font-size: 1.2rem; font-weight: 800; color: var(--t1); margin-bottom: 2px; }
 .page-sub { font-size: .78rem; color: var(--t3); margin-bottom: 20px; }
 
-/* FORM SECTION */
 .form-section { background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rxl); padding: 20px; margin-bottom: 12px; }
 .fs-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); margin-bottom: 7px; }
 .fs-block { margin-bottom: 16px; }
 .fs-block:last-child { margin-bottom: 0; }
 
-/* ═══ COMBINED PHONE + COUNTRY FIELD (matches reference: dial pill attached to input) ═══ */
-.phone-field {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  border: 1.5px solid var(--bdr);
-  border-radius: var(--r);
-  background: var(--srf);
-  transition: var(--tr);
-  overflow: visible;
-}
+.phone-field { position: relative; display: flex; align-items: stretch; border: 1.5px solid var(--bdr); border-radius: var(--r); background: var(--srf); transition: var(--tr); overflow: visible; }
 .phone-field:focus-within { border-color: var(--p); box-shadow: 0 0 0 3px var(--pl); }
-.dial-select {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 12px;
-  border-right: 1.5px solid var(--bdr);
-  color: var(--t1);
-  font-size: .85rem;
-  font-weight: 600;
-  flex-shrink: 0;
-  min-width: 92px;
-  justify-content: center;
-}
+.dial-select { display: flex; align-items: center; gap: 7px; padding: 0 12px; border-right: 1.5px solid var(--bdr); color: var(--t1); font-size: .85rem; font-weight: 600; flex-shrink: 0; min-width: 92px; justify-content: center; min-height: 44px; }
 .dial-select .flag { font-size: 1.15rem; line-height: 1; }
 .dial-select .dial { color: var(--t2); }
 .dial-select i.fa-chevron-down { font-size: .62rem; color: var(--t3); transition: transform .2s; }
 .dial-select[aria-expanded="true"] i.fa-chevron-down { transform: rotate(180deg); }
-.phone-input {
-  flex: 1;
-  padding: 11px 12px;
-  border: none;
-  font-size: .9rem;
-  outline: none;
-  background: transparent;
-  min-width: 0;
-  color: var(--t1);
-}
+.phone-input { flex: 1; padding: 12px; border: none; font-size: .9rem; outline: none; background: transparent; min-width: 0; color: var(--t1); min-height: 44px; }
 .phone-input::placeholder { color: var(--t3); }
 .phone-field.err { border-color: var(--err); }
-.selected-country-note {
-  margin-top: 6px;
-  font-size: .7rem;
-  color: var(--t3);
-  min-height: 15px;
-}
+.selected-country-note { margin-top: 6px; font-size: .7rem; color: var(--t3); min-height: 15px; }
 .selected-country-note strong { color: var(--t2); font-weight: 600; }
 
-/* COUNTRY DROPDOWN — search + scrollable list w/ flag, name, dial, check */
-.country-dropdown {
-  display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  width: min(360px, 100%);
-  max-height: 340px;
-  background: var(--srf);
-  border: 1px solid var(--bdr);
-  border-radius: var(--rl);
-  box-shadow: 0 16px 40px rgba(10,37,48,.14);
-  z-index: 60;
-  overflow: hidden;
-  flex-direction: column;
-}
+.country-dropdown { display: none; position: absolute; top: calc(100% + 6px); left: 0; width: min(360px, 100%); max-height: 340px; background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rl); box-shadow: 0 16px 40px rgba(10,37,48,.14); z-index: 60; overflow: hidden; flex-direction: column; }
 .country-dropdown.open { display: flex; animation: fadeIn .15s ease; }
 .country-dropdown .search-wrap { padding: 10px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; background: var(--srf); }
 .country-dropdown .search-wrap .search-box { position: relative; }
 .country-dropdown .search-wrap i.fa-search { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--t3); font-size: .78rem; }
-.country-dropdown .search-wrap input {
-  width: 100%;
-  padding: 8px 10px 8px 30px;
-  border: 1px solid var(--bdr);
-  border-radius: var(--r);
-  font-size: .8rem;
-  outline: none;
-  transition: var(--tr);
-}
+.country-dropdown .search-wrap input { width: 100%; padding: 10px 10px 10px 30px; border: 1px solid var(--bdr); border-radius: var(--r); font-size: .8rem; outline: none; transition: var(--tr); min-height: 40px; }
 .country-dropdown .search-wrap input:focus { border-color: var(--p); }
 #countryListInner { overflow-y: auto; flex: 1; }
-.country-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
-  font-size: .82rem;
-  transition: background .12s;
-}
+.country-item { display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; font-size: .82rem; transition: background .12s; min-height: 48px; }
 .country-item:hover, .country-item:focus-visible { background: var(--srf2); outline: none; }
 .country-item.selected { background: var(--pl); }
 .country-item .c-flag { font-size: 1.1rem; flex-shrink: 0; }
@@ -457,215 +176,61 @@ input, select { font-family: inherit; }
 .country-item.selected .c-check { opacity: 1; }
 .country-empty { padding: 20px 12px; text-align: center; color: var(--t3); font-size: .78rem; }
 
-/* OPERATOR SECTION — card grid matching reference (logo on top, name below, blue ring when selected) */
 .operator-section { margin-bottom: 4px; }
-.operator-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 8px;
-}
+.operator-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
 @media(min-width: 560px) { .operator-grid { grid-template-columns: repeat(3, 1fr); } }
-.operator-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px 10px;
-  border: 2px solid var(--bdr);
-  border-radius: var(--rl);
-  background: var(--srf);
-  cursor: pointer;
-  transition: var(--tr);
-  text-align: center;
-  min-height: 112px;
-  position: relative;
-}
+.operator-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 16px 10px; border: 2px solid var(--bdr); border-radius: var(--rl); background: var(--srf); cursor: pointer; transition: var(--tr); text-align: center; min-height: 112px; position: relative; }
 .operator-card:hover { border-color: var(--pm); }
 .operator-card:focus-visible { outline: 2px solid var(--p); outline-offset: 2px; }
 .operator-card.selected { border-color: var(--p); background: var(--pxl); box-shadow: 0 0 0 3px var(--pl); }
 .operator-card.disabled { opacity: .5; cursor: not-allowed; }
-.operator-card .op-logo-wrap {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  background: var(--srf2);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  flex-shrink: 0;
-}
+.operator-card .op-logo-wrap { width: 52px; height: 52px; border-radius: 12px; background: var(--srf2); display: grid; place-items: center; overflow: hidden; flex-shrink: 0; }
 .operator-card .op-logo-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
 .operator-card .op-name { font-size: .76rem; font-weight: 600; color: var(--t1); line-height: 1.25; }
-.operator-card .op-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  font-size: .53rem;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: var(--rp);
-  background: var(--acl);
-  color: var(--acd);
-}
+.operator-card .op-badge { position: absolute; top: 6px; right: 6px; font-size: .53rem; font-weight: 700; padding: 2px 6px; border-radius: var(--rp); background: var(--acl); color: var(--acd); }
 .operator-loading-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
 @media(min-width: 560px) { .operator-loading-grid { grid-template-columns: repeat(3, 1fr); } }
 .operator-skel-card { min-height: 112px; border-radius: var(--rl); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 16px 10px; }
 .operator-skel-card .skel.logo { width: 52px; height: 52px; border-radius: 12px; }
 .operator-skel-card .skel.name { width: 70%; height: 10px; }
-.operator-empty, .operator-error {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 16px;
-  color: var(--t3);
-  font-size: .78rem;
-  text-align: center;
-}
+.operator-empty, .operator-error { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 16px; color: var(--t3); font-size: .78rem; text-align: center; }
 .operator-empty i, .operator-error i { font-size: 1.3rem; }
 .operator-error { color: var(--err); }
-.operator-error button {
-  color: var(--p);
-  font-weight: 700;
-  background: var(--pl);
-  padding: 7px 16px;
-  border-radius: var(--rp);
-  cursor: pointer;
-  border: none;
-  font-size: .74rem;
-}
+.operator-error button { color: var(--p); font-weight: 700; background: var(--pl); padding: 9px 16px; border-radius: var(--rp); cursor: pointer; border: none; font-size: .74rem; min-height: 40px; }
 
-/* AMOUNT SECTION */
 .amt-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.amt-btn {
-  padding: 7px 14px;
-  border: 1.5px solid var(--bdr);
-  border-radius: var(--rp);
-  font-size: .76rem;
-  font-weight: 600;
-  color: var(--t2);
-  cursor: pointer;
-  transition: var(--tr);
-  background: var(--srf);
-}
+.amt-btn { padding: 9px 14px; border: 1.5px solid var(--bdr); border-radius: var(--rp); font-size: .76rem; font-weight: 600; color: var(--t2); cursor: pointer; transition: var(--tr); background: var(--srf); min-height: 38px; }
 .amt-btn:hover { border-color: var(--p); color: var(--p); }
 .amt-btn.active { background: var(--p); color: #fff; border-color: var(--p); }
 
-.amt-combined {
-  display: flex;
-  align-items: center;
-  border: 1.5px solid var(--bdr);
-  border-radius: var(--r);
-  padding: 4px 4px 4px 12px;
-  transition: var(--tr);
-  background: var(--srf);
-  margin-bottom: 6px;
-}
+.amt-combined { display: flex; align-items: center; border: 1.5px solid var(--bdr); border-radius: var(--r); padding: 4px 4px 4px 12px; transition: var(--tr); background: var(--srf); margin-bottom: 6px; }
 .amt-combined:focus-within { border-color: var(--p); box-shadow: 0 0 0 3px var(--pl); }
 .amt-combined .amt-symbol { font-size: .9rem; font-weight: 700; color: var(--t2); margin-right: 4px; }
-.amt-custom {
-  flex: 1;
-  border: none;
-  padding: 9px 4px;
-  font-size: .95rem;
-  font-weight: 700;
-  outline: none;
-  min-width: 0;
-  background: transparent;
-  color: var(--t1);
-}
+.amt-custom { flex: 1; border: none; padding: 10px 4px; font-size: .95rem; font-weight: 700; outline: none; min-width: 0; background: transparent; color: var(--t1); min-height: 40px; }
 .amt-divider { width: 1px; height: 24px; background: var(--bdr); margin: 0 8px; flex-shrink: 0; }
-.recipient-inline {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  padding-right: 6px;
-  flex-shrink: 0;
-  max-width: 46%;
-}
-.recipient-inline .r-amt {
-  font-size: .92rem;
-  font-weight: 700;
-  color: var(--t1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.recipient-inline { display: flex; align-items: baseline; gap: 3px; padding-right: 6px; flex-shrink: 0; max-width: 46%; }
+.recipient-inline .r-amt { font-size: .92rem; font-weight: 700; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recipient-inline .r-cur { font-size: .68rem; font-weight: 600; color: var(--t3); flex-shrink: 0; }
 .recipient-inline.placeholder .r-amt { color: var(--t3); font-weight: 500; }
+.recipient-inline.estimate .r-amt::before { content: '~'; margin-right: 1px; color: var(--t3); font-weight: 600; }
 
-.quote-loading {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 4px 0 8px;
-  font-size: .7rem;
-  color: var(--t3);
-}
+.quote-loading { display: none; align-items: center; justify-content: center; gap: 6px; padding: 4px 0 8px; font-size: .7rem; color: var(--t3); }
 .quote-loading.visible { display: flex; }
-.quote-loading .spinner-sm {
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--bdr);
-  border-top-color: var(--p);
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-}
-.quote-error {
-  display: none;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: .74rem;
-  color: #991b1b;
-  text-align: left;
-  padding: 10px 12px;
-  margin: 4px 0 8px;
-  background: var(--erl);
-  border-radius: var(--r);
-}
+.quote-loading .spinner-sm { width: 12px; height: 12px; border: 2px solid var(--bdr); border-top-color: var(--p); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.quote-error { display: none; align-items: flex-start; gap: 8px; font-size: .74rem; color: #991b1b; text-align: left; padding: 10px 12px; margin: 4px 0 8px; background: var(--erl); border-radius: var(--r); }
 .quote-error.visible { display: flex; }
 .quote-error i { margin-top: 1px; flex-shrink: 0; }
 .quote-error .qe-retry { color: var(--p); font-weight: 700; text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; font-size: inherit; }
 
-.btn-proceed {
-  width: 100%;
-  padding: 12px;
-  background: var(--p);
-  color: #fff;
-  border-radius: var(--rp);
-  font-family: var(--fd);
-  font-weight: 700;
-  font-size: .88rem;
-  transition: var(--tr);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: none;
-  margin-top: 4px;
-}
+.btn-proceed { width: 100%; padding: 14px; background: var(--p); color: #fff; border-radius: var(--rp); font-family: var(--fd); font-weight: 700; font-size: .88rem; transition: var(--tr); display: flex; align-items: center; justify-content: center; gap: 6px; border: none; margin-top: 4px; min-height: 48px; }
 .btn-proceed:hover:not(:disabled) { background: var(--pm); transform: translateY(-1px); }
 .btn-proceed:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
-/* WALLET STEP */
 .wallet-step { display: none; background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rxl); padding: 20px; margin-bottom: 12px; }
 .ws-title { font-family: var(--fd); font-size: .9rem; font-weight: 700; margin-bottom: 4px; }
 .ws-sub { font-size: .72rem; color: var(--t3); margin-bottom: 14px; }
-.wallet-opt {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 2px solid var(--bdr);
-  border-radius: var(--rl);
-  cursor: pointer;
-  transition: var(--tr);
-  margin-bottom: 8px;
-}
+.wallet-opt { display: flex; align-items: center; gap: 10px; padding: 12px; border: 2px solid var(--bdr); border-radius: var(--rl); cursor: pointer; transition: var(--tr); margin-bottom: 8px; min-height: 64px; }
 .wallet-opt:hover { border-color: var(--p); }
 .wallet-opt.selected { border-color: var(--p); background: var(--pl); }
 .wallet-opt .wo-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--pl); color: var(--p); display: grid; place-items: center; font-size: .85rem; flex-shrink: 0; }
@@ -678,22 +243,10 @@ input, select { font-family: inherit; }
 .wallet-opt .wo-status.insufficient { background: var(--erl); color: #991b1b; }
 .wallet-opt.disabled { opacity: .5; cursor: not-allowed; }
 .wallet-skel { padding: 12px; border-radius: var(--rl); margin-bottom: 8px; height: 66px; }
-.btn-continue {
-  width: 100%;
-  padding: 11px;
-  background: var(--p);
-  color: #fff;
-  border-radius: var(--rp);
-  font-weight: 700;
-  font-size: .84rem;
-  border: none;
-  cursor: pointer;
-  transition: var(--tr);
-}
+.btn-continue { width: 100%; padding: 13px; background: var(--p); color: #fff; border-radius: var(--rp); font-weight: 700; font-size: .84rem; border: none; cursor: pointer; transition: var(--tr); min-height: 48px; }
 .btn-continue:hover:not(:disabled) { background: var(--pm); }
 .btn-continue:disabled { opacity: .45; cursor: not-allowed; }
 
-/* PREVIEW STEP */
 .preview-step { display: none; background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rxl); padding: 20px; margin-bottom: 12px; }
 .pv-title { font-family: var(--fd); font-size: .9rem; font-weight: 700; margin-bottom: 12px; }
 .pv-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bdr); font-size: .8rem; gap: 10px; }
@@ -709,42 +262,15 @@ input, select { font-family: inherit; }
 .pv-expiry { font-size: .68rem; color: var(--t3); text-align: center; margin-top: 10px; }
 .pv-expiry.warn { color: var(--err); font-weight: 600; }
 
-.btn-pay {
-  width: 100%;
-  padding: 12px;
-  background: var(--ok);
-  color: #fff;
-  border-radius: var(--rp);
-  font-family: var(--fd);
-  font-weight: 700;
-  font-size: .88rem;
-  transition: var(--tr);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: none;
-  margin-top: 12px;
-}
+.btn-pay { width: 100%; padding: 14px; background: var(--ok); color: #fff; border-radius: var(--rp); font-family: var(--fd); font-weight: 700; font-size: .88rem; transition: var(--tr); display: flex; align-items: center; justify-content: center; gap: 6px; border: none; margin-top: 12px; min-height: 48px; }
 .btn-pay:hover:not(:disabled) { background: #0e8f50; transform: translateY(-1px); }
 .btn-pay:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 .btn-pay.insufficient { background: var(--err); }
 .btn-pay.insufficient:hover { background: var(--err); transform: none; }
 
-.btn-back {
-  width: 100%;
-  padding: 9px;
-  background: none;
-  color: var(--t3);
-  border: none;
-  font-size: .76rem;
-  cursor: pointer;
-  text-align: center;
-  margin-top: 6px;
-}
+.btn-back { width: 100%; padding: 10px; background: none; color: var(--t3); border: none; font-size: .76rem; cursor: pointer; text-align: center; margin-top: 6px; min-height: 44px; }
 .btn-back:hover { color: var(--t1); }
 
-/* RESULT STEP */
 .result-step { display: none; background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rxl); padding: 24px 20px; text-align: center; margin-bottom: 12px; }
 .result-ic { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 12px; font-size: 1.4rem; }
 .result-ic.success { background: var(--okl); color: var(--ok); }
@@ -756,7 +282,7 @@ input, select { font-family: inherit; }
 .result-ref { background: var(--srf2); border-radius: var(--r); padding: 10px; font-family: monospace; font-size: .75rem; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .result-ref button { font-size: .68rem; color: var(--p); font-weight: 600; cursor: pointer; }
 .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.result-actions button { flex: 1; padding: 10px; border-radius: var(--rp); font-weight: 700; font-size: .78rem; cursor: pointer; transition: var(--tr); min-width: 90px; }
+.result-actions button { flex: 1; padding: 12px; border-radius: var(--rp); font-weight: 700; font-size: .78rem; cursor: pointer; transition: var(--tr); min-width: 90px; min-height: 44px; }
 .btn-done { background: var(--p); color: #fff; }
 .btn-done:hover { background: var(--pm); }
 .btn-again { background: var(--srf2); color: var(--t1); border: 1px solid var(--bdr); }
@@ -764,22 +290,11 @@ input, select { font-family: inherit; }
 .btn-receipt { background: var(--acc); color: #fff; }
 .btn-receipt:hover { background: var(--acd); }
 
-/* HISTORY */
 .history-section { margin-top: 24px; }
 .hs-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .hs-title { font-family: var(--fd); font-size: .85rem; font-weight: 700; color: var(--t1); }
 .history-list { display: flex; flex-direction: column; gap: 6px; }
-.history-item {
-  background: var(--srf);
-  border: 1px solid var(--bdr);
-  border-radius: var(--rl);
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  transition: var(--tr);
-}
+.history-item { background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rl); padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: var(--tr); min-height: 56px; }
 .history-item:hover, .history-item:focus-visible { border-color: var(--p); outline: none; }
 .hi-flag { font-size: 1.2rem; flex-shrink: 0; }
 .hi-info { flex: 1; min-width: 0; }
@@ -798,40 +313,32 @@ input, select { font-family: inherit; }
 .history-skel .skel.line1 { width: 55%; height: 10px; margin-bottom: 6px; }
 .history-skel .skel.line2 { width: 35%; height: 8px; }
 
-/* ═══ TRANSACTION DETAILS MODAL ═══ */
-.airtime-detail-modal { display: none; position: fixed; inset: 0; z-index: 700; align-items: center; justify-content: center; padding: 16px; }
-.airtime-detail-modal.on { display: flex; }
-.atm-bg { position: absolute; inset: 0; background: rgba(10,37,48,.58); backdrop-filter: blur(7px); }
-.atm-box {
-  position: relative;
-  width: 100%;
-  max-width: 460px;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-  background: var(--srf);
-  border: 1px solid var(--bdr);
-  border-radius: var(--rxl);
-  box-shadow: 0 24px 70px rgba(0,0,0,.18);
-  padding: 20px;
-  animation: atmIn .2s ease;
+.atm-modal-lazy,
+.receipt-modal,
+.airtime-detail-modal,
+.pin-modal {
+  display: none; position: fixed; inset: 0; z-index: 700;
+  align-items: center; justify-content: center; padding: 16px;
 }
+.pin-modal { z-index: 750; }
+.airtime-detail-modal.on,
+.receipt-modal.on,
+.pin-modal.on { display: flex; }
+
+.atm-bg, .rm-bg-rec, .pm-bg {
+  position: absolute; inset: 0;
+  background: rgba(10,37,48,.58);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+}
+
+.atm-box { position: relative; width: 100%; max-width: 460px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rxl); box-shadow: 0 24px 70px rgba(0,0,0,.18); padding: 20px; animation: atmIn .2s ease; }
 @keyframes atmIn { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
 .atm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--bdr); }
 .atm-title { font-family: var(--fd); font-size: .95rem; font-weight: 800; color: var(--t1); }
-.atm-sub { margin-top: 3px; color: var(--t3); font-size: .7rem; font-family: monospace; }
-.atm-close { width: 32px; height: 32px; border-radius: 9px; background: var(--srf2); color: var(--t2); display: grid; place-items: center; }
+.atm-sub { margin-top: 3px; color: var(--t3); font-size: .7rem; font-family: monospace; word-break: break-all; }
+.atm-close { width: 40px; height: 40px; border-radius: 9px; background: var(--srf2); color: var(--t2); display: grid; place-items: center; }
 .atm-close:hover { background: var(--erl); color: var(--err); }
-.atm-loading, .atm-error {
-  min-height: 180px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  color: var(--t3);
-  font-size: .78rem;
-  gap: 8px;
-}
+.atm-loading, .atm-error { min-height: 180px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--t3); font-size: .78rem; gap: 8px; }
 .atm-error { color: var(--err); }
 .atm-error button { margin-top: 4px; }
 .atm-summary { display: flex; align-items: center; gap: 12px; padding: 16px 0; }
@@ -858,48 +365,16 @@ input, select { font-family: inherit; }
 .atm-failure { margin-top: 10px; padding: 10px; border-radius: var(--r); background: var(--erl); color: #991b1b; font-size: .7rem; }
 .atm-ref { margin-top: 10px; padding: 10px; border: 1px dashed var(--bdr); border-radius: var(--r); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .atm-ref-code { font-family: monospace; font-size: .7rem; word-break: break-all; }
-.atm-copy { color: var(--p); font-weight: 700; font-size: .68rem; }
+.atm-copy { color: var(--p); font-weight: 700; font-size: .68rem; min-height: 32px; padding: 4px 8px; }
 .atm-actions { display: flex; gap: 8px; margin-top: 16px; }
-.atm-actions button { flex: 1; padding: 10px; border-radius: var(--rp); font-size: .76rem; font-weight: 700; }
+.atm-actions button { flex: 1; padding: 12px; border-radius: var(--rp); font-size: .76rem; font-weight: 700; min-height: 44px; }
 .atm-refresh { background: var(--pl); color: var(--p); }
 .atm-close-btn { background: var(--p); color: #fff; }
 
-/* ═══ RECEIPT MODAL ═══ */
-.receipt-modal { display: none; position: fixed; inset: 0; z-index: 701; align-items: center; justify-content: center; padding: 16px; }
-.receipt-modal.on { display: flex; }
-.rm-bg-rec { position: absolute; inset: 0; background: rgba(10,37,48,.58); backdrop-filter: blur(7px); }
-.receipt-box {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-  background: var(--srf);
-  border: 1px solid var(--bdr);
-  border-radius: var(--rxl);
-  box-shadow: 0 24px 70px rgba(0,0,0,.18);
-  animation: atmIn .2s ease;
-}
+.receipt-box { position: relative; width: 100%; max-width: 420px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rxl); box-shadow: 0 24px 70px rgba(0,0,0,.18); animation: atmIn .2s ease; }
 .receipt-inner { padding: 24px 22px; }
-.receipt-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 16px;
-  border-bottom: 1px dashed var(--bdr);
-  margin-bottom: 16px;
-}
-.receipt-brand-logo {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--p);
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
+.receipt-brand { display: flex; align-items: center; gap: 10px; padding-bottom: 16px; border-bottom: 1px dashed var(--bdr); margin-bottom: 16px; }
+.receipt-brand-logo { width: 38px; height: 38px; border-radius: 10px; background: var(--p); display: grid; place-items: center; color: #fff; font-size: 1rem; flex-shrink: 0; }
 .receipt-brand-text { flex: 1; }
 .receipt-brand-name { font-family: var(--fd); font-size: .9rem; font-weight: 800; color: var(--t1); }
 .receipt-brand-meta { font-size: .66rem; color: var(--t3); margin-top: 1px; }
@@ -908,12 +383,7 @@ input, select { font-family: inherit; }
 .receipt-badge.processing, .receipt-badge.pending { background: var(--warnl); color: #92400e; }
 .receipt-badge.failed, .receipt-badge.refunded { background: var(--erl); color: #991b1b; }
 .receipt-badge.manual_review { background: var(--warnl); color: #92400e; }
-.receipt-amount {
-  text-align: center;
-  padding: 12px 0 18px;
-  border-bottom: 1px dashed var(--bdr);
-  margin-bottom: 16px;
-}
+.receipt-amount { text-align: center; padding: 12px 0 18px; border-bottom: 1px dashed var(--bdr); margin-bottom: 16px; }
 .receipt-amount-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--t3); margin-bottom: 4px; }
 .receipt-amount-value { font-family: var(--fd); font-size: 1.6rem; font-weight: 800; color: var(--p); }
 .receipt-amount-sub { font-size: .72rem; color: var(--t3); margin-top: 3px; }
@@ -922,271 +392,85 @@ input, select { font-family: inherit; }
 .receipt-row-label { color: var(--t3); flex-shrink: 0; }
 .receipt-row-value { font-weight: 600; color: var(--t1); text-align: right; word-break: break-word; }
 .receipt-row-value.highlight { font-family: var(--fd); font-weight: 800; color: var(--p); }
-.receipt-footer {
-  text-align: center;
-  font-size: .66rem;
-  color: var(--t3);
-  padding-top: 14px;
-  border-top: 1px dashed var(--bdr);
-  line-height: 1.5;
-}
+.receipt-footer { text-align: center; font-size: .66rem; color: var(--t3); padding-top: 14px; border-top: 1px dashed var(--bdr); line-height: 1.5; }
 .receipt-actions { display: flex; gap: 8px; padding: 0 22px 22px; }
-.receipt-actions button { flex: 1; padding: 11px; border-radius: var(--rp); font-size: .78rem; font-weight: 700; transition: var(--tr); }
+.receipt-actions button { flex: 1; padding: 13px; border-radius: var(--rp); font-size: .78rem; font-weight: 700; transition: var(--tr); min-height: 44px; }
 .receipt-btn-share { background: var(--srf2); color: var(--t1); border: 1px solid var(--bdr); }
 .receipt-btn-share:hover { border-color: var(--p); }
 .receipt-btn-close { background: var(--p); color: #fff; }
 .receipt-btn-close:hover { background: var(--pm); }
 
-/* TOAST */
-.toasts {
-  position: fixed;
-  bottom: 18px;
-  right: 18px;
-  z-index: 900;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 320px;
-}
-.toast {
-  background: var(--t1);
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: var(--rp);
-  font-size: .76rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: var(--s1);
-  animation: tIn .25s ease;
-}
-.toast.ok { background: var(--ok); }
-.toast.err { background: var(--err); }
-.toast.warn { background: var(--warn); }
+.pm-box { position: relative; width: 100%; max-width: 400px; background: var(--srf); border: 1px solid var(--bdr); border-radius: var(--rxl); box-shadow: 0 24px 70px rgba(0,0,0,.18); padding: 24px 22px; animation: atmIn .2s ease; }
+.pm-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pm-title { font-family: var(--fd); font-size: 1rem; font-weight: 800; color: var(--t1); }
+.pm-close { width: 36px; height: 36px; border-radius: 9px; background: var(--srf2); color: var(--t2); display: grid; place-items: center; }
+.pm-close:hover { background: var(--erl); color: var(--err); }
+.pm-sub { font-size: .76rem; color: var(--t3); margin-bottom: 18px; }
+.pm-inputs { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; }
+.pm-input { width: 52px; height: 58px; text-align: center; font-size: 1.4rem; font-weight: 700; border: 2px solid var(--bdr); border-radius: var(--r); background: var(--srf); color: var(--t1); outline: none; transition: var(--tr); }
+.pm-input:focus { border-color: var(--p); box-shadow: 0 0 0 3px var(--pl); }
+.pm-input.filled { border-color: var(--p); background: var(--pxl); }
+.pm-error { font-size: .72rem; color: var(--err); min-height: 18px; text-align: center; margin-bottom: 10px; opacity: 0; transition: opacity .15s; }
+.pm-error.show { opacity: 1; }
+.pm-confirm { width: 100%; padding: 13px; background: var(--p); color: #fff; border-radius: var(--rp); font-weight: 700; font-size: .86rem; border: none; cursor: pointer; transition: var(--tr); min-height: 48px; }
+.pm-confirm:hover:not(:disabled) { background: var(--pm); }
+.pm-confirm:disabled { opacity: .45; cursor: not-allowed; }
+.pm-cancel { width: 100%; padding: 11px; background: none; color: var(--t3); border: none; font-size: .76rem; cursor: pointer; margin-top: 6px; min-height: 40px; }
+.pm-cancel:hover { color: var(--t1); }
+
+.toasts { position: fixed; bottom: calc(18px + var(--safe-b)); right: 14px; left: 14px; z-index: 900; display: flex; flex-direction: column; gap: 6px; max-width: none; pointer-events: none; }
+@media(min-width: 641px) { .toasts { left: auto; right: 18px; max-width: 320px; } }
+.toast { background: var(--t1); color: #fff; padding: 12px 14px; border-radius: 12px; font-size: .78rem; display: flex; align-items: center; gap: 8px; box-shadow: var(--s1); animation: tIn .25s ease; pointer-events: auto; word-break: break-word; }
+.toast.ok { background: var(--ok); } .toast.err { background: var(--err); } .toast.warn { background: var(--warn); }
 @keyframes tIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
 
-/* RESPONSIVE */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 @media(max-width: 768px) {
-  .content { padding: 12px; }
+  .content { padding: 12px; padding-bottom: calc(90px + var(--safe-b)); }
   .form-section, .wallet-step, .preview-step, .result-step { padding: 16px; }
   .country-dropdown { width: 100%; left: 0; right: 0; }
-  .toasts { bottom: 12px; right: 12px; max-width: calc(100% - 24px); }
   .recipient-inline .r-amt { font-size: .84rem; }
 }
-
 @media(max-width: 480px) {
-  .topbar { padding: 0 10px; }
-  .tb-brand { font-size: .78rem; }
-  .tb-hbg { width: 34px; height: 34px; font-size: .8rem; }
-  .tb-icon-btn { width: 32px; height: 32px; font-size: .75rem; }
-  .tb-av { width: 30px; height: 30px; font-size: .7rem; }
+  .topbar { padding: calc(8px + var(--safe-t)) 10px 8px; }
+  .tb-brand { font-size: .8rem; }
+  .tb-hbg { width: 40px; height: 40px; font-size: .85rem; }
+  .tb-icon-btn { width: 38px; height: 38px; font-size: .78rem; }
+  .tb-av { width: 34px; height: 34px; font-size: .74rem; }
   .page-title { font-size: 1rem; }
   .amt-presets { gap: 4px; }
-  .amt-btn { padding: 5px 10px; font-size: .7rem; }
+  .amt-btn { padding: 7px 12px; font-size: .7rem; }
   .amt-custom { font-size: .84rem; }
   .operator-grid, .operator-loading-grid { grid-template-columns: repeat(2, 1fr); }
   .operator-card { padding: 12px 8px; min-height: 100px; }
   .operator-card .op-logo-wrap { width: 44px; height: 44px; }
   .dial-select { min-width: 78px; padding: 0 8px; font-size: .8rem; }
-  .result-actions button { font-size: .7rem; padding: 8px; min-width: 0; }
+  .result-actions button { font-size: .7rem; padding: 10px; min-width: 0; }
   .recipient-inline { max-width: 50%; }
   .atm-grid { grid-template-columns: 1fr; }
   .atm-row.full { grid-column: auto; }
   .receipt-inner { padding: 20px 18px; }
   .receipt-actions { padding: 0 18px 18px; }
+  .pm-input { width: 46px; height: 54px; font-size: 1.2rem; }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important;
-  }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 </style>
 </head>
 <script src="/js/session.js"></script>
-<script src="/js/presence.js"></script>
+<script src="/js/presence.js" defer></script>
 <script src="/js/miles-widget.js" defer></script>
 
 <body>
 
-<!-- ═══ OVERLAY ═══ -->
 <div class="ov" id="ov"></div>
 
-<!-- ═══ PIN MODAL ═══ -->
-<div class="pin-modal" id="pinModal" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
-  <div class="pm-bg" data-close="pinModal"></div>
-  <div class="pm-box">
-    <p class="pm-title" id="pmTitle">Confirm Payment</p>
-    <p class="pm-sub">Enter your 4-digit transaction PIN</p>
-    <div class="pm-error" id="pinError" role="alert">Invalid PIN. Please try again.</div>
-    <div class="pm-input-wrap" id="pinInputWrap">
-      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0" autocomplete="off" aria-label="PIN digit 1">
-      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1" autocomplete="off" aria-label="PIN digit 2">
-      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2" autocomplete="off" aria-label="PIN digit 3">
-      <input type="password" class="pm-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3" autocomplete="off" aria-label="PIN digit 4">
-    </div>
-    <div class="pm-actions">
-      <button class="pm-cancel" data-close="pinModal">Cancel</button>
-      <button class="pm-confirm" id="pmConfirm" disabled>Confirm</button>
-    </div>
-    <div class="pm-forgot">
-      <a id="forgotPinLink">Forgot PIN? Reset here</a>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ RESET PIN MODAL ═══ -->
-<div class="reset-modal" id="resetPinModal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
-  <div class="rm-bg" data-close="resetPinModal"></div>
-  <div class="rm-box">
-    <p class="rm-title" id="rmTitle">Reset Transaction PIN</p>
-    <p class="rm-sub" id="resetSub">We'll send a verification code to your email</p>
-
-    <div class="rm-steps" id="resetSteps">
-      <span class="rm-step-dot active" data-step="1"></span>
-      <span class="rm-step-dot" data-step="2"></span>
-      <span class="rm-step-dot" data-step="3"></span>
-      <span class="rm-step-dot" data-step="4"></span>
-    </div>
-
-    <div class="rm-step active" id="resetStep1">
-      <div class="step-title">Verify your identity</div>
-      <div class="step-desc">We'll send a 6-digit code to your registered email</div>
-      <div class="masked-email" id="resetMaskedEmail">m***@gmail.com</div>
-      <div class="rm-error" id="resetError1" role="alert"></div>
-      <div class="rm-actions">
-        <button class="rm-cancel" data-close="resetPinModal">Cancel</button>
-        <button class="rm-confirm" id="resetSendBtn">Send Code</button>
-      </div>
-    </div>
-
-    <div class="rm-step" id="resetStep2">
-      <div class="step-title">Enter verification code</div>
-      <div class="step-desc">Enter the 6-digit code sent to <span id="resetMaskedEmail2" style="font-weight:600;">m***@gmail.com</span></div>
-      <div class="rm-otp-inputs" id="resetOtpInputs">
-        <input type="text" class="rm-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0" autocomplete="off">
-        <input type="text" class="rm-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1" autocomplete="off">
-        <input type="text" class="rm-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2" autocomplete="off">
-        <input type="text" class="rm-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3" autocomplete="off">
-        <input type="text" class="rm-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="4" autocomplete="off">
-        <input type="text" class="rm-otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="5" autocomplete="off">
-      </div>
-      <div class="rm-error" id="resetError2" role="alert"></div>
-      <div class="rm-resend" id="resetResend">
-        <a id="resetResendLink">Resend code</a>
-        <span id="resetTimer" style="display:none;color:var(--t3)"> (<span id="resetTimerCount">60</span>s)</span>
-      </div>
-      <div class="rm-actions">
-        <button class="rm-cancel" data-close="resetPinModal">Cancel</button>
-        <button class="rm-confirm" id="resetVerifyBtn">Verify Code</button>
-      </div>
-    </div>
-
-    <div class="rm-step" id="resetStep3">
-      <div class="step-title">Set new PIN</div>
-      <div class="step-desc">Enter your new 4-digit transaction PIN</div>
-      <div style="margin-bottom:12px;">
-        <input type="password" id="resetNewPin" maxlength="4" inputmode="numeric" pattern="[0-9]" placeholder="New PIN" style="width:100%;padding:10px;text-align:center;font-size:1.2rem;letter-spacing:6px;border:2px solid var(--bdr);border-radius:var(--r);outline:none;background:var(--srf);margin-bottom:8px;">
-        <input type="password" id="resetConfirmPin" maxlength="4" inputmode="numeric" pattern="[0-9]" placeholder="Confirm PIN" style="width:100%;padding:10px;text-align:center;font-size:1.2rem;letter-spacing:6px;border:2px solid var(--bdr);border-radius:var(--r);outline:none;background:var(--srf);">
-      </div>
-      <div class="rm-error" id="resetError3" role="alert"></div>
-      <div class="rm-actions">
-        <button class="rm-cancel" data-close="resetPinModal">Cancel</button>
-        <button class="rm-confirm" id="resetConfirmBtn">Reset PIN</button>
-      </div>
-    </div>
-
-    <div class="rm-step" id="resetStep4">
-      <div class="rm-success">
-        <div class="icon"><i class="fas fa-check-circle"></i></div>
-        <div class="step-title" style="color:var(--ok);">PIN Reset Successful!</div>
-        <div class="step-desc">Your transaction PIN has been reset successfully.</div>
-      </div>
-      <div class="rm-actions">
-        <button class="rm-confirm" data-close="resetPinModal" id="resetDoneBtn">Continue</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ TRANSACTION DETAILS MODAL ═══ -->
-<div class="airtime-detail-modal" id="airtimeDetailModal" role="dialog" aria-modal="true" aria-labelledby="atmTitle">
-  <div class="atm-bg" data-close="airtimeDetailModal"></div>
-  <div class="atm-box">
-    <div class="atm-head">
-      <div>
-        <p class="atm-title" id="atmTitle">Airtime Transaction</p>
-        <p class="atm-sub" id="atmReference">—</p>
-      </div>
-      <button class="atm-close" data-close="airtimeDetailModal" aria-label="Close">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <div id="atmContent">
-      <div class="atm-loading">
-        <span class="spinner-sm"></span>
-        Loading transaction...
-      </div>
-    </div>
-    <div class="atm-actions">
-      <button class="atm-refresh" id="atmRefreshBtn">
-        <i class="fas fa-sync-alt"></i> Refresh
-      </button>
-      <button class="atm-close-btn" data-close="airtimeDetailModal">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ RECEIPT MODAL ═══ -->
-<div class="receipt-modal" id="receiptModal" role="dialog" aria-modal="true" aria-labelledby="rmTitleRec">
-  <div class="rm-bg-rec" data-close="receiptModal"></div>
-  <div class="receipt-box">
-    <div class="receipt-inner">
-      <div class="receipt-brand">
-        <div class="receipt-brand-logo"><i class="fas fa-globe"></i></div>
-        <div class="receipt-brand-text">
-          <p class="receipt-brand-name" id="rmTitleRec">MilesSpace Receipt</p>
-          <p class="receipt-brand-meta" id="receiptDate">—</p>
-        </div>
-        <span class="receipt-badge" id="receiptStatusBadge">—</span>
-      </div>
-
-      <div class="receipt-amount">
-        <div class="receipt-amount-label">Amount Sent</div>
-        <div class="receipt-amount-value" id="receiptAmount">—</div>
-        <div class="receipt-amount-sub" id="receiptAmountSub">—</div>
-      </div>
-
-      <div class="receipt-rows" id="receiptRows"></div>
-
-      <div class="receipt-footer" id="receiptFooter">
-        Thank you for using MilesSpace.<br>
-        Need help? Contact support with your reference.
-      </div>
-    </div>
-    <div class="receipt-actions">
-      <button class="receipt-btn-share" id="receiptShareBtn">
-        <i class="fas fa-share-alt"></i> Share
-      </button>
-      <button class="receipt-btn-close" data-close="receiptModal">
-        Close
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ APP ═══ -->
-<div class="app">
-
-  <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar" id="sb">
   <div class="sb-brand">
-    <div class="sb-logo">
-      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
-      MilesSpace
-    </div>
+    <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
+    MilesSpace
   </div>
   <p class="sb-sec">Menu</p>
   <nav class="sb-nav">
@@ -1195,7 +479,7 @@ input, select { font-family: inherit; }
     <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
     <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
     <a href="airtime.html" class="sb-lnk active"><i class="fas fa-globe"></i> Global Airtime</a>
-    <a href="bills.html" class="sb-lnk active"><i class="fas fa-file-invoice-dollar"></i> Airtime, Data & Bills</a>
+    <a href="bills.html" class="sb-lnk"><i class="fas fa-file-invoice-dollar"></i> Airtime, Data & Bills</a>
     <a href="esim.html" class="sb-lnk"><i class="fas fa-sim-card"></i> Buy eSIM</a>
     <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
     <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
@@ -1217,182 +501,167 @@ input, select { font-family: inherit; }
   </div>
 </aside>
 
-  <!-- ═══ MAIN ═══ -->
-  <div class="main">
-    <header class="topbar">
-      <button class="tb-hbg" id="hbg" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
-      <p class="tb-brand">MilesSpace</p>
-      <div class="tb-right">
-        <a href="notifications.html" class="tb-icon-btn" aria-label="Notifications"><i class="fas fa-bell"></i><span class="notif-dot"></span></a>
-        <div class="tb-av" id="tbAv">U</div>
-      </div>
-    </header>
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbg" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+    <p class="tb-brand">MilesSpace</p>
+    <div class="tb-right">
+      <a href="history.html" class="tb-icon-btn" title="Transaction history" aria-label="Transaction history"><i class="fas fa-history"></i></a>
+      <a href="notifications.html" class="tb-icon-btn" aria-label="Notifications"><i class="fas fa-bell"></i><span class="notif-dot"></span></a>
+      <a href="usersettings.html" class="tb-av" id="tbAv">U</a>
+    </div>
+  </header>
 
-    <main class="content">
-      <div class="air-page">
+  <main class="content">
+    <div class="air-page">
 
-        <p class="page-title">Global Airtime</p>
-        <p class="page-sub">Send any amount in USD. The recipient receives the exact equivalent in their local currency.</p>
+      <p class="page-title">Global Airtime</p>
+      <p class="page-sub">Send any amount in USD. The recipient receives the exact equivalent in their local currency.</p>
 
-        <!-- ═══ FORM STEP ═══ -->
-        <div class="form-section" id="formStep">
+      <!-- ══════════ STEP 1 — FORM ══════════ -->
+      <div class="form-section" id="formStep">
 
-          <div class="fs-block">
-            <p class="fs-label">Recipient's number</p>
-            <div class="phone-field" id="phoneField">
-              <button type="button" class="dial-select" id="countryChip" aria-haspopup="listbox" aria-expanded="false" aria-label="Choose country">
-                <span class="flag" id="countryFlag">🌐</span>
-                <span class="dial" id="countryCode">+--</span>
-                <i class="fas fa-chevron-down"></i>
-              </button>
-              <input type="tel" class="phone-input" id="phoneInput" placeholder="Phone number" aria-label="Mobile number" autocomplete="tel"/>
+        <div class="fs-block">
+          <p class="fs-label">Recipient's number</p>
+          <div class="phone-field" id="phoneField">
+            <button type="button" class="dial-select" id="countryChip" aria-haspopup="listbox" aria-expanded="false" aria-label="Choose country">
+              <span class="flag" id="countryFlag">🌐</span>
+              <span class="dial" id="countryCode">+--</span>
+              <i class="fas fa-chevron-down"></i>
+            </button>
+            <input type="tel" class="phone-input" id="phoneInput" placeholder="Phone number" aria-label="Mobile number" autocomplete="tel"/>
 
-              <div class="country-dropdown" id="countryList" role="listbox" aria-label="Select country">
-                <div class="search-wrap">
-                  <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="countrySearch" placeholder="Search country" aria-label="Search countries"/>
-                  </div>
+            <div class="country-dropdown" id="countryList" role="listbox" aria-label="Select country">
+              <div class="search-wrap">
+                <div class="search-box">
+                  <i class="fas fa-search"></i>
+                  <input type="text" id="countrySearch" placeholder="Search country" aria-label="Search countries"/>
                 </div>
-                <div id="countryListInner"></div>
               </div>
-            </div>
-            <p class="selected-country-note" id="countryName">Select a country to get started</p>
-          </div>
-
-          <div class="fs-block operator-section">
-            <p class="fs-label">Select network</p>
-            <div id="operatorContainer">
-              <div class="operator-empty"><i class="fas fa-sim-card"></i> Select a country to see available networks</div>
+              <div id="countryListInner"></div>
             </div>
           </div>
-
-          <div class="fs-block">
-            <p class="fs-label">Amount (USD) — any amount $1 to $500</p>
-            <div class="amt-presets" id="amtPresets">
-              <button class="amt-btn" data-amount="5">$5</button>
-              <button class="amt-btn" data-amount="10">$10</button>
-              <button class="amt-btn" data-amount="20">$20</button>
-              <button class="amt-btn" data-amount="50">$50</button>
-              <button class="amt-btn" data-amount="100">$100</button>
-            </div>
-
-            <div class="amt-combined">
-              <span class="amt-symbol">$</span>
-              <input type="number" class="amt-custom" id="amtCustom" placeholder="Or enter any amount" min="1" max="500" step="0.5" aria-label="Custom amount"/>
-              <div class="amt-divider"></div>
-              <div class="recipient-inline placeholder" id="recipientInline" title="Recipient receives — determined by the network">
-                <span class="r-amt" id="recipientAmountText">0.00</span>
-                <span class="r-cur" id="recipientCurText">—</span>
-              </div>
-            </div>
-
-            <div class="quote-loading" id="quoteLoading" role="status">
-              <span class="spinner-sm"></span>
-              Getting recipient amount...
-            </div>
-
-            <div class="quote-error" id="quoteError" role="alert">
-              <i class="fas fa-exclamation-circle"></i>
-              <span><span id="quoteErrorMsg">Could not get recipient amount</span> <button type="button" class="qe-retry" id="quoteRetryBtn">Try again</button></span>
-            </div>
-          </div>
-
-          <button class="btn-proceed" id="btnProceed" disabled>Proceed</button>
+          <p class="selected-country-note" id="countryName">Select a country to get started</p>
         </div>
 
-        <!-- ═══ WALLET STEP ═══ -->
-        <div class="wallet-step" id="walletStep">
-          <p class="ws-title">Select account to debit</p>
-          <p class="ws-sub">Choose which wallet to use for this purchase</p>
-          <div id="walletOptions"></div>
-          <button class="btn-continue" id="btnContinue" disabled>Continue</button>
-        </div>
-
-        <!-- ═══ PREVIEW STEP ═══ -->
-        <div class="preview-step" id="previewStep">
-          <p class="pv-title">Review airtime purchase</p>
-          <div class="pv-row"><span class="pv-lbl">Recipient</span><span class="pv-val" id="pvPhone">—</span></div>
-          <div class="pv-row"><span class="pv-lbl">Country</span><span class="pv-val" id="pvCountry">—</span></div>
-          <div class="pv-row"><span class="pv-lbl">Network</span><span class="pv-val" id="pvOperator">—</span></div>
-          <div class="pv-row"><span class="pv-lbl">Recipient receives</span><span class="pv-val" id="pvRecipient">—</span></div>
-          <div class="pv-row"><span class="pv-lbl">Airtime</span><span class="pv-val" id="pvAmount">—</span></div>
-          <div class="pv-row"><span class="pv-lbl">Fee</span><span class="pv-val" id="pvFee">—</span></div>
-          <div class="pv-row"><span class="pv-lbl">Payment</span><span class="pv-val" id="pvWallet">—</span></div>
-          <div class="pv-row"><span class="pv-lbl">You pay</span><span class="pv-val total" id="pvTotal">—</span></div>
-          <div class="pv-row balance-row" id="balanceRow">
-            <span class="pv-lbl" id="balanceLabel">Wallet balance</span>
-            <span class="pv-val" id="balanceValue">—</span>
-          </div>
-          <p class="pv-expiry" id="pvExpiry"></p>
-          <button class="btn-pay" id="btnPay"><i class="fas fa-lock"></i> Pay Now</button>
-          <button class="btn-back" id="btnBackWallet">← Back</button>
-        </div>
-
-        <!-- ═══ RESULT STEP ═══ -->
-        <div class="result-step" id="resultStep">
-          <div class="result-ic" id="resultIc"></div>
-          <p class="result-title" id="resultTitle"></p>
-          <p class="result-sub" id="resultSub"></p>
-          <div class="result-ref" id="resultRefWrap" style="display:none">
-            <span id="resultRef"></span>
-            <button id="copyRefBtn">Copy</button>
-          </div>
-          <div class="result-actions">
-            <button class="btn-receipt" id="btnViewReceipt"><i class="fas fa-receipt"></i> View Receipt</button>
-            <button class="btn-again" id="btnBuyAgain">Buy Again</button>
-            <button class="btn-done" onclick="location.href='history.html'">History</button>
+        <div class="fs-block operator-section">
+          <p class="fs-label">Select network</p>
+          <div id="operatorContainer">
+            <div class="operator-empty"><i class="fas fa-sim-card"></i> Select a country to see available networks</div>
           </div>
         </div>
 
-        <!-- ═══ HISTORY ═══ -->
-        <div class="history-section">
-          <div class="hs-header">
-            <span class="hs-title">Recent Airtime Purchases</span>
+        <div class="fs-block">
+          <p class="fs-label">Amount (USD) — any amount $1 to $500</p>
+          <div class="amt-presets" id="amtPresets">
+            <button class="amt-btn" data-amount="5">$5</button>
+            <button class="amt-btn" data-amount="10">$10</button>
+            <button class="amt-btn" data-amount="20">$20</button>
+            <button class="amt-btn" data-amount="50">$50</button>
+            <button class="amt-btn" data-amount="100">$100</button>
           </div>
-          <div class="history-list" id="historyList">
-            <div style="text-align:center;padding:20px;color:var(--t3);font-size:.76rem">No transactions yet</div>
+
+          <div class="amt-combined">
+            <span class="amt-symbol">$</span>
+            <input type="number" class="amt-custom" id="amtCustom" placeholder="Or enter any amount" min="1" max="500" step="0.5" aria-label="Custom amount"/>
+            <div class="amt-divider"></div>
+            <div class="recipient-inline placeholder" id="recipientInline" title="Recipient receives — determined by the network">
+              <span class="r-amt" id="recipientAmountText">0.00</span>
+              <span class="r-cur" id="recipientCurText">—</span>
+            </div>
+          </div>
+
+          <div class="quote-loading" id="quoteLoading" role="status">
+            <span class="spinner-sm"></span>
+            Loading...
+          </div>
+
+          <div class="quote-error" id="quoteError" role="alert">
+            <i class="fas fa-exclamation-circle"></i>
+            <span><span id="quoteErrorMsg">Something went wrong</span> <button type="button" class="qe-retry" id="quoteRetryBtn">Try again</button></span>
           </div>
         </div>
 
+        <button class="btn-proceed" id="btnProceed" disabled>Proceed</button>
       </div>
-    </main>
-  </div>
+
+      <!-- ══════════ STEP 2 — WALLET CARDS ══════════ -->
+      <div class="wallet-step" id="walletStep">
+        <p class="ws-title">Select account to debit</p>
+        <p class="ws-sub">Choose which wallet to use for this purchase</p>
+        <div id="walletOptions"></div>
+        <button class="btn-continue" id="btnContinue" disabled>Continue</button>
+      </div>
+
+      <!-- ══════════ STEP 3 — FINAL REVIEW + PAY ══════════ -->
+      <div class="preview-step" id="previewStep">
+        <p class="pv-title">Review airtime purchase</p>
+        <div class="pv-row"><span class="pv-lbl">Recipient</span><span class="pv-val" id="pvPhone">—</span></div>
+        <div class="pv-row"><span class="pv-lbl">Country</span><span class="pv-val" id="pvCountry">—</span></div>
+        <div class="pv-row"><span class="pv-lbl">Network</span><span class="pv-val" id="pvOperator">—</span></div>
+        <div class="pv-row"><span class="pv-lbl">Airtime</span><span class="pv-val" id="pvAmount">—</span></div>
+        <div class="pv-row"><span class="pv-lbl">Fee (2%)</span><span class="pv-val" id="pvFee">—</span></div>
+        <div class="pv-row"><span class="pv-lbl">Payment</span><span class="pv-val" id="pvWallet">—</span></div>
+        <div class="pv-row"><span class="pv-lbl">You pay</span><span class="pv-val total" id="pvTotal">—</span></div>
+        <div class="pv-row balance-row" id="balanceRow">
+          <span class="pv-lbl" id="balanceLabel">Wallet balance</span>
+          <span class="pv-val" id="balanceValue">—</span>
+        </div>
+        <button class="btn-pay" id="btnPay"><i class="fas fa-lock"></i> Pay Now</button>
+        <button class="btn-back" id="btnBackWallet">← Back to wallet</button>
+      </div>
+
+      <!-- ══════════ RESULT ══════════ -->
+      <div class="result-step" id="resultStep">
+        <div class="result-ic" id="resultIc"></div>
+        <p class="result-title" id="resultTitle"></p>
+        <p class="result-sub" id="resultSub"></p>
+        <div class="result-ref" id="resultRefWrap" style="display:none">
+          <span id="resultRef"></span>
+          <button id="copyRefBtn">Copy</button>
+        </div>
+        <div class="result-actions">
+          <button class="btn-receipt" id="btnViewReceipt"><i class="fas fa-receipt"></i> View Receipt</button>
+          <button class="btn-again" id="btnBuyAgain">Buy Again</button>
+          <button class="btn-done" onclick="location.href='history.html'">History</button>
+        </div>
+      </div>
+
+      <div class="history-section">
+        <div class="hs-header">
+          <span class="hs-title">Recent Airtime Purchases</span>
+        </div>
+        <div class="history-list" id="historyList">
+          <div style="text-align:center;padding:20px;color:var(--t3);font-size:.76rem">No transactions yet</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
 </div>
 
-<!-- ═══ TOASTS ═══ -->
 <div class="toasts" id="toastWrap" aria-live="polite"></div>
 
 <script>
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   MILESSPACE AIRTIME — production-optimized frontend
-   FRONTEND ONLY — all API endpoints, payloads, and response fields are
-   IDENTICAL to the previous implementation. No backend/API contract was
-   changed. See the accompanying message for the full audit.
-   - Redesigned country selector (search + flag + dial code + check)
-   - Redesigned network grid (logo-on-top cards, matches reference UI)
-   - Code splitting (dynamic imports with inline fallbacks)
-   - Lazy loading + predictive prefetching
-   - Debounce / throttle
-   - Memoization + localStorage caching
-   - Smart state management
-   - Stops polling when backend says completed
-   - Same-page receipt + transaction detail modal
-══════════════════════════════════════════════════════════════════════ */
+   MILESSPACE AIRTIME — THREE-STEP FLOW
+   ──────────────────────────────────────────────────────────────────────
+   Step 1  Proceed        → 2% breakdown shown locally. ZERO backend calls.
+   Step 2  Proceed again  → GET /airtime/me → NGN + USD wallet cards.
+   Step 3  Continue → Pay → PIN → POST /airtime/purchase (DT One here).
+   ══════════════════════════════════════════════════════════════════════ */
 
-/* ═══ CONFIG ═══ */
 const CONFIG = Object.freeze({
-  SK: 'mx_sess',
   API: '/api',
+  FEE_PERCENT: 0.02,
+  USD_TO_NGN: 1600,
   MIN_AMOUNT: 1,
   MAX_AMOUNT: 500,
-  QUOTE_DEBOUNCE_MS: 700,
-  PHONE_DEBOUNCE_MS: 250,
+  PHONE_DEBOUNCE_MS: 200,
   SEARCH_DEBOUNCE_MS: 150,
   TOAST_THROTTLE_MS: 120,
-  QUOTE_EXPIRY_WARN_SECONDS: 30,
   POLL_DELAYS: [2000, 3000, 5000, 8000, 10000, 15000, 30000],
   MAX_POLL_ATTEMPTS: 20,
   CACHE: Object.freeze({
@@ -1404,17 +673,11 @@ const CONFIG = Object.freeze({
   })
 });
 
-/* ═══ DOM HELPERS ═══ */
 const $ = (id) => document.getElementById(id);
 const $$ = (sel) => document.querySelectorAll(sel);
 const on = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts);
 
-/* ═══ MEMOIZATION ═══ */
-const memo = {
-  money: new Map(),
-  symbol: new Map()
-};
-
+const memo = { money: new Map(), symbol: new Map() };
 function formatMoney(amount) {
   if (amount === null || amount === undefined || isNaN(amount)) return '0.00';
   const key = String(amount);
@@ -1426,7 +689,6 @@ function formatMoney(amount) {
   memo.money.set(key, out);
   return out;
 }
-
 function getSymbol(currency) {
   const c = String(currency || 'USD').toUpperCase();
   if (memo.symbol.has(c)) return memo.symbol.get(c);
@@ -1435,42 +697,25 @@ function getSymbol(currency) {
   memo.symbol.set(c, out);
   return out;
 }
-
 function formatMoneyWithSymbol(amount, currency = 'USD') {
   return `${getSymbol(currency)}${formatMoney(amount)}`;
 }
 
-/* ═══ DEBOUNCE / THROTTLE ═══ */
 function debounce(fn, ms) {
   let timer = null;
-  const wrapped = (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
+  const wrapped = (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
   wrapped.cancel = () => clearTimeout(timer);
-  wrapped.flush = (...args) => { clearTimeout(timer); fn(...args); };
   return wrapped;
 }
-
 function throttle(fn, ms) {
-  let last = 0;
-  let pending = null;
+  let last = 0, pending = null;
   return (...args) => {
     const now = Date.now();
-    if (now - last >= ms) {
-      last = now;
-      fn(...args);
-    } else if (!pending) {
-      pending = setTimeout(() => {
-        last = Date.now();
-        pending = null;
-        fn(...args);
-      }, ms - (now - last));
-    }
+    if (now - last >= ms) { last = now; fn(...args); }
+    else if (!pending) { pending = setTimeout(() => { last = Date.now(); pending = null; fn(...args); }, ms - (now - last)); }
   };
 }
 
-/* ═══ SMART LOCAL CACHE ═══ */
 const localCache = {
   getCountries() {
     try {
@@ -1481,11 +726,7 @@ const localCache = {
       return data;
     } catch { return null; }
   },
-  setCountries(data) {
-    try {
-      localStorage.setItem(CONFIG.CACHE.COUNTRIES_KEY, JSON.stringify({ data, ts: Date.now() }));
-    } catch {}
-  },
+  setCountries(data) { try { localStorage.setItem(CONFIG.CACHE.COUNTRIES_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {} },
   getOperators(code) {
     try {
       const raw = localStorage.getItem(`${CONFIG.CACHE.OPERATORS_KEY}_${code.toUpperCase()}`);
@@ -1495,191 +736,137 @@ const localCache = {
       return data;
     } catch { return null; }
   },
-  setOperators(code, data) {
-    try {
-      localStorage.setItem(`${CONFIG.CACHE.OPERATORS_KEY}_${code.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() }));
-    } catch {}
-  },
-  getLastCountry() {
-    try { return localStorage.getItem(CONFIG.CACHE.LAST_COUNTRY_KEY); } catch { return null; }
-  },
-  setLastCountry(code) {
-    try { localStorage.setItem(CONFIG.CACHE.LAST_COUNTRY_KEY, code); } catch {}
-  }
+  setOperators(code, data) { try { localStorage.setItem(`${CONFIG.CACHE.OPERATORS_KEY}_${code.toUpperCase()}`, JSON.stringify({ data, ts: Date.now() })); } catch {} },
+  getLastCountry() { try { return localStorage.getItem(CONFIG.CACHE.LAST_COUNTRY_KEY); } catch { return null; } },
+  setLastCountry(code) { try { localStorage.setItem(CONFIG.CACHE.LAST_COUNTRY_KEY, code); } catch {} }
 };
 
-/* ═══ LAZY MODULES (kept inline; dynamic import falls back gracefully) ═══ */
-const lazyModules = { resetPin: null, receipt: null };
-
-async function loadLazyModule(name) {
-  if (lazyModules[name]) return lazyModules[name];
-  try {
-    const mod = await import(`/js/airtime/${name}.js`);
-    lazyModules[name] = mod.default || mod;
-    return lazyModules[name];
-  } catch {
-    if (name === 'resetPin') lazyModules.resetPin = { open: openResetPinModal, close: closeResetPinModal };
-    else if (name === 'receipt') lazyModules.receipt = { open: openReceiptModal, close: closeReceiptModal };
-    return lazyModules[name];
-  }
+function getCurrentUser() { return (typeof window.getUser === 'function') ? window.getUser() : null; }
+function redirectToLogin() {
+  if (typeof window.redirectToUserLogin === 'function') window.redirectToUserLogin();
+  else window.location.replace('/login.html');
 }
-
-/* ═══ AUTH ═══ */
-function getSess() {
-  try {
-    return JSON.parse(localStorage.getItem(CONFIG.SK) || sessionStorage.getItem(CONFIG.SK) || 'null');
-  } catch { return null; }
-}
-
-function getToken() { return getSess()?.token || ''; }
-
 function checkSession() {
-  if (!getSess()?.token) {
-    toast('Please login to access this page', 'warn');
-    setTimeout(() => { window.location.href = '/login.html'; }, 1500);
-    return false;
-  }
+  const user = getCurrentUser();
+  if (!user) { toast('Please login to access this page', 'warn'); setTimeout(redirectToLogin, 1500); return false; }
   return true;
 }
 
-/* ═══ API — endpoints, payloads and response fields are UNCHANGED ═══ */
 async function api(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const fetcher = (typeof window.userFetch === 'function')
+    ? window.userFetch
+    : (url, o) => fetch(url, { ...o, credentials: 'include' });
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
-
-  const response = await fetch(CONFIG.API + path, { ...opts, headers });
+  const response = await fetcher(CONFIG.API + path, { ...opts, headers });
   const data = await response.json().catch(() => ({}));
-
-  if (response.status === 401) {
-    localStorage.removeItem(CONFIG.SK);
-    sessionStorage.removeItem(CONFIG.SK);
-    window.location.href = '/login.html';
-    throw new Error('Session expired');
-  }
+  if (response.status === 401) { redirectToLogin(); throw new Error('Session expired'); }
   if (!response.ok) {
     const err = new Error(data.error || `HTTP ${response.status}`);
-    err.code = data.code;
-    err.data = data.data;
+    err.code = data.code; err.data = data.data;
     throw err;
   }
   return data;
 }
 
-/* ═══ TOAST (throttled) ═══ */
 const showToast = throttle((msg, type = 'info') => {
   const container = $('toastWrap');
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   const icons = { ok: 'fa-check-circle', err: 'fa-times-circle', warn: 'fa-exclamation-circle' };
-  el.innerHTML = `<i class="fas ${icons[type] || 'fa-info-circle'}"></i> ${msg}`;
+  el.innerHTML = `<i class="fas ${icons[type] || 'fa-info-circle'}"></i> ${escapeHtml(msg)}`;
   container.appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }, CONFIG.TOAST_THROTTLE_MS);
-
 function toast(msg, type = 'info') { showToast(msg, type); }
 
-/* ═══ CENTRAL STATE ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   STATE
+   ══════════════════════════════════════════════════════════════════════ */
 const state = {
-  country: null,
-  phoneNumber: '',
-  operator: null,
-  sendAmount: 0,
-
-  quoteId: null,
-  quoteExpires: null,
-  quote: null,
-  pricing: null,
-  wallets: null,
-  recipientAmount: 0,
-  recipientCurrency: null,
-
-  selectedWallet: null,
+  country: null, phoneNumber: '', operator: null, sendAmount: 0,
+  feeUSD: 0, totalUSD: 0, totalNGN: 0,
   balances: { ngn: 0, usd: 0 },
-
-  transaction: null,
-  idempotencyKey: null,
-  isProcessing: false,
-
-  pollTimer: null,
-  pollAttempts: 0,
-
+  selectedWallet: null,
+  transaction: null, idempotencyKey: null, isProcessing: false,
+  pollTimer: null, pollAttempts: 0,
   countries: [],
-  countriesByCode: new Map(),
   operatorsByCountry: new Map(),
-
-  quoteAbort: null,
-  operatorAbort: null,
-  quoteRequestId: 0,
-  operatorRequestId: 0,
-
-  resetToken: null,
-  resetTimer: null
+  operatorAbort: null, operatorRequestId: 0,
+  step: 'form'   // 'form' | 'breakdown' | 'wallet' | 'review' | 'result'
 };
-
 function updateState(patch) { Object.assign(state, patch); }
 
-/* ═══ SIDEBAR ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════════════════════════════════════════ */
 function initSidebar() {
   const sb = $('sb'), ov = $('ov'), hbg = $('hbg');
-  on(hbg, 'click', () => { sb.classList.toggle('open'); ov.classList.toggle('on'); });
-  on(ov, 'click', () => { sb.classList.remove('open'); ov.classList.remove('on'); });
+  if (!sb || !ov || !hbg) return;
+  if (sb.dataset.bound === '1') return;
+  sb.dataset.bound = '1';
+  const close = () => { sb.classList.remove('open'); ov.classList.remove('on'); document.body.classList.remove('sb-open'); };
+  const open = () => { sb.classList.add('open'); ov.classList.add('on'); document.body.classList.add('sb-open'); };
+  hbg.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); sb.classList.contains('open') ? close() : open(); });
+  ov.addEventListener('click', close);
+  sb.querySelectorAll('.sb-lnk').forEach(link => link.addEventListener('click', () => close()));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sb.classList.contains('open')) close(); });
+  window.addEventListener('resize', () => { if (!sb.classList.contains('open')) { ov.classList.remove('on'); document.body.classList.remove('sb-open'); } });
 }
 
 function loadUser() {
-  const user = getSess()?.user;
+  const user = getCurrentUser();
   if (!user) return;
   const name = user.username || user.email?.split('@')[0] || 'User';
-  $('sbName').textContent = name;
-  $('sbEmail').textContent = user.email || '';
-  const init = name.charAt(0).toUpperCase();
-  $('sbAv').textContent = init;
-  $('tbAv').textContent = init;
+  const init = name.charAt(0).toUpperCase() || 'U';
+  const nameEl = $('sbName'), emailEl = $('sbEmail'), sbAv = $('sbAv'), tbAv = $('tbAv');
+  if (nameEl) nameEl.textContent = name;
+  if (emailEl) emailEl.textContent = user.email || '';
+  if (sbAv) sbAv.textContent = init;
+  if (tbAv) tbAv.textContent = init;
 }
-
-/* ═══ MODALS — unified close via data-close attribute ═══ */
-document.addEventListener('click', (e) => {
-  const closeId = e.target.closest('[data-close]')?.dataset.close;
-  if (closeId) $(closeId)?.classList.remove('on');
-});
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    ['pinModal', 'resetPinModal', 'airtimeDetailModal', 'receiptModal'].forEach(id => {
-      $(id)?.classList.remove('on');
-    });
     if ($('countryList')?.classList.contains('open')) closeCountryList();
     if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; }
   }
 });
 
-/* ═══ COUNTRY MANAGEMENT — uses EXISTING GET /airtime/countries only ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   STEP VISIBILITY
+   ══════════════════════════════════════════════════════════════════════ */
+function showStep(step) {
+  updateState({ step });
+  $('formStep').style.display = step === 'form' ? 'block' : 'none';
+  $('walletStep').style.display = step === 'wallet' ? 'block' : 'none';
+  $('previewStep').style.display = (step === 'review' || step === 'breakdown') ? 'block' : 'none';
+  $('resultStep').style.display = step === 'result' ? 'block' : 'none';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   COUNTRIES
+   ══════════════════════════════════════════════════════════════════════ */
 async function loadCountries() {
   if (!checkSession()) return;
-
   const cached = localCache.getCountries();
   if (cached && cached.length) {
-    updateState({ countries: cached, countriesByCode: new Map(cached.map(c => [c.code, c])) });
+    updateState({ countries: cached });
     renderCountries();
     const lastCode = localCache.getLastCountry();
     if (lastCode) prefetchOperators(lastCode);
   }
-
   try {
     const response = await api('/airtime/countries');
     if (response.success && response.data) {
-      updateState({ countries: response.data, countriesByCode: new Map(response.data.map(c => [c.code, c])) });
+      updateState({ countries: response.data });
       localCache.setCountries(response.data);
       renderCountries();
     }
   } catch (error) {
-    if (!error.message?.includes('Session expired')) {
-      toast('Failed to load countries', 'warn');
-    }
+    if (!error.message?.includes('Session expired')) toast('Failed to load countries', 'warn');
   }
 }
-
 function renderCountries(filter = '') {
   const inner = $('countryListInner');
   const fragment = document.createDocumentFragment();
@@ -1687,7 +874,6 @@ function renderCountries(filter = '') {
   const list = q
     ? state.countries.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || (c.dial || '').includes(q))
     : state.countries;
-
   if (!list.length) {
     inner.replaceChildren();
     const empty = document.createElement('div');
@@ -1696,9 +882,7 @@ function renderCountries(filter = '') {
     inner.appendChild(empty);
     return;
   }
-
   const selectedCode = state.country?.code;
-
   list.slice(0, 250).forEach(c => {
     const isSelected = c.code === selectedCode;
     const div = document.createElement('div');
@@ -1711,23 +895,15 @@ function renderCountries(filter = '') {
     div.setAttribute('role', 'option');
     div.setAttribute('aria-selected', String(isSelected));
     div.tabIndex = 0;
-    div.innerHTML = `
-      <span class="c-flag">${c.flag || '🌐'}</span>
-      <span class="c-name">${escapeHtml(c.name)}</span>
-      <span class="c-dial">${c.dial || '+' + c.code}</span>
-      <span class="c-check"><i class="fas fa-check"></i></span>
-    `;
+    div.innerHTML = `<span class="c-flag">${c.flag || '🌐'}</span><span class="c-name">${escapeHtml(c.name)}</span><span class="c-dial">${c.dial || '+' + c.code}</span><span class="c-check"><i class="fas fa-check"></i></span>`;
     fragment.appendChild(div);
   });
-
   inner.replaceChildren(fragment);
 }
-
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m] || m));
 }
-
 function openCountryList() {
   $('countryList').classList.add('open');
   $('countryChip').setAttribute('aria-expanded', 'true');
@@ -1740,54 +916,31 @@ function closeCountryList() {
   $('countrySearch').value = '';
 }
 function toggleCountryList() {
-  const isOpen = $('countryList').classList.contains('open');
-  isOpen ? closeCountryList() : openCountryList();
+  $('countryList').classList.contains('open') ? closeCountryList() : openCountryList();
 }
-
 const searchCountriesDebounced = debounce((q) => renderCountries(q), CONFIG.SEARCH_DEBOUNCE_MS);
 on($('countrySearch'), 'input', (e) => searchCountriesDebounced(e.target.value));
 on($('countrySearch'), 'click', (e) => e.stopPropagation());
-
-// Event delegation for country list (click + keyboard)
-function selectCountryFromEl(item) {
-  if (!item) return;
-  selectCountry(item.dataset.code, item.dataset.iso2, item.dataset.name, item.dataset.flag, item.dataset.dial);
-}
+function selectCountryFromEl(item) { if (!item) return; selectCountry(item.dataset.code, item.dataset.iso2, item.dataset.name, item.dataset.flag, item.dataset.dial); }
 on($('countryListInner'), 'click', (e) => selectCountryFromEl(e.target.closest('.country-item')));
 on($('countryListInner'), 'keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    const item = e.target.closest('.country-item');
-    if (item) { e.preventDefault(); selectCountryFromEl(item); }
-  }
+  if (e.key === 'Enter' || e.key === ' ') { const item = e.target.closest('.country-item'); if (item) { e.preventDefault(); selectCountryFromEl(item); } }
 });
-
 async function selectCountry(code, iso2, name, flag, dial) {
-  clearQuoteTimer();
-
-  updateState({
-    country: { code, iso2, name, flag, dial },
-    operator: null,
-    phoneNumber: ''
-  });
-
+  updateState({ country: { code, iso2, name, flag, dial }, operator: null, phoneNumber: '' });
   localCache.setLastCountry(code);
-
   $('countryFlag').textContent = flag || '🌐';
   $('countryCode').textContent = dial || '+' + code;
   $('countryName').innerHTML = `Sending airtime to <strong>${escapeHtml(name)}</strong>`;
   closeCountryList();
   $('phoneInput').value = '';
   $('phoneField').classList.remove('err');
-
-  clearQuoteState();
-  resetAmountUI();
+  invalidateBreakdown();
   updateProceedState();
-
   await loadOperators(code);
   $('phoneInput')?.focus();
 }
 
-/* ═══ OPERATOR MANAGEMENT — uses EXISTING GET /airtime/operators?country= only ═══ */
 function operatorSkeleton(count = 6) {
   const wrap = document.createElement('div');
   wrap.className = 'operator-loading-grid';
@@ -1799,14 +952,11 @@ function operatorSkeleton(count = 6) {
   }
   return wrap;
 }
-
 async function loadOperators(countryCode) {
   const code = countryCode.toUpperCase();
   const container = $('operatorContainer');
-
   const memCached = state.operatorsByCountry.get(code);
   const diskCached = memCached || localCache.getOperators(code);
-
   if (diskCached && diskCached.length) {
     renderOperators(diskCached);
     if (!memCached) state.operatorsByCountry.set(code, diskCached);
@@ -1814,48 +964,27 @@ async function loadOperators(countryCode) {
     container.replaceChildren();
     container.appendChild(operatorSkeleton());
   }
-
   state.operatorRequestId++;
   const requestId = state.operatorRequestId;
-
   if (state.operatorAbort) state.operatorAbort.abort();
   state.operatorAbort = new AbortController();
-
   try {
-    const response = await api(
-      `/airtime/operators?country=${encodeURIComponent(code)}`,
-      { signal: state.operatorAbort.signal }
-    );
-
+    const response = await api(`/airtime/operators?country=${encodeURIComponent(code)}`, { signal: state.operatorAbort.signal });
     if (requestId !== state.operatorRequestId) return;
-
     if (!response.success || !Array.isArray(response.data)) {
-      if (!diskCached) {
-        container.innerHTML = `<div class="operator-empty"><i class="fas fa-info-circle"></i> No networks available for this country</div>`;
-      }
+      if (!diskCached) container.innerHTML = `<div class="operator-empty"><i class="fas fa-info-circle"></i> No networks available for this country</div>`;
       return;
     }
-
     state.operatorsByCountry.set(code, response.data);
     localCache.setOperators(code, response.data);
     renderOperators(response.data);
   } catch (error) {
     if (error.name === 'AbortError') return;
     if (requestId !== state.operatorRequestId) return;
-    if (!diskCached) {
-      container.innerHTML = `
-        <div class="operator-error">
-          <i class="fas fa-exclamation-circle"></i>
-          Couldn't load networks for this country.
-          <button type="button" data-retry-country="${code}">Try Again</button>
-        </div>
-      `;
-    } else {
-      toast('Could not refresh networks — showing cached list', 'warn');
-    }
+    if (!diskCached) container.innerHTML = `<div class="operator-error"><i class="fas fa-exclamation-circle"></i> Couldn't load networks for this country. <button type="button" data-retry-country="${code}">Try Again</button></div>`;
+    else toast('Could not refresh networks — showing cached list', 'warn');
   }
 }
-
 on($('operatorContainer'), 'click', (e) => {
   const retryBtn = e.target.closest('[data-retry-country]');
   if (retryBtn) { loadOperators(retryBtn.dataset.retryCountry); return; }
@@ -1870,24 +999,18 @@ on($('operatorContainer'), 'keydown', (e) => {
   e.preventDefault();
   selectOperator(opt.dataset.operatorId, opt.dataset.operatorName, opt.dataset.operatorLogo);
 });
-
 function renderOperators(operators) {
   const container = $('operatorContainer');
-
   if (!Array.isArray(operators) || operators.length === 0) {
     container.innerHTML = `<div class="operator-empty"><i class="fas fa-info-circle"></i> No networks available for this country</div>`;
     return;
   }
-
   const grid = document.createElement('div');
   grid.className = 'operator-grid';
   const fragment = document.createDocumentFragment();
   const selectedId = state.operator?.id;
-
   operators.forEach(op => {
-    const isFixedOnly = op.supportsVariableAmount === false;
     const isSelected = selectedId !== undefined && String(selectedId) === String(op.id);
-
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'operator-card' + (isSelected ? ' selected' : '');
@@ -1895,138 +1018,80 @@ function renderOperators(operators) {
     btn.dataset.operatorName = op.name;
     btn.dataset.operatorLogo = op.logo || '';
     btn.setAttribute('aria-pressed', String(isSelected));
-
-    btn.innerHTML = `
-      ${isFixedOnly ? '<span class="op-badge">Fixed</span>' : ''}
-      <span class="op-logo-wrap">
-        <img src="${escapeHtml(op.logo || '/images/network-default.png')}" alt="" loading="lazy" decoding="async"
-             onerror="this.onerror=null;this.src='/images/network-default.png';">
-      </span>
-      <span class="op-name">${escapeHtml(op.name)}</span>
-    `;
+    btn.innerHTML = `<span class="op-logo-wrap"><img src="${escapeHtml(op.logo || '/images/network-default.png')}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/network-default.png';"></span><span class="op-name">${escapeHtml(op.name)}</span>`;
     fragment.appendChild(btn);
   });
-
   grid.appendChild(fragment);
   container.replaceChildren(grid);
 }
-
 function selectOperator(id, name, logo) {
   updateState({ operator: { id, name, logo } });
-  clearQuoteTimer();
-  clearQuoteState();
-  resetAmountUI();
-
   $$('.operator-card').forEach(el => {
     const isSel = el.dataset.operatorId === String(id);
     el.classList.toggle('selected', isSel);
     el.setAttribute('aria-pressed', String(isSel));
   });
-
+  invalidateBreakdown();
   updateProceedState();
-
-  if (state.sendAmount > 0 && state.phoneNumber.length >= 7) {
-    requestQuote();
-  }
 }
-
-/* ═══ PREFETCHING ═══ */
 function prefetchOperators(countryCode) {
   const code = countryCode.toUpperCase();
   if (state.operatorsByCountry.has(code) || localCache.getOperators(code)) return;
   api(`/airtime/operators?country=${encodeURIComponent(code)}`)
-    .then(res => {
-      if (res?.success && Array.isArray(res.data)) {
-        state.operatorsByCountry.set(code, res.data);
-        localCache.setOperators(code, res.data);
-      }
-    })
+    .then(res => { if (res?.success && Array.isArray(res.data)) { state.operatorsByCountry.set(code, res.data); localCache.setOperators(code, res.data); } })
     .catch(() => {});
 }
+function prefetchCommonOperators() { const lastCode = localCache.getLastCountry(); if (lastCode) prefetchOperators(lastCode); }
 
-function prefetchCommonOperators() {
-  const lastCode = localCache.getLastCountry();
-  if (lastCode) prefetchOperators(lastCode);
-}
-
-/* ═══ PHONE ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   PHONE + AMOUNT
+   ══════════════════════════════════════════════════════════════════════ */
 const onPhoneChangeDebounced = debounce((value) => {
   updateState({ phoneNumber: value });
-  clearQuoteState();
-  resetAmountUI();
+  invalidateBreakdown();
   updateProceedState();
-  if (state.sendAmount > 0 && state.operator) requestQuote();
 }, CONFIG.PHONE_DEBOUNCE_MS);
-
 on($('phoneInput'), 'input', (e) => {
   const cleaned = e.target.value.replace(/\D/g, '');
   e.target.value = cleaned;
   $('phoneField').classList.remove('err');
   onPhoneChangeDebounced(cleaned);
 });
+on($('phoneInput'), 'keydown', (e) => { if (e.key === 'Enter' && !$('btnProceed').disabled) $('btnProceed').click(); });
 
-on($('phoneInput'), 'keydown', (e) => {
-  if (e.key === 'Enter' && !$('btnProceed').disabled) $('btnProceed').click();
-});
-
-/* ═══ AMOUNT ═══ */
 on($('amtPresets'), 'click', (e) => {
   const btn = e.target.closest('.amt-btn');
   if (!btn) return;
   const amt = parseFloat(btn.dataset.amount);
   if (!isNaN(amt) && amt > 0) setAmount(amt);
 });
-
 function setAmount(amt) {
   updateState({ sendAmount: amt });
-  clearQuoteTimer();
-  clearQuoteState();
-
-  $$('.amt-btn').forEach(b => {
-    b.classList.toggle('active', parseFloat(b.dataset.amount) === amt);
-  });
+  $$('.amt-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.amount) === amt));
   $('amtCustom').value = amt;
-
-  setRecipientDisplay(null, null);
-  $('quoteError').classList.remove('visible');
-  $('quoteLoading').classList.remove('visible');
+  invalidateBreakdown();
   updateProceedState();
-
-  if (state.phoneNumber.length >= 7 && state.operator) {
-    requestQuote();
-  }
 }
-
 const onCustomAmountDebounced = debounce((value) => {
   const num = parseFloat(value);
   $$('.amt-btn').forEach(b => b.classList.remove('active'));
-
   if (!isNaN(num) && num > 0) {
     updateState({ sendAmount: num });
-    clearQuoteTimer();
-    clearQuoteState();
-    setRecipientDisplay(null, null);
-    $('quoteError').classList.remove('visible');
-    $('quoteLoading').classList.remove('visible');
+    invalidateBreakdown();
     updateProceedState();
-
-    if (state.phoneNumber.length >= 7 && state.operator) {
-      requestQuote();
-    }
   } else {
     updateState({ sendAmount: 0 });
-    clearQuoteState();
-    setRecipientDisplay(null, null);
+    invalidateBreakdown();
     updateProceedState();
   }
-}, CONFIG.QUOTE_DEBOUNCE_MS);
-
+}, CONFIG.PHONE_DEBOUNCE_MS);
 on($('amtCustom'), 'input', (e) => onCustomAmountDebounced(e.target.value));
 
+/* ══════════════════════════════════════════════════════════════════════
+   INLINE RECIPIENT HINT (next to amount input)
+   ══════════════════════════════════════════════════════════════════════ */
 function setRecipientDisplay(amount, currency) {
-  const inline = $('recipientInline');
-  const amtEl = $('recipientAmountText');
-  const curEl = $('recipientCurText');
+  const inline = $('recipientInline'), amtEl = $('recipientAmountText'), curEl = $('recipientCurText');
   if (amount === null || amount === undefined) {
     inline.classList.add('placeholder');
     amtEl.textContent = '0.00';
@@ -2038,146 +1103,100 @@ function setRecipientDisplay(amount, currency) {
   }
 }
 
-function clearQuoteState() {
-  updateState({
-    quoteId: null,
-    quote: null,
-    quoteExpires: null,
-    recipientAmount: 0,
-    recipientCurrency: null,
-    pricing: null,
-    wallets: null
-  });
-}
-
-function resetAmountUI() {
-  $('quoteLoading').classList.remove('visible');
-  $('quoteError').classList.remove('visible');
+function invalidateBreakdown() {
+  updateState({ feeUSD: 0, totalUSD: 0, totalNGN: 0, selectedWallet: null, idempotencyKey: null });
+  showStep('form');
   setRecipientDisplay(null, null);
-}
-
-/* ═══ QUOTE — uses EXISTING POST /airtime/quote only, same body fields ═══ */
-let quoteTimer = null;
-
-function clearQuoteTimer() {
-  if (quoteTimer) { clearTimeout(quoteTimer); quoteTimer = null; }
-  if (state.quoteAbort) { state.quoteAbort.abort(); state.quoteAbort = null; }
-}
-
-on($('quoteRetryBtn'), 'click', () => {
   $('quoteError').classList.remove('visible');
-  requestQuote();
-});
-
-function requestQuote() {
-  clearQuoteTimer();
-
-  if (!state.country || !state.operator || state.phoneNumber.length < 7 || state.sendAmount <= 0) return;
-  if (state.sendAmount < CONFIG.MIN_AMOUNT || state.sendAmount > CONFIG.MAX_AMOUNT) {
-    $('quoteErrorMsg').textContent = `Amount must be $${CONFIG.MIN_AMOUNT}–$${CONFIG.MAX_AMOUNT}`;
-    $('quoteError').classList.add('visible');
-    return;
-  }
-
-  $('quoteError').classList.remove('visible');
-  $('quoteLoading').classList.add('visible');
-
-  quoteTimer = setTimeout(async () => {
-    const requestId = ++state.quoteRequestId;
-
-    if (state.quoteAbort) state.quoteAbort.abort();
-    state.quoteAbort = new AbortController();
-
-    try {
-      const response = await api('/airtime/quote', {
-        method: 'POST',
-        body: JSON.stringify({
-          country: state.country.code,
-          phone: state.phoneNumber,
-          operator_id: state.operator.id,
-          source_amount_usd: state.sendAmount
-        }),
-        signal: state.quoteAbort.signal
-      });
-
-      if (requestId !== state.quoteRequestId) return;
-
-      if (response.success && response.data) {
-        applyQuote(response.data);
-      } else {
-        $('quoteErrorMsg').textContent = response.error || 'Could not get recipient amount';
-        $('quoteError').classList.add('visible');
-      }
-    } catch (error) {
-      if (error.name === 'AbortError') return;
-      if (requestId !== state.quoteRequestId) return;
-      $('quoteErrorMsg').textContent = error.message || 'Could not get recipient amount';
-      $('quoteError').classList.add('visible');
-    } finally {
-      if (requestId === state.quoteRequestId) {
-        $('quoteLoading').classList.remove('visible');
-      }
-    }
-  }, CONFIG.QUOTE_DEBOUNCE_MS);
+  $('quoteLoading').classList.remove('visible');
 }
 
-function applyQuote(data) {
-  updateState({
-    quote: data,
-    quoteId: data.quote_id,
-    quoteExpires: data.expires_at,
-    recipientAmount: data.destination?.amount || 0,
-    recipientCurrency: data.destination?.currency || 'NGN',
-    pricing: data.pricing || null,
-    wallets: data.wallets || null
-  });
-
-  setRecipientDisplay(state.recipientAmount, state.recipientCurrency);
-  $('quoteError').classList.remove('visible');
-  updateProceedState();
-}
-
+/* ══════════════════════════════════════════════════════════════════════
+   PROCEED BUTTON — single handler, three behaviours
+   ══════════════════════════════════════════════════════════════════════ */
 function updateProceedState() {
-  const hasQuote = Boolean(state.quoteId && state.quote && state.sendAmount > 0);
-  const valid = state.country && state.operator &&
+  const valid =
+    state.country &&
+    state.operator &&
     state.phoneNumber.length >= 7 &&
     state.sendAmount >= CONFIG.MIN_AMOUNT &&
-    state.sendAmount <= CONFIG.MAX_AMOUNT &&
-    hasQuote;
+    state.sendAmount <= CONFIG.MAX_AMOUNT;
   $('btnProceed').disabled = !valid;
 }
 
-function isQuoteExpired() {
-  return state.quoteExpires ? new Date(state.quoteExpires).getTime() <= Date.now() : false;
-}
+on($('btnProceed'), 'click', onProceedClick);
 
-/* ═══ WALLET — uses EXISTING GET /airtime/me only ═══ */
-on($('btnProceed'), 'click', goToWallet);
-
-async function goToWallet() {
-  if (!state.quoteId || !state.quote) { toast('Wait for a valid quote', 'warn'); return; }
-  if (isQuoteExpired()) {
-    toast('Quote expired. Request a fresh quote.', 'warn');
-    clearQuoteState();
-    updateProceedState();
+async function onProceedClick() {
+  if (state.step === 'form') {
+    showBreakdown();
     return;
   }
+  if (state.step === 'breakdown') {
+    await showWalletStep();
+    return;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   STEP 1 → STEP 2 : local breakdown (NO backend call)
+   ══════════════════════════════════════════════════════════════════════ */
+function showBreakdown() {
+  if (!state.country || !state.operator || state.sendAmount <= 0) {
+    toast('Fill in the form first', 'warn');
+    return;
+  }
+  if (state.phoneNumber.length < 7) {
+    $('phoneField').classList.add('err');
+    toast('Enter a valid phone number', 'warn');
+    return;
+  }
+
+  const fee   = Number((state.sendAmount * CONFIG.FEE_PERCENT).toFixed(2));
+  const total = Number((state.sendAmount + fee).toFixed(2));
+  const ngn   = Number((total * CONFIG.USD_TO_NGN).toFixed(2));
+
+  updateState({ feeUSD: fee, totalUSD: total, totalNGN: ngn });
+
+  setRecipientDisplay(state.sendAmount, 'USD');
+
+  // Populate the review card with the 2% breakdown
+  $('pvPhone').textContent    = (state.country?.dial || '') + ' ' + state.phoneNumber;
+  $('pvCountry').textContent  = state.country?.name || '—';
+  $('pvOperator').textContent = state.operator?.name || '—';
+  $('pvAmount').textContent   = formatMoneyWithSymbol(state.sendAmount, 'USD');
+  $('pvFee').textContent      = formatMoneyWithSymbol(fee, 'USD');
+  $('pvWallet').textContent   = 'Choose in next step';
+  $('pvTotal').textContent    = formatMoneyWithSymbol(total, 'USD');
+  $('balanceLabel').textContent = 'NGN equivalent';
+  $('balanceValue').textContent = formatMoneyWithSymbol(ngn, 'NGN');
+  $('balanceValue').className = 'pv-val';
+
+  // Hide the pay button — this is only the breakdown
+  $('btnPay').style.display = 'none';
+  $('btnBackWallet').style.display = 'none';
+
+  // Change the main CTA label to reflect the next action
+  $('btnProceed').style.display = 'none';
+  // Show a dedicated "Continue" button only if not already present
+  // Reuse the existing pay button as the CTA on the breakdown card
+  const cta = $('btnPay');
+  cta.style.display = 'flex';
+  cta.disabled = false;
+  cta.className = 'btn-pay';
+  cta.innerHTML = '<i class="fas fa-arrow-right"></i> Continue to Wallet';
+  cta.onclick = null;
+  cta.onclick = async () => { await showWalletStep(); };
+  cta.onclick = showWalletStep;
+
+  showStep('breakdown');
   $('formStep').style.display = 'none';
-  $('walletStep').style.display = 'block';
-  updateState({
-    selectedWallet: null,
-    idempotencyKey: generateIdempotencyKey()
-  });
-  await loadBalancesAndQuote();
+  $('previewStep').style.display = 'block';
 }
 
-function walletSkeleton() {
-  const wrap = document.createElement('div');
-  wrap.innerHTML = `<div class="skel wallet-skel"></div><div class="skel wallet-skel"></div>`;
-  return wrap;
-}
-
-async function loadBalancesAndQuote() {
+/* ══════════════════════════════════════════════════════════════════════
+   STEP 2 → STEP 3 : wallet cards (ONLY /airtime/me call)
+   ══════════════════════════════════════════════════════════════════════ */
+async function showWalletStep() {
   const container = $('walletOptions');
   container.replaceChildren(walletSkeleton());
 
@@ -2190,27 +1209,37 @@ async function loadBalancesAndQuote() {
           usd: parseFloat(response.data.wallet_usd) || 0
         }
       });
+    } else {
+      toast('Could not load wallet balances', 'err');
+      return;
     }
-    renderWalletOptions();
   } catch (error) {
-    if (!error.message?.includes('Session expired')) {
-      toast('Failed to load balances', 'err');
-    }
-    renderWalletOptions();
+    if (!error.message?.includes('Session expired')) toast('Failed to load balances', 'err');
+    return;
   }
+
+  if (!state.idempotencyKey) {
+    updateState({ idempotencyKey: generateIdempotencyKey() });
+  }
+
+  renderWalletOptions();
+  showStep('wallet');
+}
+
+function walletSkeleton() {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<div class="skel wallet-skel"></div><div class="skel wallet-skel"></div>`;
+  return wrap;
 }
 
 function renderWalletOptions() {
   const container = $('walletOptions');
-  const w = state.wallets;
-  const pricing = state.pricing;
-
-  const usdRequired = w?.USD?.debit ?? pricing?.customer_total?.amount ?? state.sendAmount;
-  const ngnRequired = w?.NGN?.debit ?? ((pricing?.customer_total?.amount ?? state.sendAmount) * 1600);
-  const usdBalance = w?.USD?.balance ?? state.balances.usd;
-  const ngnBalance = w?.NGN?.balance ?? state.balances.ngn;
-  const usdOk = w?.USD?.sufficient ?? (usdBalance >= usdRequired);
-  const ngnOk = w?.NGN?.sufficient ?? (ngnBalance >= ngnRequired);
+  const usdRequired = state.totalUSD;
+  const ngnRequired = state.totalNGN;
+  const usdBalance = state.balances.usd;
+  const ngnBalance = state.balances.ngn;
+  const usdOk = usdBalance >= usdRequired;
+  const ngnOk = ngnBalance >= ngnRequired;
 
   container.replaceChildren();
   const frag = document.createDocumentFragment();
@@ -2225,7 +1254,7 @@ function renderWalletOptions() {
     <div class="wo-ic"><i class="fas fa-naira-sign"></i></div>
     <div class="wo-info">
       <p class="wo-lbl">NGN Wallet</p>
-      <p class="wo-bal">${formatMoneyWithSymbol(ngnBalance, 'NGN')}</p>
+      <p class="wo-bal">Balance: ${formatMoneyWithSymbol(ngnBalance, 'NGN')}</p>
       <p class="wo-bal" style="font-size:.6rem;color:var(--t3)">Required: ${formatMoneyWithSymbol(ngnRequired, 'NGN')}</p>
     </div>
     <span class="wo-status ${ngnOk ? 'ok' : 'insufficient'}">${ngnOk ? 'Available' : 'Insufficient'}</span>
@@ -2242,7 +1271,7 @@ function renderWalletOptions() {
     <div class="wo-ic"><i class="fas fa-dollar-sign"></i></div>
     <div class="wo-info">
       <p class="wo-lbl">USD Wallet</p>
-      <p class="wo-bal">${formatMoneyWithSymbol(usdBalance, 'USD')}</p>
+      <p class="wo-bal">Balance: ${formatMoneyWithSymbol(usdBalance, 'USD')}</p>
       <p class="wo-bal" style="font-size:.6rem;color:var(--t3)">Required: ${formatMoneyWithSymbol(usdRequired, 'USD')}</p>
     </div>
     <span class="wo-status ${usdOk ? 'ok' : 'insufficient'}">${usdOk ? 'Available' : 'Insufficient'}</span>
@@ -2265,193 +1294,139 @@ on($('walletOptions'), 'keydown', (e) => {
   e.preventDefault();
   selectWallet(opt.dataset.wallet);
 });
+function selectWallet(type) { updateState({ selectedWallet: type }); renderWalletOptions(); }
 
-function selectWallet(type) {
-  updateState({ selectedWallet: type });
-  renderWalletOptions();
-}
-
-/* ═══ PREVIEW ═══ */
-on($('btnContinue'), 'click', goToPreview);
-on($('btnBackWallet'), 'click', () => {
-  $('previewStep').style.display = 'none';
-  $('walletStep').style.display = 'block';
+/* ══════════════════════════════════════════════════════════════════════
+   STEP 3 : final review + Pay Now
+   ══════════════════════════════════════════════════════════════════════ */
+on($('btnContinue'), 'click', () => {
+  if (!state.selectedWallet) return;
+  showFinalReview();
 });
 
-function goToPreview() {
-  if (isQuoteExpired()) {
-    toast('Quote expired. Request a fresh quote.', 'warn');
-    $('walletStep').style.display = 'none';
-    $('formStep').style.display = 'block';
-    clearQuoteState();
-    updateProceedState();
-    return;
-  }
-
-  $('walletStep').style.display = 'none';
-  $('previewStep').style.display = 'block';
-
+function showFinalReview() {
   const isUSD = state.selectedWallet === 'usd';
-  const w = state.wallets;
-  const pricing = state.pricing;
-
-  const totalUSD = pricing?.customer_total?.amount ?? state.sendAmount;
-  const feeUSD = pricing?.platform_fee?.amount ?? 0;
-  const requiredAmount = isUSD ? (w?.USD?.debit ?? totalUSD) : (w?.NGN?.debit ?? totalUSD * 1600);
-  const feeAmount = isUSD ? feeUSD : feeUSD * 1600;
-  const walletBalance = isUSD ? (w?.USD?.balance ?? state.balances.usd) : (w?.NGN?.balance ?? state.balances.ngn);
+  const requiredAmount = isUSD ? state.totalUSD : state.totalNGN;
+  const currency = isUSD ? 'USD' : 'NGN';
+  const walletBalance = isUSD ? state.balances.usd : state.balances.ngn;
   const remaining = walletBalance - requiredAmount;
-  const sufficient = remaining >= 0;
 
-  $('pvPhone').textContent = (state.country?.dial || '') + ' ' + state.phoneNumber;
-  $('pvCountry').textContent = state.country?.name || '—';
+  $('pvPhone').textContent    = (state.country?.dial || '') + ' ' + state.phoneNumber;
+  $('pvCountry').textContent  = state.country?.name || '—';
   $('pvOperator').textContent = state.operator?.name || '—';
-  $('pvRecipient').textContent = formatMoneyWithSymbol(state.recipientAmount, state.recipientCurrency);
-  $('pvAmount').textContent = formatMoneyWithSymbol(state.sendAmount, 'USD');
-  $('pvFee').textContent = formatMoneyWithSymbol(feeAmount, isUSD ? 'USD' : 'NGN');
-  $('pvTotal').textContent = formatMoneyWithSymbol(requiredAmount, isUSD ? 'USD' : 'NGN');
-  $('pvWallet').textContent = (isUSD ? 'USD' : 'NGN') + ' Wallet';
+  $('pvAmount').textContent   = formatMoneyWithSymbol(state.sendAmount, 'USD');
+  $('pvFee').textContent      = formatMoneyWithSymbol(isUSD ? state.feeUSD : Number((state.feeUSD * CONFIG.USD_TO_NGN).toFixed(2)), currency);
+  $('pvTotal').textContent    = formatMoneyWithSymbol(requiredAmount, currency);
+  $('pvWallet').textContent   = currency + ' Wallet';
+  $('balanceLabel').textContent = currency + ' balance after';
+  $('balanceValue').textContent = formatMoneyWithSymbol(Math.max(0, remaining), currency);
+  $('balanceValue').className = 'pv-val ' + (remaining >= 0 ? 'sufficient' : 'insufficient');
 
-  $('balanceLabel').textContent = (isUSD ? 'USD' : 'NGN') + ' balance after';
-  $('balanceValue').textContent = sufficient ? formatMoneyWithSymbol(remaining, isUSD ? 'USD' : 'NGN') : formatMoneyWithSymbol(0, isUSD ? 'USD' : 'NGN');
-  $('balanceValue').className = 'pv-val ' + (sufficient ? 'sufficient' : 'insufficient');
+  const payBtn = $('btnPay');
+  payBtn.style.display = 'flex';
+  payBtn.disabled = remaining < 0;
+  payBtn.className = 'btn-pay' + (remaining < 0 ? ' insufficient' : '');
+  payBtn.innerHTML = remaining < 0
+    ? `<i class="fas fa-exclamation-triangle"></i> Insufficient (${formatMoneyWithSymbol(Math.abs(remaining), currency)} short)`
+    : `<i class="fas fa-lock"></i> Pay ${formatMoneyWithSymbol(requiredAmount, currency)}`;
+  payBtn.onclick = null;
+  payBtn.onclick = openPinModal;
 
-  updateExpiryNotice();
+  $('btnBackWallet').style.display = 'block';
 
-  const btn = $('btnPay');
-  if (!sufficient) {
-    btn.disabled = true;
-    btn.className = 'btn-pay insufficient';
-    btn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Insufficient (${formatMoneyWithSymbol(Math.abs(remaining), isUSD ? 'USD' : 'NGN')} short)`;
-  } else {
-    btn.disabled = false;
-    btn.className = 'btn-pay';
-    btn.innerHTML = `<i class="fas fa-lock"></i> Pay ${formatMoneyWithSymbol(requiredAmount, isUSD ? 'USD' : 'NGN')}`;
-  }
+  showStep('review');
 }
 
-function updateExpiryNotice() {
-  const el = $('pvExpiry');
-  if (!state.quoteExpires) { el.textContent = ''; return; }
-  const secondsLeft = Math.max(0, Math.round((new Date(state.quoteExpires).getTime() - Date.now()) / 1000));
-  if (secondsLeft <= 0) {
-    el.textContent = 'Quote expired — go back and request a fresh quote.';
-    el.classList.add('warn');
-    $('btnPay').disabled = true;
-  } else if (secondsLeft <= CONFIG.QUOTE_EXPIRY_WARN_SECONDS) {
-    el.textContent = `Quote expires in ${secondsLeft}s`;
-    el.classList.add('warn');
-  } else {
-    el.textContent = `Quote valid for ${secondsLeft}s`;
-    el.classList.remove('warn');
-  }
-}
+on($('btnBackWallet'), 'click', () => {
+  $('btnPay').style.display = 'none';
+  showStep('wallet');
+});
 
-setInterval(() => {
-  if ($('previewStep').style.display === 'block') updateExpiryNotice();
-}, 1000);
-
-/* ═══ PIN MODAL ═══ */
-on($('btnPay'), 'click', openPinModal);
-
-function openPinModal() {
-  if (isQuoteExpired()) {
-    toast('Quote expired. Request a fresh quote.', 'warn');
-    $('previewStep').style.display = 'none';
-    $('formStep').style.display = 'block';
-    clearQuoteState();
-    updateProceedState();
-    return;
-  }
-
-  $('pinModal').classList.add('on');
-  $('pinError').classList.remove('show');
-  $('pmConfirm').disabled = true;
-
-  $$('.pm-input').forEach(inp => {
-    inp.value = '';
-    inp.className = 'pm-input';
-    inp.removeEventListener('input', onPinInput);
-    inp.removeEventListener('keydown', onPinKeydown);
-    inp.removeEventListener('paste', onPinPaste);
+/* ══════════════════════════════════════════════════════════════════════
+   PIN MODAL
+   ══════════════════════════════════════════════════════════════════════ */
+function ensurePinModal() {
+  if ($('pinModal')) return;
+  const modal = document.createElement('div');
+  modal.className = 'pin-modal';
+  modal.id = 'pinModal';
+  modal.innerHTML = `
+    <div class="pm-bg" data-close="pinModal"></div>
+    <div class="pm-box">
+      <div class="pm-head">
+        <h3 class="pm-title">Enter Transaction PIN</h3>
+        <button class="pm-close" data-close="pinModal" aria-label="Close"><i class="fas fa-times"></i></button>
+      </div>
+      <p class="pm-sub">Enter your 4-digit PIN to confirm this purchase</p>
+      <div class="pm-inputs">
+        <input type="password" inputmode="numeric" maxlength="1" class="pm-input" data-index="0" aria-label="PIN digit 1">
+        <input type="password" inputmode="numeric" maxlength="1" class="pm-input" data-index="1" aria-label="PIN digit 2">
+        <input type="password" inputmode="numeric" maxlength="1" class="pm-input" data-index="2" aria-label="PIN digit 3">
+        <input type="password" inputmode="numeric" maxlength="1" class="pm-input" data-index="3" aria-label="PIN digit 4">
+      </div>
+      <p class="pm-error" id="pinError"></p>
+      <button class="pm-confirm" id="pmConfirm" disabled>Confirm Payment</button>
+      <button class="pm-cancel" data-close="pinModal">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('.pm-input').forEach(inp => {
     inp.addEventListener('input', onPinInput);
     inp.addEventListener('keydown', onPinKeydown);
     inp.addEventListener('paste', onPinPaste);
   });
+  $('pmConfirm').addEventListener('click', confirmPin);
+  modal.addEventListener('click', (e) => {
+    const closeId = e.target.closest('[data-close]')?.dataset.close;
+    if (closeId) $(closeId)?.classList.remove('on');
+  });
+}
+function openPinModal() {
+  ensurePinModal();
+  $('pinModal').classList.add('on');
+  $('pinError').classList.remove('show');
+  $('pmConfirm').disabled = true;
+  $$('.pm-input').forEach(inp => { inp.value = ''; inp.className = 'pm-input'; });
   $$('.pm-input')[0]?.focus();
 }
-
 function onPinInput(e) {
-  const input = e.target;
-  const index = parseInt(input.dataset.index);
-  const inputs = $$('.pm-input');
+  const input = e.target, index = parseInt(input.dataset.index), inputs = $$('.pm-input');
   input.value = input.value.replace(/\D/g, '');
-  if (input.value) {
-    input.className = 'pm-input filled';
-    if (index < 3) inputs[index + 1].focus();
-  } else {
-    input.className = 'pm-input';
-  }
+  if (input.value) { input.className = 'pm-input filled'; if (index < 3) inputs[index + 1].focus(); }
+  else input.className = 'pm-input';
   const allFilled = Array.from(inputs).every(inp => inp.value.length === 1);
   $('pmConfirm').disabled = !allFilled;
   if (allFilled) $('pinError').classList.remove('show');
 }
-
 function onPinKeydown(e) {
-  const input = e.target;
-  const index = parseInt(input.dataset.index);
-  const inputs = $$('.pm-input');
+  const input = e.target, index = parseInt(input.dataset.index), inputs = $$('.pm-input');
   if (e.key === 'Backspace') {
-    if (input.value === '' && index > 0) {
-      inputs[index - 1].focus();
-      inputs[index - 1].value = '';
-      inputs[index - 1].className = 'pm-input';
-    } else if (input.value !== '') {
-      input.value = '';
-      input.className = 'pm-input';
-      $('pmConfirm').disabled = true;
-    }
+    if (input.value === '' && index > 0) { inputs[index - 1].focus(); inputs[index - 1].value = ''; inputs[index - 1].className = 'pm-input'; }
+    else if (input.value !== '') { input.value = ''; input.className = 'pm-input'; $('pmConfirm').disabled = true; }
   }
-  if (e.key === 'Enter') {
-    if (Array.from(inputs).every(inp => inp.value.length === 1)) confirmPin();
-  }
+  if (e.key === 'Enter' && Array.from(inputs).every(inp => inp.value.length === 1)) confirmPin();
 }
-
 function onPinPaste(e) {
   e.preventDefault();
   const paste = (e.clipboardData || window.clipboardData).getData('text');
   const digits = paste.replace(/\D/g, '').slice(0, 4);
   const inputs = $$('.pm-input');
-  digits.split('').forEach((d, i) => {
-    if (i < 4) {
-      inputs[i].value = d;
-      inputs[i].className = 'pm-input filled';
-    }
-  });
+  digits.split('').forEach((d, i) => { if (i < 4) { inputs[i].value = d; inputs[i].className = 'pm-input filled'; } });
   const allFilled = Array.from(inputs).every(inp => inp.value.length === 1);
   $('pmConfirm').disabled = !allFilled;
   if (allFilled && digits.length === 4) setTimeout(confirmPin, 300);
 }
-
-on($('pmConfirm'), 'click', confirmPin);
-
 async function confirmPin() {
   const pin = Array.from($$('.pm-input')).map(i => i.value).join('');
-  if (pin.length !== 4) {
-    $('pinError').textContent = 'Please enter all 4 digits.';
-    $('pinError').classList.add('show');
-    return;
-  }
+  if (pin.length !== 4) { $('pinError').textContent = 'Please enter all 4 digits.'; $('pinError').classList.add('show'); return; }
   $('pmConfirm').disabled = true;
   $('pinModal').classList.remove('on');
   await processPayment(pin);
 }
 
-/* ═══ PAYMENT — uses EXISTING POST /airtime/purchase only, same body/headers ═══ */
 async function processPayment(pin) {
   if (state.isProcessing) return;
   updateState({ isProcessing: true });
-
   const btn = $('btnPay');
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing…';
@@ -2461,7 +1436,10 @@ async function processPayment(pin) {
       method: 'POST',
       idempotencyKey: state.idempotencyKey,
       body: JSON.stringify({
-        quote_id: state.quoteId,
+        country: state.country.code,
+        phone: state.phoneNumber,
+        operator_id: state.operator.id,
+        source_amount_usd: state.sendAmount,
         wallet_type: state.selectedWallet.toUpperCase(),
         transaction_pin: pin
       })
@@ -2474,18 +1452,14 @@ async function processPayment(pin) {
     }
 
     const finalStatus = response.status || response.data?.status;
-    const reference = response.reference || response.data?.reference;
-    const message = response.message || '';
-
-    updateState({
-      transaction: { reference, status: finalStatus, ...(response.data || {}) }
-    });
+    const reference   = response.reference || response.data?.reference;
+    const message     = response.message || '';
+    updateState({ transaction: { reference, status: finalStatus, ...(response.data || {}) } });
 
     if (finalStatus === 'completed') {
       stopPolling();
       showResult('success', '✅ Airtime Sent!', message || 'Airtime sent successfully.');
       toast('Airtime delivered!', 'ok');
-      loadBalancesAndQuote().catch(() => {});
       loadHistory().catch(() => {});
       return;
     }
@@ -2493,7 +1467,6 @@ async function processPayment(pin) {
       stopPolling();
       showResult('failed', '❌ Purchase Failed', message || 'Funds refunded.');
       toast(message || 'Purchase failed — refunded', 'err');
-      loadBalancesAndQuote().catch(() => {});
       loadHistory().catch(() => {});
       return;
     }
@@ -2504,7 +1477,6 @@ async function processPayment(pin) {
       loadHistory().catch(() => {});
       return;
     }
-
     if (reference) {
       showResult('pending', '⏳ Processing', message || 'Being processed…');
       startPolling(reference);
@@ -2514,27 +1486,14 @@ async function processPayment(pin) {
   } catch (error) {
     if (error.code === 'INVALID_PIN') {
       toast(error.message || 'Invalid PIN', 'err');
-      setTimeout(() => {
-        $$('.pm-input').forEach(i => { i.value = ''; i.className = 'pm-input'; });
-        $('pmConfirm').disabled = true;
-        openPinModal();
-      }, 500);
+      setTimeout(() => { ensurePinModal(); $$('.pm-input').forEach(i => { i.value = ''; i.className = 'pm-input'; }); $('pmConfirm').disabled = true; openPinModal(); }, 500);
     } else if (error.code === 'INSUFFICIENT_BALANCE') {
       toast(error.message || 'Insufficient balance', 'err');
-      $('previewStep').style.display = 'none';
-      $('walletStep').style.display = 'block';
-      await loadBalancesAndQuote();
-    } else if (error.code === 'QUOTE_EXPIRED') {
-      toast('Quote expired. Refresh and try again.', 'err');
-      $('previewStep').style.display = 'none';
-      $('formStep').style.display = 'block';
-      clearQuoteState();
-      updateProceedState();
+      showStep('wallet');
     } else {
       stopPolling();
       showResult('failed', '❌ Purchase Failed', error.message);
       toast(error.message, 'err');
-      loadBalancesAndQuote().catch(() => {});
       loadHistory().catch(() => {});
     }
   } finally {
@@ -2545,74 +1504,27 @@ async function processPayment(pin) {
   }
 }
 
-/* ═══ POLLING — single active timer, progressive backoff ═══ */
-function startPolling(reference) {
-  stopPolling();
-  updateState({ pollAttempts: 0 });
-  pollTransaction(reference);
-}
-
-function stopPolling() {
-  if (state.pollTimer) {
-    clearTimeout(state.pollTimer);
-    state.pollTimer = null;
-  }
-}
-
+/* ══════════════════════════════════════════════════════════════════════
+   POLLING / RESULT
+   ══════════════════════════════════════════════════════════════════════ */
+function startPolling(reference) { stopPolling(); updateState({ pollAttempts: 0 }); pollTransaction(reference); }
+function stopPolling() { if (state.pollTimer) { clearTimeout(state.pollTimer); state.pollTimer = null; } }
 async function pollTransaction(reference) {
   state.pollAttempts++;
   const delay = CONFIG.POLL_DELAYS[Math.min(state.pollAttempts - 1, CONFIG.POLL_DELAYS.length - 1)];
-
   try {
     const response = await api(`/airtime/${encodeURIComponent(reference)}`);
-    if (!response.success || !response.data) {
-      if (state.pollAttempts < 10) {
-        state.pollTimer = setTimeout(() => pollTransaction(reference), delay);
-      }
-      return;
-    }
+    if (!response.success || !response.data) { if (state.pollAttempts < 10) state.pollTimer = setTimeout(() => pollTransaction(reference), delay); return; }
     const tx = response.data;
-
-    if (tx.status === 'completed') {
-      stopPolling();
-      showResult('success', '✅ Airtime Sent!', `Airtime to ${tx.phone_number || ''} delivered.`);
-      toast('Airtime delivered!', 'ok');
-      loadBalancesAndQuote().catch(() => {});
-      loadHistory().catch(() => {});
-      return;
-    }
-    if (tx.status === 'failed') {
-      stopPolling();
-      showResult('failed', '❌ Purchase Failed', tx.failure_message || 'Funds refunded.');
-      loadBalancesAndQuote().catch(() => {});
-      loadHistory().catch(() => {});
-      return;
-    }
-    if (tx.status === 'refunded') {
-      stopPolling();
-      showResult('failed', '💰 Refunded', 'Funds have been refunded.');
-      loadBalancesAndQuote().catch(() => {});
-      loadHistory().catch(() => {});
-      return;
-    }
-    if (tx.status === 'manual_review') {
-      stopPolling();
-      showResult('manual_review', '📋 Under Review', 'We will notify you.');
-      loadHistory().catch(() => {});
-      return;
-    }
-
-    if (state.pollAttempts < CONFIG.MAX_POLL_ATTEMPTS) {
-      state.pollTimer = setTimeout(() => pollTransaction(reference), delay);
-    } else {
-      stopPolling();
-      showResult('pending', '⏳ Still Processing', 'Check history for updates shortly.');
-    }
+    if (tx.status === 'completed') { stopPolling(); showResult('success', '✅ Airtime Sent!', `Airtime to ${tx.phone_number || ''} delivered.`); toast('Airtime delivered!', 'ok'); loadHistory().catch(() => {}); return; }
+    if (tx.status === 'failed') { stopPolling(); showResult('failed', '❌ Purchase Failed', tx.failure_message || 'Funds refunded.'); loadHistory().catch(() => {}); return; }
+    if (tx.status === 'refunded') { stopPolling(); showResult('failed', '💰 Refunded', 'Funds have been refunded.'); loadHistory().catch(() => {}); return; }
+    if (tx.status === 'manual_review') { stopPolling(); showResult('manual_review', '📋 Under Review', 'We will notify you.'); loadHistory().catch(() => {}); return; }
+    if (state.pollAttempts < CONFIG.MAX_POLL_ATTEMPTS) state.pollTimer = setTimeout(() => pollTransaction(reference), delay);
+    else { stopPolling(); showResult('pending', '⏳ Still Processing', 'Check history for updates shortly.'); }
   } catch (error) {
     if (error.status === 404 || error.message?.includes('not found')) {
-      if (state.pollAttempts < 15) {
-        state.pollTimer = setTimeout(() => pollTransaction(reference), delay);
-      }
+      if (state.pollAttempts < 15) state.pollTimer = setTimeout(() => pollTransaction(reference), delay);
     } else if (state.pollAttempts < 10) {
       state.pollTimer = setTimeout(() => pollTransaction(reference), delay);
     } else {
@@ -2621,24 +1533,14 @@ async function pollTransaction(reference) {
   }
 }
 
-/* ═══ RESULT ═══ */
 function showResult(type, title, sub) {
-  $('previewStep').style.display = 'none';
-  $('resultStep').style.display = 'block';
-
+  showStep('result');
   const ic = $('resultIc');
   ic.className = 'result-ic ' + type;
-  const icons = {
-    success: '<i class="fas fa-check"></i>',
-    pending: '<i class="fas fa-clock"></i>',
-    failed: '<i class="fas fa-times"></i>',
-    manual_review: '<i class="fas fa-clipboard-list"></i>'
-  };
+  const icons = { success: '<i class="fas fa-check"></i>', pending: '<i class="fas fa-clock"></i>', failed: '<i class="fas fa-times"></i>', manual_review: '<i class="fas fa-clipboard-list"></i>' };
   ic.innerHTML = icons[type] || icons.failed;
-
   $('resultTitle').textContent = title;
   $('resultSub').textContent = sub;
-
   if (type === 'success' || type === 'pending' || type === 'manual_review') {
     const ref = state.transaction?.reference || 'AIR-' + Date.now().toString(36).toUpperCase();
     $('resultRefWrap').style.display = 'flex';
@@ -2649,52 +1551,39 @@ function showResult(type, title, sub) {
     $('btnViewReceipt').style.display = 'none';
   }
 }
-
 on($('copyRefBtn'), 'click', () => {
   const ref = $('resultRef').textContent;
-  navigator.clipboard?.writeText(ref)
-    .then(() => toast('Reference copied!', 'ok'))
-    .catch(() => toast('Could not copy', 'err'));
+  navigator.clipboard?.writeText(ref).then(() => toast('Reference copied!', 'ok')).catch(() => toast('Could not copy', 'err'));
 });
-
 on($('btnBuyAgain'), 'click', resetAll);
-
 function resetAll() {
   stopPolling();
-  clearQuoteTimer();
   if (state.operatorAbort) state.operatorAbort.abort();
-
   updateState({
-    country: null,
-    phoneNumber: '',
-    operator: null,
-    sendAmount: 0,
-    selectedWallet: null,
-    balances: { ngn: 0, usd: 0 },
-    transaction: null,
-    idempotencyKey: null,
-    isProcessing: false,
-    pollAttempts: 0
+    country: null, phoneNumber: '', operator: null, sendAmount: 0,
+    feeUSD: 0, totalUSD: 0, totalNGN: 0,
+    selectedWallet: null, balances: { ngn: 0, usd: 0 },
+    transaction: null, idempotencyKey: null, isProcessing: false, pollAttempts: 0
   });
-  clearQuoteState();
-
-  $('formStep').style.display = 'block';
-  $('walletStep').style.display = 'none';
-  $('previewStep').style.display = 'none';
-  $('resultStep').style.display = 'none';
-
   $('countryFlag').textContent = '🌐';
   $('countryCode').textContent = '+--';
   $('countryName').textContent = 'Select a country to get started';
   $('phoneInput').value = '';
+  $('amtCustom').value = '';
   $('operatorContainer').innerHTML = '<div class="operator-empty"><i class="fas fa-sim-card"></i> Select a country to see available networks</div>';
-
-  resetAmountUI();
+  $$('.amt-btn').forEach(b => b.classList.remove('active'));
+  $('btnPay').style.display = '';
+  $('btnBackWallet').style.display = '';
+  $('btnProceed').style.display = '';
+  invalidateBreakdown();
   updateProceedState();
+  showStep('form');
   loadHistory();
 }
 
-/* ═══ HISTORY — uses EXISTING GET /airtime/history only ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   HISTORY
+   ══════════════════════════════════════════════════════════════════════ */
 function historySkeleton(count = 3) {
   const frag = document.createDocumentFragment();
   for (let i = 0; i < count; i++) {
@@ -2705,18 +1594,15 @@ function historySkeleton(count = 3) {
   }
   return frag;
 }
-
 async function loadHistory() {
   if (!checkSession()) return;
   const container = $('historyList');
   container.replaceChildren(historySkeleton());
-
   try {
     const response = await api('/airtime/history?limit=5');
     if (response.success && response.data && response.data.length > 0) {
       const frag = document.createDocumentFragment();
       const statusMap = { completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', refunded: 'Refunded', manual_review: 'Review' };
-
       response.data.forEach(t => {
         const flag = t.flag || '📱';
         const sym = getSymbol(t.currency);
@@ -2725,27 +1611,15 @@ async function loadHistory() {
         row.dataset.reference = t.reference;
         row.setAttribute('role', 'button');
         row.setAttribute('tabindex', '0');
-        row.innerHTML = `
-          <span class="hi-flag">${flag}</span>
-          <div class="hi-info">
-            <p class="hi-phone">${escapeHtml(formatPhone(t.phone_number))}</p>
-            <p class="hi-meta">${escapeHtml(t.country_code || '')} • ${new Date(t.created_at).toLocaleDateString()} • ${escapeHtml(t.operator_name || 'Auto')}</p>
-          </div>
-          <div style="text-align:right">
-            <p class="hi-amt">${sym}${formatMoney(t.total_amount || 0)}</p>
-            <span class="hi-status ${escapeHtml(t.status)}">${statusMap[t.status] || t.status}</span>
-          </div>
-        `;
+        row.innerHTML = `<span class="hi-flag">${flag}</span><div class="hi-info"><p class="hi-phone">${escapeHtml(formatPhone(t.phone_number))}</p><p class="hi-meta">${escapeHtml(t.country_code || '')} • ${new Date(t.created_at).toLocaleDateString()} • ${escapeHtml(t.operator_name || 'Auto')}</p></div><div style="text-align:right"><p class="hi-amt">${sym}${formatMoney(t.total_amount || 0)}</p><span class="hi-status ${escapeHtml(t.status)}">${statusMap[t.status] || t.status}</span></div>`;
         frag.appendChild(row);
       });
-
       if (response.pagination?.total > 5) {
         const more = document.createElement('div');
         more.style.cssText = 'text-align:center;padding:10px';
         more.innerHTML = `<a href="history.html" style="font-size:.76rem;color:var(--p);font-weight:600">View all →</a>`;
         frag.appendChild(more);
       }
-
       container.replaceChildren(frag);
     } else {
       container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--t3);font-size:.76rem"><i class="fas fa-clock" style="font-size:1.2rem;display:block;margin-bottom:6px"></i> No transactions yet</div>`;
@@ -2757,60 +1631,79 @@ async function loadHistory() {
     }
   }
 }
-
 function formatPhone(phone) {
   if (!phone) return '—';
   const s = String(phone);
   if (s.length <= 4) return s;
   return `****${s.slice(-4)}`;
 }
-
-on($('historyList'), 'click', (e) => {
-  const row = e.target.closest('.history-item');
-  if (row?.dataset.reference) openAirtimeDetails(row.dataset.reference);
-});
+on($('historyList'), 'click', (e) => { const row = e.target.closest('.history-item'); if (row?.dataset.reference) openAirtimeDetails(row.dataset.reference); });
 on($('historyList'), 'keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
     const row = e.target.closest('.history-item');
-    if (row?.dataset.reference) {
-      e.preventDefault();
-      openAirtimeDetails(row.dataset.reference);
-    }
+    if (row?.dataset.reference) { e.preventDefault(); openAirtimeDetails(row.dataset.reference); }
   }
 });
 
-/* ═══ TRANSACTION DETAILS MODAL — uses EXISTING GET /airtime/:reference only ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   AIRTIME DETAILS MODAL
+   ══════════════════════════════════════════════════════════════════════ */
 let detailReference = null;
 let detailPollTimer = null;
 
+function ensureAirtimeDetailModal() {
+  if ($('airtimeDetailModal')) return;
+  const modal = document.createElement('div');
+  modal.className = 'airtime-detail-modal';
+  modal.id = 'airtimeDetailModal';
+  modal.innerHTML = `
+    <div class="atm-bg" data-close="airtimeDetailModal"></div>
+    <div class="atm-box">
+      <div class="atm-head">
+        <div>
+          <p class="atm-title">Airtime Transaction</p>
+          <p class="atm-sub" id="atmReference">—</p>
+        </div>
+        <button class="atm-close" data-close="airtimeDetailModal" aria-label="Close"><i class="fas fa-times"></i></button>
+      </div>
+      <div id="atmContent"><div class="atm-loading"><span class="spinner-sm"></span>Loading transaction...</div></div>
+      <div class="atm-actions">
+        <button class="atm-refresh" id="atmRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+        <button class="atm-close-btn" data-close="airtimeDetailModal">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (e) => {
+    const closeId = e.target.closest('[data-close]')?.dataset.close;
+    if (closeId) { closeAirtimeDetails(); return; }
+    const retry = e.target.closest('[data-retry-ref]');
+    if (retry) { fetchAirtimeDetails(retry.dataset.retryRef); return; }
+    const copyBtn = e.target.closest('[data-copy-ref]');
+    if (copyBtn) navigator.clipboard?.writeText(copyBtn.dataset.copyRef).then(() => toast('Reference copied', 'ok')).catch(() => toast('Could not copy', 'err'));
+  });
+  on($('atmRefreshBtn'), 'click', () => { if (detailReference) fetchAirtimeDetails(detailReference); });
+}
 async function openAirtimeDetails(reference) {
+  ensureAirtimeDetailModal();
   detailReference = reference;
   $('atmReference').textContent = reference;
   $('atmContent').innerHTML = `<div class="atm-loading"><span class="spinner-sm"></span>Loading transaction...</div>`;
   $('airtimeDetailModal').classList.add('on');
   fetchAirtimeDetails(reference);
 }
-
 function closeAirtimeDetails() {
   if (detailPollTimer) { clearTimeout(detailPollTimer); detailPollTimer = null; }
-  $('airtimeDetailModal').classList.remove('on');
+  $('airtimeDetailModal')?.classList.remove('on');
   detailReference = null;
 }
-
-on($('atmRefreshBtn'), 'click', () => {
-  if (detailReference) fetchAirtimeDetails(detailReference);
-});
-
 async function fetchAirtimeDetails(reference) {
   if (!reference) return;
   const content = $('atmContent');
-
   try {
     const response = await api(`/airtime/${encodeURIComponent(reference)}`);
     if (!response.success || !response.data) throw new Error('Transaction not found');
-
     renderAirtimeDetails(response.data);
-
     const status = String(response.data.status || '').toLowerCase();
     if (['processing', 'pending'].includes(status) && detailReference === reference) {
       if (detailPollTimer) clearTimeout(detailPollTimer);
@@ -2818,64 +1711,39 @@ async function fetchAirtimeDetails(reference) {
     }
     loadHistory();
   } catch (error) {
-    content.innerHTML = `
-      <div class="atm-error">
-        <i class="fas fa-exclamation-circle"></i>
-        <span>${escapeHtml(error.message || 'Failed to load')}</span>
-        <button type="button" class="atm-refresh" data-retry-ref="${escapeHtml(reference)}" style="padding:8px 16px;">Retry</button>
-      </div>
-    `;
+    content.innerHTML = `<div class="atm-error"><i class="fas fa-exclamation-circle"></i><span>${escapeHtml(error.message || 'Failed to load')}</span><button type="button" class="atm-refresh" data-retry-ref="${escapeHtml(reference)}" style="padding:8px 16px;">Retry</button></div>`;
   }
 }
-
-on($('atmContent'), 'click', (e) => {
-  const retry = e.target.closest('[data-retry-ref]');
-  if (retry) { fetchAirtimeDetails(retry.dataset.retryRef); return; }
-  const copyBtn = e.target.closest('[data-copy-ref]');
-  if (copyBtn) {
-    navigator.clipboard?.writeText(copyBtn.dataset.copyRef)
-      .then(() => toast('Reference copied', 'ok'))
-      .catch(() => toast('Could not copy', 'err'));
-  }
-});
-
 function renderAirtimeDetails(tx) {
   const content = $('atmContent');
   const status = String(tx.status || 'processing').toLowerCase();
   const statusLabels = { completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', refunded: 'Refunded', manual_review: 'Under Review' };
   const statusLabel = statusLabels[status] || status;
-
   const destAmount = Number(tx.destination_amount || 0);
   const destCurrency = tx.destination_currency || '';
   const payAmount = Number(tx.total_amount || 0);
   const payCurrency = tx.currency || '';
   const fee = Number(tx.fee || 0);
-
   const flag = tx.flag || '🌐';
   const logo = tx.operator_logo || '/images/operators/default.png';
-
   const created = tx.created_at ? new Date(tx.created_at).toLocaleString() : '—';
   const completed = tx.completed_at ? new Date(tx.completed_at).toLocaleString() : '—';
   const failed = tx.failed_at ? new Date(tx.failed_at).toLocaleString() : '—';
   const phone = tx.phone_number || '—';
-
   content.innerHTML = `
     <div class="atm-summary">
-      <img src="${escapeHtml(logo)}" class="atm-network-logo" alt=""
-           onerror="this.onerror=null;this.src='/images/operators/default.png';">
+      <img src="${escapeHtml(logo)}" class="atm-network-logo" alt="" onerror="this.onerror=null;this.src='/images/operators/default.png';">
       <div class="atm-network-info">
         <div class="atm-network-name">${escapeHtml(tx.operator_name || 'Unknown network')}</div>
         <div class="atm-network-meta">${flag} ${escapeHtml(tx.country_code || '')} • ${escapeHtml(phone)}</div>
       </div>
       <span class="atm-status ${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
     </div>
-
     <div class="atm-destination">
       <div class="atm-destination-label">Recipient receives</div>
       <div class="atm-destination-amount">${escapeHtml(formatMoneyWithSymbol(destAmount, destCurrency))}</div>
       <div class="atm-destination-phone">${escapeHtml(phone)}</div>
     </div>
-
     <div class="atm-grid">
       <div class="atm-row"><div class="atm-row-label">Country</div><div class="atm-row-value">${flag} ${escapeHtml(tx.country_code || '—')}</div></div>
       <div class="atm-row"><div class="atm-row-label">Network</div><div class="atm-row-value">${escapeHtml(tx.operator_name || '—')}</div></div>
@@ -2886,9 +1754,7 @@ function renderAirtimeDetails(tx) {
       ${status === 'completed' ? `<div class="atm-row full"><div class="atm-row-label">Completed</div><div class="atm-row-value">${escapeHtml(completed)}</div></div>` : ''}
       ${status === 'failed' || status === 'refunded' ? `<div class="atm-row full"><div class="atm-row-label">Failed</div><div class="atm-row-value">${escapeHtml(failed)}</div></div>` : ''}
     </div>
-
     ${tx.failure_message ? `<div class="atm-failure"><strong>Reason:</strong><br>${escapeHtml(tx.failure_message)}</div>` : ''}
-
     <div class="atm-ref">
       <span class="atm-ref-code">${escapeHtml(tx.reference || '—')}</span>
       <button class="atm-copy" data-copy-ref="${escapeHtml(tx.reference || '')}">Copy</button>
@@ -2896,295 +1762,85 @@ function renderAirtimeDetails(tx) {
   `;
 }
 
-/* ═══ RECEIPT MODAL (same page) ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   RECEIPT MODAL
+   ══════════════════════════════════════════════════════════════════════ */
 on($('btnViewReceipt'), 'click', openReceiptModal);
 
+function ensureReceiptModal() {
+  if ($('receiptModal')) return;
+  const modal = document.createElement('div');
+  modal.className = 'receipt-modal';
+  modal.id = 'receiptModal';
+  modal.innerHTML = `
+    <div class="rm-bg-rec" data-close="receiptModal"></div>
+    <div class="receipt-box">
+      <div class="receipt-inner">
+        <div class="receipt-brand">
+          <div class="receipt-brand-logo"><i class="fas fa-receipt"></i></div>
+          <div class="receipt-brand-text">
+            <div class="receipt-brand-name">MilesSpace</div>
+            <div class="receipt-brand-meta" id="receiptDate"></div>
+          </div>
+          <span class="receipt-badge" id="receiptStatusBadge"></span>
+        </div>
+        <div class="receipt-amount">
+          <div class="receipt-amount-label">Recipient receives</div>
+          <div class="receipt-amount-value" id="receiptAmount"></div>
+          <div class="receipt-amount-sub" id="receiptAmountSub"></div>
+        </div>
+        <div class="receipt-rows" id="receiptRows"></div>
+        <div class="receipt-footer">Thank you for using MilesSpace.<br>Questions? support@milesspaceedigital.com</div>
+      </div>
+      <div class="receipt-actions">
+        <button class="receipt-btn-share" id="receiptShareBtn"><i class="fas fa-share"></i> Share</button>
+        <button class="receipt-btn-close" data-close="receiptModal">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (e) => {
+    const closeId = e.target.closest('[data-close]')?.dataset.close;
+    if (closeId) $(closeId)?.classList.remove('on');
+  });
+  on($('receiptShareBtn'), 'click', async () => {
+    const tx = state.transaction;
+    if (!tx) return;
+    const text = `MilesSpace Airtime Receipt\n────────────────────\nReference: ${tx.reference}\nRecipient: ${tx.phone}\nCountry: ${tx.country}\nOperator: ${tx.operator}\nAirtime: ${formatMoneyWithSymbol(state.sendAmount, 'USD')}\nRecipient received: ${formatMoneyWithSymbol(tx.destination_amount || 0, tx.destination_currency || '')}\nStatus: ${tx.status}\n────────────────────\nThank you for using MilesSpace.`;
+    if (navigator.share) { try { await navigator.share({ title: 'MilesSpace Receipt', text }); return; } catch { } }
+    try { await navigator.clipboard.writeText(text); toast('Receipt copied to clipboard!', 'ok'); } catch { toast('Could not share', 'err'); }
+  });
+}
 function openReceiptModal() {
   const tx = state.transaction;
-  if (!tx) {
-    toast('No receipt available', 'warn');
-    return;
-  }
-
+  if (!tx) { toast('No receipt available', 'warn'); return; }
+  ensureReceiptModal();
   const status = String(tx.status || '').toLowerCase();
   const statusLabels = { completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', refunded: 'Refunded', manual_review: 'Review' };
-
   $('receiptDate').textContent = new Date().toLocaleString();
   const badge = $('receiptStatusBadge');
   badge.className = `receipt-badge ${status}`;
   badge.textContent = statusLabels[status] || status;
-
   $('receiptAmount').textContent = formatMoneyWithSymbol(tx.destination_amount || 0, tx.destination_currency || '');
   $('receiptAmountSub').textContent = `To ${tx.phone || ''}`;
-
   const rows = [
     ['Reference', tx.reference || '—'],
     ['Country', tx.country || '—'],
     ['Operator', tx.operator || '—'],
     ['Airtime amount', formatMoneyWithSymbol(state.sendAmount, 'USD')],
-    ['Fee', formatMoneyWithSymbol(state.pricing?.platform_fee?.amount ?? 0, 'USD')],
+    ['Fee', formatMoneyWithSymbol(state.feeUSD || 0, 'USD')],
     ['Wallet used', tx.currency_paid || state.selectedWallet?.toUpperCase() || '—'],
     ['Amount paid', formatMoneyWithSymbol(tx.amount_paid || 0, tx.currency_paid || 'USD')]
   ];
-
-  if (tx.status === 'failed' && tx.failure_message) {
-    rows.push(['Failure reason', tx.failure_message]);
-  }
+  if (tx.status === 'failed' && tx.failure_message) rows.push(['Failure reason', tx.failure_message]);
   if (tx.refunded) rows.push(['Refunded', 'Yes']);
-
-  $('receiptRows').innerHTML = rows.map(([label, value]) => `
-    <div class="receipt-row">
-      <span class="receipt-row-label">${escapeHtml(label)}</span>
-      <span class="receipt-row-value">${escapeHtml(String(value))}</span>
-    </div>
-  `).join('');
-
+  $('receiptRows').innerHTML = rows.map(([label, value]) => `<div class="receipt-row"><span class="receipt-row-label">${escapeHtml(label)}</span><span class="receipt-row-value">${escapeHtml(String(value))}</span></div>`).join('');
   $('receiptModal').classList.add('on');
 }
 
-function closeReceiptModal() {
-  $('receiptModal').classList.remove('on');
-}
-
-on($('receiptShareBtn'), 'click', async () => {
-  const tx = state.transaction;
-  if (!tx) return;
-
-  const text = `MilesSpace Airtime Receipt
-────────────────────
-Reference: ${tx.reference}
-Recipient: ${tx.phone}
-Country: ${tx.country}
-Operator: ${tx.operator}
-Airtime: ${formatMoneyWithSymbol(state.sendAmount, 'USD')}
-Recipient received: ${formatMoneyWithSymbol(tx.destination_amount || 0, tx.destination_currency || '')}
-Status: ${tx.status}
-────────────────────
-Thank you for using MilesSpace.`;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: 'MilesSpace Receipt', text });
-      return;
-    } catch { /* user cancelled */ }
-  }
-  try {
-    await navigator.clipboard.writeText(text);
-    toast('Receipt copied to clipboard!', 'ok');
-  } catch {
-    toast('Could not share', 'err');
-  }
-});
-
-/* ═══ RESET PIN — uses EXISTING /airtime/pin/* endpoints only ═══ */
-on($('forgotPinLink'), 'click', openResetPinModal);
-
-async function openResetPinModal() {
-  const mod = await loadLazyModule('resetPin');
-  if (mod?.open && mod.open !== openResetPinModal) {
-    return mod.open();
-  }
-  $('resetPinModal').classList.add('on');
-  resetPinGoToStep(1);
-  $('resetError1').classList.remove('show');
-  $('resetError2').classList.remove('show');
-  $('resetError3').classList.remove('show');
-  $('resetSendBtn').disabled = false;
-  $('resetSendBtn').textContent = 'Send Code';
-  $('resetSub').textContent = "We'll send a verification code to your email";
-  getMaskedEmail();
-}
-
-function closeResetPinModal() {
-  $('resetPinModal').classList.remove('on');
-  if (state.resetTimer) { clearInterval(state.resetTimer); state.resetTimer = null; }
-}
-
-function resetPinGoToStep(n) {
-  [1, 2, 3, 4].forEach(s => {
-    $(`resetStep${s}`).classList.toggle('active', s === n);
-  });
-  $$('#resetSteps .rm-step-dot').forEach(dot => {
-    const s = parseInt(dot.dataset.step);
-    dot.classList.remove('active', 'done');
-    if (s === n) dot.classList.add('active');
-    if (s < n) dot.classList.add('done');
-  });
-}
-
-function getMaskedEmail() {
-  const email = getSess()?.user?.email || '';
-  const masked = email ? email.replace(/(.{2}).*@/, '$1***@') : 'm***@gmail.com';
-  $('resetMaskedEmail').textContent = masked;
-  $('resetMaskedEmail2').textContent = masked;
-}
-
-on($('resetSendBtn'), 'click', sendResetOTP);
-on($('resetVerifyBtn'), 'click', verifyResetOTP);
-on($('resetConfirmBtn'), 'click', confirmResetPIN);
-on($('resetDoneBtn'), 'click', () => { closeResetPinModal(); location.reload(); });
-on($('resetResendLink'), 'click', resendResetOTP);
-
-async function sendResetOTP() {
-  const btn = $('resetSendBtn');
-  btn.disabled = true;
-  btn.textContent = 'Sending...';
-  try {
-    const response = await api('/airtime/pin/send-reset', { method: 'POST' });
-    if (response.success) {
-      toast('Verification code sent', 'ok');
-      resetPinGoToStep(2);
-      $('resetSub').textContent = 'Enter the 6-digit code sent to your email';
-      startResetTimer(60);
-      setupResetOtpInputs();
-    } else {
-      $('resetError1').textContent = response.error || 'Failed to send code';
-      $('resetError1').classList.add('show');
-    }
-  } catch (error) {
-    $('resetError1').textContent = error.message || 'Failed to send code';
-    $('resetError1').classList.add('show');
-  }
-  btn.disabled = false;
-  btn.textContent = 'Send Code';
-}
-
-function setupResetOtpInputs() {
-  const inputs = $$('#resetOtpInputs .rm-otp-input');
-  inputs.forEach((input, idx) => {
-    input.value = '';
-    input.className = 'rm-otp-input';
-    input.oninput = function() {
-      this.value = this.value.replace(/\D/g, '').slice(0, 1);
-      this.classList.toggle('filled', !!this.value);
-      if (this.value && idx < inputs.length - 1) inputs[idx + 1].focus();
-    };
-    input.onkeydown = function(e) {
-      if (e.key === 'Backspace' && !this.value && idx > 0) {
-        inputs[idx - 1].focus();
-        inputs[idx - 1].select();
-      }
-    };
-    input.onpaste = function(e) {
-      e.preventDefault();
-      const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
-      paste.split('').forEach((ch, i) => {
-        if (inputs[i]) { inputs[i].value = ch; inputs[i].classList.add('filled'); }
-      });
-      const lastIdx = Math.min(paste.length, inputs.length) - 1;
-      if (lastIdx >= 0) inputs[lastIdx].focus();
-    };
-  });
-  inputs[0]?.focus();
-}
-
-async function verifyResetOTP() {
-  const otp = Array.from($$('#resetOtpInputs .rm-otp-input')).map(i => i.value).join('');
-  if (otp.length !== 6) {
-    $('resetError2').textContent = 'Enter the complete 6-digit code';
-    $('resetError2').classList.add('show');
-    return;
-  }
-  const btn = $('resetVerifyBtn');
-  btn.disabled = true;
-  btn.textContent = 'Verifying...';
-  try {
-    const response = await api('/airtime/pin/verify-reset', {
-      method: 'POST',
-      body: JSON.stringify({ otp })
-    });
-    if (response.success) {
-      state.resetToken = response.data.reset_token;
-      toast('Code verified!', 'ok');
-      resetPinGoToStep(3);
-      $('resetSub').textContent = 'Enter your new 4-digit transaction PIN';
-    } else {
-      $('resetError2').textContent = response.error || 'Invalid code';
-      $('resetError2').classList.add('show');
-    }
-  } catch (error) {
-    $('resetError2').textContent = error.message || 'Verification failed';
-    $('resetError2').classList.add('show');
-  }
-  btn.disabled = false;
-  btn.textContent = 'Verify Code';
-}
-
-async function confirmResetPIN() {
-  const newPin = $('resetNewPin').value;
-  const confirmPin = $('resetConfirmPin').value;
-  if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-    $('resetError3').textContent = 'PIN must be exactly 4 digits';
-    $('resetError3').classList.add('show');
-    return;
-  }
-  if (newPin !== confirmPin) {
-    $('resetError3').textContent = 'PINs do not match';
-    $('resetError3').classList.add('show');
-    return;
-  }
-  if (!state.resetToken) {
-    $('resetError3').textContent = 'Session expired. Start over.';
-    $('resetError3').classList.add('show');
-    setTimeout(closeResetPinModal, 2000);
-    return;
-  }
-  const btn = $('resetConfirmBtn');
-  btn.disabled = true;
-  btn.textContent = 'Resetting...';
-  try {
-    const response = await api('/airtime/pin/reset', {
-      method: 'POST',
-      body: JSON.stringify({ reset_token: state.resetToken, new_pin: newPin })
-    });
-    if (response.success) {
-      toast('PIN reset successfully!', 'ok');
-      resetPinGoToStep(4);
-      $('resetSub').textContent = 'Your PIN has been reset successfully';
-      state.resetToken = null;
-    } else {
-      $('resetError3').textContent = response.error || 'Failed to reset PIN';
-      $('resetError3').classList.add('show');
-    }
-  } catch (error) {
-    $('resetError3').textContent = error.message || 'Failed to reset PIN';
-    $('resetError3').classList.add('show');
-  }
-  btn.disabled = false;
-  btn.textContent = 'Reset PIN';
-}
-
-function startResetTimer(seconds) {
-  let remaining = seconds;
-  const link = $('resetResendLink');
-  const timer = $('resetTimer');
-  const count = $('resetTimerCount');
-  link.classList.add('disabled');
-  timer.style.display = 'inline';
-  count.textContent = remaining;
-  if (state.resetTimer) clearInterval(state.resetTimer);
-  state.resetTimer = setInterval(() => {
-    remaining--;
-    count.textContent = remaining;
-    if (remaining <= 0) {
-      clearInterval(state.resetTimer);
-      state.resetTimer = null;
-      link.classList.remove('disabled');
-      timer.style.display = 'none';
-    }
-  }, 1000);
-}
-
-async function resendResetOTP() {
-  const link = $('resetResendLink');
-  if (link.classList.contains('disabled')) {
-    toast('Wait before resending', 'warn');
-    return;
-  }
-  await sendResetOTP();
-}
-
-/* ═══ MISC ═══ */
+/* ══════════════════════════════════════════════════════════════════════
+   MISC
+   ══════════════════════════════════════════════════════════════════════ */
 function generateIdempotencyKey() {
   const ts = Date.now().toString(36).toUpperCase();
   const buf = new Uint8Array(8);
@@ -3192,35 +1848,29 @@ function generateIdempotencyKey() {
   const rand = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
   return `AIR-${ts}-${rand}`;
 }
-
 on($('countryChip'), 'click', (e) => { e.stopPropagation(); toggleCountryList(); });
-
-document.addEventListener('click', (e) => {
-  const field = $('phoneField');
-  const list = $('countryList');
-  if (!field?.contains(e.target)) closeCountryList();
-});
-
+document.addEventListener('click', (e) => { const field = $('phoneField'); if (!field?.contains(e.target)) closeCountryList(); });
 on($('logoutBtn'), 'click', () => {
-  localStorage.removeItem(CONFIG.SK);
-  sessionStorage.removeItem(CONFIG.SK);
-  location.href = 'login.html';
+  if (typeof window.doUserLogout === 'function') window.doUserLogout();
+  else window.location.replace('/login.html');
 });
 
-/* ═══ INIT ═══ */
-(function init() {
+document.addEventListener('DOMContentLoaded', async () => {
+  await new Promise(r => setTimeout(r, 0));
+  if (typeof window.getUser === 'function' && !window.getUser()) {
+    setTimeout(() => { if (!window.getUser()) redirectToLogin(); }, 1500);
+    return;
+  }
   if (!checkSession()) return;
   initSidebar();
   loadUser();
   loadCountries();
   loadHistory();
-
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => prefetchCommonOperators());
-  } else {
-    setTimeout(prefetchCommonOperators, 2000);
-  }
-})();
+  showStep('form');
+  updateProceedState();
+  if ('requestIdleCallback' in window) requestIdleCallback(() => prefetchCommonOperators());
+  else setTimeout(prefetchCommonOperators, 2000);
+});
 </script>
 </body>
 </html>

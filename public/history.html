@@ -1,220 +1,237 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
-  <title>History — MilesSpace</title>
-  
-  <!-- Preconnect to critical origins -->
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="preconnect" href="/api"/>
-  
-  <!-- Preload critical assets -->
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" as="style"/>
-  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style"/>
-  
-  <!-- Critical CSS (inline for speed) -->
-  <style>
-    /* ─── CRITICAL CSS ─── */
-    :root{--p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;--acc:#f59e0b;--acd:#d97706;--acl:#fef3c7;--ok:#10b981;--okl:#d1fae5;--err:#ef4444;--erl:#fee2e2;--bg:#edf1f4;--srf:#fff;--srf2:#f7f9fb;--bdr:#dde4e9;--t1:#0a2530;--t2:#456475;--t3:#8aa4ae;--sw:268px;--r:12px;--rl:16px;--rxl:22px;--rp:999px;--s0:0 1px 3px rgba(0,0,0,.04);--s1:0 4px 14px rgba(0,0,0,.07);--s2:0 8px 28px rgba(0,0,0,.1);--fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--ease:cubic-bezier(.25,.8,.25,1)}
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    html{font-size:15px;scroll-behavior:smooth}
-    body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
-    .app{display:flex;min-height:100vh}.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh;min-width:0}
-    .sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--ease);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
-    .sidebar::-webkit-scrollbar{display:none}
-    @media(min-width:1025px){.sidebar{transform:translateX(0)!important}.tb-hbg{display:none!important}}
-    @media(max-width:1024px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0!important}}
-    .sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
-    .sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd)}
-    .sb-logo img{width:28px;height:28px;border-radius:7px;flex-shrink:0}
-    .sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
-    .sb-nav{padding:0 8px}
-    .sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:all .18s;margin-bottom:2px;text-decoration:none}
-    .sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
-    .sb-lnk:hover{background:var(--bg);color:var(--t1)}
-    .sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
-    .sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
-    .sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
-    .sb-prof:hover{background:var(--bg)}
-    .sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden}
-    .sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-    .sb-ui{flex:1;min-width:0}
-    .sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:all .18s;cursor:pointer;border:none;background:none}
-    .sb-out:hover{background:var(--erl);color:var(--err)}
-    .topbar{background:var(--srf);border-bottom:1px solid var(--bdr);padding:0 20px;height:60px;display:flex;align-items:center;position:sticky;top:0;z-index:400;gap:12px}
-    .tb-hbg{width:34px;height:34px;border-radius:9px;background:var(--pl);color:var(--p);font-size:.88rem;display:none;place-items:center;flex-shrink:0;cursor:pointer}
-    @media(max-width:1024px){.tb-hbg{display:grid}}
-    .tb-title{font-family:var(--fd);font-size:.92rem;font-weight:700;color:var(--t1);flex:1}
-    .tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
-    .tb-btn{width:34px;height:34px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.85rem;cursor:pointer;text-decoration:none}
-    .tb-btn:hover{background:var(--pl);color:var(--p)}
-    .tb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.78rem;color:#fff;border:2px solid var(--acc);cursor:pointer;overflow:hidden;flex-shrink:0}
-    .tb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-    .ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.45);backdrop-filter:blur(4px);z-index:490}.ov.on{display:block}
-    .content{padding:20px 22px;flex:1;width:100%}@media(max-width:768px){.content{padding:14px 13px 82px}}
-    .mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:400px;height:54px;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.8);border-radius:18px;box-shadow:0 6px 24px rgba(0,0,0,.1);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
-    .mni{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:.5rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1;padding:4px 0}
-    .mni i{font-size:.85rem;padding:4px 6px;border-radius:8px;transition:all .18s}
-    .mni.active{color:var(--p)}.mni.active i{background:var(--pl);color:var(--p)}
-    @media(max-width:768px){.mnav{display:flex}}
-    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-    @media(max-width:768px){.stats-grid{grid-template-columns:1fr 1fr;gap:10px}}
-    .stat-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--r);padding:16px 18px;box-shadow:var(--s0);position:relative;overflow:hidden}
-    .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-    .stat-card.credit::before{background:var(--ok)}
-    .stat-card.debit::before{background:var(--err)}
-    .stat-card.orders::before{background:var(--p)}
-    .stat-card.total::before{background:var(--acc)}
-    .stat-icon{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;margin-bottom:8px;font-size:.9rem}
-    .stat-card.credit .stat-icon{background:var(--okl);color:var(--ok)}
-    .stat-card.debit .stat-icon{background:var(--erl);color:var(--err)}
-    .stat-card.orders .stat-icon{background:var(--pl);color:var(--p)}
-    .stat-card.total .stat-icon{background:var(--acl);color:var(--acd)}
-    .stat-label{font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:4px}
-    .stat-val{font-family:var(--fd);font-weight:700;font-size:1.2rem;color:var(--t1);line-height:1.1}
-    .stat-val-sm{font-size:.72rem;color:var(--t2);margin-top:2px;font-weight:500}
-    .stat-sub{font-size:.68rem;color:var(--t3);margin-top:4px}
-    .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--bdr);overflow-x:auto}
-    .tab{display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:.78rem;font-weight:600;color:var(--t2);cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap}
-    .tab:hover{color:var(--t1)}.tab.active{color:var(--p);border-bottom-color:var(--p)}
-    .tab i{font-size:.7rem;color:var(--t3)}
-    .controls-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-    .search-box{flex:1;min-width:180px;position:relative}
-    .search-box i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.78rem;pointer-events:none}
-    .search-box input{width:100%;padding:9px 12px 9px 36px;border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.82rem;font-family:var(--fb);color:var(--t1);background:var(--srf);outline:none;transition:border-color .15s;min-height:40px}
-    .search-box input:focus{border-color:var(--p)}
-    .search-box input::placeholder{color:var(--t3)}
-    .filter-btn{display:flex;align-items:center;gap:7px;padding:9px 14px;background:var(--srf);border:1.5px solid var(--bdr);border-radius:var(--r);font-size:.8rem;font-weight:500;color:var(--t2);cursor:pointer;transition:all .15s;min-height:40px}
-    .filter-btn:hover{border-color:var(--p);color:var(--p)}
-    .filter-btn.has-filter{background:var(--pl);border-color:var(--p);color:var(--p)}
-    .result-count{font-size:.72rem;color:var(--t3);font-weight:500;padding:0 2px 10px}
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#ffffff">
+<title>MilesSpace | Transaction History</title>
+<link rel="icon" href="/images/miles.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+:root{
+  --navy:#0b1a4f;--blue:#2563eb;--blue-l:#eaf0ff;
+  --bg:#f1f3f6;--card:#fff;--line:#e6e9f0;--head:#f7f8fb;
+  --t1:#0f1b3d;--t2:#6b7794;--t3:#9aa4bb;
+  --ok:#12b76a;--warn:#d97706;--err:#ef4444;
+  --sold-bg:#f8d3ee;--sold-t:#a21caf;
+  --buy-bg:#dcd8fb;--buy-t:#4c3fc4;
+  --in-bg:#d1fae5;--in-t:#065f46;
+  --out-bg:#fee2e2;--out-t:#991b1b;
+  --font:'Plus Jakarta Sans',system-ui,sans-serif;
+  --ease:cubic-bezier(.25,.8,.25,1);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:15px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{max-width:100vw;overflow-x:hidden}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100vh;min-height:100dvh;-webkit-font-smoothing:antialiased}
+body.lock{overflow:hidden}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;font-size:inherit}
+input,select{font-family:inherit;font-size:inherit;color:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
-    /* ─── TABLE-STYLE TRANSACTION LIST (matches reference design) ─── */
-    .tx-table-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0)}
-    .tx-scroll{overflow-x:auto}
-    .tx-table{width:100%;border-collapse:collapse;min-width:640px}
-    .tx-table thead th{padding:12px 18px;background:var(--srf2);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
-    .tx-table tbody td{padding:14px 18px;border-bottom:1px solid var(--bdr);vertical-align:middle}
-    .tx-table tbody tr:last-child td{border-bottom:none}
-    .tx-row{cursor:pointer;transition:background .12s}
-    .tx-row:hover{background:var(--srf2)}
-    .tx-row:active{background:var(--pl)}
-    .tx-type-cell{display:flex;align-items:center;gap:11px;min-width:0}
-    .tx-icon-wrap{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:.85rem;flex-shrink:0}
-    .tx-title-table{font-size:.82rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
-    .tx-badge{display:inline-flex;align-items:center;padding:1px 8px;border-radius:5px;font-size:.58rem;font-weight:700;margin-top:3px}
-    .tx-badge.sold{background:#fce7f3;color:#be185d}
-    .tx-badge.bought{background:var(--pl);color:var(--pm)}
-    .tx-badge.in{background:var(--okl);color:#065f46}
-    .tx-badge.out{background:var(--erl);color:#991b1b}
-    .tx-ref-table{font-family:var(--fd);font-size:.76rem;font-weight:700;color:var(--t2);letter-spacing:.01em}
-    .tx-amt-table{font-family:var(--fd);font-size:.84rem;font-weight:700;color:var(--t1)}
-    .tx-status-cell{display:flex;align-items:center;gap:6px}
-    .tx-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-    .tx-status-dot.ok{background:var(--ok)}
-    .tx-status-dot.pend{background:var(--acc)}
-    .tx-status-dot.err{background:var(--err)}
-    .tx-status-dot.info{background:#7c3aed}
-    .tx-status-dot.neu{background:var(--t3)}
-    .tx-status-text{font-size:.78rem;font-weight:600}
-    .tx-status-text.ok{color:var(--ok)}
-    .tx-status-text.pend{color:var(--acd)}
-    .tx-status-text.err{color:var(--err)}
-    .tx-status-text.info{color:#7c3aed}
-    .tx-status-text.neu{color:var(--t3)}
-    .tx-date-table{font-size:.76rem;color:var(--t3);white-space:nowrap}
-    .tx-dl-btn{background:var(--pl);color:var(--p);font-size:.62rem;padding:5px 10px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:var(--fb);font-weight:600;transition:background .12s;border:none;white-space:nowrap}
-    .tx-dl-btn:hover{background:var(--bdr)}
-    .tx-dl-btn:disabled{opacity:.6;cursor:default}
-    .empty-state{text-align:center;padding:48px 20px;color:var(--t3)}
-    .empty-state i{font-size:2.2rem;display:block;margin-bottom:12px;color:var(--bdr)}
-    .loading-state{text-align:center;padding:48px 20px;color:var(--t3)}
-    .loading-state i{font-size:2.2rem;display:block;margin-bottom:12px;color:var(--p)}
-    .tx-skel-row td{padding:0!important;border-bottom:1px solid var(--bdr)}
-    .tx-skel-bar{height:56px;background:linear-gradient(90deg,var(--srf2) 25%,var(--bdr) 50%,var(--srf2) 75%);background-size:400% 100%;animation:shimmer 1.4s infinite}
-    @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
-    .load-more-row td{text-align:center;padding:14px!important;color:var(--t3);cursor:pointer;font-size:.78rem;font-weight:600}
-    .load-more-row td:hover{color:var(--p);background:var(--srf2)}
-    @media(max-width:768px){.topbar{padding:0 14px}.content{padding:14px 12px 80px}.stats-grid{gap:10px}.stat-card{padding:12px 14px}.stat-val{font-size:1rem}.controls-bar{gap:8px}.search-box{min-width:140px}.tabs{gap:2px}.tab{padding:8px 12px;font-size:.72rem}.tx-table thead th{padding:9px 12px;font-size:.56rem}.tx-table tbody td{padding:10px 12px}.tx-icon-wrap{width:32px;height:32px;font-size:.72rem}.tx-title-table{font-size:.74rem;max-width:140px}}
-    @media(max-width:480px){.stats-grid{gap:8px}.stat-card{padding:10px 12px}.stat-icon{width:28px;height:28px;font-size:.75rem}.stat-val{font-size:.9rem}.stat-label{font-size:.55rem}.filter-btn{padding:7px 10px;font-size:.72rem}.search-box input{font-size:.74rem;padding:7px 10px 7px 32px}.tab{padding:6px 10px;font-size:.65rem}}
-    .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-    .badge.completed{background:var(--okl);color:var(--ok)}
-    .badge.pending{background:var(--acl);color:var(--acd)}
-    .badge.processing{background:var(--pl);color:var(--p)}
-    .badge.failed{background:var(--erl);color:var(--err)}
-    .badge.cancelled{background:var(--srf2);color:var(--t3)}
-    .badge.refunded{background:#ede9fe;color:#7c3aed}
-    .sheet-overlay{position:fixed;inset:0;background:rgba(10,37,48,.45);z-index:600;opacity:0;pointer-events:none;transition:opacity .25s}
-    .sheet-overlay.open{opacity:1;pointer-events:auto}
-    .sheet{position:fixed;bottom:0;left:0;right:0;background:var(--srf);border-radius:20px 20px 0 0;padding:0 0 24px;z-index:601;transform:translateY(100%);transition:transform .3s var(--ease);max-height:75vh;overflow-y:auto}
-    .sheet.open{transform:translateY(0)}
-    .sheet-handle{width:36px;height:4px;background:var(--bdr);border-radius:99px;margin:12px auto 0}
-    .sheet-title{font-family:var(--fd);font-size:1rem;font-weight:700;color:var(--t1);padding:14px 20px 10px;border-bottom:1px solid var(--bdr)}
-    .filter-opts{padding:8px 0}
-    .filter-opt{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;cursor:pointer;transition:background .12s;font-size:.82rem;color:var(--t2)}
-    .filter-opt:hover{background:var(--pl);color:var(--p)}
-    .filter-opt.active{color:var(--p);font-weight:600;background:var(--pl)}
-    .filter-opt i.check{color:var(--p);font-size:.75rem}
-    .filter-opt .opt-icon{margin-right:10px;color:var(--t3);width:18px;text-align:center}
-    .filter-opt.active .opt-icon{color:var(--p)}
-    .receipt-overlay{position:fixed;inset:0;background:rgba(10,37,48,.55);z-index:700;opacity:0;pointer-events:none;transition:opacity .25s;display:flex;align-items:center;justify-content:center;padding:16px}
-    .receipt-overlay.open{opacity:1;pointer-events:auto}
-    .receipt-modal{background:var(--srf);border-radius:var(--rxl);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;transform:scale(.96) translateY(16px);transition:transform .3s var(--ease);box-shadow:var(--s2)}
-    .receipt-overlay.open .receipt-modal{transform:scale(1) translateY(0)}
-    .receipt-header{background:var(--p);border-radius:var(--rxl) var(--rxl) 0 0;padding:18px 20px 14px;color:#fff;display:flex;justify-content:space-between;align-items:flex-start}
-    .receipt-type-label{font-size:.6rem;opacity:.7;text-transform:uppercase;letter-spacing:.08em}
-    .receipt-title{font-family:var(--fd);font-weight:700;font-size:1.05rem;margin-top:2px}
-    .receipt-ref{font-size:.7rem;opacity:.7;margin-top:2px}
-    .receipt-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:.75rem;flex-shrink:0}
-    .receipt-body{padding:16px 18px}
-    .r-section{background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
-    .r-section-title{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--p);padding:8px 14px 5px;border-bottom:1px solid var(--bdr);background:var(--pl)}
-    .r-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--bdr);gap:8px}
-    .r-row:last-child{border-bottom:none}
-    .r-key{font-size:.7rem;color:var(--t3);flex-shrink:0}
-    .r-val{font-size:.78rem;font-weight:500;color:var(--t1);text-align:right;word-break:break-all}
-    .copy-btn{background:var(--pl);border:none;color:var(--p);font-size:.6rem;padding:2px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:3px;font-family:var(--fb);font-weight:600;transition:background .12s}
-    .copy-btn:hover{background:var(--bdr)}
-    .status-hero{text-align:center;padding:16px 12px 12px}
-    .status-icon-lg{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;margin:0 auto 10px;font-size:1.2rem}
-    .amount-lg{font-family:var(--fd);font-weight:800;font-size:1.5rem;color:var(--t1);margin-bottom:4px}
-    .amount-lg.cr{color:var(--ok)}.amount-lg.dr{color:var(--err)}
-    .receipt-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 18px 18px}
-    .r-action-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;border-radius:var(--r);font-family:var(--fb);font-size:.78rem;font-weight:600;cursor:pointer;border:none;transition:all .15s;min-height:40px}
-    .r-action-btn.primary{background:var(--p);color:#fff;grid-column:1/-1}
-    .r-action-btn.secondary{background:var(--srf);border:1px solid var(--bdr);color:var(--t2)}
-    .r-action-btn:hover{opacity:.85;transform:translateY(-1px)}
-    .toast-wrap{position:fixed;bottom:80px;right:16px;z-index:999;display:flex;flex-direction:column;gap:8px;max-width:340px;pointer-events:none}
-    .toast{background:var(--srf);padding:12px 18px;border-radius:var(--r);box-shadow:var(--s2);font-size:.8rem;font-weight:600;pointer-events:auto;animation:slideIn .3s var(--ease)}
-    .toast.ok{border-left:4px solid var(--ok);background:var(--okl);color:#065f46}
-    .toast.err{border-left:4px solid var(--err);background:var(--erl);color:#991b1b}
-    @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-  </style>
-  
-  <!-- Defer non-critical CSS -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" media="print" onload="this.media='all'"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" media="print" onload="this.media='all'"/>
-  
-  <!-- Defer non-critical JS -->
-  <script src="/js/session.js" defer></script>
-  <script src="/js/presence.js" defer></script>
-  <script src="/js/miles-widget.js" defer></script>
+/* ── Drawer (menu) ── */
+.ov{position:fixed;inset:0;background:rgba(11,26,79,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:590;opacity:0;pointer-events:none;transition:opacity .25s}
+.ov.on{opacity:1;pointer-events:auto}
+.sidebar{position:fixed;top:0;left:0;height:100dvh;width:min(86vw,290px);background:var(--card);z-index:600;display:flex;flex-direction:column;overflow-y:auto;transform:translateX(-100%);visibility:hidden;transition:transform .3s var(--ease),visibility .3s;box-shadow:0 0 40px rgba(11,26,79,.18)}
+.sidebar.open{transform:none;visibility:visible}
+.sb-brand{padding:20px 18px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem}
+.sb-lic{width:32px;height:32px;border-radius:9px;background:var(--navy);overflow:hidden;flex-shrink:0}
+.sb-lic img{width:100%;height:100%;object-fit:cover}
+.sb-sec{padding:16px 18px 6px;font-size:.72rem;font-weight:700;color:var(--t3)}
+.sb-nav{padding:0 10px}
+.sb-lnk{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;color:var(--t2);font-size:.9rem;font-weight:600;margin-bottom:2px;min-height:44px}
+.sb-lnk i{width:18px;text-align:center}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--blue-l);color:var(--blue)}
+.sb-foot{margin-top:auto;padding:12px 10px;padding-bottom:calc(12px + var(--safe-b));border-top:1px solid var(--line)}
+.sb-prof{display:flex;align-items:center;gap:10px;padding:8px}
+.sb-prof-link{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.sb-un{font-size:.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.7rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:36px;height:36px;border-radius:8px;color:var(--t3)}
+.sb-out:hover{background:var(--out-bg);color:var(--err)}
+
+/* ── Topbar ── */
+.topbar{position:sticky;top:0;z-index:400;background:var(--card);height:calc(68px + var(--safe-t));padding:var(--safe-t) 20px 0;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--line)}
+.ico-btn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:1.05rem;color:var(--navy);flex-shrink:0}
+.ico-btn:hover{background:var(--bg)}
+.topbar h1{font-size:1.3rem;font-weight:700;letter-spacing:-.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-right{display:flex;align-items:center;gap:6px}
+
+.content{max-width:1280px;margin:0 auto;padding:28px 20px calc(60px + var(--safe-b))}
+@media(min-width:768px){.content{padding:36px 32px calc(70px + var(--safe-b))}}
+
+/* ── Header bar ── */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+.count{font-size:1.05rem;font-weight:500;color:var(--t2)}
+.tools{display:flex;gap:12px;flex:1;justify-content:flex-end;min-width:0}
+.search{position:relative;flex:1;max-width:560px;min-width:0}
+.search input{width:100%;height:52px;padding:0 48px 0 20px;border:1px solid transparent;border-radius:12px;background:var(--card);font-size:.92rem;color:var(--t1);outline:none}
+.search input:focus{border-color:var(--blue)}
+.search input::placeholder{color:var(--t2)}
+.search i{position:absolute;right:18px;top:50%;transform:translateY(-50%);color:var(--navy);pointer-events:none}
+.filter{position:relative;height:52px;min-width:170px;background:var(--card);border-radius:12px;display:flex;align-items:center;padding:0 18px;gap:12px;font-weight:600;font-size:.92rem}
+.filter span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.filter select{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
+.filter i{color:var(--navy)}
+@media(max-width:640px){
+  .tools{flex-direction:column;width:100%;justify-content:stretch}
+  .search{max-width:none}
+  .filter{width:100%}
+}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:28px;border-bottom:1px solid var(--line);margin-bottom:22px}
+.tab{padding:12px 2px;font-size:.92rem;font-weight:700;color:var(--t3);border-bottom:3px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:8px;min-height:44px}
+.tab.active{color:var(--navy);border-color:var(--blue)}
+
+/* ── Transaction table ── */
+.table{background:var(--card);border-radius:14px;overflow:hidden}
+.t-head{display:none}
+.t-row{display:grid;width:100%;text-align:left;align-items:center;padding:18px 16px;border-bottom:1px solid var(--line);background:var(--card);gap:4px 12px;
+  grid-template-columns:1fr auto;grid-template-areas:"type amt" "type st"}
+.t-row:last-child{border-bottom:none}
+.t-row:hover{background:var(--head)}
+.c-type{grid-area:type;display:flex;align-items:center;gap:12px;min-width:0}
+.c-ref,.c-date-d{display:none}
+.c-amt{grid-area:amt;text-align:right;font-weight:700;font-size:.9rem;white-space:nowrap}
+.c-st{grid-area:st;justify-self:end}
+.t-ic{width:42px;height:42px;border-radius:50%;background:var(--bg);color:var(--navy);display:grid;place-items:center;font-size:.95rem;flex-shrink:0}
+.t-txt{min-width:0;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.t-title{font-weight:600;font-size:.9rem;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{display:inline-block;font-size:.66rem;font-weight:700;padding:3px 10px;border-radius:7px}
+.pill.sold{background:var(--sold-bg);color:var(--sold-t)}
+.pill.bought{background:var(--buy-bg);color:var(--buy-t)}
+.pill.in{background:var(--in-bg);color:var(--in-t)}
+.pill.out{background:var(--out-bg);color:var(--out-t)}
+.pill.wallet{background:var(--blue-l);color:var(--blue)}
+.t-date-m{font-size:.7rem;color:var(--t3)}
+.st{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:600}
+.st::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.st.completed{color:var(--ok)}.st.pending{color:var(--warn)}.st.failed{color:var(--err)}
+@media(min-width:900px){
+  .t-head{display:grid;grid-template-columns:2.3fr 1.5fr 1fr 1.1fr 1.5fr;gap:12px;padding:22px 28px;background:var(--head);font-weight:700;font-size:.9rem}
+  .t-row{grid-template-columns:2.3fr 1.5fr 1fr 1.1fr 1.5fr;grid-template-areas:"type ref amt st date";padding:22px 28px;gap:12px}
+  .c-ref{display:block;grid-area:ref;font-size:.9rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .c-date-d{display:block;grid-area:date;font-size:.9rem;white-space:nowrap}
+  .c-amt{grid-area:amt;text-align:left;font-size:.9rem;font-weight:500}
+  .c-st{justify-self:start}
+  .t-date-m{display:none}
+  .t-title{font-size:.95rem}
+}
+
+/* ── States ── */
+.empty{padding:64px 20px;text-align:center;color:var(--t2)}
+.empty i{font-size:2rem;display:block;margin-bottom:12px;color:var(--t3)}
+.empty b{display:block;font-size:1rem;color:var(--t1);margin-bottom:4px}
+.empty p{font-size:.85rem;max-width:340px;margin:0 auto}
+.btn-ghost{margin-top:16px;padding:10px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:.82rem;font-weight:700;display:inline-flex;align-items:center;gap:8px;min-height:44px}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+.sk{background:linear-gradient(90deg,var(--line) 25%,var(--head) 37%,var(--line) 63%);background-size:400% 100%;animation:sh 1.4s ease infinite;border-radius:8px}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.sk-row{display:flex;align-items:center;gap:12px;padding:18px 16px;border-bottom:1px solid var(--line)}
+.pager{display:flex;justify-content:center;align-items:center;gap:12px;padding:20px 0}
+.pager button{padding:12px 18px;border-radius:10px;background:var(--card);font-size:.8rem;font-weight:700;min-height:44px}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+.pager span{font-size:.8rem;color:var(--t2)}
+
+/* ── My Purchases ── */
+.p-grid{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:640px){.p-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.p-grid{grid-template-columns:repeat(3,1fr)}}
+.p-card{background:var(--card);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.p-head{display:flex;gap:12px;align-items:center}
+.p-title{font-weight:700;font-size:.92rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-clamp:2;box-orient:vertical;overflow:hidden}
+.p-sub{font-size:.72rem;color:var(--t3);margin-top:3px}
+.p-rows{border-top:1px dashed var(--line);padding-top:10px}
+.p-r{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:5px 0}
+.p-r .l{color:var(--t2)}.p-r .v{font-weight:700}
+.p-btn{padding:12px;border-radius:10px;background:var(--blue-l);color:var(--blue);font-weight:700;font-size:.84rem;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px}
+.p-btn:hover{background:var(--blue);color:#fff}
+
+/* ── Detail (receipt) view ── */
+.d-card{background:var(--card);border-radius:14px;padding:28px 20px 24px}
+@media(min-width:900px){.d-card{padding:36px}}
+.d-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:34px}
+.d-back{display:flex;align-items:center;gap:12px;color:var(--blue);font-size:1.3rem;font-weight:600;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;line-clamp:1;box-orient:vertical;overflow:hidden}
+.d-back i{font-size:1rem}
+.share{height:60px;padding:0 30px;border-radius:12px;background:var(--navy);color:#fff;font-weight:700;font-size:1rem;display:inline-flex;align-items:center;gap:12px}
+.share:hover{background:#142570}
+.share.m{display:none}
+.rc{display:grid;grid-template-columns:repeat(4,1fr);gap:40px 28px}
+.f .l{color:var(--t2);font-size:1rem;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.f .v{font-size:1.2rem;font-weight:500;display:flex;align-items:center;gap:12px;flex-wrap:wrap;word-break:break-word;overflow-wrap:anywhere}
+.cp{color:var(--blue);font-size:.95rem;padding:4px;min-height:32px;min-width:32px}
+.cp:hover{opacity:.7}
+.issue{margin-top:40px}
+.issue button{color:var(--t2);font-size:1.05rem;font-weight:500;border-bottom:2px solid var(--t2);padding-bottom:2px;min-height:44px}
+.issue button:hover{color:var(--blue);border-color:var(--blue)}
+.rate{margin-top:46px}
+.rate h3{font-size:1.2rem;font-weight:600;margin-bottom:18px}
+.rate p{color:var(--t2);font-size:1.1rem;line-height:1.6;max-width:360px;margin-bottom:22px}
+.faces{display:flex;gap:22px;flex-wrap:wrap}
+.face{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--t2);font-size:.9rem;min-height:44px}
+.face span{width:60px;height:60px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:1.9rem;transition:transform .15s,background .15s}
+.face:hover span{transform:scale(1.08)}
+.face.on span{background:var(--blue-l);box-shadow:0 0 0 2px var(--blue)}
+.face.on{color:var(--blue);font-weight:700}
+.cred{margin-top:34px;background:var(--head);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.cred h4{font-size:.95rem;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+.cred h4 small{color:var(--blue);font-weight:600;font-size:.76rem}
+.cr{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.cr:last-of-type{border-bottom:none}
+.cr .k{color:var(--t2);font-size:.82rem;min-width:84px;flex-shrink:0}
+.cr .v{flex:1;min-width:0;word-break:break-all;font-weight:600;font-size:.88rem}
+
+@media(max-width:899px){
+  .rc{grid-template-columns:repeat(2,1fr);gap:30px 20px}
+}
+@media(max-width:640px){
+  .d-card{padding:6px 18px 110px;border-radius:14px}
+  .d-top{margin-bottom:6px}
+  .d-back{font-size:1.05rem}
+  .share.d{display:none}
+  .rc{display:block}
+  .f{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:20px 0;border-bottom:1px solid var(--line)}
+  .f:last-child{border-bottom:none}
+  .f .l{font-size:.8rem;margin:0;flex-shrink:0;max-width:46%}
+  .f .v{font-size:.82rem;font-weight:600;justify-content:flex-end;text-align:right}
+  .issue,.rate{margin-top:28px}
+  .face span{width:52px;height:52px;font-size:1.6rem}
+  .share.m{display:flex;position:fixed;left:16px;right:16px;bottom:calc(16px + var(--safe-b));height:54px;justify-content:center;background:var(--blue);z-index:300;box-shadow:0 8px 24px rgba(37,99,235,.35)}
+}
+
+/* ── Toasts ── */
+.toasts{position:fixed;bottom:calc(86px + var(--safe-b));right:14px;left:14px;z-index:900;display:flex;flex-direction:column;gap:8px;max-width:none;pointer-events:none}
+@media(min-width:641px){.toasts{left:auto;max-width:300px}}
+.toast{display:flex;align-items:center;gap:8px;padding:11px 14px;border-radius:12px;font-size:.8rem;font-weight:600;box-shadow:0 10px 28px rgba(11,26,79,.16);animation:ti .22s ease;pointer-events:auto;word-break:break-word}
+.toast.ok{background:var(--in-bg);color:var(--in-t)}
+.toast.err{background:var(--out-bg);color:var(--out-t)}
+.toast.info{background:var(--card);border:1px solid var(--line)}
+@keyframes ti{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<script>window.MILES_WIDGET_DISABLE = true;</script>
+<script src="/js/session.js"></script>
+<script src="/js/presence.js" defer></script>
 </head>
 <body>
 
 <div class="ov" id="ov"></div>
-<div class="app">
 
 <aside class="sidebar" id="sb">
   <div class="sb-brand">
-    <div class="sb-logo">
-      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
-      MilesSpace
-    </div>
+    <div class="sb-lic"><img src="/images/miles.png" alt="" onerror="this.style.display='none'"></div>
+    MilesSpace
   </div>
   <p class="sb-sec">Menu</p>
   <nav class="sb-nav">
@@ -222,11 +239,10 @@
     <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
     <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
     <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
-    <a href="airtime.html" class="sb-lnk active"><i class="fas fa-globe"></i> Global Airtime</a>
-    <a href="bills.html" class="sb-lnk active"><i class="fas fa-file-invoice-dollar"></i> Airtime, Data & Bills</a>
+    <a href="airtime.html" class="sb-lnk"><i class="fas fa-globe"></i> Global Airtime</a>
     <a href="esim.html" class="sb-lnk"><i class="fas fa-sim-card"></i> Buy eSIM</a>
     <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
-    <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="history.html" class="sb-lnk active"><i class="fas fa-history"></i> History</a>
     <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
   </nav>
   <p class="sb-sec">Account</p>
@@ -237,844 +253,659 @@
   <div class="sb-foot">
     <div class="sb-prof">
       <a href="usersettings.html" class="sb-prof-link">
-        <div class="sb-av" id="sbAv">U</div>
-        <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
+        <div class="avatar" id="sbAv">U</div>
+        <div style="min-width:0"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
       </a>
       <button class="sb-out" id="logoutBtn" title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
     </div>
   </div>
 </aside>
 
-<div class="main">
-  <header class="topbar">
-    <button class="tb-hbg" id="hbg"><i class="fas fa-bars"></i></button>
-    <p class="tb-title">Transaction History</p>
-    <div class="tb-right">
-      <button class="tb-btn" id="exportBtn"><i class="fas fa-download"></i></button>
-      <a href="settings.html" class="tb-av" id="tbAv">U</a>
-    </div>
-  </header>
+<header class="topbar">
+  <button class="ico-btn" id="hbg" aria-label="Open menu"><i class="fas fa-bars-staggered"></i></button>
+  <h1 id="pageTitle">Transaction History</h1>
+  <div class="tb-right">
+    <a href="notifications.html" class="ico-btn" aria-label="Notifications"><i class="far fa-bell"></i></a>
+    <a href="usersettings.html" class="avatar" id="tbAv" aria-label="Account">U</a>
+  </div>
+</header>
 
-  <div class="content">
+<main class="content">
 
-    <div class="stats-grid" id="statsGrid">
-      <div class="stat-card credit"><div class="stat-icon"><i class="fas fa-arrow-down"></i></div><div class="stat-label">Total Credits</div><div class="stat-val" id="totalCredit">₦0</div><div class="stat-val-sm" id="totalCreditUsd">$0.00</div><div class="stat-sub">Across NGN & USD</div></div>
-      <div class="stat-card debit"><div class="stat-icon"><i class="fas fa-arrow-up"></i></div><div class="stat-label">Total Debits</div><div class="stat-val" id="totalDebit">₦0</div><div class="stat-val-sm" id="totalDebitUsd">$0.00</div><div class="stat-sub">Across NGN & USD</div></div>
-      <div class="stat-card orders"><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div><div class="stat-label">Total Orders</div><div class="stat-val" id="totalOrders">0</div><div class="stat-sub">Gift cards, market & boost</div></div>
-      <div class="stat-card total"><div class="stat-icon"><i class="fas fa-list"></i></div><div class="stat-label">All Transactions</div><div class="stat-val" id="totalTx">0</div><div class="stat-sub" id="monthlyTx">0 this month</div></div>
-    </div>
-
-    <div class="tabs" id="tabs">
-      <div class="tab active" data-tab="transactions"><i class="fas fa-list"></i> All Transactions</div>
-      <div class="tab" data-tab="purchases"><i class="fas fa-shopping-bag"></i> My Purchases</div>
+  <!-- LIST VIEW -->
+  <section id="listView">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="all" role="tab" aria-selected="true"><i class="fas fa-list"></i> All Transactions</button>
+      <button class="tab" data-tab="purchases" role="tab" aria-selected="false"><i class="fas fa-bag-shopping"></i> My Purchases</button>
     </div>
 
-    <div class="controls-bar">
-      <div class="search-box"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search by Reference ID…" aria-label="Search transactions"/></div>
-      <button class="filter-btn" id="filterBtn"><i class="fas fa-sliders-h"></i><span id="filterLabel">All Transactions</span><i class="fas fa-chevron-down" style="font-size:8px;opacity:.5;margin-left:2px"></i></button>
-    </div>
-
-    <p class="result-count" id="resultCount"></p>
-
-    <div class="tx-table-card">
-      <div class="tx-scroll">
-        <table class="tx-table">
-          <thead id="txHead">
-            <tr><th>Type</th><th>Reference ID</th><th>Amount</th><th>Status</th><th>Date Created</th></tr>
-          </thead>
-          <tbody id="txList">
-            <tr class="tx-skel-row"><td colspan="5"><div class="tx-skel-bar"></div></td></tr>
-            <tr class="tx-skel-row"><td colspan="5"><div class="tx-skel-bar"></div></td></tr>
-            <tr class="tx-skel-row"><td colspan="5"><div class="tx-skel-bar"></div></td></tr>
-            <tr class="tx-skel-row"><td colspan="5"><div class="tx-skel-bar"></div></td></tr>
-          </tbody>
-        </table>
+    <div id="viewAll">
+      <div class="bar">
+        <div class="count" id="countLbl">Transactions</div>
+        <div class="tools">
+          <div class="search">
+            <input type="search" id="searchInput" placeholder="Search by Reference ID" autocomplete="off" aria-label="Search by Reference ID"/>
+            <i class="fas fa-magnifying-glass"></i>
+          </div>
+          <label class="filter">
+            <span id="filterLbl">All</span>
+            <i class="fas fa-sliders"></i>
+            <select id="filterType" aria-label="Filter transactions">
+              <option value="all">All</option>
+              <option value="wallet_funding">Wallet funding</option>
+              <option value="wallet_withdrawal">Wallet withdrawal</option>
+              <option value="giftcard">Gift cards</option>
+              <option value="gift_card_buy">Gift card purchase</option>
+              <option value="gift_card_sell">Gift card sale</option>
+              <option value="airtime">Airtime</option>
+              <option value="data">Data Purchase</option>
+              <option value="esim">eSIM</option>
+              <option value="bills">Bills</option>
+              <option value="marketplace">Marketplace</option>
+              <option value="virtual">Virtual numbers</option>
+              <option value="boost">Social boost</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="table">
+        <div class="t-head"><span>Type</span><span>Reference ID</span><span>Amount</span><span>Status</span><span>Date Created</span></div>
+        <div id="txBody"></div>
+      </div>
+      <div class="pager" id="pager" hidden>
+        <button id="prevBtn">← Prev</button><span id="pageInfo">—</span><button id="nextBtn">Next →</button>
       </div>
     </div>
 
-  </div>
-</div>
+    <div id="viewPurchases" hidden>
+      <div class="bar"><div class="count" id="purchCount">My Purchases</div></div>
+      <div class="p-grid" id="pGrid"></div>
+    </div>
+  </section>
 
-<nav class="mnav">
-  <a href="dashboard.html" class="mni"><i class="fas fa-home"></i>Home</a>
-  <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i>Boost</a>
-  <a href="fund.html" class="mni"><i class="fas fa-wallet"></i>Fund</a>
-  <a href="history.html" class="mni active"><i class="fas fa-history"></i>History</a>
-  <a href="profile.html" class="mni"><i class="fas fa-user"></i>Profile</a>
-</nav>
-</div>
+  <!-- DETAIL (RECEIPT) VIEW -->
+  <section id="detailView" hidden>
+    <div class="d-card">
+      <div class="d-top">
+        <button class="d-back" id="detailBack" aria-label="Back to history"><i class="fas fa-arrow-left"></i> Transaction Details</button>
+        <button class="share d" id="shareD"><i class="fas fa-arrow-up-from-bracket"></i> Share Receipt</button>
+      </div>
+      <div class="rc" id="rc"></div>
+      <div id="credSlot"></div>
+      <div class="issue"><button id="reportBtn">Report Issue</button></div>
+      <div class="rate">
+        <h3>Rate the Transaction</h3>
+        <p>Rate the transaction and drop a feedback for us to improve our Platform.</p>
+        <div class="faces" id="faces">
+          <button class="face" data-r="Very Bad"><span>😣</span>Very Bad</button>
+          <button class="face" data-r="Bad"><span>😒</span>Bad</button>
+          <button class="face" data-r="Average"><span>😐</span>Average</button>
+          <button class="face" data-r="Good"><span>🙂</span>Good</button>
+          <button class="face" data-r="Very Good"><span>😍</span>Very Good</button>
+        </div>
+      </div>
+    </div>
+    <button class="share m" id="shareM"><i class="fas fa-arrow-up-from-bracket"></i> Share Receipt</button>
+  </section>
+</main>
 
-<div class="sheet-overlay" id="sheetOverlay"></div>
-<div class="sheet" id="filterSheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-title">Filter Transactions</div>
-  <div class="filter-opts" id="filterOpts"></div>
-</div>
-
-<div class="receipt-overlay" id="receiptOverlay">
-  <div class="receipt-modal" id="receiptModal"></div>
-</div>
-
-<div class="toast-wrap" id="toastWrap"></div>
+<div class="toasts" id="toasts"></div>
 
 <script>
 'use strict';
 
-// ═══════════════════════════════════════════════════════════
-//  SMART STATE MANAGEMENT WITH MEMOIZATION
-// ═══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════
+   AUTH MODEL
+   ───────────────────────────────────────────────────────────────
+   • Access token lives in memory (managed by /js/session.js).
+   • Refresh token lives in an HttpOnly cookie.
+   • All authenticated requests go through window.userFetch().
+   • User metadata is available via window.getUser().
+   ═══════════════════════════════════════════════════════════════════ */
+
+const API_BASE = '/api';
+const PAGE_SIZE = 20;
 
 const State = {
-  _data: {
-    allTx: [],
-    purchaseMap: null,       // null = not fetched yet, {} = fetched & empty
-    stats: null,
-    filter: 'all',
-    search: '',
-    page: 1,
-    tab: 'transactions',
-    hasMore: true,
-    totalCount: 0,
-    isLoading: false
-  },
-  get(key) { return this._data[key]; },
-  set(key, value) { this._data[key] = value; }
+  tab: 'all', page: 1, limit: PAGE_SIZE, type: 'all', search: '',
+  loading: false, rows: [], purchases: [], purchasesLoaded: false,
+  reqId: 0, current: null, total: 0
 };
+const $ = id => document.getElementById(id);
 
-// ─── SIMPLE MEMOIZE ───
-function memoize(fn) {
-  const cache = new Map();
-  return (...args) => {
-    const key = JSON.stringify(args);
-    if (cache.has(key)) return cache.get(key);
-    const result = fn(...args);
-    cache.set(key, result);
-    return result;
-  };
+/* ═════════ HELPERS ═════════ */
+const esc = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+const nf = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (n, c) => String(c || 'NGN').toUpperCase() === 'USD' ? '$' + nf(n) : '₦' + nf(n);
+const moneyCode = (n, c) => String(c || 'NGN').toUpperCase() + ' ' + nf(n);
+function fmtDate(iso, long) {
+  if (!iso) return '—';
+  const d = new Date(iso); if (isNaN(d)) return '—';
+  const day = d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return long ? `${day} | ${time}` : `${day} - ${time}`;
 }
-
-// ─── DEBOUNCE ───
-function debounce(fn, wait = 300) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), wait);
-  };
-}
-
-// ─── THROTTLE ───
-function throttle(fn, limit = 200) {
-  let inThrottle = false;
-  return (...args) => {
-    if (!inThrottle) {
-      fn(...args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
-    }
-  };
-}
-
-// ═══════════════════════════════════════════════════════════
-//  MONTHLY COUNT SELECTOR
-// ═══════════════════════════════════════════════════════════
-
-function getMonthlyCount(txs) {
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  return txs.filter(t => t.created_at && new Date(t.created_at) >= monthStart).length;
-}
-
-// ═══════════════════════════════════════════════════════════
-//  SESSION HELPERS
-// ═══════════════════════════════════════════════════════════
-
-const SESSION_KEY = 'mx_sess';
-
-function getSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function getToken() { return getSession()?.token || ''; }
-
-function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-  sessionStorage.removeItem(SESSION_KEY);
-}
-
-function redirectToLogin() { clearSession(); window.location.href = 'login.html'; }
-
-// ═══════════════════════════════════════════════════════════
-//  API LAYER WITH CACHING  (same /api endpoints as before)
-// ═══════════════════════════════════════════════════════════
-
-const apiCache = new Map();
-const CACHE_TTL = 60000;
-
-async function apiCall(path, opts = {}, useCache = true) {
-    const token = getToken();
-    if (!token) { redirectToLogin(); return null; }
-
-    const cacheKey = path + JSON.stringify(opts || {});
-    if (useCache && apiCache.has(cacheKey)) {
-        const cached = apiCache.get(cacheKey);
-        if (Date.now() - cached.timestamp < CACHE_TTL) return cached.data;
-        apiCache.delete(cacheKey);
-    }
-
-    try {
-        const res = await fetch('/api' + path, {
-            ...opts,
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-        });
-
-        if (res.status === 401) { redirectToLogin(); return null; }
-
-        if (res.status === 404) {
-            return path.includes('purchase-map') ? { success: true, map: {} } : null;
-        }
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Request failed');
-        if (useCache) apiCache.set(cacheKey, { data, timestamp: Date.now() });
-        return data;
-    } catch (e) {
-        console.warn('API error:', e);
-        if (path.includes('purchase-map')) return { success: true, map: {} };
-        throw e;
-    }
-}
-
-function invalidateTxCache() {
-  for (const key of apiCache.keys()) {
-    if (key.startsWith('/transactions')) apiCache.delete(key);
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-//  FORMAT HELPERS (memoized for performance)
-// ═══════════════════════════════════════════════════════════
-
-const fNGN = memoize(n => '₦' + (Math.abs(Number(n)) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-const fUSD = memoize(n => '$' + (Math.abs(Number(n)) || 0).toFixed(2));
-
-function formatDate(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts);
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatTime(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts);
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-}
-
-function getTxRef(t) {
-  return t.reference || t.ref || t.id || '—';
-}
-
-// ═══════════════════════════════════════════════════════════
-//  CONFIGURATION
-// ═══════════════════════════════════════════════════════════
-
-const FILTERS = [
-  { key: 'all', label: 'All Transactions', icon: 'fas fa-list' },
-  { key: 'wallet_funding', label: 'Wallet Funding', icon: 'fas fa-arrow-down' },
-  { key: 'wallet_withdrawal', label: 'Wallet Withdrawal', icon: 'fas fa-arrow-up' },
-  { key: 'gift_card_sell', label: 'Sell Gift Card', icon: 'fas fa-tag' },
-  { key: 'gift_card_buy', label: 'Buy Gift Card', icon: 'fas fa-gift' },
-  { key: 'virtual_number', label: 'Virtual Number', icon: 'fas fa-phone-alt' },
-  { key: 'social_boost', label: 'Social Boost', icon: 'fas fa-chart-line' },
-  { key: 'marketplace_purchase', label: 'Marketplace Purchase', icon: 'fas fa-shopping-bag' },
-  { key: 'send_gift', label: 'Send Gift', icon: 'fas fa-heart' },
-  { key: 'referral_bonus', label: 'Referral Bonus', icon: 'fas fa-users' },
-  { key: 'cashback', label: 'Cashback', icon: 'fas fa-undo-alt' },
-];
-
-// icon / color / badge shown per transaction type — badge mirrors the
-// pink "Sold" tag style from the reference design
-const TYPE_CONFIG = {
-  wallet_funding:        { label: 'Wallet Funding',        icon: 'fas fa-arrow-down',    bg: '#d1fae5', color: '#059669', badgeLabel: 'Funded',    badgeClass: 'in' },
-  wallet_withdrawal:     { label: 'Wallet Withdrawal',      icon: 'fas fa-arrow-up',      bg: '#fee2e2', color: '#dc2626', badgeLabel: 'Withdrawal',badgeClass: 'out' },
-  gift_card_sell:        { label: 'Gift Card Sale',         icon: 'fas fa-gift',          bg: '#fef3c7', color: '#d97706', badgeLabel: 'Sold',      badgeClass: 'sold' },
-  gift_card_buy:         { label: 'Gift Card Purchase',     icon: 'fas fa-gift',          bg: '#dbeafe', color: '#2563eb', badgeLabel: 'Bought',    badgeClass: 'bought' },
-  virtual_number:        { label: 'Virtual Number',         icon: 'fas fa-phone-alt',     bg: '#ede9fe', color: '#7c3aed', badgeLabel: 'Purchase',  badgeClass: 'bought' },
-  social_boost:          { label: 'Social Boost',           icon: 'fas fa-chart-line',    bg: '#dbeafe', color: '#2563eb', badgeLabel: 'Purchase',  badgeClass: 'bought' },
-  marketplace_purchase:  { label: 'Marketplace Purchase',   icon: 'fas fa-shopping-bag',  bg: '#fef3c7', color: '#d97706', badgeLabel: 'Purchase',  badgeClass: 'bought' },
-  send_gift:             { label: 'Send Gift',              icon: 'fas fa-heart',         bg: '#fce7f3', color: '#db2777', badgeLabel: 'Sent',      badgeClass: 'out' },
-  referral_bonus:        { label: 'Referral Bonus',         icon: 'fas fa-users',         bg: '#d1fae5', color: '#059669', badgeLabel: 'Bonus',     badgeClass: 'in' },
-  cashback:              { label: 'Cashback',                icon: 'fas fa-undo-alt',      bg: '#d1fae5', color: '#059669', badgeLabel: 'Redeemed',  badgeClass: 'in' },
-};
-
-function typeConfig(type) {
-  return TYPE_CONFIG[type] || { label: type || 'Transaction', icon: 'fas fa-receipt', bg: '#e2e8f0', color: '#64748b', badgeLabel: 'Transaction', badgeClass: 'bought' };
-}
-
-const STATUS_CONFIG = {
-  completed: { label: 'Completed', bg: '#d1fae5', color: '#065f46', dot: 'ok' },
-  pending: { label: 'Pending', bg: '#fef3c7', color: '#92400e', dot: 'pend' },
-  processing: { label: 'Processing', bg: '#dbeafe', color: '#1e40af', dot: 'info' },
-  failed: { label: 'Failed', bg: '#fee2e2', color: '#991b1b', dot: 'err' },
-  cancelled: { label: 'Cancelled', bg: '#f3f4f6', color: '#374151', dot: 'neu' },
-  refunded: { label: 'Refunded', bg: '#ede9fe', color: '#5b21b6', dot: 'info' },
-  expired: { label: 'Expired', bg: '#374151', color: '#f9fafb', dot: 'neu' },
-};
-
-function statusConfig(status) {
-  return STATUS_CONFIG[status] || { label: status || 'Unknown', bg: '#f3f4f6', color: '#374151', dot: 'neu' };
-}
-
-// ═══════════════════════════════════════════════════════════
-//  DOM ELEMENTS
-// ═══════════════════════════════════════════════════════════
-
-const DOM = {
-  sb: document.getElementById('sb'),
-  ov: document.getElementById('ov'),
-  hbg: document.getElementById('hbg'),
-  sbName: document.getElementById('sbName'),
-  sbEmail: document.getElementById('sbEmail'),
-  sbAv: document.getElementById('sbAv'),
-  tbAv: document.getElementById('tbAv'),
-  logoutBtn: document.getElementById('logoutBtn'),
-  totalCredit: document.getElementById('totalCredit'),
-  totalDebit: document.getElementById('totalDebit'),
-  totalCreditUsd: document.getElementById('totalCreditUsd'),
-  totalDebitUsd: document.getElementById('totalDebitUsd'),
-  totalOrders: document.getElementById('totalOrders'),
-  totalTx: document.getElementById('totalTx'),
-  monthlyTx: document.getElementById('monthlyTx'),
-  searchInput: document.getElementById('searchInput'),
-  filterBtn: document.getElementById('filterBtn'),
-  filterLabel: document.getElementById('filterLabel'),
-  filterOpts: document.getElementById('filterOpts'),
-  sheetOverlay: document.getElementById('sheetOverlay'),
-  filterSheet: document.getElementById('filterSheet'),
-  txHead: document.getElementById('txHead'),
-  txList: document.getElementById('txList'),
-  resultCount: document.getElementById('resultCount'),
-  tabs: document.getElementById('tabs'),
-  exportBtn: document.getElementById('exportBtn'),
-  receiptOverlay: document.getElementById('receiptOverlay'),
-  receiptModal: document.getElementById('receiptModal'),
-  toastWrap: document.getElementById('toastWrap'),
-};
-
-// ═══════════════════════════════════════════════════════════
-//  USER UI
-// ═══════════════════════════════════════════════════════════
-
-function populateUser() {
-  const sess = getSession();
-  const u = sess?.user || {};
-  const name = u.username || u.email?.split('@')[0] || 'User';
-  const email = u.email || '';
-  DOM.sbName.textContent = name;
-  DOM.sbEmail.textContent = email;
-  const init = name.charAt(0).toUpperCase();
-  if (u.avatar_url) {
-    DOM.sbAv.innerHTML = `<img src="${u.avatar_url}" alt="${name}" onerror="this.textContent='${init}'">`;
-    DOM.tbAv.innerHTML = `<img src="${u.avatar_url}" alt="${name}" onerror="this.textContent='${init}'">`;
-  } else {
-    DOM.sbAv.textContent = init;
-    DOM.tbAv.textContent = init;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-//  SIDEBAR (unchanged)
-// ═══════════════════════════════════════════════════════════
-
-DOM.hbg.addEventListener('click', () => {
-  DOM.sb.classList.toggle('open');
-  DOM.ov.classList.toggle('on');
-});
-DOM.ov.addEventListener('click', () => {
-  DOM.sb.classList.remove('open');
-  DOM.ov.classList.remove('on');
-});
-window.addEventListener('resize', () => {
-  if (window.innerWidth >= 1025) {
-    DOM.sb.classList.remove('open');
-    DOM.ov.classList.remove('on');
-  }
-});
-
-DOM.logoutBtn.addEventListener('click', (e) => {
-  e.preventDefault();
-  clearSession();
-  localStorage.removeItem('admin_sess');
-  localStorage.removeItem('miles_token');
-  localStorage.removeItem('miles_user');
-  sessionStorage.clear();
-  window.location.href = 'login.html';
-});
-
-// ═══════════════════════════════════════════════════════════
-//  FILTER SHEET
-// ═══════════════════════════════════════════════════════════
-
-function buildFilters() {
-  DOM.filterOpts.innerHTML = FILTERS.map(f => `
-    <div class="filter-opt ${f.key === 'all' ? 'active' : ''}" data-key="${f.key}">
-      <span><i class="opt-icon ${f.icon}"></i>${f.label}</span>
-      ${f.key === 'all' ? '<i class="fas fa-check check"></i>' : ''}
-    </div>
-  `).join('');
-
-  DOM.filterOpts.querySelectorAll('.filter-opt').forEach(el => {
-    el.addEventListener('click', function() {
-      const key = this.dataset.key;
-      if (key === State.get('filter')) { closeSheet(); return; }
-      State.set('filter', key);
-      DOM.filterOpts.querySelectorAll('.filter-opt').forEach(e => {
-        e.classList.remove('active');
-        e.querySelector('.check')?.remove();
-      });
-      this.classList.add('active');
-      this.insertAdjacentHTML('beforeend', '<i class="fas fa-check check"></i>');
-      const label = FILTERS.find(f => f.key === key)?.label || 'All Transactions';
-      DOM.filterLabel.textContent = label;
-      DOM.filterBtn.classList.toggle('has-filter', key !== 'all');
-      closeSheet();
-      State.set('page', 1);
-      State.set('allTx', []);
-      loadData();
-    });
-  });
-}
-
-DOM.filterBtn.addEventListener('click', () => {
-  DOM.sheetOverlay.classList.add('open');
-  DOM.filterSheet.classList.add('open');
-});
-DOM.sheetOverlay.addEventListener('click', closeSheet);
-
-function closeSheet() {
-  DOM.sheetOverlay.classList.remove('open');
-  DOM.filterSheet.classList.remove('open');
-}
-
-// ═══════════════════════════════════════════════════════════
-//  TABS
-// ═══════════════════════════════════════════════════════════
-
-DOM.tabs.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', function() {
-    if (this.classList.contains('active')) return;
-    DOM.tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    this.classList.add('active');
-    State.set('tab', this.dataset.tab);
-    renderView();
-    if (this.dataset.tab === 'purchases' && State.get('purchaseMap') === null) {
-      loadPurchaseMap();
-    }
-  });
-});
-
-// ═══════════════════════════════════════════════════════════
-//  SEARCH WITH DEBOUNCE — server-side, so it stays fast & accurate
-// ═══════════════════════════════════════════════════════════
-
-const handleSearch = debounce((value) => {
-  State.set('search', value.trim());
-  State.set('page', 1);
-  State.set('allTx', []);
-  loadData();
-}, 350);
-
-DOM.searchInput.addEventListener('input', (e) => handleSearch(e.target.value));
-
-// ═══════════════════════════════════════════════════════════
-//  DATA LOADING — single fast call, filtered & searched server-side
-// ═══════════════════════════════════════════════════════════
-
-async function loadData() {
-  if (State.get('isLoading')) return;
-  State.set('isLoading', true);
-  if (State.get('page') === 1) renderSkeleton();
-
-  const page = State.get('page');
-  const filter = State.get('filter');
-  const search = State.get('search');
-
-  try {
-    let url = `/transactions?page=${page}&limit=20`;
-    if (filter && filter !== 'all') url += `&type=${encodeURIComponent(filter)}`;
-    if (search) url += `&search=${encodeURIComponent(search)}`;
-
-    const data = await apiCall(url);
-    if (!data || !data.success) throw new Error(data?.error || 'Failed to load');
-
-    const newTx = data.data || [];
-    const prev = page === 1 ? [] : State.get('allTx');
-    const allTx = [...prev, ...newTx];
-
-    State.set('allTx', allTx);
-    State.set('hasMore', !!data.pagination?.hasMore);
-    State.set('totalCount', data.pagination?.total ?? allTx.length);
-
-    if (data.stats) {
-      State.set('stats', data.stats);
-      updateStats(data.stats);
-    }
-
-    renderView();
-  } catch (e) {
-    console.error('Load error:', e);
-    DOM.txList.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>${e.message || 'Failed to load transactions. Please refresh.'}</p></div></td></tr>`;
-  }
-
-  State.set('isLoading', false);
-}
-
-function renderSkeleton() {
-  DOM.txList.innerHTML = Array.from({ length: 4 }).map(() =>
-    `<tr class="tx-skel-row"><td colspan="5"><div class="tx-skel-bar"></div></td></tr>`
-  ).join('');
-}
-
-// ─── PURCHASE MAP — only fetched lazily when the Purchases tab is opened ───
-async function loadPurchaseMap() {
-  DOM.txList.innerHTML = `<tr class="tx-skel-row"><td colspan="6"><div class="tx-skel-bar"></div></td></tr><tr class="tx-skel-row"><td colspan="6"><div class="tx-skel-bar"></div></td></tr>`;
-  try {
-    const data = await apiCall('/transactions/purchase-map');
-    State.set('purchaseMap', data?.map || {});
-  } catch (e) {
-    State.set('purchaseMap', {});
-  }
-  if (State.get('tab') === 'purchases') renderView();
-}
-
-// ═══════════════════════════════════════════════════════════
-//  UPDATE STATS
-// ═══════════════════════════════════════════════════════════
-
-function updateStats(s) {
-  if (!s) return;
-  DOM.totalCredit.textContent = fNGN(s.totalCreditNGN || 0);
-  DOM.totalDebit.textContent = fNGN(s.totalDebitNGN || 0);
-  DOM.totalCreditUsd.textContent = fUSD(s.totalCreditUSD || 0);
-  DOM.totalDebitUsd.textContent = fUSD(s.totalDebitUSD || 0);
-  DOM.totalOrders.textContent = s.totalOrders ?? ((s.giftOrders || 0) + (s.marketOrders || 0) + (s.boostOrders || 0));
-  DOM.totalTx.textContent = s.totalTransactions || 0;
-  DOM.monthlyTx.textContent = (s.monthlyCount ?? getMonthlyCount(State.get('allTx'))) + ' this month';
-}
-
-// ═══════════════════════════════════════════════════════════
-//  RENDER VIEW
-// ═══════════════════════════════════════════════════════════
-
-function renderView() {
-  const tab = State.get('tab');
-  if (tab === 'purchases') {
-    DOM.txHead.innerHTML = '<tr><th>Product</th><th>Reference ID</th><th>Amount</th><th>Status</th><th>Date</th><th></th></tr>';
-    renderPurchases();
-  } else {
-    DOM.txHead.innerHTML = '<tr><th>Type</th><th>Reference ID</th><th>Amount</th><th>Status</th><th>Date Created</th></tr>';
-    renderTransactions();
-  }
-}
-
-// ─── RENDER TRANSACTIONS (table rows, matches reference design) ───
-function renderTransactions() {
-  const txs = State.get('allTx');
-  const total = State.get('totalCount');
-
-  DOM.resultCount.textContent = total ? `${total} Transaction${total === 1 ? '' : 's'}` : '';
-
-  if (!txs.length) {
-    if (State.get('isLoading')) return;
-    DOM.txList.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-inbox"></i><p>No transactions found</p></div></td></tr>`;
-    return;
-  }
-
-  const rows = txs.map(tx => {
-    const c = typeConfig(tx.type);
-    const status = statusConfig(tx.status);
-    const isUSD = tx.currency === 'USD';
-    const amount = Math.abs(parseFloat(tx.amount || 0));
-    const displayAmount = isUSD ? fUSD(amount) : fNGN(amount);
-    const ref = getTxRef(tx);
-    const title = tx.description || c.label;
-
-    return `
-      <tr class="tx-row" data-id="${tx.id}">
-        <td>
-          <div class="tx-type-cell">
-            <div class="tx-icon-wrap" style="background:${c.bg};color:${c.color}"><i class="${c.icon}"></i></div>
-            <div>
-              <div class="tx-title-table" title="${title}">${title}</div>
-              <span class="tx-badge ${c.badgeClass}">${c.badgeLabel}</span>
-            </div>
-          </div>
-        </td>
-        <td><span class="tx-ref-table">${ref}</span></td>
-        <td><span class="tx-amt-table">${isUSD ? '$' : '₦'}${amount.toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></td>
-        <td>
-          <span class="tx-status-cell">
-            <span class="tx-status-dot ${status.dot}"></span>
-            <span class="tx-status-text ${status.dot}">${status.label}</span>
-          </span>
-        </td>
-        <td class="tx-date-table">${formatDate(tx.created_at)} · ${formatTime(tx.created_at)}</td>
-      </tr>
-    `;
-  }).join('');
-
-  const loadMore = State.get('hasMore')
-    ? `<tr class="load-more-row" id="loadMoreRow"><td colspan="5"><i class="fas fa-chevron-down"></i> Load more</td></tr>`
-    : '';
-
-  DOM.txList.innerHTML = rows + loadMore;
-
-  DOM.txList.querySelectorAll('.tx-row').forEach(row => {
-    row.addEventListener('click', function() {
-      const tx = State.get('allTx').find(t => String(t.id) === String(this.dataset.id));
-      if (tx) openReceipt(tx);
-    });
-  });
-
-  const trigger = document.getElementById('loadMoreRow');
-  if (trigger) {
-    trigger.addEventListener('click', () => {
-      State.set('page', State.get('page') + 1);
-      loadData();
-    });
-  }
-}
-
-// ─── RENDER PURCHASES ───
-function renderPurchases() {
-  const map = State.get('purchaseMap');
-  if (map === null) return; // still loading
-  const entries = Object.entries(map);
-
-  if (!entries.length) {
-    DOM.txList.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-shopping-bag"></i><p>No purchases found</p></div></td></tr>`;
-    return;
-  }
-
-  DOM.txList.innerHTML = entries.map(([ref, item]) => {
-    const isUSD = item.display_currency === 'USD' || item.currency === 'USD';
-    const amountVal = item.display_amount ?? item.amount ?? 0;
-    const amount = isUSD ? fUSD(amountVal) : fNGN(amountVal);
-    const status = statusConfig(item.status || 'completed');
-    const isDownloadable = item.download_token && item.type === 'marketplace';
-    const icon = item.type === 'marketplace' ? 'fas fa-shopping-bag' : item.type === 'gift' ? 'fas fa-gift' : 'fas fa-ad';
-    const bg = item.type === 'marketplace' ? '#dbeafe' : item.type === 'gift' ? '#fce7f3' : '#fef3c7';
-    const color = item.type === 'marketplace' ? '#2563eb' : item.type === 'gift' ? '#db2777' : '#d97706';
-
-    return `
-      <tr class="tx-row" data-ref="${ref}">
-        <td>
-          <div class="tx-type-cell">
-            <div class="tx-icon-wrap" style="background:${bg};color:${color}"><i class="${icon}"></i></div>
-            <div class="tx-title-table" title="${item.product_name}">${item.product_name}</div>
-          </div>
-        </td>
-        <td><span class="tx-ref-table">${ref}</span></td>
-        <td><span class="tx-amt-table">${amount}</span></td>
-        <td>
-          <span class="tx-status-cell">
-            <span class="tx-status-dot ${status.dot}"></span>
-            <span class="tx-status-text ${status.dot}">${status.label}</span>
-          </span>
-        </td>
-        <td class="tx-date-table">${formatDate(item.purchased_at)}</td>
-        <td>${isDownloadable ? `<button class="tx-dl-btn" data-ref="${ref}"><i class="fas fa-download"></i> Download</button>` : ''}</td>
-      </tr>
-    `;
-  }).join('');
-
-  DOM.txList.querySelectorAll('.tx-dl-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      downloadOrder(btn.dataset.ref, btn);
-    });
-  });
-}
-
-// ═══════════════════════════════════════════════════════════
-//  DOWNLOAD ORDER
-// ═══════════════════════════════════════════════════════════
-
-async function downloadOrder(orderRef, btn) {
-  try {
-    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; }
-    const response = await apiCall(`/transactions/download/${orderRef}`, { method: 'POST' }, false);
-    if (!response?.success) { toast(response?.error || 'Download failed', 'err'); return; }
-    if (response.download_token) {
-      window.open(`/api/download/${response.download_token}`, '_blank');
-      toast('Download started!', 'ok');
-      const data = await apiCall('/transactions/purchase-map', {}, false);
-      State.set('purchaseMap', data?.map || {});
-      if (State.get('tab') === 'purchases') renderPurchases();
-    }
-  } catch (e) { toast('Download failed', 'err'); }
-  finally { if (btn) { btn.innerHTML = '<i class="fas fa-download"></i> Download'; btn.disabled = false; } }
-}
-
-// ═══════════════════════════════════════════════════════════
-//  RECEIPT
-// ═══════════════════════════════════════════════════════════
-
-function openReceipt(tx) {
-  DOM.receiptModal.innerHTML = buildReceipt(tx);
-  DOM.receiptOverlay.classList.add('open');
-  DOM.receiptModal.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      navigator.clipboard.writeText(this.dataset.copy).then(() => {
-        const orig = this.innerHTML;
-        this.innerHTML = '<i class="fas fa-check"></i> Copied';
-        setTimeout(() => this.innerHTML = orig, 1500);
-      });
-    });
-  });
-  DOM.receiptModal.querySelector('.receipt-close')?.addEventListener('click', closeReceipt);
-  DOM.receiptModal.querySelector('#dlReceipt')?.addEventListener('click', () => downloadReceipt(tx));
-}
-
-function closeReceipt() { DOM.receiptOverlay.classList.remove('open'); }
-DOM.receiptOverlay.addEventListener('click', (e) => { if (e.target === DOM.receiptOverlay) closeReceipt(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeReceipt(); closeSheet(); } });
-
-function downloadReceipt(tx) {
-  const isUSD = tx.currency === 'USD';
-  const amount = Math.abs(parseFloat(tx.amount || 0));
-  const displayAmount = isUSD ? fUSD(amount) : fNGN(amount);
-  const ref = getTxRef(tx);
-  const text = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n  🏦 MILESPACE TRANSACTION RECEIPT\n  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n  Reference:  ${ref}\n  Type:       ${tx.type}\n  Status:     ${tx.status}\n  Amount:     ${displayAmount}\n  Currency:   ${isUSD ? 'USD' : 'NGN'}\n  Date:       ${formatDate(tx.created_at)} ${formatTime(tx.created_at)}\n  Product:    ${tx.description || '—'}\n  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n  Generated: ${new Date().toLocaleString()}\n  MilesSpace — Everything Digital. One Trusted Marketplace.`;
-  const a = document.createElement('a');
-  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
-  a.download = `receipt-${ref}.txt`;
-  a.click();
-}
-
-function buildReceipt(tx) {
-  const isUSD = tx.currency === 'USD';
-  const amount = Math.abs(parseFloat(tx.amount || 0));
-  const displayAmount = isUSD ? fUSD(amount) : fNGN(amount);
-  const isCredit = ['wallet_funding', 'referral_bonus', 'cashback'].includes(tx.type);
-  const amountClass = isCredit ? 'cr' : 'dr';
-  const sign = isCredit ? '+' : '';
-  const status = statusConfig(tx.status);
-  const cfg = typeConfig(tx.type);
-  const ref = getTxRef(tx);
-
-  return `
-    <div class="receipt-header">
-      <div>
-        <div class="receipt-type-label">${cfg.label}</div>
-        <div class="receipt-title">${tx.description || cfg.label}</div>
-        <div class="receipt-ref">${ref}</div>
-      </div>
-      <button class="receipt-close">✕</button>
-    </div>
-    <div class="receipt-body">
-      <div class="status-hero">
-        <div class="status-icon-lg" style="background:${status.bg};color:${status.color}"><i class="${cfg.icon}"></i></div>
-        <div class="amount-lg ${amountClass}">${sign}${displayAmount}</div>
-        <div style="font-size:.8rem;color:var(--t2);">${status.label}</div>
-        <div style="font-size:.65rem;color:var(--t3);margin-top:4px;">${formatDate(tx.created_at)} · ${formatTime(tx.created_at)}</div>
-      </div>
-      <div class="r-section">
-        <div class="r-section-title">Payment Details</div>
-        <div class="r-row"><span class="r-key">Amount</span><span class="r-val">${displayAmount}</span></div>
-        <div class="r-row"><span class="r-key">Currency</span><span class="r-val">${isUSD ? 'USD' : 'NGN'}</span></div>
-        <div class="r-row"><span class="r-key">Wallet</span><span class="r-val">${isUSD ? 'USD Wallet' : 'NGN Wallet'}</span></div>
-        ${tx.fee ? `<div class="r-row"><span class="r-key">Fee</span><span class="r-val">${isUSD ? fUSD(tx.fee) : fNGN(tx.fee)}</span></div>` : ''}
-      </div>
-      <div class="r-section">
-        <div class="r-section-title">Reference</div>
-        <div class="r-row"><span class="r-key">Transaction ID</span><span class="r-val" style="font-size:.7rem;font-family:monospace;">${tx.id} <button class="copy-btn" data-copy="${tx.id}"><i class="fas fa-copy"></i> Copy</button></span></div>
-        <div class="r-row"><span class="r-key">Reference</span><span class="r-val" style="font-size:.7rem;font-family:monospace;">${ref} <button class="copy-btn" data-copy="${ref}"><i class="fas fa-copy"></i> Copy</button></span></div>
-        <div class="r-row"><span class="r-key">Status</span><span class="r-val"><span class="badge ${tx.status}">${status.label}</span></span></div>
-      </div>
-      <div class="receipt-actions">
-        <button class="r-action-btn secondary" id="dlReceipt"><i class="fas fa-download"></i> Download</button>
-        <button class="r-action-btn secondary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
-        <button class="r-action-btn primary" onclick="closeReceipt()">Close</button>
-      </div>
-    </div>
-  `;
-}
-
-// ═══════════════════════════════════════════════════════════
-//  EXPORT CSV — uses the existing /api/transactions/export/csv route
-// ═══════════════════════════════════════════════════════════
-
-DOM.exportBtn.addEventListener('click', async () => {
-  try {
-    const token = getToken();
-    const res = await fetch('/api/transactions/export/csv', { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) throw new Error('Export failed');
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `transactions_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast('CSV downloaded!', 'ok');
-  } catch (e) {
-    toast('Export failed', 'err');
-  }
-});
-
-// ═══════════════════════════════════════════════════════════
-//  TOAST
-// ═══════════════════════════════════════════════════════════
-
 function toast(msg, type = 'info') {
   const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  DOM.toastWrap.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 3000);
+  el.className = 'toast ' + type;
+  const ic = { ok: 'fa-circle-check', err: 'fa-circle-xmark', info: 'fa-circle-info' };
+  el.innerHTML = `<i class="fas ${ic[type] || ic.info}"></i><span>${esc(msg)}</span>`;
+  $('toasts').appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .25s';
+    setTimeout(() => el.remove(), 260);
+  }, 3000);
+}
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg || 'Copied to clipboard', 'ok'); }
+  catch { toast('Could not copy', 'err'); }
 }
 
-// ═══════════════════════════════════════════════════════════
-//  INIT — one fast parallel load, everything else lazy
-// ═══════════════════════════════════════════════════════════
+/* ═════════ SESSION HELPERS — delegate to /js/session.js ═════════ */
+function getCurrentUser() {
+  return (typeof window.getUser === 'function') ? window.getUser() : null;
+}
+function toLogin() {
+  if (typeof window.redirectToUserLogin === 'function') {
+    window.redirectToUserLogin();
+  } else {
+    window.location.replace('login.html');
+  }
+}
 
-async function init() {
-  populateUser();
-  buildFilters();
+/* ═════════ API — uses window.userFetch ═════════ */
+async function apiFetch(path, opts = {}) {
+  const fetcher = (typeof window.userFetch === 'function')
+    ? window.userFetch
+    : (url, o) => fetch(url, { ...o, credentials: 'include' });
 
-  // First page of transactions (includes stats in the same payload —
-  // no extra round trip needed). Purchase map is fetched lazily only
-  // when the "My Purchases" tab is opened, keeping first paint fast.
-  await loadData();
+  const res = await fetcher(API_BASE + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(opts.headers || {})
+    }
+  });
 
-  // Infinite scroll — loads the next page just before the user reaches
-  // the bottom of the table.
-  if ('IntersectionObserver' in window) {
-    const sentinel = document.createElement('div');
-    sentinel.id = 'scrollSentinel';
-    sentinel.style.cssText = 'height:1px';
-    document.querySelector('.tx-table-card')?.after(sentinel);
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && State.get('hasMore') && !State.get('isLoading') && State.get('tab') === 'transactions') {
-        State.set('page', State.get('page') + 1);
-        loadData();
-      }
-    }, { rootMargin: '300px' });
-    observer.observe(sentinel);
+  if (res.status === 401) {
+    toLogin();
+    throw Object.assign(new Error('UNAUTHORIZED'), { status: 401 });
   }
 
-  console.log('📜 History page ready (server-side filter + search, lazy purchases)');
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.success === false) {
+    const e = new Error(body.error || `HTTP ${res.status}`);
+    e.code = body.code; e.status = res.status; throw e;
+  }
+  return body;
 }
 
-// ─── START ───
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
+/* ═════════ TYPE / STATUS VIEW ═════════ */
+const IN  = ['fas fa-arrow-down', 'in', 'Money in'];
+const OUT = ['fas fa-arrow-up', 'out', 'Money out'];
+const TYPES = {
+  deposit: ['Wallet funded', ...IN], fund: ['Wallet funded', ...IN], credit: ['Wallet credited', ...IN],
+  topup: ['Wallet topped up', ...IN], top_up: ['Wallet topped up', ...IN],
+  withdrawal: ['Withdrawal', ...OUT], withdraw: ['Withdrawal', ...OUT],
+  transfer_in: ['Transfer received', ...IN], transfer_out: ['Transfer sent', ...OUT],
+  refund: ['Refund', 'fas fa-rotate-left', 'in', 'Money in'],
+  reversal: ['Reversal', 'fas fa-rotate-left', 'in', 'Money in'],
+  cashback: ['Cashback', 'fas fa-coins', 'in', 'Money in'],
+  cashback_redeem: ['Cashback redeemed', 'fas fa-coins', 'in', 'Money in'],
+  referral_bonus: ['Referral bonus', 'fas fa-user-plus', 'in', 'Money in'],
+  reward: ['Reward', 'fas fa-award', 'in', 'Money in'],
+  crypto: ['Crypto deposit', 'fas fa-coins', 'in', 'Money in'],
+  crypto_deposit: ['Crypto deposit', 'fas fa-coins', 'in', 'Money in'],
+  airtime: ['Airtime', 'fas fa-mobile-screen', 'bought', 'Purchased'],
+  data: ['Data Purchase', 'fas fa-receipt', 'bought', 'Purchased'],
+  bills: ['Bill Payment', 'fas fa-file-invoice-dollar', 'bought', 'Purchased'],
+  electricity: ['Electricity', 'fas fa-bolt', 'bought', 'Purchased'],
+  cable: ['Cable TV', 'fas fa-tv', 'bought', 'Purchased'],
+  internet: ['Internet', 'fas fa-wifi', 'bought', 'Purchased'],
+  esim: ['eSIM', 'fas fa-sim-card', 'bought', 'Purchased'],
+  giftcard: ['Gift Card', 'fas fa-gift', 'sold', 'Sold'],
+  gift: ['Gift Card', 'fas fa-gift', 'sold', 'Sold'],
+  giftcard_sell: ['Gift Card Sale', 'fas fa-gift', 'sold', 'Sold'],
+  giftcard_buy: ['Gift Card Purchase', 'fas fa-gift', 'bought', 'Bought'],
+  gift_card_buy: ['Gift Card Purchase', 'fas fa-gift', 'bought', 'Bought'],
+  marketplace: ['Marketplace Purchase', 'fas fa-store', 'bought', 'Bought'],
+  purchase: ['Purchase', 'fas fa-bag-shopping', 'bought', 'Bought'],
+  virtual: ['Virtual Number', 'fas fa-phone-alt', 'bought', 'Bought'],
+  virtual_sms: ['Virtual Number', 'fas fa-phone-alt', 'bought', 'Bought'],
+  boost: ['Social Boost', 'fas fa-chart-line', 'bought', 'Bought'],
+  wallet: ['Wallet', 'fas fa-wallet', 'wallet', 'Wallet']
+};
+function typeView(type) {
+  const t = TYPES[String(type || '').toLowerCase()];
+  if (t) return { label: t[0], icon: t[1], kind: t[2], kindLabel: t[3] };
+  return {
+    label: type ? String(type).charAt(0).toUpperCase() + String(type).slice(1) : 'Transaction',
+    icon: 'fas fa-receipt', kind: 'wallet', kindLabel: 'Transaction'
+  };
 }
+function statusView(status) {
+  const s = String(status || '').toLowerCase();
+  if (['completed', 'success', 'successful'].includes(s)) return { label: 'Completed', cls: 'completed' };
+  if (['pending', 'processing', 'provider_unknown'].includes(s)) return { label: 'Pending', cls: 'pending' };
+  if (['refunded', 'reversed'].includes(s)) return { label: 'Refunded', cls: 'failed' };
+  if (['failed', 'cancelled'].includes(s)) return { label: 'Failed', cls: 'failed' };
+  return { label: s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Pending', cls: 'pending' };
+}
+
+/* ═════════ FETCHERS ═════════ */
+async function fetchTransactions() {
+  const myReq = ++State.reqId;
+  State.loading = true;
+  renderSkeleton();
+  const p = new URLSearchParams({ page: State.page, limit: State.limit });
+  if (State.type !== 'all') p.set('type', State.type);
+  if (State.search) p.set('search', State.search);
+  try {
+    const body = await apiFetch('/transactions?' + p);
+    if (myReq !== State.reqId) return;
+    State.rows = Array.isArray(body.data) ? body.data : [];
+    State.total = (body.pagination || {}).total ?? State.rows.length;
+    renderCount();
+    renderList();
+    renderPager(body.pagination || {});
+  } catch (e) {
+    if (myReq !== State.reqId) return;
+    console.error('fetchTransactions:', e);
+    renderError(e);
+    if (e.status !== 401) toast(e.message || 'Could not load transactions.', 'err');
+  } finally {
+    if (myReq === State.reqId) State.loading = false;
+  }
+}
+
+async function fetchPurchases() {
+  if (State.purchasesLoaded) return;
+  try {
+    const body = await apiFetch('/transactions/purchases');
+    State.purchases = Array.isArray(body.data) ? body.data : [];
+    State.purchasesLoaded = true;
+    renderPurchases();
+  } catch (e) {
+    console.error('fetchPurchases:', e);
+    $('pGrid').innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <i class="fas fa-triangle-exclamation" style="color:var(--err)"></i>
+      <b>Couldn't load purchases</b>
+      <p>${esc(e.message || 'Please try again in a moment.')}</p>
+      <button class="btn-ghost" id="retryP"><i class="fas fa-rotate"></i> Retry</button>
+    </div>`;
+    $('retryP')?.addEventListener('click', () => { State.purchasesLoaded = false; fetchPurchases(); });
+  }
+}
+
+/* ═════════ RENDER — LIST ═════════ */
+function renderCount() {
+  const n = State.total;
+  const opt = $('filterType').selectedOptions[0]?.textContent || 'All';
+  $('countLbl').textContent = State.type === 'all'
+    ? `${n} Transaction${n === 1 ? '' : 's'}`
+    : `${n} ${opt} Transaction${n === 1 ? '' : 's'}`;
+  $('filterLbl').textContent = opt;
+}
+function renderSkeleton() {
+  $('txBody').innerHTML = Array.from({ length: 6 }).map(() => `
+    <div class="sk-row">
+      <div class="sk" style="width:42px;height:42px;border-radius:50%"></div>
+      <div style="flex:1">
+        <div class="sk" style="width:55%;height:12px;margin-bottom:8px"></div>
+        <div class="sk" style="width:25%;height:10px"></div>
+      </div>
+      <div class="sk" style="width:70px;height:14px"></div>
+    </div>`).join('');
+}
+function renderList() {
+  const body = $('txBody');
+  if (!State.rows.length) {
+    const f = State.search || State.type !== 'all';
+    body.innerHTML = `<div class="empty">
+      <i class="fas ${f ? 'fa-magnifying-glass' : 'fa-receipt'}"></i>
+      <b>${f ? 'No matching transactions' : 'No transactions yet'}</b>
+      <p>${f ? 'Try a different reference ID or clear the filter.' : 'Your MilesSpace activity will appear here after your first purchase.'}</p>
+      ${f ? '<button class="btn-ghost" id="clearF"><i class="fas fa-xmark"></i> Clear filters</button>' : ''}
+    </div>`;
+    $('clearF')?.addEventListener('click', () => {
+      $('searchInput').value = '';
+      $('filterType').value = 'all';
+      State.search = '';
+      State.type = 'all';
+      State.page = 1;
+      fetchTransactions();
+    });
+    return;
+  }
+  body.innerHTML = State.rows.map((r, i) => {
+    const v = typeView(r.type), st = statusView(r.status);
+    const title = r.description || v.label;
+    return `<button type="button" class="t-row" data-i="${i}">
+      <div class="c-type">
+        <div class="t-ic"><i class="${v.icon}"></i></div>
+        <div class="t-txt">
+          <div class="t-title" title="${esc(title)}">${esc(title)}</div>
+          <span class="pill ${v.kind}">${esc(v.kindLabel)}</span>
+          <span class="t-date-m">${esc(fmtDate(r.created_at))}</span>
+        </div>
+      </div>
+      <div class="c-ref" title="${esc(r.reference || '')}">${esc(r.reference || '—')}</div>
+      <div class="c-amt">${esc(money(Math.abs(Number(r.amount) || 0), r.currency))}</div>
+      <div class="c-st"><span class="st ${st.cls}">${esc(st.label)}</span></div>
+      <div class="c-date-d">${esc(fmtDate(r.created_at))}</div>
+    </button>`;
+  }).join('');
+  body.querySelectorAll('.t-row').forEach(el =>
+    el.addEventListener('click', () => openDetail(State.rows[Number(el.dataset.i)]))
+  );
+}
+function renderPager(p) {
+  const total = p.total || 0, pages = p.totalPages || 1, page = p.page || 1;
+  if (total <= State.limit) { $('pager').hidden = true; return; }
+  $('pager').hidden = false;
+  $('pageInfo').textContent = `Page ${page} of ${pages}`;
+  $('prevBtn').disabled = page <= 1;
+  $('nextBtn').disabled = !p.hasMore;
+}
+function renderError(e) {
+  $('txBody').innerHTML = `<div class="empty">
+    <i class="fas fa-triangle-exclamation" style="color:var(--err)"></i>
+    <b>Couldn't load transactions</b>
+    <p>${esc(e.message || 'Please try again in a moment.')}</p>
+    <button class="btn-ghost" id="retryT"><i class="fas fa-rotate"></i> Retry</button>
+  </div>`;
+  $('retryT').addEventListener('click', fetchTransactions);
+  $('pager').hidden = true;
+}
+
+/* ═════════ RENDER — MY PURCHASES ═════════ */
+function renderPurchases() {
+  const items = State.purchases, grid = $('pGrid');
+  $('purchCount').textContent = `${items.length} Purchase${items.length === 1 ? '' : 's'}`;
+  if (!items.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <i class="fas fa-bag-shopping"></i>
+      <b>No marketplace purchases yet</b>
+      <p>Digital products you buy from the Marketplace will appear here, ready to access anytime.</p>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = items.map((r, i) => {
+    const v = typeView(r.type);
+    const st = statusView(r.status);
+    const title = r.metadata?.product_title || r.description || v.label;
+    const delivered = r.delivery_status === 'delivered';
+    const stLbl = delivered ? 'Delivered' : st.label;
+    const canDownload = r.can_download === true;
+    return `<div class="p-card">
+      <div class="p-head">
+        <div class="t-ic"><i class="${v.icon}"></i></div>
+        <div style="min-width:0">
+          <div class="p-title" title="${esc(title)}">${esc(title)}</div>
+          <div class="p-sub">${esc(fmtDate(r.created_at))}</div>
+        </div>
+      </div>
+      <div class="p-rows">
+        <div class="p-r"><span class="l">Amount</span><span class="v">${esc(money(Math.abs(Number(r.amount) || 0), r.currency))}</span></div>
+        <div class="p-r"><span class="l">Status</span><span class="v"><span class="st ${st.cls}">${esc(stLbl)}</span></span></div>
+      </div>
+      <button class="p-btn" data-i="${i}" data-ref="${esc(r.reference || '')}">
+        <i class="fas fa-eye"></i> View details
+      </button>
+      ${canDownload ? `<button class="p-btn" data-dl="${esc(r.reference || '')}">
+        <i class="fas fa-download"></i> Download
+      </button>` : ''}
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('.p-btn[data-i]').forEach(b =>
+    b.addEventListener('click', () => openDetail(State.purchases[Number(b.dataset.i)]))
+  );
+  grid.querySelectorAll('.p-btn[data-dl]').forEach(b =>
+    b.addEventListener('click', () => downloadDeliverable(b.dataset.dl))
+  );
+}
+
+/* ═════════ DETAIL (RECEIPT) ═════════ */
+function fieldsFor(row) {
+  const v = typeView(row.type), st = statusView(row.status), m = row.metadata || {};
+  const amt = Math.abs(Number(row.amount) || 0), fee = Math.abs(Number(row.fee) || 0);
+  const ref = row.reference || '—';
+  const sold = v.kind === 'sold';
+  const F = [];
+  F.push(['Transaction Type', `${esc(row.description || v.label)} <span class="pill ${v.kind}">${esc(v.kindLabel)}</span>`]);
+  F.push(['Reference ID', `<span>${esc(ref)}</span><button class="cp" data-copy="${esc(ref)}" aria-label="Copy reference"><i class="far fa-copy"></i></button>`]);
+  F.push(['Status', `<span class="st ${st.cls}">${esc(st.label)}</span>`]);
+  F.push(['Transaction Date', esc(fmtDate(row.created_at, true))]);
+
+  const extra = [
+    ['Network Provider', m.operator_name],
+    ['Phone Number', m.phone_number],
+    ['Country', m.country_name],
+    ['Gift Card', m.card_name],
+    ['Category', m.category],
+    ['Subcategory', m.subcategory],
+    ['Plan', m.plan_name],
+    ['Data', m.data_display],
+    ['Service', m.service_name],
+    ['Platform', m.platform],
+    ['Quantity', m.quantity],
+    ['Product', m.product_title],
+    ['Face Value', m.face_value ? `${m.face_currency || ''} ${m.face_value}`.trim() : null],
+    ['Rate', m.rate],
+    ['Units', m.units],
+    ['Reason', m.refund_reason]
+  ];
+  for (const [l, val] of extra) {
+    if (val != null && val !== '') F.push([l, esc(String(val))]);
+  }
+
+  const wallet = String(row.currency || 'NGN').toUpperCase() === 'USD' ? 'Dollar Wallet' : 'Naira Wallet';
+  F.push([sold ? 'Payout Wallet' : 'Payment Method', wallet]);
+  if (fee > 0) F.push(['Fee', esc(moneyCode(fee, row.currency))]);
+  F.push([sold ? 'Payout Total' : 'Total Amount', esc(moneyCode(amt, row.currency))]);
+  return F;
+}
+
+function credBlock(row) {
+  if (String(row.type).toLowerCase() !== 'marketplace') return '';
+  const canDownload = row.can_download === true;
+  const deliveryStatus = row.delivery_status || 'pending';
+
+  if (!canDownload) {
+    const msg = deliveryStatus === 'unavailable'
+      ? 'This order did not complete. Contact support if you were charged.'
+      : 'Your product will be available here as soon as it is delivered.';
+    return `<div class="cred">
+      <h4><span>Your Product Access</span><small>${esc(deliveryStatus)}</small></h4>
+      <div class="cr"><span class="k">Status</span><span class="v" style="font-weight:500">${esc(msg)}</span></div>
+    </div>`;
+  }
+
+  return `<div class="cred">
+    <h4><span>Your Product Access</span><small>Ready</small></h4>
+    <div class="cr"><span class="k">Status</span><span class="v">Delivered</span></div>
+    <button class="btn-ghost" id="dlBtn" style="width:100%;justify-content:center">
+      <i class="fas fa-download"></i> Download delivered files
+    </button>
+  </div>`;
+}
+
+function openDetail(row) {
+  if (!row) return;
+  State.current = row;
+  $('rc').innerHTML = fieldsFor(row)
+    .map(([l, v]) => `<div class="f"><div class="l">${esc(l)}</div><div class="v">${v}</div></div>`)
+    .join('');
+  $('credSlot').innerHTML = credBlock(row);
+
+  document.querySelectorAll('#detailView [data-copy]').forEach(el =>
+    el.addEventListener('click', () => copyText(el.dataset.copy))
+  );
+  $('dlBtn')?.addEventListener('click', () => {
+    if (row.reference) downloadDeliverable(row.reference);
+  });
+  document.querySelectorAll('.face').forEach(f => f.classList.remove('on'));
+  $('listView').hidden = true;
+  $('detailView').hidden = false;
+  $('pageTitle').textContent = 'Transaction Details';
+  window.scrollTo({ top: 0 });
+  history.pushState({ d: 1 }, '');
+}
+
+function closeDetail(fromPop) {
+  if ($('detailView').hidden) return;
+  $('detailView').hidden = true;
+  $('listView').hidden = false;
+  $('pageTitle').textContent = 'Transaction History';
+  State.current = null;
+  if (!fromPop && history.state?.d) history.back();
+}
+
+async function downloadDeliverable(reference) {
+  try {
+    const body = await apiFetch(
+      '/transactions/purchases/' + encodeURIComponent(reference) + '/deliverable'
+    );
+    const data = body.data || body;
+    const url = data.download_token || data.delivered_data?.url;
+    if (url) window.open(url, '_blank', 'noopener');
+    else toast('Nothing to download for this purchase.', 'info');
+  } catch (e) {
+    toast(e.message || 'Could not fetch download.', 'err');
+  }
+}
+
+function shareReceipt() {
+  const r = State.current; if (!r) return;
+  const v = typeView(r.type), st = statusView(r.status);
+  const text = [
+    'MilesSpace Receipt', '─────────────────',
+    `Type: ${r.description || v.label}`,
+    `Reference: ${r.reference || '—'}`,
+    `Status: ${st.label}`,
+    `Date: ${fmtDate(r.created_at, true)}`,
+    `Amount: ${moneyCode(Math.abs(Number(r.amount) || 0), r.currency)}`,
+    '', 'Thank you for using MilesSpace.'
+  ].join('\n');
+  if (navigator.share) {
+    navigator.share({ title: 'MilesSpace Receipt', text })
+      .catch(() => copyText(text, 'Receipt copied to clipboard'));
+  } else {
+    copyText(text, 'Receipt copied to clipboard');
+  }
+}
+
+/* ═════════ SIDEBAR + USER ═════════ */
+function initSidebar() {
+  const sb = $('sb'), ov = $('ov');
+  const open = () => { sb.classList.add('open'); ov.classList.add('on'); document.body.classList.add('lock'); };
+  const close = () => { sb.classList.remove('open'); ov.classList.remove('on'); document.body.classList.remove('lock'); };
+  $('hbg').addEventListener('click', () => sb.classList.contains('open') ? close() : open());
+  ov.addEventListener('click', close);
+  document.querySelectorAll('.sb-lnk').forEach(l => l.addEventListener('click', close));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (sb.classList.contains('open')) close();
+      else closeDetail();
+    }
+  });
+}
+function renderUser() {
+  const u = getCurrentUser() || {};
+  const name = u.username || (u.email || '').split('@')[0] || 'Account';
+  const ini = name.charAt(0).toUpperCase() || 'U';
+  $('sbName').textContent = name;
+  $('sbEmail').textContent = u.email || '';
+  // Always show the initial letter — never render avatar_url as an image.
+  $('sbAv').textContent = ini;
+  $('tbAv').textContent = ini;
+}
+
+/* ═════════ TABS + INIT ═════════ */
+function setTab(tab) {
+  State.tab = tab;
+  document.querySelectorAll('.tab').forEach(t => {
+    const a = t.dataset.tab === tab;
+    t.classList.toggle('active', a);
+    t.setAttribute('aria-selected', String(a));
+  });
+  $('viewAll').hidden = tab !== 'all';
+  $('viewPurchases').hidden = tab !== 'purchases';
+  if (tab === 'purchases') fetchPurchases();
+}
+
+function init() {
+  // Wait a tick for session.js to hydrate before checking.
+  if (!getCurrentUser()) {
+    setTimeout(() => {
+      if (!getCurrentUser()) toLogin();
+    }, 1500);
+    return;
+  }
+
+  initSidebar();
+  renderUser();
+
+  $('logoutBtn').addEventListener('click', () => {
+    if (typeof window.doUserLogout === 'function') {
+      window.doUserLogout();
+    } else {
+      toLogin();
+    }
+  });
+
+  document.querySelectorAll('.tab').forEach(t =>
+    t.addEventListener('click', () => setTab(t.dataset.tab))
+  );
+
+  let timer;
+  $('searchInput').addEventListener('input', e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      State.search = e.target.value.trim();
+      State.page = 1;
+      fetchTransactions();
+    }, 350);
+  });
+  $('filterType').addEventListener('change', e => {
+    State.type = e.target.value || 'all';
+    State.page = 1;
+    fetchTransactions();
+  });
+  $('prevBtn').addEventListener('click', () => {
+    if (State.page > 1) {
+      State.page--;
+      fetchTransactions();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+  $('nextBtn').addEventListener('click', () => {
+    State.page++;
+    fetchTransactions();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  $('detailBack').addEventListener('click', () => closeDetail(false));
+  window.addEventListener('popstate', () => closeDetail(true));
+  $('shareD').addEventListener('click', shareReceipt);
+  $('shareM').addEventListener('click', shareReceipt);
+  $('reportBtn').addEventListener('click', () => {
+    const ref = State.current?.reference;
+    if (ref) copyText(ref, 'Reference copied. Send it to support so we can look into it.');
+  });
+  $('faces').addEventListener('click', e => {
+    const b = e.target.closest('.face'); if (!b) return;
+    document.querySelectorAll('.face').forEach(f => f.classList.toggle('on', f === b));
+    toast('Thanks for your feedback', 'ok');
+  });
+
+  fetchTransactions();
+}
+
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>

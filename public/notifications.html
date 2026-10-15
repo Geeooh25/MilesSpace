@@ -2,16 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#fbfaf7">
+  <link rel="icon" href="/images/miles.png" type="image/png">
+  <link rel="apple-touch-icon" href="/images/miles.png">
   <title>MilesSpace | Notifications</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script src="/js/session.js"></script>
+  <script src="/js/presence.js" defer></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { max-width: 100vw; overflow-x: hidden; }
     body {
       font-family: 'DM Sans', sans-serif;
       background: #f0f4f7;
       color: #0d2b33;
+      min-height: 100vh;
+      min-height: 100dvh;
     }
     :root {
       --primary: #0f4c5c;
@@ -20,15 +30,60 @@
       --border: #e2e8f0;
       --radius: 14px;
       --radius-lg: 22px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
     }
-    .container { max-width: 800px; margin: 0 auto; padding: 28px; }
-    .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--primary); text-decoration: none; margin-bottom: 24px; font-weight: 500; }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: calc(28px + var(--safe-t)) 28px calc(28px + var(--safe-b));
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--primary);
+      text-decoration: none;
+      margin-bottom: 24px;
+      font-weight: 500;
+      padding: 6px 4px;
+      min-height: 40px;
+    }
     .back-link:hover { text-decoration: underline; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-    h1 { font-family: 'Syne', sans-serif; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
-    .unread-count { background: var(--primary); color: #fff; font-size: 0.7rem; padding: 2px 10px; border-radius: 999px; }
-    .mark-all { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; font-size: 0.85rem; }
-    .mark-all:hover { text-decoration: underline; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .unread-count {
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 10px;
+      border-radius: 999px;
+    }
+    .mark-all {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 8px 10px;
+      border-radius: 8px;
+      min-height: 40px;
+    }
+    .mark-all:hover { text-decoration: underline; background: var(--primary-light); }
     .notification-item {
       background: #fff;
       border: 1px solid var(--border);
@@ -41,36 +96,125 @@
       align-items: flex-start;
     }
     .notification-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .notification-item.unread { background: var(--unread-bg); border-left: 3px solid var(--primary); }
-    .notif-icon { width: 40px; height: 40px; background: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0; }
+    .notification-item.unread {
+      background: var(--unread-bg);
+      border-left: 3px solid var(--primary);
+    }
+    .notif-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--primary-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
     .notif-content { flex: 1; min-width: 0; }
     .notif-title { font-weight: 700; margin-bottom: 4px; }
-    .notif-message { font-size: .85rem; color: #4a6572; margin-bottom: 6px; word-wrap: break-word; }
+    .notif-message {
+      font-size: .85rem;
+      color: #4a6572;
+      margin-bottom: 6px;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
     .notif-time { font-size: .7rem; color: #8da4ae; }
-    .notif-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-    .mark-read-btn { background: none; border: none; color: var(--primary); font-size: .75rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: background .2s; }
+    .notif-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .mark-read-btn {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: .75rem;
+      cursor: pointer;
+      padding: 8px 10px;
+      border-radius: 6px;
+      transition: background .2s;
+      min-width: 40px;
+      min-height: 40px;
+    }
     .mark-read-btn:hover { background: var(--primary-light); }
-    .delete-btn { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: background .2s; }
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #e74c3c;
+      cursor: pointer;
+      padding: 8px 10px;
+      border-radius: 6px;
+      transition: background .2s;
+      min-width: 40px;
+      min-height: 40px;
+    }
     .delete-btn:hover { background: #fee2e2; }
-    .empty-state { text-align: center; padding: 60px 20px; color: #8da4ae; }
-    .empty-state i { font-size: 3rem; margin-bottom: 16px; display: block; color: #dde4e9; }
-    .loading-state { text-align: center; padding: 40px; color: #8da4ae; }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8da4ae;
+    }
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      display: block;
+      color: #dde4e9;
+    }
+    .empty-state h3 { font-size: 1rem; margin-bottom: 6px; color: #0d2b33; }
+    .empty-state p { font-size: .85rem; }
+    .loading-state {
+      text-align: center;
+      padding: 40px;
+      color: #8da4ae;
+    }
     .loading-state i { font-size: 2rem; margin-bottom: 12px; display: block; }
-    .toast { position: fixed; bottom: 20px; right: 20px; background: #0d2b33; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.15); display: none; z-index: 999; max-width: 320px; }
+    .toast {
+      position: fixed;
+      bottom: calc(20px + var(--safe-b));
+      right: 20px;
+      left: 20px;
+      background: #0d2b33;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      display: none;
+      z-index: 999;
+      max-width: 320px;
+      margin-left: auto;
+      word-break: break-word;
+    }
+    @media (min-width: 641px) {
+      .toast { left: auto; right: 20px; }
+    }
     .toast.show { display: flex; align-items: center; gap: 10px; animation: slideUp 0.3s ease; }
     .toast.success { background: #10b981; }
     .toast.error { background: #ef4444; }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    @media (max-width: 600px) { .container { padding: 16px; } .notification-item { padding: 14px; flex-wrap: wrap; } .notif-actions { margin-top: 8px; width: 100%; justify-content: flex-end; } }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 600px) {
+      .container { padding: calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b)); }
+      .notification-item { padding: 14px; flex-wrap: wrap; }
+      .notif-actions {
+        margin-top: 8px;
+        width: 100%;
+        justify-content: flex-end;
+      }
+      .toast { left: 16px; right: 16px; max-width: none; }
+    }
   </style>
-  <script src="/js/session.js"></script>
-  <script src="/js/presence.js" defer></script>
 </head>
 <body>
 
 <div class="container">
   <a href="dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
-  
+
   <div class="header">
     <h1>
       <i class="fas fa-bell"></i> Notifications
@@ -92,75 +236,81 @@
 <script>
 'use strict';
 
-const SESSION_KEY = 'mx_sess';
+/* ═══════════════════════════════════════════════════════════════════
+   AUTH MODEL
+   ───────────────────────────────────────────────────────────────
+   • Access token lives in memory (managed by /js/session.js).
+   • Refresh token lives in an HttpOnly cookie.
+   • All authenticated requests go through window.userFetch().
+   • User metadata is available via window.getUser().
+   ═══════════════════════════════════════════════════════════════════ */
+
 const API_BASE = '/api';
-
-// ── SESSION HELPERS ──
-function getSession() {
-  try {
-    const data = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch(e) { return null; }
-}
-
-function getToken() {
-  const session = getSession();
-  return session?.token || '';
-}
-
-// ── AUTH CHECK ──
-const session = getSession();
-if (!session || !session.token) {
-  window.location.href = 'login.html';
-}
 
 // ── TOAST ──
 function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
-  toast.textContent = message;
+  const icon =
+    type === 'success' ? 'fa-check-circle' :
+    type === 'error' ? 'fa-times-circle' :
+    'fa-info-circle';
+  toast.innerHTML = `<i class="fas ${icon}"></i> ${escapeHtml(message)}`;
   toast.className = 'toast show ' + type;
-  
-  // Add icon
-  const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : 'fa-info-circle';
-  toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
-  
-  setTimeout(() => {
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => {
     toast.classList.remove('show');
   }, 3000);
 }
 
-// ── API CALL ──
+// ── API CALL — uses window.userFetch ──
+// The access token is attached automatically, and a 401 triggers
+// one silent refresh + retry inside session.js. If the session is
+// truly dead, session.js will redirect and we'll throw.
 async function apiCall(path, options = {}) {
-  const token = getToken();
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const fetcher = (typeof window.userFetch === 'function')
+    ? window.userFetch
+    : (url, o) => fetch(url, { ...o, credentials: 'include' });
 
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  let res;
   try {
-    const res = await fetch(API_BASE + path, {
-      ...options,
-      headers: { ...headers, ...options.headers }
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    return data;
+    res = await fetcher(API_BASE + path, { ...options, headers });
   } catch (err) {
     console.error('API Error:', err);
-    if (err.message.includes('401')) {
-      localStorage.removeItem(SESSION_KEY);
-      sessionStorage.removeItem(SESSION_KEY);
-      window.location.href = 'login.html';
-    }
     throw err;
   }
+
+  // userFetch handles the redirect on real auth failure. If we still
+  // see 401 here, the session is gone.
+  if (res.status === 401) {
+    if (typeof window.redirectToUserLogin === 'function') {
+      window.redirectToUserLogin();
+    } else {
+      window.location.replace('login.html');
+    }
+    throw new Error('Session expired');
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || (data && data.success === false)) {
+    throw new Error((data && (data.error || data.message)) || `HTTP ${res.status}`);
+  }
+  return data;
 }
 
 // ── ESCAPE HTML ──
 function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/[&<>]/g, function(m) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>"']/g, function (m) {
     if (m === '&') return '&amp;';
     if (m === '<') return '&lt;';
     if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    if (m === "'") return '&#39;';
     return m;
   });
 }
@@ -168,15 +318,14 @@ function escapeHtml(str) {
 // ── LOAD NOTIFICATIONS ──
 async function loadNotifications() {
   const container = document.getElementById('notificationsList');
-  
+
   try {
     const result = await apiCall('/notifications');
     const notifications = result.data || [];
     const unreadCount = notifications.filter(n => !n.read).length;
-    
-    // Update unread count
+
     document.getElementById('unreadCount').textContent = unreadCount;
-    
+
     if (!notifications.length) {
       container.innerHTML = `
         <div class="empty-state">
@@ -188,25 +337,35 @@ async function loadNotifications() {
       return;
     }
 
-    container.innerHTML = notifications.map(n => `
-      <div class="notification-item ${!n.read ? 'unread' : ''}" data-id="${n.id}">
-        <div class="notif-icon">
-          <i class="fas ${n.type === 'wallet' ? 'fa-wallet' : n.type === 'order' ? 'fa-shopping-cart' : n.type === 'boost' ? 'fa-chart-line' : n.type === 'giftcard' ? 'fa-gift' : 'fa-bell'}"></i>
-        </div>
-        <div class="notif-content">
-          <div class="notif-title">${escapeHtml(n.title || 'Notification')}</div>
-          <div class="notif-message">${escapeHtml(n.message || '')}</div>
-          <div class="notif-time">
-            <i class="far fa-clock"></i> ${formatTime(n.created_at)}
+    container.innerHTML = notifications.map(n => {
+      const iconName =
+        n.type === 'wallet'   ? 'fa-wallet' :
+        n.type === 'order'    ? 'fa-shopping-cart' :
+        n.type === 'boost'    ? 'fa-chart-line' :
+        n.type === 'giftcard' ? 'fa-gift' :
+        'fa-bell';
+      return `
+        <div class="notification-item ${!n.read ? 'unread' : ''}" data-id="${escapeHtml(n.id)}">
+          <div class="notif-icon">
+            <i class="fas ${iconName}"></i>
+          </div>
+          <div class="notif-content">
+            <div class="notif-title">${escapeHtml(n.title || 'Notification')}</div>
+            <div class="notif-message">${escapeHtml(n.message || '')}</div>
+            <div class="notif-time">
+              <i class="far fa-clock"></i> ${formatTime(n.created_at)}
+            </div>
+          </div>
+          <div class="notif-actions">
+            ${!n.read
+              ? `<button class="mark-read-btn" onclick="markRead('${escapeHtml(n.id)}')" title="Mark as read" aria-label="Mark as read"><i class="fas fa-check"></i></button>`
+              : ''}
+            <button class="delete-btn" onclick="deleteNotif('${escapeHtml(n.id)}')" title="Delete" aria-label="Delete notification"><i class="fas fa-trash"></i></button>
           </div>
         </div>
-        <div class="notif-actions">
-          ${!n.read ? `<button class="mark-read-btn" onclick="markRead('${n.id}')" title="Mark as read"><i class="fas fa-check"></i></button>` : ''}
-          <button class="delete-btn" onclick="deleteNotif('${n.id}')" title="Delete"><i class="fas fa-trash"></i></button>
-        </div>
-      </div>
-    `).join('');
-    
+      `;
+    }).join('');
+
   } catch (err) {
     console.error('Load notifications error:', err);
     container.innerHTML = `
@@ -225,22 +384,22 @@ function formatTime(dateStr) {
   const date = new Date(dateStr);
   const now = new Date();
   const diff = now - date;
-  
+
   if (diff < 60000) return 'Just now';
   if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
   if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
   if (diff < 172800000) return 'Yesterday';
-  return date.toLocaleDateString('en-NG', { 
-    day: 'numeric', 
-    month: 'short', 
-    year: 'numeric' 
+  return date.toLocaleDateString('en-NG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
   });
 }
 
 // ── MARK AS READ ──
 async function markRead(id) {
   try {
-    await apiCall(`/notifications/${id}/read`, { method: 'PUT' });
+    await apiCall(`/notifications/${encodeURIComponent(id)}/read`, { method: 'PUT' });
     await loadNotifications();
     showToast('Notification marked as read', 'success');
   } catch (err) {
@@ -252,7 +411,7 @@ async function markRead(id) {
 async function deleteNotif(id) {
   if (!confirm('Delete this notification?')) return;
   try {
-    await apiCall(`/notifications/${id}`, { method: 'DELETE' });
+    await apiCall(`/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' });
     await loadNotifications();
     showToast('Notification deleted', 'success');
   } catch (err) {
@@ -274,13 +433,33 @@ document.getElementById('markAllBtn').addEventListener('click', async () => {
 // ── AUTO-REFRESH EVERY 30 SECONDS ──
 let refreshInterval = setInterval(loadNotifications, 30000);
 
-// ── INIT ──
-loadNotifications();
+// ── BOOT ──
+document.addEventListener('DOMContentLoaded', async () => {
+  // Wait a tick for session.js to hydrate before checking.
+  await new Promise(r => setTimeout(r, 0));
+  if (typeof window.getUser === 'function' && !window.getUser()) {
+    setTimeout(() => {
+      if (!window.getUser()) {
+        if (typeof window.redirectToUserLogin === 'function') {
+          window.redirectToUserLogin();
+        } else {
+          window.location.replace('login.html');
+        }
+      }
+    }, 1500);
+    return;
+  }
+  loadNotifications();
+});
 
 // Cleanup interval on page unload
 window.addEventListener('beforeunload', () => {
   clearInterval(refreshInterval);
 });
+
+// Expose handlers for the inline onclick attributes.
+window.markRead = markRead;
+window.deleteNotif = deleteNotif;
 </script>
 </body>
 </html>

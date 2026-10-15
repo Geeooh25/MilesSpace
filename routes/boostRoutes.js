@@ -13,6 +13,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
+const { supabaseAdmin } = require('../db/supabase');   // ← THE FIX
 const boostService = require('../services/boostService');
 const syncService  = require('../services/boostSyncService');
 
@@ -50,7 +51,13 @@ router.get('/services', authMiddleware, async (req, res) => {
             platform: req.query.platform, category: req.query.category,
             search: req.query.search
         }, { forUsersOnly: true });
-        ok(res, { services: result.services, count: result.count, page: result.page, limit: result.limit, totalPages: result.totalPages });
+        ok(res, {
+            services: result.services,
+            count: result.count,
+            page: result.page,
+            limit: result.limit,
+            totalPages: result.totalPages
+        });
     } catch (err) { fail(res, err); }
 });
 
@@ -61,7 +68,14 @@ router.get('/services/:serviceId', authMiddleware, async (req, res) => {
             .eq('provider_service_id', String(req.params.serviceId))
             .eq('active', true).eq('visible_to_users', true)
             .maybeSingle();
-        if (error || !svc) return res.status(404).json({ success: false, error: 'Service not found', code: 'SERVICE_NOT_FOUND' });
+
+        if (error || !svc) {
+            return res.status(404).json({
+                success: false,
+                error: 'Service not found',
+                code: 'SERVICE_NOT_FOUND'
+            });
+        }
         ok(res, { service: svc });
     } catch (err) { fail(res, err); }
 });
@@ -74,11 +88,19 @@ router.post('/order', authMiddleware, async (req, res) => {
         const idempotencyKey = req.headers['idempotency-key'] || null;
 
         if (!service_id || !link || !quantity) {
-            return res.status(400).json({ success: false, error: 'Missing required fields: service_id, link, quantity', code: 'MISSING_FIELDS' });
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required fields: service_id, link, quantity',
+                code: 'MISSING_FIELDS'
+            });
         }
         const qty = parseInt(quantity, 10);
         if (!Number.isFinite(qty) || qty < 1) {
-            return res.status(422).json({ success: false, error: 'Quantity must be a positive integer', code: 'INVALID_QUANTITY' });
+            return res.status(422).json({
+                success: false,
+                error: 'Quantity must be a positive integer',
+                code: 'INVALID_QUANTITY'
+            });
         }
 
         const result = await boostService.placeOrder({
@@ -110,24 +132,44 @@ router.post('/order', authMiddleware, async (req, res) => {
 router.get('/orders', authMiddleware, async (req, res) => {
     try {
         const result = await boostService.listOrders(
-            { page: req.query.page, limit: req.query.limit, status: req.query.status, from: req.query.from, to: req.query.to },
+            {
+                page: req.query.page,
+                limit: req.query.limit,
+                status: req.query.status,
+                from: req.query.from,
+                to: req.query.to
+            },
             { forUserId: req.user.id }
         );
-        ok(res, { orders: result.orders, count: result.count, page: result.page, limit: result.limit, totalPages: result.totalPages });
+        ok(res, {
+            orders: result.orders,
+            count: result.count,
+            page: result.page,
+            limit: result.limit,
+            totalPages: result.totalPages
+        });
     } catch (err) { fail(res, err); }
 });
 
 router.get('/orders/:orderRef', authMiddleware, async (req, res) => {
     try {
-        const { data: order } = await supabaseAdmin
+        const { data: order, error } = await supabaseAdmin
             .from('boost_orders').select('*')
             .eq('order_ref', String(req.params.orderRef))
             .eq('user_id', req.user.id)
             .maybeSingle();
-        if (!order) return res.status(404).json({ success: false, error: 'Order not found', code: 'BOOST_NOT_FOUND' });
 
-        // Refresh from provider.
-        if (['pending','processing','in_progress','partial','provider_unknown'].includes(String(order.status))) {
+        if (error || !order) {
+            return res.status(404).json({
+                success: false,
+                error: 'Order not found',
+                code: 'BOOST_NOT_FOUND'
+            });
+        }
+
+        // Refresh from provider if still active.
+        const active = ['pending', 'processing', 'in_progress', 'partial', 'provider_unknown'];
+        if (active.includes(String(order.status))) {
             try { await syncService.syncBoostOrder(order); } catch (_) {}
         }
 
@@ -138,14 +180,21 @@ router.get('/orders/:orderRef', authMiddleware, async (req, res) => {
 
 router.post('/orders/:orderRef/refresh', authMiddleware, async (req, res) => {
     try {
-        const { data: order } = await supabaseAdmin
+        const { data: order, error } = await supabaseAdmin
             .from('boost_orders').select('*')
             .eq('order_ref', String(req.params.orderRef))
             .eq('user_id', req.user.id)
             .maybeSingle();
-        if (!order) return res.status(404).json({ success: false, error: 'Order not found', code: 'BOOST_NOT_FOUND' });
 
-        const r = await syncService.syncBoostOrder(order);
+        if (error || !order) {
+            return res.status(404).json({
+                success: false,
+                error: 'Order not found',
+                code: 'BOOST_NOT_FOUND'
+            });
+        }
+
+        const r = await syncService.syncBoostOrder(order).catch(() => ({ updated: false }));
         const fresh = await boostService.getOrder(order.id);
         ok(res, { ...fresh, refreshed: !!r.updated });
     } catch (err) { fail(res, err); }
@@ -159,22 +208,36 @@ router.get('/stats', authMiddleware, async (req, res) => {
             .from('boost_orders')
             .select('status, total_amount, currency')
             .eq('user_id', req.user.id);
+
         if (error) throw error;
 
         let totalOrders = 0, completed = 0, pending = 0, failed = 0, processing = 0;
         let totalSpentNGN = 0, totalSpentUSD = 0;
+
         for (const o of data || []) {
             totalOrders++;
             const s = String(o.status || '').toLowerCase();
             if (s === 'completed') completed++;
             else if (s === 'pending') pending++;
-            else if (['failed','cancelled','refunded'].includes(s)) failed++;
-            else if (['processing','in_progress','partial'].includes(s)) processing++;
+            else if (['failed', 'cancelled', 'refunded'].includes(s)) failed++;
+            else if (['processing', 'in_progress', 'partial', 'provider_unknown'].includes(s)) processing++;
+
             const amt = Number(o.total_amount || 0);
-            if (o.currency === 'NGN') totalSpentNGN += amt;
-            else if (o.currency === 'USD') totalSpentUSD += amt;
+            if (String(o.currency).toUpperCase() === 'NGN') totalSpentNGN += amt;
+            else if (String(o.currency).toUpperCase() === 'USD') totalSpentUSD += amt;
         }
-        ok(res, { stats: { totalOrders, completed, pending, processing, failed, totalSpentNGN, totalSpentUSD } });
+
+        ok(res, {
+            stats: {
+                totalOrders,
+                completed,
+                pending,
+                processing,
+                failed,
+                totalSpentNGN,
+                totalSpentUSD
+            }
+        });
     } catch (err) { fail(res, err); }
 });
 

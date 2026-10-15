@@ -2,17 +2,16 @@
 // ─────────────────────────────────────────────────────────────────
 // Boost — single authority for boost orders, pricing, and refunds.
 //
-// Financial rules:
-//   • Wallet mutation only via LedgerService (real credit/debit).
-//   • Refund is guarded by a unique index on refund_reference AND an
-//     atomic RPC (boost_finalize_refund). Two callers can't both
-//     win: the RPC locks the row and checks refund_reference.
-//   • Idempotency for order placement enforced by a DB unique index
-//     on (user_id, idempotency_key) plus a lookup before insert.
-//   • Provider timeout ≠ failure. Unknown outcomes go to
-//     'provider_unknown' and are reconciled.
+// Ledger contract (matches routes/airtime.js and routes/esimRoutes.js):
+//   LedgerService.debitWallet(userId, amount, currency, description, metadata)
+//   LedgerService.creditWallet(userId, amount, currency, description, metadata)
 //
-// Provider calls go through services/boostSyncService.js.
+// The reference/source_id that go to the ledger are DERIVED INSIDE
+// the ledger service from the metadata you pass in. We do NOT pass a
+// "BST-..." string as source_id — the ledger expects a UUID.
+//
+// If your LedgerService signature differs, adjust the two wrapper
+// helpers at the bottom of this file (debitWallet, creditWallet).
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
@@ -97,7 +96,6 @@ async function recordAudit({ ctx, action, targetId, before, after, reason }) {
             created_at: new Date().toISOString()
         });
     } catch (e) {
-        // Non-fatal for boost (audit row failure shouldn't break the flow).
         console.warn('[BOOST] audit insert failed:', e.message);
     }
 }
@@ -166,7 +164,6 @@ async function computePrice({ service, quantity, walletCurrency }) {
     const providerCostUsd = (providerRate / 1000) * quantity;
     const providerCostNgn = providerCostUsd * usdRate;
 
-    // Custom price overrides markup entirely.
     const hasCustom = service.custom_price != null && Number(service.custom_price) > 0;
     const customerUsd = hasCustom
         ? (Number(service.custom_price) / 1000) * quantity
@@ -194,7 +191,52 @@ async function computePrice({ service, quantity, walletCurrency }) {
     };
 }
 
-// ─── Order placement (used by /api/boost/order) ──────────────────
+// ═══════════════════════════════════════════════════════════════════
+// LEDGER WRAPPERS
+// ─────────────────────────────────────────────────────────────────
+// Two small adapters so boostService always talks to LedgerService
+// with the same argument shape your airtime and eSIM services use.
+//
+// If your LedgerService.debitWallet expects positional args:
+//     debitWallet(userId, amount, currency, description, metadata)
+// Then these wrappers work as-is.
+//
+// If it expects an object:
+//     debitWallet({ userId, amount, currency, description, metadata })
+// Then swap the two lines in each wrapper.
+// ═══════════════════════════════════════════════════════════════════
+
+async function ledgerDebit({ userId, amount, currency, description, metadata }) {
+    return LedgerService.debitWallet(
+        userId,
+        amount,
+        currency,
+        description,
+        metadata || {}
+    );
+}
+
+async function ledgerCredit({ userId, amount, currency, description, metadata }) {
+    if (typeof LedgerService.creditWallet === 'function') {
+        return LedgerService.creditWallet(
+            userId,
+            amount,
+            currency,
+            description,
+            metadata || {}
+        );
+    }
+    if (typeof LedgerService.refundTransaction === 'function' && metadata?.originalTransactionId) {
+        return LedgerService.refundTransaction(
+            userId,
+            metadata.originalTransactionId,
+            description
+        );
+    }
+    throw new Error('LedgerService has no credit or refund method');
+}
+
+// ─── Order placement ─────────────────────────────────────────────
 
 async function placeOrder({ userId, serviceId, link, quantity, walletType, idempotencyKey }) {
     if (!userId || !UUID_RE.test(userId)) {
@@ -208,7 +250,7 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         const e = new Error('Invalid wallet.'); e.status = 422; e.code = 'INVALID_WALLET'; throw e;
     }
 
-    // Idempotency: return the existing order if the same key was used.
+    // Idempotency
     if (idempotencyKey) {
         const { data: existing } = await supabaseAdmin
             .from('boost_orders')
@@ -221,7 +263,7 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         }
     }
 
-    // Load and validate the service.
+    // Load service
     const { data: service, error: svcErr } = await supabaseAdmin
         .from('boost_services')
         .select('*')
@@ -235,7 +277,7 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
 
     const price = await computePrice({ service, quantity, walletCurrency: currency });
 
-    // Load balance and verify.
+    // Balance check
     const balances = await LedgerService.getAllBalances(userId);
     const balance = currency === 'USD' ? Number(balances.USD || 0) : Number(balances.NGN || 0);
     const chargeAmount = Number(price.chargeAmount);
@@ -246,32 +288,44 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         throw e;
     }
 
-    // Atomically debit. LedgerService uses the DB RPC internally.
+    // ─── Generate IDs ──────────────────────────────────────────────
+    // orderRef  — human-readable, goes into boost_orders.order_ref
+    // orderId   — real UUID, goes into boost_orders.id AND is used
+    //             as the ledger's sourceId
     const orderRef = buildOrderRef();
+    const orderId = crypto.randomUUID();
+
+    // ─── Debit via the positional-arg wrapper ──────────────────────
     let debitResult;
     try {
-        debitResult = await LedgerService.debitWallet({
+        debitResult = await ledgerDebit({
             userId,
             amount: chargeAmount,
             currency,
             description: `Social boost: ${service.name} × ${quantity}`,
-            reference: `${orderRef}-DEBIT`,
-            sourceType: 'boost_order',
-            sourceId: orderRef,
-            metadata: { service_id: service.provider_service_id, service_name: service.name, quantity }
+            metadata: {
+                type: 'boost_order',
+                order_id: orderId,
+                order_ref: orderRef,
+                service_id: service.provider_service_id,
+                service_name: service.name,
+                quantity,
+            },
         });
     } catch (debitErr) {
+        console.error('[BOOST] ledger debit failed:', debitErr.message);
         const e = new Error(debitErr.message || 'Failed to debit wallet.');
         e.status = 400; e.code = 'DEBIT_FAILED';
         throw e;
     }
 
-    // Create the local order with status 'pending' — the provider
-    // hasn't been contacted yet. Provider submission is the sync
-    // service's job; here we record what the customer paid.
+    const debitTxId = debitResult?.transaction_id || debitResult?.transactionId || null;
+
+    // ─── Insert order ──────────────────────────────────────────────
     const { data: orderRow, error: insertErr } = await supabaseAdmin
         .from('boost_orders')
         .insert({
+            id: orderId,
             user_id: userId,
             order_ref: orderRef,
             service_id: String(service.provider_service_id),
@@ -298,26 +352,30 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         .single();
 
     if (insertErr) {
-        // Refund since we couldn't record the order. Try to refund.
+        console.error('[BOOST] order insert failed:', insertErr.message);
+
+        // Refund because we can't record the order.
         try {
-            await LedgerService.creditWallet({
+            await ledgerCredit({
                 userId,
                 amount: chargeAmount,
                 currency,
                 description: `Boost refund — order recording failed`,
-                reference: `BOOSTREF-${orderRef}`,
-                type: 'refund',
-                sourceType: 'boost_order',
-                sourceId: orderRef,
-                metadata: { reason: 'order_insert_failed' }
+                metadata: {
+                    type: 'boost_refund',
+                    order_ref: orderRef,
+                    reason: 'order_insert_failed',
+                    originalTransactionId: debitTxId,
+                },
             });
         } catch (refundErr) {
             console.error('[BOOST] refund after insert failure failed:', refundErr.message);
         }
+
         const e = new Error('Failed to record order.'); e.status = 500; e.code = 'ORDER_INSERT_FAILED'; throw e;
     }
 
-    // Transaction record.
+    // ─── Transaction record (non-fatal) ────────────────────────────
     try {
         await supabaseAdmin.from('transactions').insert({
             user_id: userId,
@@ -347,7 +405,7 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         console.warn('[BOOST] transaction insert failed (non-fatal):', txErr.message);
     }
 
-    // Notification.
+    // ─── Notification (non-fatal) ──────────────────────────────────
     try {
         await supabaseAdmin.from('notifications').insert({
             user_id: userId,
@@ -545,7 +603,6 @@ async function refundOrder({ orderId, reason, ctx, allowNonFailed = false }) {
         .from('boost_orders').select('*').eq('id', orderId).maybeSingle();
     if (error || !order) { const e = new Error('Order not found.'); e.status = 404; e.code = 'BOOST_NOT_FOUND'; throw e; }
 
-    // Fast-path idempotency.
     if (order.refund_reference) {
         return {
             refund: {
@@ -570,7 +627,6 @@ async function refundOrder({ orderId, reason, ctx, allowNonFailed = false }) {
     const chargeAmount = Number(order.total_amount);
     const currency = order.currency;
 
-    // Atomic claim via RPC.
     const { data: rpcRow, error: rpcErr } = await supabaseAdmin.rpc('boost_finalize_refund', {
         p_order_id: order.id,
         p_expected_status: status,
@@ -591,46 +647,41 @@ async function refundOrder({ orderId, reason, ctx, allowNonFailed = false }) {
     const row = Array.isArray(rpcRow) ? rpcRow[0] : rpcRow;
     if (row?.already_refunded) {
         return {
-            refund: {
-                reference: refundRef,
-                amount: chargeAmount,
-                currency,
-                already_refunded: true
-            }
+            refund: { reference: refundRef, amount: chargeAmount, currency, already_refunded: true }
         };
     }
 
-    // Credit the wallet.
     let creditResult;
     try {
-        creditResult = await LedgerService.creditWallet({
+        creditResult = await ledgerCredit({
             userId: order.user_id,
             amount: chargeAmount,
             currency,
             description: `Boost refund for ${order.order_ref}`,
-            reference: refundRef,
-            type: 'refund',
-            sourceType: 'boost_order',
-            sourceId: order.id,
-            metadata: { reason: String(reason).slice(0, 500) }
+            metadata: {
+                type: 'boost_refund',
+                order_id: order.id,
+                order_ref: order.order_ref,
+                reason: String(reason).slice(0, 500),
+            },
         });
     } catch (creditErr) {
         const msg = String(creditErr.message || '');
         if (msg.includes('duplicate') || msg.includes('unique')) {
-            // Race — the wallet was already credited by another caller.
-            return {
-                refund: { reference: refundRef, amount: chargeAmount, currency, already_refunded: true }
-            };
+            return { refund: { reference: refundRef, amount: chargeAmount, currency, already_refunded: true } };
         }
-        // Credit failed after we claimed the refund. Roll the claim back.
         await supabaseAdmin
             .from('boost_orders')
-            .update({ refund_status: 'failed', refund_reference: null, refund_processed_at: null, updated_at: new Date().toISOString() })
+            .update({
+                refund_status: 'failed',
+                refund_reference: null,
+                refund_processed_at: null,
+                updated_at: new Date().toISOString()
+            })
             .eq('id', order.id);
         const e = new Error('Wallet refund failed.'); e.status = 500; e.code = 'LEDGER_REFUND_FAILED'; e.cause = msg; throw e;
     }
 
-    // Refund transaction row.
     try {
         await supabaseAdmin.from('transactions').insert({
             user_id: order.user_id,
@@ -643,19 +694,21 @@ async function refundOrder({ orderId, reason, ctx, allowNonFailed = false }) {
             source_id: order.id,
             source_type: 'boost_order',
             description: `Refund for boost ${order.order_ref}`,
-            metadata: { order_id: order.id, order_ref: order.order_ref, reason: String(reason).slice(0, 500) },
+            metadata: {
+                order_id: order.id,
+                order_ref: order.order_ref,
+                reason: String(reason).slice(0, 500)
+            },
             created_at: new Date().toISOString(),
             completed_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         });
     } catch (txErr) {
-        // Duplicate reference is fine — a refund row already exists.
         if (!String(txErr.message || '').includes('duplicate')) {
             console.warn('[BOOST] refund transaction insert failed (non-fatal):', txErr.message);
         }
     }
 
-    // Notification.
     try {
         await supabaseAdmin.from('notifications').insert({
             user_id: order.user_id,
@@ -688,7 +741,7 @@ async function refundOrder({ orderId, reason, ctx, allowNonFailed = false }) {
     };
 }
 
-// ─── Status update (admin) ───────────────────────────────────────
+// ─── Status update ───────────────────────────────────────────────
 
 async function updateOrderStatus({ orderId, status, note, ctx }) {
     if (!UUID_RE.test(String(orderId || ''))) {
@@ -779,7 +832,6 @@ async function getOverview(query = {}) {
         const e = new Error('Failed to aggregate overview.'); e.status = 500; e.code = 'OVERVIEW_ERROR'; throw e;
     }
 
-    // Counts-only fallback.
     const countWhere = (extra) => {
         let q = supabaseAdmin.from('boost_orders').select('id', { count: 'exact', head: true })
             .gte('created_at', fromIso).lte('created_at', toIso);
@@ -789,7 +841,7 @@ async function getOverview(query = {}) {
     const [total, pending, processing, completed, failed, refunded] = await Promise.all([
         countWhere(),
         countWhere(q => q.eq('status', 'pending')),
-        countWhere(q => q.in('status', ['processing','in_progress','partial'])),
+        countWhere(q => q.in('status', ['processing', 'in_progress', 'partial'])),
         countWhere(q => q.eq('status', 'completed')),
         countWhere(q => q.eq('status', 'failed')),
         countWhere(q => q.eq('status', 'refunded'))
@@ -821,7 +873,7 @@ function startOfWatDay() {
     return new Date(Date.UTC(y, m, d, 0, 0, 0) - OFFSET_MS).toISOString();
 }
 
-// ─── Services (admin CRUD) ───────────────────────────────────────
+// ─── Services ────────────────────────────────────────────────────
 
 async function listServices(query = {}, { forUsersOnly = false } = {}) {
     const page = pageOf(query.page);

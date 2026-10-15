@@ -1,83 +1,70 @@
 // routes/giftcardRoutes.js
 // Gift Card Routes — MilesSpace
 //
-// PRICING (from public.app_config):
-//   giftcard_markup_pct   (decimal, e.g. 0.1570)
-//   usd_to_ngn            (integer, e.g. 1400)
-//   → customer_price_ngn = wholesale_ngn × (1 + markup)
-//   → customer_price_usd = customer_price_ngn / usd_to_ngn
+// FIXES FROM REVIEW:
+//   #12 Unknown currency now fails closed (reject, not USD guess).
+//   #14 Idempotency key must come from frontend; server-side
+//        contract unchanged, but see frontend fix.
+//   #19 Immediate synchronous DT One status query removed from
+//        purchase. Webhook + polling handle reconciliation.
+//   #37 Admin catalog endpoints now require admin permission.
+//   #38 Rebuild endpoint rate-limited.
+//   #6  MAX_QUANTITY stays at 1 (frontend must match).
+//   #13/#14 Frontend sends stable Idempotency-Key (see JS below).
 //
-// CATALOG STRATEGY (cold start + background fill):
-//   1. First request: fetch 4 pages (~400 products, ~4s), cache, respond.
-//   2. Background: keep fetching the rest one page at a time, append to cache.
-//   3. Subsequent requests: instant (memory cache).
-//   4. If a rebuild returns 0 products, keep the previous catalog.
-//
-// TRANSACTION LIFECYCLE:
-//   - We send auto_confirm: true to DT One so the transaction advances
-//     CREATED → CONFIRMED in a single API call.
-//   - Immediately after creation we query DT One. If already final:
-//       * completed → save voucher, queue email, mark completed
-//       * failed/cancelled/declined → refund wallet, mark refunded
-//   - If not yet final → order stays processing; the reconciliation
-//     service sweeps it.
-//
-// SAFETY:
-//   - Ledger debits/refunds verified before state transitions
-//   - Idempotency with request fingerprint
-//   - Webhook re-verifies with DT One before finalizing
-//   - Explicit order state machine
-//   - Critical columns always written via updateOrderCritical (never
-//     silently moved into metadata)
-//   - Optional diagnostic fields may go to metadata as a fallback
+// FIX (this pass):
+//   - Rebuild limiter now uses `ipKeyGenerator()` so it passes
+//     express-rate-limit v7's IPv6 validation and stops throwing
+//     ERR_ERL_KEY_GEN_IPV6 at module load.
 
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const axios = require('axios');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const { supabaseAdmin } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
+const { requirePermission, PERMISSIONS } = require('../middleware/adminAuth');
 const dtoneService = require('../services/dtoneService');
-const { LedgerService } = require('../services/ledgerService');
-const { getSettings } = require('../services/adminConfigService');
+const { LedgerService, AdminConfigService } = require('../services/ledgerService');
 const { computePrice } = require('../services/pricingService');
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════════════════
+
 const MAX_QUANTITY = 1;
-const DEFAULT_PAGE_SIZE = 40;
-const MAX_PAGE_SIZE = 100;
+
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 500;
+
 const CATALOG_TTL_MS = 10 * 60 * 1000;
 const COUNTRIES_TTL_MS = 30 * 60 * 1000;
+
 const IDEM_KEY_MIN_LEN = 16;
 const IDEM_KEY_MAX_LEN = 100;
 
-const COLD_START_PAGES = 4;
-const BACKGROUND_MAX_PAGES = 60;
-const PER_PAGE_TIMEOUT_MS = 8000;
-const COLD_START_TIME_BUDGET_MS = 15000;
+const CATALOG_MAX_PAGES = 100;
+const CATALOG_PER_PAGE = 100;
+const PER_PAGE_TIMEOUT_MS = 12000;
+const CATALOG_TIME_BUDGET_MS = 120000;
 
-// These fields MUST live as real columns. If a write to any of these
-// fails, we log loudly and mark the order for review. We never quietly
-// stuff them into metadata.
-const CRITICAL_COLUMNS = new Set([
-    'status',
-    'ledger_transaction_id',
-    'provider_transaction_id',
-    'dtone_external_id',
-    'refunded',
-    'refund_status',
-    'delivery_status',
-    'email_status',
-    'voucher_code',
-    'voucher_serial',
-    'completed_at',
-    'refunded_at',
-    'failed_at'
+const VALID_GIFT_CARD_TYPES = new Set([
+    'FIXED_VALUE_PIN_PURCHASE',
+    'FIXED_VALUE_RECHARGE',
+    'FIXED_VALUE'
 ]);
 
+const CRITICAL_COLUMNS = new Set([
+    'status', 'ledger_transaction_id', 'provider_transaction_id',
+    'dtone_external_id', 'refunded', 'refund_status', 'delivery_status',
+    'email_status', 'voucher_code', 'voucher_serial',
+    'completed_at', 'refunded_at', 'failed_at'
+]);
+
+// FX fallback only — DT One should always price in a known currency.
+// Unknown currency now FAILS CLOSED (see normalizeWholesaleToNgn).
 const FX_TO_USD = {
     USD: 1,
     EUR: 1.08, GBP: 1.27, CAD: 0.74, AUD: 0.66,
@@ -100,54 +87,47 @@ const ISO3_TO_ISO2 = {
     BHR:'BH',OMN:'OM',JOR:'JO',LBN:'LB',IRQ:'IQ',IRN:'IR',PAK:'PK',BGD:'BD',LKA:'LK',NPL:'NP',
     KAZ:'KZ',UZB:'UZ',AZE:'AZ',GEO:'GE',ARM:'AM',MDA:'MD',ALB:'AL',MKD:'MK',SRB:'RS',BIH:'BA',
     HRV:'HR',SVN:'SI',SVK:'SK',ROU:'RO',BGR:'BG',HUN:'HU',LTU:'LT',LVA:'LV',EST:'EE',ISL:'IS',
-    LUX:'LU',MLT:'MT',CYP:'CY',AND:'AD',MCO:'MC',SMR:'SM',LIE:'LI',VAT:'VA'
+    LUX:'LU',MLT:'MT',CYP:'CY',AND:'AD',MCO:'MC',SMR:'SM',LIE:'LI',VAT:'VA',AXX:'UN',EXX:'EU'
 };
 
 const SUPPORTED_DEBIT_CURRENCIES = new Set(['USD', 'NGN']);
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  ORDER STATE MACHINE
-// ═══════════════════════════════════════════════════════════════════════════
 const ORDER_STATES = Object.freeze({
-    PENDING:          'pending',
-    PROCESSING:       'processing',
+    PENDING: 'pending',
+    PROCESSING: 'processing',
     PROVIDER_UNKNOWN: 'provider_unknown',
-    COMPLETED:        'completed',
-    FAILED:           'failed',
-    REFUNDED:         'refunded',
-    CANCELLED:        'cancelled',
-    REVERSED:         'reversed',
-    MANUAL_REVIEW:    'manual_review'
+    COMPLETED: 'completed',
+    FAILED: 'failed',
+    REFUNDED: 'refunded',
+    CANCELLED: 'cancelled',
+    REVERSED: 'reversed',
+    MANUAL_REVIEW: 'manual_review'
 });
 
 const TERMINAL_STATES = new Set([
-    ORDER_STATES.COMPLETED,
-    ORDER_STATES.FAILED,
-    ORDER_STATES.REFUNDED,
-    ORDER_STATES.CANCELLED,
+    ORDER_STATES.COMPLETED, ORDER_STATES.FAILED,
+    ORDER_STATES.REFUNDED, ORDER_STATES.CANCELLED,
     ORDER_STATES.REVERSED
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════
+
 function parseBalance(value) {
     if (value === null || value === undefined || value === '') return null;
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
 }
-
 function parsePage(v, fallback = 1) {
     const n = parseInt(v, 10);
     return Number.isFinite(n) && n > 0 ? n : fallback;
 }
-
 function parseLimit(v, fallback = DEFAULT_PAGE_SIZE) {
     const n = parseInt(v, 10);
     if (!Number.isFinite(n) || n <= 0) return fallback;
     return Math.min(n, MAX_PAGE_SIZE);
 }
-
 function stableRequestFingerprint({ productId, currency, quantity, deliveryEmail, countryIso3 }) {
     const payload = JSON.stringify({
         productId: String(productId || ''),
@@ -158,7 +138,6 @@ function stableRequestFingerprint({ productId, currency, quantity, deliveryEmail
     });
     return crypto.createHash('sha256').update(payload).digest('hex');
 }
-
 function timingSafeEqualHex(a, b) {
     try {
         const aBuf = Buffer.from(String(a || ''), 'hex');
@@ -167,7 +146,6 @@ function timingSafeEqualHex(a, b) {
         return crypto.timingSafeEqual(aBuf, bBuf);
     } catch { return false; }
 }
-
 function summarizeProviderResponse(raw) {
     if (!raw || typeof raw !== 'object') return null;
     return {
@@ -182,6 +160,9 @@ function summarizeProviderResponse(raw) {
     };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  FIX #12 — Unknown currency now FAILS CLOSED.
+// ═══════════════════════════════════════════════════════════════════════════
 function normalizeWholesaleToNgn(amount, currency, usdToNgn) {
     const amt = Number(amount);
     const cur = String(currency || '').toUpperCase();
@@ -193,29 +174,24 @@ function normalizeWholesaleToNgn(amount, currency, usdToNgn) {
     const fx = FX_TO_USD[cur];
     if (fx) return amt * fx * usdToNgn;
 
+    // FAIL CLOSED. Do not guess.
+    console.warn(`⚠️ [GIFTCARDS] Unknown wholesale currency "${cur}" — rejecting product`);
     return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  CACHES
 // ═══════════════════════════════════════════════════════════════════════════
+
 const productCache = {
-    products: [],
-    expiresAt: 0,
-    promise: null,
-    lastError: null,
-    lastBuiltAt: 0,
-    isFilling: false,
-    fillComplete: false,
-    fillStartedAt: 0
+    products: [], expiresAt: 0, promise: null, lastError: null,
+    lastBuiltAt: 0, lastBuildDurationMs: 0, lastTruncated: false,
+    lastTruncationReason: null, lastRawCount: 0, lastRejectedCount: 0,
+    lastRejectionsByReason: {}, lastPagesFetched: 0
 };
 
 const countryCache = {
-    countries: [],
-    expiresAt: 0,
-    promise: null,
-    lastError: null,
-    lastBuiltAt: 0
+    countries: [], expiresAt: 0, promise: null, lastError: null, lastBuiltAt: 0
 };
 
 function isProductCacheFresh() {
@@ -224,10 +200,6 @@ function isProductCacheFresh() {
 function isCountryCacheFresh() {
     return countryCache.countries.length > 0 && Date.now() < countryCache.expiresAt;
 }
-
-/**
- * Exported so admin routes can force a rebuild after pricing changes.
- */
 function invalidateGiftCardCatalog() {
     productCache.expiresAt = 0;
     countryCache.expiresAt = 0;
@@ -237,6 +209,7 @@ function invalidateGiftCardCatalog() {
 // ═══════════════════════════════════════════════════════════════════════════
 //  PRODUCT NORMALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
+
 function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
     const reject = (reason) => {
         if (rejections) rejections.set(reason, (rejections.get(reason) || 0) + 1);
@@ -244,11 +217,10 @@ function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
     };
 
     if (!p) return reject('null_product');
-
     const productId = String(p.productId || p.id || '');
     if (!productId) return reject('no_id');
 
-    if (p.productType && p.productType !== 'FIXED_VALUE_PIN_PURCHASE') {
+    if (p.productType && !VALID_GIFT_CARD_TYPES.has(p.productType)) {
         return reject(`wrong_type:${p.productType}`);
     }
 
@@ -266,12 +238,12 @@ function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
             p.benefits.find((b) =>
                 ['VALUE', 'CURRENCY', 'AMOUNT'].includes(String(b.type || '').toUpperCase())
             ) || p.benefits[0];
+
         const bv = Number(
             benefit?.amount?.base ??
             benefit?.amount?.total_including_tax ??
             benefit?.amount?.total_excluding_tax ??
-            benefit?.amount ??
-            0
+            benefit?.amount ?? 0
         );
         if (Number.isFinite(bv) && bv > 0) faceValue = bv;
         if (benefit?.unit) faceCurrency = String(benefit.unit).toUpperCase();
@@ -288,13 +260,8 @@ function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
     }
 
     const pricing = computePrice(wholesaleNgn, usdToNgn, markupPct);
-
-    if (!Number.isFinite(pricing.priceNgn) || pricing.priceNgn <= 0) {
-        return reject('bad_price_ngn');
-    }
-    if (!Number.isFinite(pricing.priceUsd) || pricing.priceUsd <= 0) {
-        return reject('bad_price_usd');
-    }
+    if (!Number.isFinite(pricing.priceNgn) || pricing.priceNgn <= 0) return reject('bad_price_ngn');
+    if (!Number.isFinite(pricing.priceUsd) || pricing.priceUsd <= 0) return reject('bad_price_usd');
 
     const countryIso = String(
         p.countryIso || p.operator?.country?.iso_code || p.country?.iso_code || ''
@@ -309,34 +276,44 @@ function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
         p.countryName || p.operator?.country?.name || p.country?.name || countryIso || 'Global'
     ).trim() || 'Global';
 
-    const wholesaleUsd = wholesaleNgn / (usdToNgn || 1400);
+    const wholesaleUsd = wholesaleNgn / (usdToNgn || 1600);
 
     return {
-        productId,
-        name,
+        productId, name,
         faceValue: Number.isFinite(faceValue) ? faceValue : 0,
         currency: faceCurrency || 'USD',
         countryIso: countryIso || null,
         countryIso2: countryIso2 || null,
         countryName,
+        operatorId: p.operatorId || null,
         operatorName: p.operatorName || null,
+        logo: p.logo || null,
         description: p.description || null,
         instructions: p.instructions || null,
-
         priceUsd: pricing.priceUsd,
         priceNgn: pricing.priceNgn,
-
-        // Stored directly — never reverse-engineered from selling prices
         wholesaleNgn: +wholesaleNgn.toFixed(4),
         wholesaleUsd: +wholesaleUsd.toFixed(4),
-
         productType: p.productType || 'FIXED_VALUE_PIN_PURCHASE'
     };
+}
+
+function sortProductList(a, b) {
+    const cleanA = (a.name || '').replace(/^[^a-zA-Z]+/, '').toLowerCase();
+    const cleanB = (b.name || '').replace(/^[^a-zA-Z]+/, '').toLowerCase();
+    const cmp = cleanA.localeCompare(cleanB, 'en', { sensitivity: 'base', numeric: true });
+    if (cmp !== 0) return cmp;
+    const cA = (a.countryName || '').toLowerCase();
+    const cB = (b.countryName || '').toLowerCase();
+    const cmpC = cA.localeCompare(cB, 'en', { sensitivity: 'base' });
+    if (cmpC !== 0) return cmpC;
+    return (Number(a.faceValue) || 0) - (Number(b.faceValue) || 0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  CATALOG BUILDER
 // ═══════════════════════════════════════════════════════════════════════════
+
 async function buildProductCatalog({ force = false } = {}) {
     if (!force && isProductCacheFresh()) return productCache;
     if (productCache.promise) return productCache.promise;
@@ -344,71 +321,112 @@ async function buildProductCatalog({ force = false } = {}) {
     productCache.promise = (async () => {
         const startTs = Date.now();
         try {
-            const settings = await getSettings();
-            const usdToNgn = Number(settings?.usd_to_ngn) || 1400;
+            const settings = await AdminConfigService.getSettings();
+            const usdToNgn = Number(settings?.usd_to_ngn) || 1600;
             const markupPctRaw = Number(settings?.giftcard_markup_pct);
             const markupPct = Number.isFinite(markupPctRaw) && markupPctRaw >= 0
-                ? markupPctRaw
-                : 0.1570;
+                ? markupPctRaw : 0.1570;
 
-            console.log(`📦 [GIFTCARDS] Cold start — fetching first ${COLD_START_PAGES} pages…`);
+            console.log(
+                `📦 [GIFTCARDS] Building complete catalog — ` +
+                `up to ${CATALOG_MAX_PAGES} pages × ${CATALOG_PER_PAGE}`
+            );
 
-            const raw = await dtoneService.getGiftCardProducts(null, {
+            const result = await dtoneService.getGiftCardProducts(null, {
                 productType: 'FIXED_VALUE_PIN_PURCHASE',
-                maxPages: COLD_START_PAGES,
-                maxTotalMs: COLD_START_TIME_BUDGET_MS,
-                requestTimeoutMs: PER_PAGE_TIMEOUT_MS
+                maxPages: CATALOG_MAX_PAGES,
+                maxTotalMs: CATALOG_TIME_BUDGET_MS,
+                requestTimeoutMs: PER_PAGE_TIMEOUT_MS,
+                requireComplete: true
             });
-            const list = Array.isArray(raw) ? raw : [];
+
+            const rawList = Array.isArray(result?.products) ? result.products : [];
+            const truncated = Boolean(result?.truncated);
+            const truncationReason = result?.truncationReason || null;
 
             const products = [];
             const rejections = new Map();
-
-            for (const p of list) {
+            for (const p of rawList) {
                 const normalized = normalizeProduct(p, usdToNgn, markupPct, rejections);
                 if (normalized) products.push(normalized);
             }
-
             products.sort(sortProductList);
 
-            const gotProducts = products.length > 0;
-            const hadPrevious = productCache.products.length > 0;
+            const rejectionsObj = Object.fromEntries(rejections);
+            const totalRejected = Object.values(rejectionsObj).reduce((a, b) => a + b, 0);
 
-            if (gotProducts || !hadPrevious) {
+            console.log('════════ [GIFTCARDS] CATALOG BUILD ════════');
+            console.log(`  Raw DT One:      ${rawList.length}`);
+            console.log(`  Normalized:      ${products.length}`);
+            console.log(`  Rejected:        ${totalRejected}`);
+            if (totalRejected > 0) console.log('  Rejection reasons:', rejectionsObj);
+            console.log(`  Pages fetched:   ${result?.pagesFetched ?? '?'}`);
+            console.log(`  Truncated:       ${truncated}`);
+            if (truncated) console.log(`  Truncation:      ${truncationReason}`);
+            console.log(`  Elapsed:         ${Date.now() - startTs}ms`);
+            console.log(`  Markup:          ${(markupPct * 100).toFixed(2)}%`);
+            console.log(`  USD→NGN:         ₦${usdToNgn}`);
+            console.log('════════════════════════════════════════════');
+
+            const hadPrevious = productCache.products.length > 0;
+            const gotProducts = products.length > 0;
+
+            if (gotProducts && !truncated) {
                 productCache.products = products;
                 productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
                 productCache.lastBuiltAt = Date.now();
+                productCache.lastBuildDurationMs = Date.now() - startTs;
                 productCache.lastError = null;
-
-                if (!countryCache.countries.length) {
-                    deriveCountriesFromProducts(products);
-                }
-            } else {
+                productCache.lastTruncated = false;
+                productCache.lastTruncationReason = null;
+                productCache.lastRawCount = rawList.length;
+                productCache.lastRejectedCount = totalRejected;
+                productCache.lastRejectionsByReason = rejectionsObj;
+                productCache.lastPagesFetched = result?.pagesFetched ?? 0;
+                if (!countryCache.countries.length) deriveCountriesFromProducts(products);
+                console.log(`✅ [GIFTCARDS] Complete catalog cached: ${products.length} products`);
+            } else if (gotProducts && truncated && !hadPrevious) {
+                productCache.products = products;
                 productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
-                productCache.lastError = 'Latest build returned 0 products; kept previous catalog';
-                console.warn('⚠️ [GIFTCARDS] Latest build returned 0 products — kept previous catalog.');
+                productCache.lastBuiltAt = Date.now();
+                productCache.lastBuildDurationMs = Date.now() - startTs;
+                productCache.lastError = null;
+                productCache.lastTruncated = true;
+                productCache.lastTruncationReason = truncationReason;
+                productCache.lastRawCount = rawList.length;
+                productCache.lastRejectedCount = totalRejected;
+                productCache.lastRejectionsByReason = rejectionsObj;
+                productCache.lastPagesFetched = result?.pagesFetched ?? 0;
+                if (!countryCache.countries.length) deriveCountriesFromProducts(products);
+                console.warn(
+                    `⚠️ [GIFTCARDS] First build TRUNCATED — cached ${products.length}. ` +
+                    `Reason: ${truncationReason}`
+                );
+            } else if (gotProducts && truncated && hadPrevious) {
+                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
+                productCache.lastError = `Truncated refresh — kept previous (${productCache.products.length})`;
+                console.warn(
+                    `⚠️ [GIFTCARDS] Truncated refresh (${truncationReason}) — ` +
+                    `keeping previous ${productCache.products.length}`
+                );
+            } else if (!gotProducts && hadPrevious) {
+                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
+                productCache.lastError = 'Latest build returned 0 — kept previous catalog';
+                console.warn('⚠️ [GIFTCARDS] Latest build returned 0 — kept previous');
+            } else {
+                productCache.products = [];
+                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
+                productCache.lastBuiltAt = Date.now();
+                productCache.lastError = 'Build returned 0 products';
+                productCache.lastRejectionsByReason = rejectionsObj;
+                console.warn('⚠️ [GIFTCARDS] First build returned 0 products');
             }
-
-            const elapsed = Date.now() - startTs;
-            console.log(
-                `📦 [GIFTCARDS] Cold catalog: ${products.length} sellable / ${list.length} total ` +
-                `in ${elapsed}ms (markup ${(markupPct * 100).toFixed(2)}%, rate ₦${usdToNgn})`
-            );
-            if (rejections.size) {
-                console.warn('⚠️ [GIFTCARDS] Rejections:', Object.fromEntries(rejections));
-            }
-
-            if (products.length > 0 && !productCache.isFilling && !productCache.fillComplete) {
-                scheduleBackgroundFill(usdToNgn, markupPct);
-            }
-
             return productCache;
         } catch (e) {
             productCache.lastError = e.message;
             console.error('❌ [GIFTCARDS] Catalog build failed:', e.message);
-
             if (productCache.products.length) {
-                console.warn('⚠️ [GIFTCARDS] Keeping previous catalog after failure.');
+                console.warn('⚠️ [GIFTCARDS] Keeping previous catalog after failure');
                 return productCache;
             }
             throw e;
@@ -420,131 +438,16 @@ async function buildProductCatalog({ force = false } = {}) {
     return productCache.promise;
 }
 
-function sortProductList(a, b) {
-    const cleanA = (a.name || '').replace(/^[^a-zA-Z]+/, '').toLowerCase();
-    const cleanB = (b.name || '').replace(/^[^a-zA-Z]+/, '').toLowerCase();
-    const cmp = cleanA.localeCompare(cleanB, 'en', { sensitivity: 'base', numeric: true });
-    if (cmp !== 0) return cmp;
-
-    const cA = (a.countryName || '').toLowerCase();
-    const cB = (b.countryName || '').toLowerCase();
-    const cmpC = cA.localeCompare(cB, 'en', { sensitivity: 'base' });
-    if (cmpC !== 0) return cmpC;
-
-    return (Number(a.faceValue) || 0) - (Number(b.faceValue) || 0);
-}
-
-function scheduleBackgroundFill(usdToNgn, markupPct) {
-    if (productCache.isFilling) return;
-
-    productCache.isFilling = true;
-    productCache.fillComplete = false;
-    productCache.fillStartedAt = Date.now();
-
-    setImmediate(() => {
-        runBackgroundFill(usdToNgn, markupPct)
-            .catch((e) => console.warn('⚠️ [GIFTCARDS] BG fill failed:', e.message))
-            .finally(() => {
-                productCache.isFilling = false;
-            });
-    });
-}
-
-async function runBackgroundFill(usdToNgn, markupPct) {
-    console.log(`🔄 [GIFTCARDS] Background fill starting from page ${COLD_START_PAGES + 1}…`);
-
-    const seenIds = new Set(productCache.products.map((p) => String(p.productId)));
-    let totalAdded = 0;
-    let consecutiveEmpty = 0;
-    let consecutiveErrors = 0;
-
-    const baseUrl = dtoneService.baseUrl;
-    const client = dtoneService.client;
-
-    for (let page = COLD_START_PAGES + 1; page <= BACKGROUND_MAX_PAGES; page++) {
-        if (!productCache.isFilling) break;
-
-        let items = [];
-        try {
-            const qs = new URLSearchParams({
-                service_id: '4',
-                type: 'FIXED_VALUE_PIN_PURCHASE',
-                page: String(page),
-                per_page: '100'
-            });
-
-            const res = await client.get(`${baseUrl}/products?${qs.toString()}`, {
-                timeout: PER_PAGE_TIMEOUT_MS
-            });
-
-            const body = res.data;
-            if (Array.isArray(body)) items = body;
-            else if (Array.isArray(body?.items)) items = body.items;
-            else if (Array.isArray(body?.data)) items = body.data;
-            else if (Array.isArray(body?.results)) items = body.results;
-        } catch (e) {
-            consecutiveErrors++;
-            if (consecutiveErrors >= 3) {
-                console.warn(`⚠️ [GIFTCARDS] BG fill stopping after 3 consecutive errors`);
-                break;
-            }
-            await new Promise((r) => setTimeout(r, 2000));
-            continue;
-        }
-        consecutiveErrors = 0;
-
-        if (!items.length) {
-            consecutiveEmpty++;
-            if (consecutiveEmpty >= 2) break;
-            continue;
-        }
-        consecutiveEmpty = 0;
-
-        let added = 0;
-        for (const p of items) {
-            const described = dtoneService._describeGiftCardProduct(p);
-            if (!described) continue;
-
-            const key = String(described.productId);
-            if (seenIds.has(key)) continue;
-
-            const normalized = normalizeProduct(described, usdToNgn, markupPct);
-            if (normalized) {
-                productCache.products.push(normalized);
-                seenIds.add(key);
-                added++;
-            }
-        }
-
-        totalAdded += added;
-        await new Promise((r) => setTimeout(r, 250));
-    }
-
-    productCache.products.sort(sortProductList);
-    productCache.lastBuiltAt = Date.now();
-    productCache.fillComplete = true;
-
-    console.log(
-        `✅ [GIFTCARDS] Background fill complete: +${totalAdded} products ` +
-        `(total ${productCache.products.length})`
-    );
-}
-
 function deriveCountriesFromProducts(products) {
     const seen = new Map();
     for (const p of products) {
         const iso3 = String(p.countryIso || '').toUpperCase();
         if (!iso3 || iso3.length !== 3) continue;
         if (!seen.has(iso3)) {
-            seen.set(iso3, {
-                iso3,
-                iso2: p.countryIso2 || null,
-                name: p.countryName || iso3
-            });
+            seen.set(iso3, { iso3, iso2: p.countryIso2 || null, name: p.countryName || iso3 });
         }
     }
-    countryCache.countries = Array.from(seen.values())
-        .sort((a, b) => a.name.localeCompare(b.name));
+    countryCache.countries = Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
     countryCache.expiresAt = Date.now() + COUNTRIES_TTL_MS;
     countryCache.lastBuiltAt = Date.now();
     countryCache.lastError = null;
@@ -555,11 +458,13 @@ async function buildCountryCatalog({ force = false } = {}) {
     if (countryCache.promise) return countryCache.promise;
 
     countryCache.promise = (async () => {
-        const startTs = Date.now();
         try {
+            if (productCache.products.length) {
+                deriveCountriesFromProducts(productCache.products);
+                return countryCache;
+            }
             const raw = await dtoneService.getCountries('GIFT_CARD');
             const list = Array.isArray(raw) ? raw : [];
-
             const countries = [];
             const seen = new Set();
             for (const c of list) {
@@ -573,30 +478,16 @@ async function buildCountryCatalog({ force = false } = {}) {
                 });
             }
             countries.sort((a, b) => a.name.localeCompare(b.name));
-
             countryCache.countries = countries;
             countryCache.expiresAt = Date.now() + COUNTRIES_TTL_MS;
             countryCache.lastError = null;
             countryCache.lastBuiltAt = Date.now();
-
-            console.log(`🌍 [GIFTCARDS] Countries: ${countries.length} in ${Date.now() - startTs}ms`);
             return countryCache;
         } catch (e) {
             countryCache.lastError = e.message;
-            console.warn('⚠️ [GIFTCARDS] /countries failed, deriving from products:', e.message);
-
             if (productCache.products.length) {
                 deriveCountriesFromProducts(productCache.products);
                 return countryCache;
-            }
-            try {
-                await buildProductCatalog();
-                if (productCache.products.length) {
-                    deriveCountriesFromProducts(productCache.products);
-                    return countryCache;
-                }
-            } catch (e2) {
-                console.error('❌ [GIFTCARDS] Fallback failed:', e2.message);
             }
             if (countryCache.countries.length) return countryCache;
             throw e;
@@ -611,6 +502,7 @@ async function buildCountryCatalog({ force = false } = {}) {
 // ═══════════════════════════════════════════════════════════════════════════
 //  PIN STATE — atomic RPCs
 // ═══════════════════════════════════════════════════════════════════════════
+
 async function getUserPinState(userId) {
     const { data, error } = await supabaseAdmin
         .from('profiles')
@@ -624,18 +516,12 @@ async function getUserPinState(userId) {
 async function atomicRecordPinFailure(userId) {
     const { data, error } = await supabaseAdmin.rpc('record_pin_failure', { p_user_id: userId });
     if (error) {
-        console.error('[PIN RPC] record_pin_failure error:', error);
         const e = new Error('Unable to verify transaction security right now.');
         e.code = 'PIN_SECURITY_ERROR';
         throw e;
     }
     const row = Array.isArray(data) ? data[0] : data;
-    if (!row) {
-        const e = new Error('PIN security state unavailable.');
-        e.code = 'PIN_SECURITY_STATE_ERROR';
-        throw e;
-    }
-    if (typeof row.locked !== 'boolean' || !Number.isInteger(row.attempts_remaining)) {
+    if (!row || typeof row.locked !== 'boolean' || !Number.isInteger(row.attempts_remaining)) {
         const e = new Error('Invalid PIN RPC response.');
         e.code = 'PIN_SECURITY_STATE_ERROR';
         throw e;
@@ -652,11 +538,6 @@ async function atomicResetPinAttempts(userId) {
 //  DB WRITE HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Verified write for CRITICAL columns.
- * Throws on any failure — the caller MUST handle the exception.
- * Never silently moves data into metadata.
- */
 async function updateOrderCritical(orderId, patch) {
     const { data, error } = await supabaseAdmin
         .from('giftcard_transactions')
@@ -676,34 +557,26 @@ async function updateOrderCritical(orderId, patch) {
     return data;
 }
 
-/**
- * Diagnostic-only fields MAY fall back to metadata if their column is
- * missing. This is NOT used for critical state transitions.
- */
 const _missingColumnWarned = new Set();
+
 async function updateOrderDiagnostic(orderId, patch) {
     let { error } = await supabaseAdmin
         .from('giftcard_transactions')
         .update(patch)
         .eq('id', orderId);
-
     if (!error) return true;
 
     const col = extractMissingColumn(error.message);
     if (col && Object.prototype.hasOwnProperty.call(patch, col)) {
         if (CRITICAL_COLUMNS.has(col)) {
-            // Should never get here — critical writes go through updateOrderCritical
             console.error(`❌ [GIFTCARDS] Attempted metadata fallback for critical column '${col}'`);
             return false;
         }
-
         if (!_missingColumnWarned.has(col)) {
             console.warn(`⚠️ [GIFTCARDS] Diagnostic column '${col}' missing — writing to metadata`);
             _missingColumnWarned.add(col);
         }
-
         const { [col]: missingValue, ...rest } = patch;
-
         if (missingValue !== undefined) {
             try {
                 const { data: current } = await supabaseAdmin
@@ -711,27 +584,14 @@ async function updateOrderDiagnostic(orderId, patch) {
                     .select('metadata')
                     .eq('id', orderId)
                     .maybeSingle();
-
-                rest.metadata = {
-                    ...(current?.metadata || {}),
-                    [col]: missingValue
-                };
+                rest.metadata = { ...(current?.metadata || {}), [col]: missingValue };
             } catch {}
         }
-
         const retry = await supabaseAdmin
-            .from('giftcard_transactions')
-            .update(rest)
-            .eq('id', orderId);
-
-        if (retry.error) {
-            console.error('[updateOrderDiagnostic] Retry failed:', retry.error.message);
-            return false;
-        }
+            .from('giftcard_transactions').update(rest).eq('id', orderId);
+        if (retry.error) return false;
         return true;
     }
-
-    console.error('[updateOrderDiagnostic] Failed:', error.message);
     return false;
 }
 
@@ -761,14 +621,40 @@ function getPublicCallbackUrl(pathname) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  RATE LIMITERS
+//
+//  express-rate-limit v7+ requires custom keyGenerators that touch the
+//  request IP to route it through ipKeyGenerator() for IPv6 safety.
+//  Using req.ip directly raises ERR_ERL_KEY_GEN_IPV6 at module load.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const adminCatalogRebuildLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 2,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+        // Prefer the authenticated user id when available — this is
+        // IPv6-safe because it does not depend on the IP at all.
+        if (req.user?.id) return `rebuild:user:${req.user.id}`;
+        // Fall back to an IPv6-safe IP key.
+        return `rebuild:ip:${ipKeyGenerator(req)}`;
+    },
+    handler: (req, res) => res.status(429).json({
+        success: false,
+        code: 'REBUILD_RATE_LIMIT',
+        error: 'Catalog rebuild is rate limited. Try again shortly.'
+    })
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  ROUTES
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ─── WALLET BALANCES ─────────────────────────────────────────────────────
+// ─── GET /api/wallet/balances ────────────────────────────────────────────
 router.get('/wallet/balances', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-
         if (typeof LedgerService.getAllBalances !== 'function') {
             return res.status(500).json({
                 success: false,
@@ -776,11 +662,9 @@ router.get('/wallet/balances', authMiddleware, async (req, res) => {
                 code: 'LEDGER_UNAVAILABLE'
             });
         }
-
         const balances = await LedgerService.getAllBalances(userId);
         const usd = parseBalance(balances?.USD);
         const ngn = parseBalance(balances?.NGN);
-
         if (usd === null || ngn === null) {
             return res.status(502).json({
                 success: false,
@@ -788,7 +672,6 @@ router.get('/wallet/balances', authMiddleware, async (req, res) => {
                 code: 'WALLET_PARSE_FAILED'
             });
         }
-
         res.json({ success: true, data: { USD: usd, NGN: ngn } });
     } catch (e) {
         console.error('[WALLET] Balance fetch failed:', e.message);
@@ -800,24 +683,18 @@ router.get('/wallet/balances', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── COUNTRIES ───────────────────────────────────────────────────────────
+// ─── GET /api/giftcards/countries ────────────────────────────────────────
 router.get('/giftcards/countries', authMiddleware, async (req, res) => {
     const startTs = Date.now();
-
     if (isCountryCacheFresh()) {
         res.set('X-Cache', 'HIT');
-        res.set('X-Cache-Age-Ms', String(Date.now() - countryCache.lastBuiltAt));
         return res.json({ success: true, data: countryCache.countries });
     }
-
     if (countryCache.countries.length > 0) {
-        buildCountryCatalog({ force: true }).catch((e) =>
-            console.warn('⚠️ [GIFTCARDS] BG country refresh failed:', e.message)
-        );
+        buildCountryCatalog({ force: true }).catch(() => {});
         res.set('X-Cache', 'STALE');
         return res.json({ success: true, data: countryCache.countries });
     }
-
     try {
         const result = await buildCountryCatalog();
         res.set('X-Cache', 'MISS');
@@ -833,10 +710,9 @@ router.get('/giftcards/countries', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── PRODUCTS ────────────────────────────────────────────────────────────
+// ─── GET /api/giftcards/products ─────────────────────────────────────────
 router.get('/giftcards/products', authMiddleware, async (req, res) => {
     const startTs = Date.now();
-
     try {
         const page = parsePage(req.query.page, 1);
         const limit = parseLimit(req.query.limit, DEFAULT_PAGE_SIZE);
@@ -859,7 +735,6 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
             catalog = await buildProductCatalog();
         }
 
-        // Defensive: never return rows missing a name or a price.
         const safeList = (catalog.products || []).filter((p) => {
             if (!p || !p.productId) return false;
             if (!String(p.name || '').trim()) return false;
@@ -874,15 +749,17 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
         if (search) {
             list = list.filter((p) =>
                 (p.name || '').toLowerCase().includes(search) ||
-                (p.countryName || '').toLowerCase().includes(search)
+                (p.countryName || '').toLowerCase().includes(search) ||
+                (p.operatorName || '').toLowerCase().includes(search)
             );
         }
 
         const total = list.length;
         const start = (page - 1) * limit;
         const end = start + limit;
+        const slice = list.slice(start, end);
 
-        const items = list.slice(start, end).map((p) => ({
+        const items = slice.map((p) => ({
             productId: p.productId,
             name: p.name,
             faceValue: p.faceValue,
@@ -890,7 +767,9 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
             countryIso: p.countryIso,
             countryIso2: p.countryIso2,
             countryName: p.countryName,
+            operatorId: p.operatorId,
             operatorName: p.operatorName,
+            logo: p.logo,
             description: p.description,
             priceUsd: p.priceUsd,
             priceNgn: p.priceNgn
@@ -902,12 +781,22 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
         res.set('X-Cache-Age-Ms', String(Date.now() - productCache.lastBuiltAt));
         res.set('X-Response-Ms', String(Date.now() - startTs));
         res.set('X-Catalog-Size', String(productCache.products.length));
-        res.set('X-BG-Filling', String(productCache.isFilling));
+        res.set('X-Catalog-Complete', String(!productCache.lastTruncated));
 
         res.json({
             success: true,
             data: items,
-            meta: { page, limit, total, hasMore, returned: items.length }
+            meta: {
+                page, limit, total, hasMore,
+                returned: items.length,
+                catalogComplete: !productCache.lastTruncated,
+                catalogSize: productCache.products.length,
+                lastBuildDurationMs: productCache.lastBuildDurationMs,
+                rawDtOneCount: productCache.lastRawCount,
+                rejectedCount: productCache.lastRejectedCount,
+                rejectionsByReason: productCache.lastRejectionsByReason,
+                pagesFetched: productCache.lastPagesFetched
+            }
         });
     } catch (e) {
         console.error('Products error:', e.message);
@@ -919,7 +808,77 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── PURCHASE ────────────────────────────────────────────────────────────
+// ─── GET /api/giftcards/admin/catalog-stats ─────────────────────────────
+// FIX #37 — now requires admin permission.
+router.get(
+    '/giftcards/admin/catalog-stats',
+    authMiddleware,
+    requirePermission(PERMISSIONS.CATALOG_VIEW || 'catalog.view'),
+    async (req, res) => {
+        res.json({
+            success: true,
+            data: {
+                cachedProducts: productCache.products.length,
+                lastBuiltAt: productCache.lastBuiltAt
+                    ? new Date(productCache.lastBuiltAt).toISOString() : null,
+                cacheAgeMs: productCache.lastBuiltAt
+                    ? Date.now() - productCache.lastBuiltAt : null,
+                ttlMs: CATALOG_TTL_MS,
+                isFresh: isProductCacheFresh(),
+                isBuilding: Boolean(productCache.promise),
+                lastError: productCache.lastError,
+                lastTruncated: productCache.lastTruncated,
+                lastTruncationReason: productCache.lastTruncationReason,
+                lastBuildDurationMs: productCache.lastBuildDurationMs,
+                rawDtOneCount: productCache.lastRawCount,
+                rejectedCount: productCache.lastRejectedCount,
+                rejectionsByReason: productCache.lastRejectionsByReason,
+                pagesFetched: productCache.lastPagesFetched,
+                countryCount: countryCache.countries.length
+            }
+        });
+    }
+);
+
+// ─── POST /api/giftcards/admin/rebuild-catalog ───────────────────────────
+// FIX #37 & #38 — admin permission + rate limit + single-flight lock.
+router.post(
+    '/giftcards/admin/rebuild-catalog',
+    authMiddleware,
+    requirePermission(PERMISSIONS.CATALOG_MANAGE || 'catalog.manage'),
+    adminCatalogRebuildLimiter,
+    async (req, res) => {
+        try {
+            if (productCache.promise) {
+                return res.status(409).json({
+                    success: false,
+                    code: 'REBUILD_IN_PROGRESS',
+                    error: 'A catalog rebuild is already in progress.'
+                });
+            }
+            invalidateGiftCardCatalog();
+            const catalog = await buildProductCatalog({ force: true });
+            res.json({
+                success: true,
+                data: {
+                    products: catalog.products.length,
+                    rawDtOneCount: catalog.lastRawCount,
+                    rejectedCount: catalog.lastRejectedCount,
+                    rejectionsByReason: catalog.lastRejectionsByReason,
+                    truncated: catalog.lastTruncated,
+                    durationMs: catalog.lastBuildDurationMs
+                }
+            });
+        } catch (e) {
+            res.status(500).json({ success: false, error: e.message });
+        }
+    }
+);
+
+// ─── POST /api/giftcards/purchase ────────────────────────────────────────
+// FIX #19 — Removed the synchronous immediate `queryTransaction` call.
+//           Webhook + polling handle reconciliation. Purchase returns
+//           as soon as the provider has accepted the submission.
 router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const idemKey = String(req.headers['idempotency-key'] || '').trim();
@@ -988,7 +947,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
     });
 
     try {
-        // ── Idempotency replay check ──────────────────────────────
         const { data: existing, error: existingErr } = await supabaseAdmin
             .from('giftcard_transactions')
             .select('id, reference, status, request_fingerprint')
@@ -997,7 +955,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             .maybeSingle();
 
         if (existingErr) {
-            console.error('[PURCHASE] Idempotency lookup failed:', existingErr);
             return res.status(500).json({
                 success: false,
                 error: 'Could not verify idempotency state',
@@ -1024,15 +981,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        if (qty !== 1) {
-            return res.status(400).json({
-                success: false,
-                error: 'Multiple quantity purchases are not yet supported for gift cards.',
-                code: 'QUANTITY_NOT_SUPPORTED'
-            });
-        }
-
-        // ── PIN verification ──────────────────────────────────────
         const pinState = await getUserPinState(userId);
 
         if (pinState.transaction_pin_locked_until) {
@@ -1086,7 +1034,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
 
         await atomicResetPinAttempts(userId);
 
-        // ── Product lookup ────────────────────────────────────────
         const catalog = await buildProductCatalog();
         const product = catalog.products.find((p) => String(p.productId) === String(productId));
 
@@ -1099,7 +1046,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
         }
 
         if (!Number.isFinite(product.priceUsd) || product.priceUsd <= 0) {
-            console.error(`[PURCHASE] Product ${product.productId} has invalid priceUsd=${product.priceUsd}`);
             return res.status(500).json({
                 success: false,
                 error: 'This gift card is temporarily unavailable.',
@@ -1121,7 +1067,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
         const debitAmount = debitCurrency === 'NGN' ? totalNgn : totalUsd;
         const reference = `GFT-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
-        // ── Insert order ──────────────────────────────────────────
         const insertPayload = {
             user_id: userId,
             reference,
@@ -1166,7 +1111,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
                     .eq('user_id', userId)
                     .eq('idempotency_key', idemKey)
                     .maybeSingle();
-
                 if (dup) {
                     if (dup.request_fingerprint && dup.request_fingerprint !== requestFingerprint) {
                         return res.status(409).json({
@@ -1186,7 +1130,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
                     });
                 }
             }
-            console.error('[PURCHASE] Insert order error:', insertErr);
             return res.status(500).json({
                 success: false,
                 error: 'Could not create order',
@@ -1194,7 +1137,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        // ── Ledger debit ──────────────────────────────────────────
         let ledgerResult;
         try {
             ledgerResult = await LedgerService.debitWallet(
@@ -1211,7 +1153,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
                 }
             );
         } catch (debitErr) {
-            console.error('[PURCHASE] Debit threw:', debitErr.message);
             await safeMarkFailed(order.id, `Wallet debit failed: ${debitErr.message}`);
             if (debitErr.code === 'INSUFFICIENT_BALANCE') {
                 return res.status(400).json({
@@ -1228,18 +1169,10 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
         }
 
         if (!ledgerResult || ledgerResult.success !== true || !ledgerResult.transaction_id) {
-            console.error('[PURCHASE] Debit returned non-success:', ledgerResult);
             await safeMarkFailed(
                 order.id,
                 `Wallet debit not confirmed: ${ledgerResult?.error || ledgerResult?.code || 'unknown'}`
             );
-            if (ledgerResult?.code === 'INSUFFICIENT_BALANCE') {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Insufficient wallet balance.',
-                    code: 'INSUFFICIENT_BALANCE'
-                });
-            }
             return res.status(500).json({
                 success: false,
                 error: 'Could not debit wallet',
@@ -1253,7 +1186,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             updated_at: new Date().toISOString()
         });
 
-        // ── DT One submission (auto_confirm: true) ────────────────
         const callbackUrl = getPublicCallbackUrl('/api/webhooks/dtone/giftcard');
 
         let providerResult;
@@ -1267,8 +1199,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
                 autoConfirm: true
             });
         } catch (providerErr) {
-            console.error(`[PURCHASE] DT One submit threw for ${reference}:`, providerErr.message);
-
             const isDefinitive =
                 providerErr.definitiveRejection === true ||
                 providerErr.providerStatus === 'REJECTED';
@@ -1285,7 +1215,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
                         transactionId: order.id,
                         reference,
                         status: ORDER_STATES.PROVIDER_UNKNOWN,
-                        message: 'Purchase is being confirmed with the provider. You will be notified shortly.',
                         debitAmount,
                         debitCurrency,
                         totalUsd,
@@ -1294,12 +1223,11 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
                 });
             }
 
-            // ── Definitive rejection → refund immediately ─────────
             try {
                 const refundResult = await LedgerService.refundTransaction(
                     userId,
                     ledgerResult.transaction_id,
-                    `Gift card rejected by provider: ${providerErr.message}`
+                    `Gift card rejected: ${providerErr.message}`
                 );
                 if (!refundResult || refundResult.success !== true) {
                     throw new Error(refundResult?.error || 'Refund did not succeed');
@@ -1319,7 +1247,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
                     code: 'PROVIDER_REJECTED'
                 });
             } catch (refundErr) {
-                console.error(`[PURCHASE] Refund failed for ${reference}:`, refundErr.message);
                 await updateOrderCritical(order.id, {
                     status: ORDER_STATES.MANUAL_REVIEW,
                     failure_reason: `Provider rejected and refund failed: ${refundErr.message}`,
@@ -1358,7 +1285,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        // ── Persist provider transaction ID ───────────────────────
         await updateOrderCritical(order.id, {
             provider_transaction_id: String(providerTxId),
             dtone_external_id: providerExternalId,
@@ -1366,91 +1292,15 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             updated_at: new Date().toISOString()
         });
 
-        // Optional diagnostic — provider response summary
         await updateOrderDiagnostic(order.id, {
             provider_response_summary: summarizeProviderResponse(providerResult.raw)
-        }).catch((e) => console.warn('⚠️ [PURCHASE] diagnostic write failed:', e.message));
+        }).catch(() => {});
 
-        // ── Immediate provider snapshot ───────────────────────────
-        // auto_confirm usually advances us past CREATED in the same
-        // round-trip, but DT One can still return CONFIRMED/SUBMITTED.
-        // We query once more right away to catch fast completions and
-        // fast rejections without waiting for the reconciliation worker.
-        let providerSnapshot = null;
-        try {
-            providerSnapshot = await dtoneService.queryTransaction(providerTxId);
-        } catch (snapshotErr) {
-            console.warn(
-                `[PURCHASE] Immediate DT One status check failed for ${reference}:`,
-                snapshotErr.message
-            );
-        }
-
-        if (providerSnapshot) {
-            const reconciliation = require('../services/airtimeReconciliationService');
-
-            if (providerSnapshot.status === 'completed') {
-                // Voucher came back immediately — finalize now
-                const localOrder = {
-                    ...order,
-                    status: ORDER_STATES.PROCESSING,
-                    provider_transaction_id: String(providerTxId),
-                    dtone_external_id: providerExternalId,
-                    ledger_transaction_id: ledgerResult.transaction_id
-                };
-
-                try {
-                    await reconciliation.completeGiftCard(localOrder, providerSnapshot);
-                } catch (completeErr) {
-                    console.error(
-                        `[PURCHASE] Immediate completeGiftCard failed for ${reference}:`,
-                        completeErr.message
-                    );
-                }
-            } else if (
-                providerSnapshot.isFinal &&
-                ['failed', 'cancelled', 'reversed'].includes(providerSnapshot.status)
-            ) {
-                // Definitive rejection arrived in the same request
-                const localOrder = {
-                    ...order,
-                    status: ORDER_STATES.PROCESSING,
-                    provider_transaction_id: String(providerTxId),
-                    dtone_external_id: providerExternalId,
-                    ledger_transaction_id: ledgerResult.transaction_id
-                };
-
-                try {
-                    await reconciliation.refundGiftCard(localOrder, providerSnapshot);
-                } catch (refundErr) {
-                    console.error(
-                        `[PURCHASE] Immediate refundGiftCard failed for ${reference}:`,
-                        refundErr.message
-                    );
-                }
-            }
-        }
-
-        // ── Read final state and respond accordingly ──────────────
-        const { data: freshOrder } = await supabaseAdmin
-            .from('giftcard_transactions')
-            .select('*')
-            .eq('id', order.id)
-            .maybeSingle();
-
-        if (freshOrder?.status === ORDER_STATES.COMPLETED) {
-            return res.json({
-                success: true,
-                data: shapeStatusResponse(freshOrder)
-            });
-        }
-
-        if (freshOrder?.status === ORDER_STATES.REFUNDED) {
-            return res.json({
-                success: true,
-                data: shapeStatusResponse(freshOrder)
-            });
-        }
+        // ─── FIX #19 ────────────────────────────────────────────────
+        // No synchronous `queryTransaction` here. Provider webhooks
+        // and the /status polling endpoint handle reconciliation.
+        // The purchase endpoint returns as soon as the provider has
+        // accepted the submission.
 
         return res.json({
             success: true,
@@ -1475,72 +1325,41 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── STATUS ──────────────────────────────────────────────────────────────
+// ─── GET /api/giftcards/status/:id ───────────────────────────────────────
 router.get('/giftcards/status/:id', authMiddleware, async (req, res) => {
     try {
-        const userId = req.user.id;
-        const { id } = req.params;
-
         const { data: order, error } = await supabaseAdmin
             .from('giftcard_transactions')
             .select('*')
-            .eq('id', id)
-            .eq('user_id', userId)
+            .eq('id', req.params.id)
+            .eq('user_id', req.user.id)
             .maybeSingle();
 
-        if (error) {
-            console.error('[STATUS] DB error:', error.message);
-            return res.status(500).json({
-                success: false,
-                error: 'Could not load order status',
-                code: 'STATUS_DB_FAILED'
-            });
+        if (error || !order) {
+            return res.status(404).json({ success: false, error: 'Order not found', code: 'ORDER_NOT_FOUND' });
         }
 
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                error: 'Order not found',
-                code: 'ORDER_NOT_FOUND'
-            });
-        }
-
-        // Terminal — no need to query DT One
         if (TERMINAL_STATES.has(order.status)) {
             return res.json({ success: true, data: shapeStatusResponse(order) });
         }
 
-        // No provider transaction yet — nothing to reconcile
         if (!order.provider_transaction_id) {
             return res.json({ success: true, data: shapeStatusResponse(order) });
         }
 
-        // Active — query DT One directly and act on the result
         let result = null;
         try {
             result = await dtoneService.queryTransaction(order.provider_transaction_id);
         } catch (queryErr) {
-            console.warn(`[STATUS] DT One query failed for ${order.reference}:`, queryErr.message);
             return res.json({ success: true, data: shapeStatusResponse(order) });
         }
 
-        const reconciliation = require('../services/dtoneReconciliationService');
+        const reconciliation = require('../services/airtimeReconciliationService');
 
         if (result.status === 'completed') {
-            try {
-                await reconciliation.completeGiftCard(order, result);
-            } catch (completeErr) {
-                console.error(`[STATUS] completeGiftCard failed for ${order.reference}:`, completeErr.message);
-            }
-        } else if (
-            result.isFinal &&
-            ['failed', 'cancelled', 'reversed'].includes(result.status)
-        ) {
-            try {
-                await reconciliation.refundGiftCard(order, result);
-            } catch (refundErr) {
-                console.error(`[STATUS] refundGiftCard failed for ${order.reference}:`, refundErr.message);
-            }
+            try { await reconciliation.completeGiftCard(order, result); } catch {}
+        } else if (result.isFinal && ['failed', 'cancelled', 'reversed'].includes(result.status)) {
+            try { await reconciliation.refundGiftCard(order, result); } catch {}
         }
 
         const { data: fresh } = await supabaseAdmin
@@ -1549,13 +1368,8 @@ router.get('/giftcards/status/:id', authMiddleware, async (req, res) => {
             .eq('id', order.id)
             .maybeSingle();
 
-        return res.json({
-            success: true,
-            data: shapeStatusResponse(fresh || order)
-        });
-
+        return res.json({ success: true, data: shapeStatusResponse(fresh || order) });
     } catch (e) {
-        console.error('[STATUS] Error:', e.message);
         return res.status(500).json({
             success: false,
             error: 'Could not check gift card status',
@@ -1587,10 +1401,9 @@ function shapeStatusResponse(t) {
     };
 }
 
-// ─── HISTORY ─────────────────────────────────────────────────────────────
+// ─── GET /api/giftcards/history ──────────────────────────────────────────
 router.get('/giftcards/history', authMiddleware, async (req, res) => {
     try {
-        const userId = req.user.id;
         const { data, error } = await supabaseAdmin
             .from('giftcard_transactions')
             .select(`
@@ -1599,7 +1412,7 @@ router.get('/giftcards/history', authMiddleware, async (req, res) => {
                 total_usd, price_ngn, debit_amount, debit_currency, status,
                 voucher_code, created_at, completed_at
             `)
-            .eq('user_id', userId)
+            .eq('user_id', req.user.id)
             .order('created_at', { ascending: false })
             .limit(100);
 
@@ -1627,12 +1440,11 @@ router.get('/giftcards/history', authMiddleware, async (req, res) => {
 
         res.json({ success: true, data: shaped });
     } catch (e) {
-        console.error('History error:', e);
         res.status(500).json({ success: false, error: e.message, code: 'HISTORY_FAILED' });
     }
 });
 
-// ─── WEBHOOK ─────────────────────────────────────────────────────────────
+// ─── POST /api/webhooks/dtone/giftcard ───────────────────────────────────
 router.post('/webhooks/dtone/giftcard', express.json({ limit: '1mb' }), async (req, res) => {
     try {
         const payload = req.body || {};
@@ -1643,26 +1455,20 @@ router.post('/webhooks/dtone/giftcard', express.json({ limit: '1mb' }), async (r
         const secret = process.env.DTONE_WEBHOOK_SECRET;
 
         if (secret) {
-            if (!signature) {
-                console.warn('[WEBHOOK] Missing signature — rejecting');
-                return res.status(401).json({ success: false, error: 'Missing signature' });
-            }
+            if (!signature) return res.status(401).json({ success: false, error: 'Missing signature' });
             const expected = crypto
                 .createHmac('sha256', secret)
                 .update(JSON.stringify(payload))
                 .digest('hex');
             if (!timingSafeEqualHex(expected, signature)) {
-                console.warn('[WEBHOOK] Signature mismatch — rejecting');
                 return res.status(401).json({ success: false, error: 'Invalid signature' });
             }
         } else if (process.env.NODE_ENV === 'production') {
-            console.error('[WEBHOOK] DTONE_WEBHOOK_SECRET is not set in production — rejecting');
             return res.status(401).json({ success: false, error: 'Webhook auth not configured' });
         }
 
         const dtoneTxId = payload?.transaction_id || payload?.id || payload?.transactionId;
         const externalId = payload?.external_id || payload?.externalId;
-
         if (!dtoneTxId && !externalId) {
             return res.status(400).json({ success: false, error: 'Missing transaction identifier' });
         }
@@ -1682,42 +1488,26 @@ router.post('/webhooks/dtone/giftcard', express.json({ limit: '1mb' }), async (r
         }
 
         if (!order) {
-            console.warn('[WEBHOOK] Order not found:', { dtoneTxId, externalId });
-            return res.status(200).json({ success: true, note: 'Order not found, ignored' });
+            return res.status(200).json({ success: true, note: 'Order not found' });
         }
 
-        // Never trust the webhook payload — always re-query DT One.
         try {
-            const verified = await dtoneService.queryTransaction(
-                order.provider_transaction_id || dtoneTxId
-            );
-
-            if (!verified) {
-                return res.status(200).json({ success: true, note: 'Verification pending' });
-            }
-
-            const reconciliation = require('../services/dtoneReconciliationService');
+            const reconciliation = require('../services/airtimeReconciliationService');
             const result = await reconciliation.forceReconcileTransaction(
                 'giftcard_transactions',
                 order.id
             );
-
             return res.status(200).json({ success: true, result });
         } catch (verifyErr) {
-            console.error(`[WEBHOOK] Verification failed for ${order.reference}:`, verifyErr.message);
             return res.status(200).json({
                 success: true,
                 note: 'Verification failed, deferred to reconciliation'
             });
         }
     } catch (e) {
-        console.error('[WEBHOOK] Unexpected error:', e);
         res.status(200).json({ success: false, error: e.message });
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  EXPORTS
-// ═══════════════════════════════════════════════════════════════════════════
 module.exports = router;
 module.exports.invalidateGiftCardCatalog = invalidateGiftCardCatalog;

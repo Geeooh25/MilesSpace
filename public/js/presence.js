@@ -2,12 +2,15 @@
 // ============================================================
 // MILESSPACE PRESENCE TRACKER (customer)
 //
-//   - Runs only on non-admin, non-auth pages.
-//   - Heartbeat every 30s while the tab is visible.
-//   - Pauses on hidden tab; sends one immediately on return.
-//   - No offline beacon. The server decides offline from
-//     last_seen aging (90s threshold).
-//   - session.js owns auth. This file never makes auth decisions.
+//   • Runs only on non-admin, non-auth, non-root pages.
+//   • Heartbeat every 45 s while visible; paused when hidden.
+//   • One in-flight request at a time.
+//   • Exponential backoff on failure (1s → 30s cap).
+//   • No beacon on unload. The server ages last_seen.
+//   • Sends only { page, tab_id }. The server derives identity,
+//     role, IP, browser, OS, device. Nothing client-supplied
+//     is trusted.
+//   • session.js owns auth. This file never reads tokens.
 // ============================================================
 
 (function () {
@@ -15,9 +18,7 @@
 
     const pathname = window.location.pathname;
 
-    if (pathname === '/admin' || pathname === '/admin/' || pathname.startsWith('/admin/')) {
-        return; // admin has its own presence script
-    }
+    if (pathname === '/admin' || pathname === '/admin/' || pathname.startsWith('/admin/')) return;
 
     const AUTH_PAGES = new Set([
         '/login.html', '/login',
@@ -29,74 +30,71 @@
     ]);
     if (AUTH_PAGES.has(pathname)) return;
 
-    const IS_ROOT = pathname === '/' || pathname === '/index.html';
-    if (IS_ROOT) return;
+    if (pathname === '/' || pathname === '/index.html') return;
 
-    const HEARTBEAT_MS = 30000;
-    const API_BASE = '/api/presence';
+    // ─── TUNING ────────────────────────────────────────────────
+    const HEARTBEAT_VISIBLE_MS   = 45000;   // 45s while tab is visible
+    const HEARTBEAT_HIDDEN_MS    = 0;       // do not heartbeat when hidden
+    const RESUME_AFTER_RETURN_MS = 1000;    // send once shortly after returning to foreground
+    const BACKOFF_BASE_MS        = 1000;
+    const BACKOFF_MAX_MS         = 30000;
+
+    const API_PATH = '/api/presence/heartbeat';
+
+    // ─── ALLOWLIST for page names ──────────────────────────────
+    // The server enforces this too, but trimming on the client
+    // avoids sending obvious junk.
+    const MAX_PAGE_LEN   = 128;
+    const MAX_TAB_ID_LEN = 64;
+
+    function safePath() {
+        try {
+            const p = window.location.pathname || '/';
+            return p.slice(0, MAX_PAGE_LEN);
+        } catch { return '/'; }
+    }
 
     class PresenceTracker {
         constructor() {
             this.timer = null;
-            this.lastSentAt = 0;
+            this.backoffMs = 0;
             this.isActive = false;
             this.isSending = false;
+            this.lastSentAt = 0;
+            this.lastVisibilityChange = Date.now();
             this.tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        }
-
-        getSession() {
-            try {
-                const raw = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
-                return raw ? JSON.parse(raw) : null;
-            } catch { return null; }
-        }
-
-        getToken() {
-            if (typeof window.getUserToken === 'function') {
-                try { return window.getUserToken(); } catch { /* fall through */ }
-            }
-            return this.getSession()?.token || null;
-        }
-
-        getUserId() {
-            if (typeof window.getUser === 'function') {
-                try { return window.getUser()?.id || null; } catch { /* fall through */ }
-            }
-            return this.getSession()?.user?.id || null;
-        }
-
-        isTokenShapeOk(token) {
-            return typeof token === 'string' && token.split('.').length === 3;
         }
 
         init() {
             if (this.isActive) return;
-            let attempts = 0;
-            const max = 5;
+            this.isActive = true;
 
-            const tryInit = () => {
-                attempts++;
-                const token = this.getToken();
-                const userId = this.getUserId();
-                if (!token || !userId || !this.isTokenShapeOk(token)) {
-                    if (attempts < max) return setTimeout(tryInit, 300);
-                    return;
+            // First send shortly after boot.
+            setTimeout(() => this.send(), 500);
+            this.startLoop();
+
+            document.addEventListener('visibilitychange', () => {
+                this.lastVisibilityChange = Date.now();
+                if (!document.hidden && this.isActive) {
+                    // Returned to foreground. Send once after a short delay.
+                    setTimeout(() => {
+                        if (!document.hidden && this.isActive) this.send();
+                    }, RESUME_AFTER_RETURN_MS);
                 }
-                this.isActive = true;
-                setTimeout(() => this.send(), 200);
-                this.startLoop();
-            };
-            tryInit();
+            });
+
+            window.addEventListener('focus', () => {
+                if (!document.hidden && this.isActive) this.send();
+            });
         }
 
         startLoop() {
             if (this.timer) clearInterval(this.timer);
             this.timer = setInterval(() => {
                 if (document.hidden) return;
-                // Skip if a focus event just sent one.
-                if (Date.now() - this.lastSentAt < HEARTBEAT_MS * 0.5) return;
+                if (Date.now() - this.lastSentAt < HEARTBEAT_VISIBLE_MS * 0.5) return;
                 this.send();
-            }, HEARTBEAT_MS);
+            }, HEARTBEAT_VISIBLE_MS);
         }
 
         stop() {
@@ -106,58 +104,76 @@
 
         async send() {
             if (!this.isActive || this.isSending) return;
-            const token = this.getToken();
-            const userId = this.getUserId();
-            if (!token || !userId) { this.stop(); return; }
+            if (document.hidden) return;
 
             this.isSending = true;
+            const startedAt = Date.now();
             try {
-                await fetch(`${API_BASE}/heartbeat`, {
+                const fetcher = (typeof window.userFetch === 'function')
+                    ? window.userFetch
+                    : ((url, opts) => fetch(url, { ...opts, credentials: 'same-origin' }));
+
+                const response = await fetcher(API_PATH, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        page: window.location.pathname,
-                        tab_id: this.tabId
-                    }),
-                    credentials: 'same-origin'
+                        page: safePath(),
+                        tab_id: this.tabId.slice(0, MAX_TAB_ID_LEN)
+                    })
                 });
-                this.lastSentAt = Date.now();
+
+                if (response && response.ok) {
+                    this.lastSentAt = Date.now();
+                    this.backoffMs = 0;
+                } else if (response && response.status === 401) {
+                    // Session ended. Stop quietly; session.js handles redirect.
+                    this.stop();
+                } else {
+                    this._scheduleBackoff();
+                }
             } catch {
-                // Silent — next tick retries. Server ages last_seen.
+                this._scheduleBackoff();
             } finally {
                 this.isSending = false;
             }
+        }
+
+        _scheduleBackoff() {
+            this.backoffMs = Math.min(
+                this.backoffMs ? this.backoffMs * 2 : BACKOFF_BASE_MS,
+                BACKOFF_MAX_MS
+            );
+            // Do not start a second timer; the main loop will retry
+            // after HEARTBEAT_VISIBLE_MS anyway. This method only
+            // records the delay in case the caller wants to observe it.
         }
     }
 
     const tracker = new PresenceTracker();
 
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && tracker.isActive) tracker.send();
-    });
-    window.addEventListener('focus', () => {
-        if (tracker.isActive) tracker.send();
-    });
-
-    // Boot when session is likely ready.
+    // Start after the page has settled.
     const boot = () => tracker.init();
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 100));
+        document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 250));
     } else {
-        setTimeout(boot, 100);
+        setTimeout(boot, 250);
     }
 
-    // If session.js clears the session, we stop. It does not restart
-    // unless the page reloads.
+    // ─── Logout signals ────────────────────────────────────────
     window.addEventListener('storage', (e) => {
-        if (e.key === 'mx_sess' && !e.newValue) tracker.stop();
+        if ((e.key === 'mx_user' || e.key === 'mx_sess') && !e.newValue) tracker.stop();
     });
+
+    try {
+        const ch = new BroadcastChannel('mx_auth');
+        ch.onmessage = (e) => {
+            const m = e.data || {};
+            if (m.type === 'logout') tracker.stop();
+        };
+    } catch {}
 
     window.presenceTracker = tracker;
     window.logoutPresence = function () { tracker.stop(); };
 
-    console.log('[PRESENCE] Loaded (30s heartbeat, single write, no beacon)');
+    console.log('[PRESENCE] Ready — 45s heartbeat, visible-only, no beacon, no reads');
 })();

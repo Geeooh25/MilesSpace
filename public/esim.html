@@ -2,7 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#fbfaf7">
+<link rel="canonical" href="https://www.milesspaceedigital.com/">
+<link rel="icon" href="/images/miles.png" type="image/png">
+<link rel="apple-touch-icon" href="/images/miles.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MilesSpace">
+<meta property="og:title" content="MilesSpace — Digital Wallet & Digital Services">
+<meta property="og:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta property="og:url" content="https://www.milesspaceedigital.com/">
+<meta property="og:image" content="https://www.milesspaceedigital.com/images/social-preview.png">
+<meta property="og:image:secure_url" content="https://www.milesspaceedigital.com/images/social-preview.png">
+<meta property="og:image:alt" content="MilesSpace digital wallet and services dashboard">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MilesSpace — Digital Wallet & Digital Services">
+<meta name="twitter:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta name="twitter:image" content="https://www.milesspaceedigital.com/images/social-preview.png">
 <title>Buy eSIM · MilesSpace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,6 +30,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="/js/session.js"></script>
 <script src="/js/presence.js" defer></script>
+<script src="/js/miles-widget.js" defer></script>
 
 <style>
 :root{
@@ -22,56 +43,72 @@
   --succ:#1C8F63; --sul:#E5F6EE;
   --err:#D34848; --erl:#FBEAEA;
   --r:12px; --rl:16px; --tr:.2s cubic-bezier(.4,0,.2,1); --sw:250px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:var(--bg);color:var(--t1);font-family:var(--fb);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+html,body{background:var(--bg);color:var(--t1);font-family:var(--fb);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;max-width:100vw;overflow-x:hidden;}
+body.sb-open{overflow:hidden;}
 a{color:inherit;text-decoration:none;}
-button{font-family:inherit;cursor:pointer;border:none;background:none;}
-input,select{font-family:inherit;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;font-size:inherit;}
+input,select{font-family:inherit;font-size:16px;color:inherit;}
 ::selection{background:var(--pl);}
 button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--p);outline-offset:2px;}
 @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important;}}
 
-.sidebar{width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:500;transition:transform .3s var(--tr);overflow-y:auto;scrollbar-width:none;}
-.sidebar::-webkit-scrollbar{display:none;}
-@media(min-width:1025px){.sidebar{transform:translateX(0) !important;}.tb-hbg{display:none !important;}}
-@media(max-width:1024px){.sidebar{transform:translateX(-100%);}.sidebar.open{transform:translateX(0);}.main{margin-left:0 !important;}}
-.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0;}
-.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd);}
-.sb-lic{width:30px;height:30px;background:var(--acc);border-radius:8px;display:grid;place-items:center;font-size:.8rem;color:#fff;flex-shrink:0;overflow:hidden;box-shadow:0 4px 10px rgba(245,166,35,.35);}
-.sb-lic img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
-.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);}
-.sb-nav{padding:0 8px;}
-.sb-lnk{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--t2);font-size:.85rem;font-weight:500;transition:var(--tr);margin-bottom:2px;}
-.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0;}
-.sb-lnk:hover{background:var(--bg);color:var(--t1);}
-.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600;}
-.sb-lnk.active i{color:var(--p);}
-.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0;}
-.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:var(--tr);}
-.sb-prof:hover{background:var(--bg);}
-.sb-prof-link{display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer;}
-.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden;border:2px solid var(--acc);}
-.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.sb-ui{flex:1;min-width:0;}
-.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:var(--tr);cursor:pointer;flex-shrink:0;}
-.sb-out:hover{background:var(--erl);color:var(--err);}
-.sb-overlay{position:fixed;inset:0;background:rgba(18,22,41,.4);z-index:499;opacity:0;pointer-events:none;transition:var(--tr);}
-.sb-overlay.show{opacity:1;pointer-events:auto;}
+/* ── Overlay ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(18,22,41,.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:590;opacity:0;pointer-events:none;transition:opacity .25s var(--tr)}
+.ov.on{display:block;opacity:1;pointer-events:auto}
 
-.main{margin-left:var(--sw);min-height:100vh;}
-.topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:14px;padding:14px 28px;background:rgba(245,246,251,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--bdr);}
-.tb-hbg{width:36px;height:36px;border-radius:9px;border:1px solid var(--bdr);background:var(--srf);display:grid;place-items:center;color:var(--t2);flex-shrink:0;}
-.tb-brand{font-family:var(--fd);font-weight:700;font-size:.95rem;}
-.tb-spacer{flex:1;}
-.tb-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.tb-icon-btn{width:38px;height:38px;border-radius:50%;background:var(--srf);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.9rem;position:relative;transition:var(--tr);}
-.tb-icon-btn:hover{background:var(--pl);color:var(--p);border-color:var(--p);}
-.tb-av{width:38px;height:38px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.82rem;cursor:pointer;flex-shrink:0;transition:var(--tr);border:2px solid var(--acc);}
-.tb-av:hover{border-color:var(--acd);box-shadow:0 0 0 3px rgba(245,166,35,.18);}
-.wrap{max-width:900px;margin:0 auto;padding:28px 28px 100px;}
+/* ── Sidebar — matches history.html ── */
+.sidebar{
+  position:fixed;top:0;left:0;
+  width:min(86vw,290px);max-width:290px;height:100vh;height:100dvh;
+  background:var(--srf);z-index:600;display:flex;flex-direction:column;
+  overflow-y:auto;overflow-x:hidden;
+  transform:translateX(-100%);visibility:hidden;
+  transition:transform .3s var(--tr),visibility .3s;
+  box-shadow:0 0 40px rgba(18,22,41,.18);
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;scrollbar-color:var(--bdr) transparent;
+}
+.sidebar.open{transform:none;visibility:visible}
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:6px}
+.sidebar::-webkit-scrollbar-thumb:hover{background:var(--t3)}
+.sb-brand{padding:20px 18px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;font-weight:800;font-size:1rem;flex-shrink:0;font-family:var(--fd)}
+.sb-lic{width:30px;height:30px;border-radius:8px;background:var(--acc);display:grid;place-items:center;font-size:.8rem;color:#fff;flex-shrink:0;overflow:hidden}
+.sb-lic img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+.sb-sec{padding:16px 18px 6px;font-size:.72rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+.sb-nav{padding:0 10px}
+.sb-lnk{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;color:var(--t2);font-size:.9rem;font-weight:600;margin-bottom:2px;min-height:44px;text-decoration:none;transition:background .15s,color .15s;cursor:pointer}
+.sb-lnk i{width:18px;text-align:center;font-size:.9rem;flex-shrink:0}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--pl);color:var(--p)}
+.sb-foot{margin-top:auto;padding:12px 10px;padding-bottom:calc(12px + var(--safe-b));border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-prof{display:flex;align-items:center;gap:10px;padding:8px}
+.sb-prof-link{display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-decoration:none;cursor:pointer}
+.sb-av{width:34px;height:34px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem;flex-shrink:0;overflow:hidden}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:.82rem;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.7rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--t3);font-size:.85rem;transition:all .18s;cursor:pointer;border:none;background:none;flex-shrink:0}
+.sb-out:hover{background:var(--erl);color:var(--err)}
+
+/* ── Topbar ── */
+.main{flex:1;min-height:100vh;min-width:0}
+.topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:14px;padding:calc(14px + var(--safe-t)) 28px 14px;background:rgba(245,246,251,.85);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--bdr)}
+.tb-hbg{width:40px;height:40px;border-radius:9px;border:1px solid var(--bdr);background:var(--srf);display:grid;place-items:center;color:var(--t2);flex-shrink:0}
+.tb-hbg:hover{background:var(--pl);color:var(--p);border-color:var(--p)}
+.tb-brand{font-family:var(--fd);font-weight:700;font-size:.95rem}
+.tb-spacer{flex:1}
+.tb-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.tb-icon-btn{width:40px;height:40px;border-radius:50%;background:var(--srf);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.9rem;position:relative;transition:var(--tr);text-decoration:none}
+.tb-icon-btn:hover{background:var(--pl);color:var(--p);border-color:var(--p)}
+.tb-av{width:40px;height:40px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.82rem;cursor:pointer;flex-shrink:0;transition:var(--tr);border:2px solid var(--acc);text-decoration:none}
+.tb-av:hover{border-color:var(--acd);box-shadow:0 0 0 3px rgba(245,166,35,.18)}
+.wrap{max-width:900px;margin:0 auto;padding:28px 28px calc(100px + var(--safe-b));}
 
 .steps{display:flex;align-items:center;gap:8px;margin-bottom:24px;padding:0 4px;}
 .step-dot{display:flex;align-items:center;gap:8px;flex-shrink:0;}
@@ -90,7 +127,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--accl);color:var(--acd);font-size:.75rem;font-weight:700;padding:6px 14px;border-radius:99px;margin-bottom:18px;letter-spacing:.02em;border:1px solid rgba(245,166,35,.35);}
 .hero h2{font-family:var(--fd);font-size:2rem;line-height:1.15;font-weight:700;letter-spacing:-.5px;max-width:22ch;margin:0 auto 14px;}
 .hero p{font-size:.95rem;color:var(--t2);max-width:44ch;margin:0 auto 28px;}
-.hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--p);color:#fff;padding:14px 32px;border-radius:12px;font-weight:600;font-size:.95rem;transition:var(--tr);}
+.hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--p);color:#fff;padding:14px 32px;border-radius:12px;font-weight:600;font-size:.95rem;transition:var(--tr);min-height:48px;}
 .hero-cta:hover{background:var(--pm);transform:translateY(-2px);box-shadow:0 8px 20px rgba(245,166,35,.32);}
 
 .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
@@ -100,12 +137,12 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .card .hint{font-size:.83rem;color:var(--t3);margin-bottom:22px;}
 
 .search-wrap{position:relative;}
-.search-input{width:100%;padding:12px 14px 12px 42px;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg);color:var(--t1);font-size:.88rem;transition:var(--tr);}
+.search-input{width:100%;padding:12px 14px 12px 42px;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg);color:var(--t1);font-size:.88rem;transition:var(--tr);min-height:44px;}
 .search-input:focus{border-color:var(--p);background:var(--srf);outline:none;box-shadow:0 0 0 3px rgba(50,64,122,.1);}
 .search-wrap .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.85rem;pointer-events:none;}
 .search-dropdown{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--srf);border:1px solid var(--bdr);border-radius:12px;box-shadow:0 12px 40px rgba(18,22,41,.12);max-height:320px;overflow-y:auto;z-index:100;display:none;}
 .search-dropdown.show{display:block;}
-.search-item{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;transition:var(--tr);font-size:.86rem;}
+.search-item{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;transition:var(--tr);font-size:.86rem;min-height:52px;}
 .search-item:hover,.search-item.highlighted{background:var(--pl);}
 .search-item .flag{width:28px;height:20px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--bg);display:grid;place-items:center;}
 .search-item .flag img{width:100%;height:100%;object-fit:cover;}
@@ -114,7 +151,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .search-empty{padding:18px 14px;text-align:center;font-size:.82rem;color:var(--t3);}
 
 .plan-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:8px;}
-.plan-tile{display:flex;align-items:center;gap:14px;padding:15px 16px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);cursor:pointer;transition:var(--tr);}
+.plan-tile{display:flex;align-items:center;gap:14px;padding:15px 16px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);cursor:pointer;transition:var(--tr);min-height:76px;}
 .plan-tile:hover{border-color:var(--p);background:var(--srf2);}
 .plan-tile.selected{border-color:var(--acc);background:var(--accl);box-shadow:0 0 0 3px rgba(245,166,35,.18);}
 .plan-tile .pt-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--bdr);flex-shrink:0;display:grid;place-items:center;transition:var(--tr);}
@@ -129,10 +166,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .plan-badge.global{background:var(--accl);color:var(--acd);border:1px solid rgba(245,166,35,.35);}
 .plan-badge.regional{background:#DBEAFE;color:#1E40AF;}
 .plan-error{padding:18px;background:var(--erl);border:1px solid #fecaca;border-radius:12px;text-align:center;font-size:.82rem;color:#991b1b;}
-.plan-error button{margin-top:10px;padding:8px 16px;border-radius:8px;background:var(--err);color:#fff;font-weight:600;font-size:.78rem;}
+.plan-error button{margin-top:10px;padding:10px 16px;border-radius:8px;background:var(--err);color:#fff;font-weight:600;font-size:.78rem;min-height:40px;}
 
 .currency-toggle{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
-.currency-opt{padding:16px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);cursor:pointer;transition:var(--tr);text-align:left;position:relative;}
+.currency-opt{padding:16px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--srf);cursor:pointer;transition:var(--tr);text-align:left;position:relative;min-height:110px;}
 .currency-opt:hover{border-color:var(--p);}
 .currency-opt.active{border-color:var(--acc);background:var(--accl);box-shadow:0 0 0 3px rgba(245,166,35,.18);}
 .currency-opt.disabled{opacity:.5;cursor:not-allowed;}
@@ -153,10 +190,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .price-row.total{border-top:1px dashed var(--bdr);margin-top:8px;padding-top:14px;font-weight:700;color:var(--t1);font-size:1rem;}
 .price-row .v{font-weight:600;color:var(--t1);}
 
-.btn-primary{width:100%;background:var(--p);color:#fff;border-radius:12px;padding:14px;font-weight:600;font-size:.92rem;transition:var(--tr);display:flex;align-items:center;justify-content:center;gap:9px;}
+.btn-primary{width:100%;background:var(--p);color:#fff;border-radius:12px;padding:14px;font-weight:600;font-size:.92rem;transition:var(--tr);display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;}
 .btn-primary:hover:not(:disabled){background:var(--pm);transform:translateY(-1px);box-shadow:0 8px 20px rgba(245,166,35,.28);}
 .btn-primary:disabled{background:var(--t3);cursor:not-allowed;opacity:.7;}
-.btn-ghost{width:100%;background:none;color:var(--p);border:1.5px solid var(--bdr);border-radius:12px;padding:13px;font-weight:600;font-size:.86rem;margin-top:10px;transition:var(--tr);}
+.btn-ghost{width:100%;background:none;color:var(--p);border:1.5px solid var(--bdr);border-radius:12px;padding:13px;font-weight:600;font-size:.86rem;margin-top:10px;transition:var(--tr);min-height:48px;}
 .btn-ghost:hover{background:var(--accl);border-color:var(--acc);color:var(--acd);}
 
 .status-panel{text-align:center;padding:32px 20px;}
@@ -181,7 +218,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .detail-row .k{font-size:.78rem;color:var(--t2);display:block;margin-bottom:4px;font-weight:600;}
 .detail-row .v-wrap{display:flex;gap:8px;align-items:center;}
 .detail-row code{flex:1;display:block;word-break:break-all;background:var(--srf);border:1px solid var(--bdr);padding:8px 10px;border-radius:8px;font-size:.75rem;font-family:ui-monospace,Menlo,monospace;}
-.copy-btn{padding:8px 12px;background:var(--pl);color:var(--p);border-radius:8px;font-size:.72rem;font-weight:700;transition:var(--tr);flex-shrink:0;}
+.copy-btn{padding:10px 12px;background:var(--pl);color:var(--p);border-radius:8px;font-size:.72rem;font-weight:700;transition:var(--tr);flex-shrink:0;min-height:40px;}
 .copy-btn:hover{background:var(--p);color:#fff;}
 
 .step-view{display:none;animation:fadeUp .3s var(--tr);}
@@ -191,7 +228,8 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .skeleton{background:linear-gradient(90deg,var(--bdr) 25%,#EEF1F7 37%,var(--bdr) 63%);background-size:400% 100%;animation:skel 1.4s ease infinite;border-radius:8px;}
 @keyframes skel{0%{background-position:100% 50%}100%{background-position:0 50%}}
 
-.toast{position:fixed;bottom:22px;right:22px;background:var(--t1);color:#fff;padding:13px 20px;border-radius:10px;font-size:.85rem;box-shadow:0 12px 30px rgba(18,22,41,.25);transform:translateY(12px);opacity:0;transition:var(--tr);z-index:900;max-width:340px;font-weight:500;border-left:3px solid var(--acc);}
+.toast{position:fixed;bottom:calc(22px + var(--safe-b));right:14px;left:14px;background:var(--t1);color:#fff;padding:13px 20px;border-radius:10px;font-size:.85rem;box-shadow:0 12px 30px rgba(18,22,41,.25);transform:translateY(12px);opacity:0;transition:var(--tr);z-index:900;max-width:none;font-weight:500;border-left:3px solid var(--acc);}
+@media(min-width:641px){.toast{left:auto;right:22px;max-width:340px;}}
 .toast.show{transform:translateY(0);opacity:1;}
 
 .pin-modal{position:fixed;inset:0;background:rgba(18,22,41,.55);z-index:950;display:none;align-items:center;justify-content:center;padding:20px;}
@@ -200,7 +238,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .pin-icon{width:54px;height:54px;border-radius:50%;background:var(--accl);color:var(--acd);display:grid;place-items:center;margin:0 auto 14px;font-size:1.35rem;}
 .pin-card h3{font-family:var(--fd);font-size:1.15rem;font-weight:600;margin-bottom:6px;}
 .pin-card p{font-size:.83rem;color:var(--t3);margin-bottom:20px;}
-.pin-input{width:100%;text-align:center;font-size:1.8rem;letter-spacing:.6em;padding:14px 12px 14px 20px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--bg);color:var(--t1);margin-bottom:18px;font-weight:700;transition:var(--tr);}
+.pin-input{width:100%;text-align:center;font-size:1.8rem;letter-spacing:.6em;padding:14px 12px 14px 20px;border:1.5px solid var(--bdr);border-radius:12px;background:var(--bg);color:var(--t1);margin-bottom:18px;font-weight:700;transition:var(--tr);min-height:52px;}
 .pin-input:focus{border-color:var(--acc);background:var(--srf);outline:none;box-shadow:0 0 0 3px rgba(245,166,35,.18);}
 .pin-input.error{border-color:var(--err);background:var(--erl);animation:shake .35s;}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
@@ -218,11 +256,11 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .email-display strong{color:var(--t1);font-weight:600;}
 .email-display.empty strong{color:var(--err);}
 
-.hist-drawer{position:fixed;top:0;right:0;height:100vh;width:min(440px,92vw);background:var(--srf);box-shadow:-12px 0 40px rgba(18,22,41,.18);z-index:960;transform:translateX(100%);transition:transform .28s var(--tr);overflow-y:auto;padding:22px;}
+.hist-drawer{position:fixed;top:0;right:0;height:100vh;height:100dvh;width:min(440px,100%);background:var(--srf);box-shadow:-12px 0 40px rgba(18,22,41,.18);z-index:960;transform:translateX(100%);transition:transform .28s var(--tr);overflow-y:auto;padding:22px;padding-bottom:calc(22px + var(--safe-b));}
 .hist-drawer.open{transform:translateX(0);}
 .hist-drawer h3{font-family:var(--fd);font-size:1.1rem;font-weight:700;margin-bottom:4px;}
 .hist-drawer .sub{font-size:.78rem;color:var(--t3);margin-bottom:18px;}
-.hist-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--t2);display:grid;place-items:center;cursor:pointer;transition:var(--tr);}
+.hist-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:var(--bg);color:var(--t2);display:grid;place-items:center;cursor:pointer;transition:var(--tr);}
 .hist-close:hover{background:var(--erl);color:var(--err);}
 .hist-item{background:var(--srf2);border:1px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:10px;}
 .hist-item .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
@@ -234,7 +272,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 .hist-item .pill.delivery_pending,.hist-item .pill.processing,.hist-item .pill.pending{background:var(--accl);color:var(--acd);}
 .hist-item .pill.failed,.hist-item .pill.refunded,.hist-item .pill.cancelled,.hist-item .pill.reversed,.hist-item .pill.manual_review{background:var(--erl);color:var(--err);}
 .hist-item .meta{font-size:.74rem;color:var(--t3);}
-.hist-item .viewqr{margin-top:10px;padding:8px;background:var(--p);color:#fff;border-radius:8px;font-size:.74rem;font-weight:600;width:100%;transition:var(--tr);}
+.hist-item .viewqr{margin-top:10px;padding:10px;background:var(--p);color:#fff;border-radius:8px;font-size:.74rem;font-weight:600;width:100%;transition:var(--tr);min-height:40px;}
 .hist-item .viewqr:hover{background:var(--pm);}
 .hist-empty{padding:40px 20px;text-align:center;color:var(--t3);font-size:.82rem;}
 
@@ -243,26 +281,20 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
   .currency-toggle{grid-template-columns:1fr;}
   .hero{padding:30px 20px;}
   .hero h2{font-size:1.55rem;}
-  .wrap{padding:20px 14px 80px;}
+  .wrap{padding:20px 14px calc(80px + var(--safe-b));}
   .card{padding:20px;}
-  .topbar{padding:12px 16px;}
+  .topbar{padding:calc(12px + var(--safe-t)) 16px 12px;}
 }
 </style>
 </head>
-<script src="/js/session.js"></script>
-<script src="/js/presence.js"></script>
-<script src="/js/miles-widget.js" defer></script>
-
 <body>
 
-<div class="sb-overlay" id="sbOverlay"></div>
+<div class="ov" id="ov"></div>
 
 <aside class="sidebar" id="sb">
   <div class="sb-brand">
-    <div class="sb-logo">
-      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
-      MilesSpace
-    </div>
+    <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
+    MilesSpace
   </div>
   <p class="sb-sec">Menu</p>
   <nav class="sb-nav">
@@ -298,9 +330,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
     <span class="tb-brand">Buy eSIM</span>
     <div class="tb-spacer"></div>
     <div class="tb-right">
-      <button class="tb-icon-btn" id="histBtn" title="My eSIMs"><i class="fas fa-history"></i></button>
-      <a href="notifications.html" class="tb-icon-btn"><i class="fas fa-bell"></i></a>
-      <a href="usersettings.html" class="tb-av" id="tbAv">U</a>
+      <button class="tb-icon-btn" id="histBtn" title="My eSIMs" aria-label="My eSIMs"><i class="fas fa-history"></i></button>
+      <a href="history.html" class="tb-icon-btn" aria-label="Transaction history" title="Transaction history"><i class="fas fa-clock-rotate-left"></i></a>
+      <a href="notifications.html" class="tb-icon-btn" aria-label="Notifications"><i class="fas fa-bell"></i></a>
+      <a href="usersettings.html" class="tb-av" id="tbAv" aria-label="Account">U</a>
     </div>
   </header>
 
@@ -316,7 +349,6 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
       <div class="step-dot" data-step="4"><span class="dot">4</span><span class="lbl">Done</span></div>
     </div>
 
-    <!-- STEP 1: HERO -->
     <section class="step-view" id="viewHero">
       <div class="hero">
         <div class="hero-inner">
@@ -355,7 +387,6 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
       </div>
     </section>
 
-    <!-- STEP 2: PLAN -->
     <section class="step-view" id="viewPlan">
       <div class="card">
         <h2>Where are you travelling?</h2>
@@ -365,17 +396,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
           <label style="display:block;font-size:.78rem;font-weight:600;color:var(--t2);margin-bottom:8px;">Destination</label>
           <div class="search-wrap">
             <i class="fas fa-search search-icon"></i>
-            <input
-              type="text"
-              class="search-input"
-              id="countrySearch"
-              name="esim_country_search"
-              placeholder="Type a country name…"
-              autocomplete="new-password"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              aria-autocomplete="list">
+            <input type="text" class="search-input" id="countrySearch" name="esim_country_search" placeholder="Type a country name…" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search destination" aria-autocomplete="list">
             <div class="search-dropdown" id="countryDropdown"></div>
           </div>
         </div>
@@ -386,7 +407,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
             <div style="font-weight:600;font-size:.9rem;" id="selName">—</div>
             <div style="font-size:.72rem;color:var(--t2);" id="selType"></div>
           </div>
-          <button type="button" id="clearDestBtn" style="width:28px;height:28px;border-radius:8px;background:var(--srf);color:var(--t3);display:grid;place-items:center;font-size:.78rem;"><i class="fas fa-times"></i></button>
+          <button type="button" id="clearDestBtn" aria-label="Clear destination" style="width:36px;height:36px;border-radius:8px;background:var(--srf);color:var(--t3);display:grid;place-items:center;font-size:.82rem;"><i class="fas fa-times"></i></button>
         </div>
 
         <div class="field" style="margin-bottom:18px;">
@@ -405,7 +426,6 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
       </div>
     </section>
 
-    <!-- STEP 3: CONFIRM -->
     <section class="step-view" id="viewConfirm">
       <div class="card">
         <h2>Review &amp; confirm</h2>
@@ -430,13 +450,13 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
         <div class="field" style="margin-bottom:18px;">
           <label style="display:block;font-size:.78rem;font-weight:600;color:var(--t2);margin-bottom:8px;">Pay with</label>
           <div class="currency-toggle" id="currencyToggle">
-            <div class="currency-opt active" data-currency="USD">
+            <div class="currency-opt active" data-currency="USD" role="button" tabindex="0">
               <div class="co-top"><span class="co-flag">💵</span><div class="co-radio"></div></div>
               <div class="co-label">Pay in USD</div>
               <div class="co-price" id="priceUsd">—</div>
               <div class="co-avail" id="availUsd">Available: —</div>
             </div>
-            <div class="currency-opt" data-currency="NGN">
+            <div class="currency-opt" data-currency="NGN" role="button" tabindex="0">
               <div class="co-top"><span class="co-flag">🇳🇬</span><div class="co-radio"></div></div>
               <div class="co-label">Pay in NGN</div>
               <div class="co-price" id="priceNgn">—</div>
@@ -464,7 +484,6 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
       </div>
     </section>
 
-    <!-- STEP 4: STATUS -->
     <section class="step-view" id="viewStatus">
       <div class="card">
         <div class="status-panel">
@@ -483,14 +502,13 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
   </div>
 </div>
 
-<!-- PIN MODAL -->
-<div class="pin-modal" id="pinModal">
+<div class="pin-modal" id="pinModal" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
   <div class="pin-card">
     <div class="pin-icon"><i class="fas fa-lock"></i></div>
-    <h3>Confirm with PIN</h3>
+    <h3 id="pinTitle">Confirm with PIN</h3>
     <p>Enter your 4-digit transaction PIN to complete this purchase</p>
-    <input class="pin-input" id="pinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" autocomplete="off">
-    <div class="pin-error" id="pinError"></div>
+    <input class="pin-input" id="pinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" autocomplete="off" aria-label="Transaction PIN">
+    <div class="pin-error" id="pinError" role="alert"></div>
     <div class="pin-actions">
       <button class="btn-ghost" id="pinCancelBtn" type="button">Cancel</button>
       <button class="btn-primary" id="pinConfirmBtn" type="button">Confirm</button>
@@ -498,28 +516,28 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
   </div>
 </div>
 
-<!-- HISTORY DRAWER -->
-<div class="hist-drawer" id="histDrawer">
-  <button class="hist-close" id="histClose"><i class="fas fa-times"></i></button>
-  <h3>My eSIMs</h3>
+<div class="hist-drawer" id="histDrawer" role="dialog" aria-modal="true" aria-labelledby="histTitle">
+  <button class="hist-close" id="histClose" aria-label="Close history"><i class="fas fa-times"></i></button>
+  <h3 id="histTitle">My eSIMs</h3>
   <p class="sub" id="histSub">Your previous eSIM purchases</p>
   <div id="histList"><div class="hist-empty">Loading…</div></div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 'use strict';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   AUTH MODEL — access token in memory, refresh cookie, userFetch.
+   ═══════════════════════════════════════════════════════════════════════ */
 
 const CONFIG = {
   api: {
     me:         '/api/esim/me',
     history:    '/api/esim/history',
     countries:  '/api/esim/countries',
-    plans:      (params) => {
-      const q = new URLSearchParams(params).toString();
-      return `/api/esim/plans?${q}`;
-    },
+    plans:      (params) => { const q = new URLSearchParams(params).toString(); return `/api/esim/plans?${q}`; },
     rates:      '/api/esim/rates',
     purchase:   '/api/esim/purchase',
     status:     (id) => `/api/esim/status/${encodeURIComponent(id)}`
@@ -532,23 +550,24 @@ const CONFIG = {
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
-const SESSION_KEY = 'mx_sess';
 
-function getSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+function getCurrentUser() {
+  return (typeof window.getUser === 'function') ? window.getUser() : null;
 }
-function getToken() { return getSession()?.token || ''; }
-function getUserFromSession() { return getSession()?.user || null; }
-function authHeaders() { const t = getToken(); return t ? { 'Authorization': `Bearer ${t}` } : {}; }
-function clearSession() { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); }
-function redirectToLogin() { window.location.href = CONFIG.loginPage; }
+function redirectToLogin() {
+  if (typeof window.redirectToUserLogin === 'function') {
+    window.redirectToUserLogin();
+  } else {
+    window.location.replace(CONFIG.loginPage);
+  }
+}
 
 async function apiGet(url, options = {}) {
-  const res = await fetch(url, { headers: { ...authHeaders() }, signal: options.signal });
-  if (res.status === 401) { clearSession(); redirectToLogin(); throw new Error('Unauthorized'); }
+  const fetcher = (typeof window.userFetch === 'function')
+    ? window.userFetch
+    : (u, o) => fetch(u, { ...o, credentials: 'include' });
+  const res = await fetcher(url, { ...options });
+  if (res.status === 401) { redirectToLogin(); throw new Error('Unauthorized'); }
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) {
     const err = new Error(body.error || `Request failed (${res.status})`);
@@ -559,16 +578,15 @@ async function apiGet(url, options = {}) {
   return body;
 }
 async function apiPost(url, payload, extraHeaders = {}) {
-  const res = await fetch(url, {
+  const fetcher = (typeof window.userFetch === 'function')
+    ? window.userFetch
+    : (u, o) => fetch(u, { ...o, credentials: 'include' });
+  const res = await fetcher(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(),
-      ...extraHeaders
-    },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
     body: JSON.stringify(payload)
   });
-  if (res.status === 401) { clearSession(); redirectToLogin(); throw new Error('Unauthorized'); }
+  if (res.status === 401) { redirectToLogin(); throw new Error('Unauthorized'); }
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) {
     const err = new Error(body.error || `Request failed (${res.status})`);
@@ -618,17 +636,24 @@ const State = {
   purchaseIdemKey: null
 };
 
+/* ────────────────────────────────────────────────────────────────
+   SIDEBAR — matches history.html exactly.
+   ──────────────────────────────────────────────────────────────── */
 function initSidebar() {
-  const sb = $('#sb'); const overlay = $('#sbOverlay');
-  $('#hbgBtn')?.addEventListener('click', () => { sb.classList.add('open'); overlay.classList.add('show'); });
-  overlay?.addEventListener('click', () => { sb.classList.remove('open'); overlay.classList.remove('show'); });
-  $('#logoutBtn')?.addEventListener('click', (e) => {
-    e.preventDefault(); e.stopPropagation();
-    if (window.logoutPresence) window.logoutPresence();
-    clearSession(); redirectToLogin();
-  });
+  const sb = $('#sb'), ov = $('#ov'), hbg = $('#hbgBtn');
+  if (!sb || !ov || !hbg) return;
+  if (sb.dataset.bound === '1') return;
+  sb.dataset.bound = '1';
+  const close = () => { sb.classList.remove('open'); ov.classList.remove('on'); document.body.classList.remove('sb-open'); };
+  const open = () => { sb.classList.add('open'); ov.classList.add('on'); document.body.classList.add('sb-open'); };
+  hbg.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (sb.classList.contains('open')) close(); else open(); });
+  ov.addEventListener('click', close);
+  sb.querySelectorAll('.sb-lnk').forEach(l => l.addEventListener('click', () => close()));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sb.classList.contains('open')) close(); });
+  window.addEventListener('resize', () => { if (!sb.classList.contains('open')) { ov.classList.remove('on'); document.body.classList.remove('sb-open'); } });
 }
 
+/* ── USER — initials only ── */
 function setDeliveryEmail(email) {
   const el = $('#userEmail');
   const display = $('#emailDisplay');
@@ -642,19 +667,18 @@ function setDeliveryEmail(email) {
   display?.classList.add('empty');
   return false;
 }
-
 function renderUserFromSession() {
-  const u = getUserFromSession();
+  const u = getCurrentUser();
   if (!u) return;
   const name = u.username || u.email?.split('@')[0] || 'Account';
   const initial = name.trim().charAt(0).toUpperCase() || 'U';
-  $('#sbName').textContent = name;
-  $('#sbEmail').textContent = u.email || '';
-  $('#sbAv').textContent = initial;
-  $('#tbAv').textContent = initial;
+  const sbName = $('#sbName'), sbEmail = $('#sbEmail'), sbAv = $('#sbAv'), tbAv = $('#tbAv');
+  if (sbName) sbName.textContent = name;
+  if (sbEmail) sbEmail.textContent = u.email || '';
+  if (sbAv) sbAv.textContent = initial;
+  if (tbAv) tbAv.textContent = initial;
   setDeliveryEmail(u.email || '');
 }
-
 async function loadUser() {
   renderUserFromSession();
   try {
@@ -662,15 +686,16 @@ async function loadUser() {
     State.user = data;
     const name = data?.name || data?.username || data?.email?.split('@')[0] || 'Account';
     const initial = name.trim().charAt(0).toUpperCase() || 'U';
-    $('#sbName').textContent = name;
-    $('#sbEmail').textContent = data?.email || '';
-    $('#sbAv').textContent = initial;
-    $('#tbAv').textContent = initial;
+    const sbName = $('#sbName'), sbEmail = $('#sbEmail'), sbAv = $('#sbAv'), tbAv = $('#tbAv');
+    if (sbName) sbName.textContent = name;
+    if (sbEmail) sbEmail.textContent = data?.email || '';
+    if (sbAv) sbAv.textContent = initial;
+    if (tbAv) tbAv.textContent = initial;
     setDeliveryEmail(data?.email || '');
     refreshCurrencyAvailability();
   } catch (e) {
     console.warn('Could not refresh user:', e.message);
-    setDeliveryEmail('');
+    setDeliveryEmail(getCurrentUser()?.email || '');
   }
 }
 
@@ -710,7 +735,6 @@ async function loadCountries() {
       if (Array.isArray(parsed) && parsed.length) State.allCountries = parsed;
     }
   } catch {}
-
   try {
     const { data } = await apiGet(CONFIG.api.countries);
     const list = Array.isArray(data) ? data : [];
@@ -750,14 +774,10 @@ const FALLBACK_COUNTRIES = [
 
 function filterDestinations(query) {
   const q = (query || '').trim().toLowerCase();
-  const special = [
-    { type: 'global', iso3: 'GLOBAL', iso2: '', name: 'Global Plan', desc: '126+ countries including USA, UK, Europe, Asia & more' }
-  ];
+  const special = [{ type: 'global', iso3: 'GLOBAL', iso2: '', name: 'Global Plan', desc: '126+ countries including USA, UK, Europe, Asia & more' }];
   if (!q) return [...special, ...State.allCountries].slice(0, 60);
   const matches = [];
-  for (const s of special) {
-    if (s.name.toLowerCase().includes(q)) matches.push(s);
-  }
+  for (const s of special) if (s.name.toLowerCase().includes(q)) matches.push(s);
   for (const c of State.allCountries) {
     if (c.name.toLowerCase().includes(q) || c.iso3.toLowerCase().includes(q)) {
       matches.push({ type: 'country', iso3: c.iso3, iso2: c.iso2, name: c.name });
@@ -819,7 +839,6 @@ async function loadPlansForDestination(item) {
   if (State.plansAbort) State.plansAbort.abort();
   State.plansAbort = new AbortController();
   const signal = State.plansAbort.signal;
-
   const planGrid = $('#planGrid');
   planGrid.innerHTML = '<div class="skeleton" style="height:64px;"></div><div class="skeleton" style="height:64px;"></div><div class="skeleton" style="height:64px;"></div>';
   updateContinueBtn();
@@ -832,13 +851,11 @@ async function loadPlansForDestination(item) {
   try {
     const { data } = await apiGet(CONFIG.api.plans(queryParams), { signal });
     if (!State.selectedDestination || State.selectedDestination.iso3 !== item.iso3) return;
-
     const plans = Array.isArray(data) ? data : [];
     if (!plans.length) {
       planGrid.innerHTML = '<div style="font-size:.82rem;color:var(--t3);padding:10px 0;">No plans available for this destination</div>';
       return;
     }
-
     planGrid.innerHTML = plans.map(p => {
       const badge = p.isGlobal
         ? '<span class="plan-badge global">Global</span>'
@@ -848,7 +865,8 @@ async function loadPlansForDestination(item) {
              data-price="${p.priceUsd}" data-price-ngn="${p.priceNgn || 0}"
              data-data="${escapeHtml(p.dataAmount || '')}"
              data-validity="${p.validityDays || 30}" data-name="${escapeHtml(p.planName || '')}"
-             data-coverage="${escapeHtml(p.coverageLabel || 'Country-specific')}">
+             data-coverage="${escapeHtml(p.coverageLabel || 'Country-specific')}"
+             role="button" tabindex="0">
           <div class="pt-radio"></div>
           <div class="pt-body">
             <div class="pt-title">${escapeHtml(p.dataAmount || 'Data')} · ${p.validityDays || 30} days ${badge}</div>
@@ -858,21 +876,17 @@ async function loadPlansForDestination(item) {
         </div>
       `;
     }).join('');
-
     planGrid.querySelectorAll('.plan-tile').forEach(tile => {
       tile.addEventListener('click', () => onPlanSelect(tile));
+      tile.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlanSelect(tile); }
+      });
     });
   } catch (e) {
     if (e.name === 'AbortError') return;
     if (signal.aborted) return;
     console.error('Plan load failed:', e);
-    planGrid.innerHTML = `
-      <div class="plan-error">
-        <strong>eSIM provider temporarily unavailable</strong><br>
-        <span style="display:block;margin-top:6px;font-size:.75rem;">We couldn't load live plans.</span>
-        <button type="button" id="retryPlansBtn">Retry</button>
-      </div>
-    `;
+    planGrid.innerHTML = `<div class="plan-error"><strong>eSIM provider temporarily unavailable</strong><br><span style="display:block;margin-top:6px;font-size:.75rem;">We couldn't load live plans.</span><button type="button" id="retryPlansBtn">Retry</button></div>`;
     $('#retryPlansBtn')?.addEventListener('click', () => loadPlansForDestination(item));
   }
 }
@@ -899,21 +913,16 @@ function initCountrySearch() {
   const input = $('#countrySearch');
   const dd = $('#countryDropdown');
   if (!input || !dd) return;
-
   setTimeout(() => {
     if (input.value && State.allCountries.length && !State.allCountries.some(c => c.name === input.value)) {
       input.value = '';
     }
   }, 200);
-
   const openDropdown = () => {
     const items = filterDestinations(input.value || '');
     renderDropdown(items);
   };
-  input.addEventListener('input', () => {
-    const items = filterDestinations(input.value);
-    renderDropdown(items);
-  });
+  input.addEventListener('input', () => { const items = filterDestinations(input.value); renderDropdown(items); });
   input.addEventListener('focus', openDropdown);
   input.addEventListener('click', openDropdown);
   input.addEventListener('keydown', (e) => {
@@ -951,13 +960,15 @@ function initCountrySearch() {
 
 function initCurrencyToggle() {
   $$('#currencyToggle .currency-opt').forEach(opt => {
-    opt.addEventListener('click', () => {
+    const handler = () => {
       if (opt.classList.contains('disabled')) return;
       $$('#currencyToggle .currency-opt').forEach(o => o.classList.remove('active'));
       opt.classList.add('active');
       State.activeCurrency = opt.dataset.currency;
       refreshBreakdown();
-    });
+    };
+    opt.addEventListener('click', handler);
+    opt.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
   });
 }
 
@@ -965,31 +976,20 @@ function refreshCurrencyAvailability() {
   const usd = Number(State.user?.walletBalanceUsd || 0);
   const ngn = Number(State.user?.walletBalanceNgn || 0);
   const plan = State.selectedPlan;
-  const usdEl = $('#availUsd');
-  const ngnEl = $('#availNgn');
+  const usdEl = $('#availUsd'), ngnEl = $('#availNgn');
   const usdCard = document.querySelector('#currencyToggle .currency-opt[data-currency="USD"]');
   const ngnCard = document.querySelector('#currencyToggle .currency-opt[data-currency="NGN"]');
-
   if (!usdEl || !ngnEl || !usdCard || !ngnCard) return;
-
   const requiredUsd = plan ? (plan.priceUsd * (1 + CONFIG.serviceFeePct)) : 0;
   const requiredNgn = plan ? (requiredUsd * State.usdToNgn) : 0;
-
   const usdOk = requiredUsd === 0 || usd >= requiredUsd;
   const ngnOk = requiredNgn === 0 || ngn >= requiredNgn;
-
   usdEl.textContent = `Available: ${moneyUSD(usd)}`;
   ngnEl.textContent = `Available: ${moneyNGN(ngn)}`;
-
   usdCard.classList.toggle('insufficient', !usdOk);
   ngnCard.classList.toggle('insufficient', !ngnOk);
-
   if (!usdOk && usdCard.classList.contains('active')) {
-    if (ngnOk) {
-      usdCard.classList.remove('active');
-      ngnCard.classList.add('active');
-      State.activeCurrency = 'NGN';
-    }
+    if (ngnOk) { usdCard.classList.remove('active'); ngnCard.classList.add('active'); State.activeCurrency = 'NGN'; }
   }
 }
 
@@ -997,9 +997,7 @@ function refreshSummary() {
   if (!State.selectedDestination || !State.selectedPlan) return;
   const d = State.selectedDestination;
   const p = State.selectedPlan;
-  $('#sumFlag').innerHTML = d.iso2
-    ? `<img src="${flagUrl(d.iso2)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
-    : `<i class="fas fa-earth-americas" style="color:var(--t3)"></i>`;
+  $('#sumFlag').innerHTML = d.iso2 ? `<img src="${flagUrl(d.iso2)}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `<i class="fas fa-earth-americas" style="color:var(--t3)"></i>`;
   $('#sumCountry').textContent = d.name;
   $('#sumPlan').textContent = p.planName || `${p.dataAmount} plan`;
   $('#sumData').textContent = p.dataAmount || '—';
@@ -1036,14 +1034,9 @@ function refreshBreakdown() {
 
 function requestPin() {
   return new Promise((resolve) => {
-    const modal = $('#pinModal');
-    const input = $('#pinInput');
-    const errEl = $('#pinError');
-    const okBtn = $('#pinConfirmBtn');
-    const cancelBtn = $('#pinCancelBtn');
-    input.value = '';
-    errEl.textContent = '';
-    input.classList.remove('error');
+    const modal = $('#pinModal'), input = $('#pinInput'), errEl = $('#pinError');
+    const okBtn = $('#pinConfirmBtn'), cancelBtn = $('#pinCancelBtn');
+    input.value = ''; errEl.textContent = ''; input.classList.remove('error');
     modal.classList.add('show');
     setTimeout(() => input.focus(), 60);
     const cleanup = () => {
@@ -1053,25 +1046,14 @@ function requestPin() {
       input.removeEventListener('keydown', onKey);
       input.removeEventListener('input', onInput);
     };
-    const onInput = () => {
-      input.value = input.value.replace(/\D/g, '').slice(0, 4);
-      input.classList.remove('error');
-      errEl.textContent = '';
-    };
+    const onInput = () => { input.value = input.value.replace(/\D/g, '').slice(0, 4); input.classList.remove('error'); errEl.textContent = ''; };
     const onOk = () => {
       const v = input.value.trim();
-      if (!/^\d{4}$/.test(v)) {
-        input.classList.add('error');
-        errEl.textContent = 'PIN must be 4 digits';
-        return;
-      }
+      if (!/^\d{4}$/.test(v)) { input.classList.add('error'); errEl.textContent = 'PIN must be 4 digits'; return; }
       cleanup(); resolve(v);
     };
     const onCancel = () => { cleanup(); resolve(null); };
-    const onKey = (e) => {
-      if (e.key === 'Enter') onOk();
-      if (e.key === 'Escape') onCancel();
-    };
+    const onKey = (e) => { if (e.key === 'Enter') onOk(); if (e.key === 'Escape') onCancel(); };
     okBtn.addEventListener('click', onOk);
     cancelBtn.addEventListener('click', onCancel);
     input.addEventListener('keydown', onKey);
@@ -1081,8 +1063,7 @@ function requestPin() {
 
 function getPurchaseIdemKey() {
   if (!State.purchaseIdemKey) {
-    State.purchaseIdemKey = (crypto.randomUUID && crypto.randomUUID()) ||
-      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    State.purchaseIdemKey = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
   return State.purchaseIdemKey;
 }
@@ -1090,53 +1071,32 @@ function getPurchaseIdemKey() {
 async function submitPurchase() {
   const btn = $('#confirmBuyBtn');
   const originalHtml = btn.innerHTML;
-
-  const deliveryEmail = State.user?.email || getUserFromSession()?.email;
-  if (!deliveryEmail) {
-    toast('No delivery email on your account. Update your profile first.', true);
-    return;
-  }
-
+  const deliveryEmail = State.user?.email || getCurrentUser()?.email;
+  if (!deliveryEmail) { toast('No delivery email on your account. Update your profile first.', true); return; }
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Placing order…';
-
   try {
     const pin = await requestPin();
     if (!pin) { btn.disabled = false; btn.innerHTML = originalHtml; return; }
-
     const idemKey = getPurchaseIdemKey();
-
-    const payload = {
-      productId: State.selectedPlan.productId,
-      currency: State.activeCurrency,
-      deliveryEmail,
-      pin
-    };
-
+    const payload = { productId: State.selectedPlan.productId, currency: State.activeCurrency, deliveryEmail, pin };
     if (State.selectedDestination.type === 'global') {
-      payload.destinationType = 'global';
-      payload.destinationCode = 'GLOBAL';
+      payload.destinationType = 'global'; payload.destinationCode = 'GLOBAL';
     } else {
       payload.destinationType = 'country';
       payload.destinationCode = State.selectedDestination.iso3;
       payload.countryIso3 = State.selectedDestination.iso3;
     }
-
-    const { data } = await apiPost(CONFIG.api.purchase, payload, {
-      'Idempotency-Key': idemKey
-    });
-
+    const { data } = await apiPost(CONFIG.api.purchase, payload, { 'Idempotency-Key': idemKey });
     State.purchaseIdemKey = null;
     State.currentTxId = data.transactionId;
     State.currentReference = data.reference || null;
     State.pollAttempts = 0;
     goToStep(4);
     showProcessingState();
-
     if (data.status === 'completed') pollStatus();
-    else if (['failed', 'cancelled', 'reversed'].includes(data.status)) {
-      showFailedState('This order was rejected by the provider.');
-    } else pollStatus();
+    else if (['failed', 'cancelled', 'reversed'].includes(data.status)) showFailedState('This order was rejected by the provider.');
+    else pollStatus();
   } catch (e) {
     console.error('Purchase failed:', e);
     if (['PIN_LOCKED','INVALID_PIN','PIN_REQUIRED','PIN_NOT_SET'].includes(e.code)) {
@@ -1166,7 +1126,6 @@ function showProcessingState() {
   $('#statusPrimaryBtn').hidden = true;
   $('#statusRetryBtn').hidden = true;
 }
-
 function showFailedState(msg) {
   $('#statusIcon').className = 'status-icon failed';
   $('#statusIcon').innerHTML = '<i class="fas fa-xmark"></i>';
@@ -1179,82 +1138,39 @@ function showFailedState(msg) {
   $('#statusRetryBtn').hidden = false;
   $('#statusRetryBtn').onclick = () => window.location.reload();
 }
-
 function renderRefSummary(data) {
   if (!data.reference && !data.countryName) return '';
-  return `
-    <div class="ref-summary">
-      <div class="row"><span>Destination</span><strong>${escapeHtml(data.countryName || '—')}</strong></div>
-      <div class="row"><span>Plan</span><strong>${escapeHtml(data.planName || '—')}</strong></div>
-      <div class="row"><span>Data</span><strong>${escapeHtml(data.dataAmount || '—')} · ${data.validityDays || '—'} days</strong></div>
-      <div class="row"><span>Reference</span><strong>${escapeHtml(data.reference || '—')}</strong></div>
-    </div>
-  `;
-}
-
-function renderManualDelivery(data) {
-  const parts = [];
-  if (data.lpaString) parts.push(`
-    <div class="detail-row">
-      <span class="k">LPA String</span>
-      <div class="v-wrap">
-        <code>${escapeHtml(data.lpaString)}</code>
-        <button class="copy-btn" data-copy="${escapeHtml(data.lpaString)}"><i class="fas fa-copy"></i></button>
-      </div>
-    </div>
-  `);
-  if (data.activationCode && data.activationCode !== data.lpaString) parts.push(`
-    <div class="detail-row">
-      <span class="k">Activation Code</span>
-      <div class="v-wrap">
-        <code>${escapeHtml(data.activationCode)}</code>
-        <button class="copy-btn" data-copy="${escapeHtml(data.activationCode)}"><i class="fas fa-copy"></i></button>
-      </div>
-    </div>
-  `);
-  if (data.serial || data.iccid) parts.push(`
-    <div class="detail-row">
-      <span class="k">Serial / ICCID</span>
-      <div class="v-wrap">
-        <code>${escapeHtml(data.serial || data.iccid)}</code>
-        <button class="copy-btn" data-copy="${escapeHtml(data.serial || data.iccid)}"><i class="fas fa-copy"></i></button>
-      </div>
-    </div>
-  `);
-
-  if (!parts.length) return '';
-  return `<div class="detail-card">
-    <p class="label">Manual activation</p>
-    ${parts.join('')}
+  return `<div class="ref-summary">
+    <div class="row"><span>Destination</span><strong>${escapeHtml(data.countryName || '—')}</strong></div>
+    <div class="row"><span>Plan</span><strong>${escapeHtml(data.planName || '—')}</strong></div>
+    <div class="row"><span>Data</span><strong>${escapeHtml(data.dataAmount || '—')} · ${data.validityDays || '—'} days</strong></div>
+    <div class="row"><span>Reference</span><strong>${escapeHtml(data.reference || '—')}</strong></div>
   </div>`;
 }
-
+function renderManualDelivery(data) {
+  const parts = [];
+  if (data.lpaString) parts.push(`<div class="detail-row"><span class="k">LPA String</span><div class="v-wrap"><code>${escapeHtml(data.lpaString)}</code><button class="copy-btn" data-copy="${escapeHtml(data.lpaString)}"><i class="fas fa-copy"></i></button></div></div>`);
+  if (data.activationCode && data.activationCode !== data.lpaString) parts.push(`<div class="detail-row"><span class="k">Activation Code</span><div class="v-wrap"><code>${escapeHtml(data.activationCode)}</code><button class="copy-btn" data-copy="${escapeHtml(data.activationCode)}"><i class="fas fa-copy"></i></button></div></div>`);
+  if (data.serial || data.iccid) parts.push(`<div class="detail-row"><span class="k">Serial / ICCID</span><div class="v-wrap"><code>${escapeHtml(data.serial || data.iccid)}</code><button class="copy-btn" data-copy="${escapeHtml(data.serial || data.iccid)}"><i class="fas fa-copy"></i></button></div></div>`);
+  if (!parts.length) return '';
+  return `<div class="detail-card"><p class="label">Manual activation</p>${parts.join('')}</div>`;
+}
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.copy-btn');
   if (!btn) return;
   const val = btn.dataset.copy;
   if (!val) return;
-  navigator.clipboard?.writeText(val)
-    .then(() => toast('Copied to clipboard'))
-    .catch(() => toast('Could not copy', true));
+  navigator.clipboard?.writeText(val).then(() => toast('Copied to clipboard')).catch(() => toast('Could not copy', true));
 });
-
 function updateProcessingMessage() {
   const a = State.pollAttempts;
-  if (a <= 5) {
-    $('#statusText').textContent = "Setting up your eSIM — this usually takes a few seconds.";
-  } else if (a <= 15) {
-    $('#statusText').textContent = "Still confirming with our provider. Most orders complete within a minute.";
-  } else if (a <= 25) {
-    $('#statusText').textContent = "We're still waiting for the provider. You don't need to stay on this page — we'll email your QR code when it's ready.";
-  } else {
-    $('#statusText').textContent = "This is taking longer than usual. Your order is safe — we'll email you the QR code the moment the provider confirms.";
-  }
+  if (a <= 5) $('#statusText').textContent = "Setting up your eSIM — this usually takes a few seconds.";
+  else if (a <= 15) $('#statusText').textContent = "Still confirming with our provider. Most orders complete within a minute.";
+  else if (a <= 25) $('#statusText').textContent = "We're still waiting for the provider. You don't need to stay on this page — we'll email your QR code when it's ready.";
+  else $('#statusText').textContent = "This is taking longer than usual. Your order is safe — we'll email you the QR code the moment the provider confirms.";
 }
-
 async function pollStatus() {
   updateProcessingMessage();
-
   if (State.pollAttempts >= CONFIG.pollMaxAttempts) {
     $('#statusIcon').className = 'status-icon processing';
     $('#statusIcon').innerHTML = '<i class="fas fa-clock"></i>';
@@ -1265,32 +1181,22 @@ async function pollStatus() {
     $('#statusPrimaryBtn').onclick = () => window.location.reload();
     return;
   }
-
   State.pollAttempts++;
-
   try {
     const { data } = await apiGet(CONFIG.api.status(State.currentTxId));
     $('#refSummary').innerHTML = renderRefSummary(data);
-
     if (data.status === 'completed') {
       $('#statusIcon').className = 'status-icon completed';
       $('#statusIcon').innerHTML = '<i class="fas fa-check"></i>';
       $('#statusTitle').textContent = 'Your eSIM is ready';
       $('#statusText').textContent = "Scan the QR code below in your phone's eSIM settings, or check your email — we sent it there too.";
-      if (data.qrCodeUrl) {
-        $('#qrImg').src = data.qrCodeUrl;
-        $('#qrBox').hidden = false;
-        $('#manualDetails').innerHTML = renderManualDelivery(data);
-      } else {
-        $('#qrBox').hidden = true;
-        $('#manualDetails').innerHTML = renderManualDelivery(data);
-      }
+      if (data.qrCodeUrl) { $('#qrImg').src = data.qrCodeUrl; $('#qrBox').hidden = false; $('#manualDetails').innerHTML = renderManualDelivery(data); }
+      else { $('#qrBox').hidden = true; $('#manualDetails').innerHTML = renderManualDelivery(data); }
       $('#statusPrimaryBtn').hidden = false;
       $('#statusPrimaryBtn').textContent = 'Done';
       $('#statusPrimaryBtn').onclick = () => window.location.reload();
       return;
     }
-
     if (data.status === 'delivery_pending') {
       $('#statusIcon').className = 'status-icon processing';
       $('#statusIcon').innerHTML = '<i class="fas fa-circle-notch spin"></i>';
@@ -1299,12 +1205,7 @@ async function pollStatus() {
       setTimeout(pollStatus, CONFIG.pollIntervalMs);
       return;
     }
-
-    if (['failed', 'refunded', 'cancelled', 'reversed'].includes(data.status)) {
-      showFailedState(data.errorMessage);
-      return;
-    }
-
+    if (['failed', 'refunded', 'cancelled', 'reversed'].includes(data.status)) { showFailedState(data.errorMessage); return; }
     if (data.status === 'manual_review') {
       $('#statusIcon').className = 'status-icon processing';
       $('#statusIcon').innerHTML = '<i class="fas fa-hourglass-half"></i>';
@@ -1315,12 +1216,8 @@ async function pollStatus() {
       $('#statusPrimaryBtn').onclick = () => window.location.reload();
       return;
     }
-
     setTimeout(pollStatus, CONFIG.pollIntervalMs);
-  } catch (e) {
-    console.warn('Poll error:', e.message);
-    setTimeout(pollStatus, CONFIG.pollIntervalMs);
-  }
+  } catch (e) { console.warn('Poll error:', e.message); setTimeout(pollStatus, CONFIG.pollIntervalMs); }
 }
 
 async function openHistory() {
@@ -1328,7 +1225,6 @@ async function openHistory() {
   const list = $('#histList');
   drawer.classList.add('open');
   list.innerHTML = '<div class="hist-empty">Loading…</div>';
-
   try {
     const { data } = await apiGet(CONFIG.api.history);
     const items = Array.isArray(data) ? data : [];
@@ -1343,25 +1239,16 @@ async function openHistory() {
       let pillStatus = t.status || 'processing';
       if (t.status === 'completed' && t.deliveryStatus !== 'ready') pillStatus = 'delivery_pending';
       const st = pillStatus.replace('_', ' ');
-      return `
-        <div class="hist-item">
-          <div class="row1">
-            <div class="flag">${flag}</div>
-            <div class="title">${escapeHtml(t.countryName || 'eSIM')}</div>
-            <span class="pill ${pillStatus}">${escapeHtml(st)}</span>
-          </div>
-          <div class="meta">${escapeHtml(t.planName || '')} ${t.dataAmount ? '· ' + escapeHtml(t.dataAmount) : ''} ${t.validityDays ? '· ' + t.validityDays + ' days' : ''}</div>
-          <div class="meta" style="margin-top:2px;">${moneyUSD(t.totalUsd)} · ${new Date(t.createdAt).toLocaleDateString()}</div>
-          ${t.qrCodeUrl ? `<button class="viewqr" data-qr-url="${escapeHtml(t.qrCodeUrl)}"><i class="fas fa-qrcode"></i> View QR</button>` : ''}
-        </div>
-      `;
+      return `<div class="hist-item">
+        <div class="row1"><div class="flag">${flag}</div><div class="title">${escapeHtml(t.countryName || 'eSIM')}</div><span class="pill ${pillStatus}">${escapeHtml(st)}</span></div>
+        <div class="meta">${escapeHtml(t.planName || '')} ${t.dataAmount ? '· ' + escapeHtml(t.dataAmount) : ''} ${t.validityDays ? '· ' + t.validityDays + ' days' : ''}</div>
+        <div class="meta" style="margin-top:2px;">${moneyUSD(t.totalUsd)} · ${new Date(t.createdAt).toLocaleDateString()}</div>
+        ${t.qrCodeUrl ? `<button class="viewqr" data-qr-url="${escapeHtml(t.qrCodeUrl)}"><i class="fas fa-qrcode"></i> View QR</button>` : ''}
+      </div>`;
     }).join('');
-  } catch (e) {
-    list.innerHTML = '<div class="hist-empty">Could not load history.</div>';
-  }
+  } catch (e) { list.innerHTML = '<div class="hist-empty">Could not load history.</div>'; }
 }
 function closeHistory() { $('#histDrawer').classList.remove('open'); }
-
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.viewqr');
   if (!btn) return;
@@ -1383,24 +1270,20 @@ document.addEventListener('click', (e) => {
 });
 
 function init() {
-  if (!getToken()) { redirectToLogin(); return; }
-
+  if (!getCurrentUser()) {
+    setTimeout(() => { if (!getCurrentUser()) redirectToLogin(); }, 1500);
+    return;
+  }
   initSidebar();
   initCurrencyToggle();
   initCountrySearch();
   renderUserFromSession();
-
   loadUser();
   loadRates();
   loadCountries();
-
   $('#histBtn')?.addEventListener('click', openHistory);
   $('#histClose')?.addEventListener('click', closeHistory);
-
-  $('#heroCta')?.addEventListener('click', () => {
-    goToStep(2);
-    if (!State.allCountries.length) loadCountries();
-  });
+  $('#heroCta')?.addEventListener('click', () => { goToStep(2); if (!State.allCountries.length) loadCountries(); });
   $('#toConfirmBtn')?.addEventListener('click', () => {
     if (!State.selectedDestination || !State.selectedPlan) return;
     refreshSummary();
@@ -1409,10 +1292,13 @@ function init() {
   $('#backToHeroBtn')?.addEventListener('click', () => goToStep(1));
   $('#backToPlanBtn')?.addEventListener('click', () => goToStep(2));
   $('#confirmBuyBtn')?.addEventListener('click', submitPurchase);
-
+  $('#logoutBtn')?.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (typeof window.doUserLogout === 'function') window.doUserLogout();
+    else redirectToLogin();
+  });
   goToStep(1);
 }
-
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>

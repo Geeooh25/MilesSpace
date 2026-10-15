@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Infrastructure · MilesSpace Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="/js/admin-session.js?v=2026-mfa-v1"></script>
+<script src="/js/admin-permissions.js?v=2026-mfa-v1"></script>
+<style>
+:root{
+  --brand:#0f4c5c; --brand-deep:#0a3542; --brand-light:#14607a;
+  --gold:#f5a623;
+  --bg:#f4f7fb; --surface:#ffffff;
+  --border:rgba(15,76,92,.10);
+  --text:#0c1f26; --text-dim:#5b7480; --text-faint:#8fa3ab;
+  --success:#16a34a; --success-bg:#e9f9ef;
+  --danger:#dc2626;  --danger-bg:#fdecec;
+  --warn:#f59e0b;    --warn-bg:#fef3d9;
+  --info:#2563a8;    --info-bg:#e8f1fb;
+  --purple:#8b5cf6;  --purple-bg:#ede9fe;
+  --radius-lg:16px;
+  --shadow-sm:0 1px 2px rgba(8,42,51,.06);
+  --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
+  --sidebar-w:264px; --topbar-h:64px;
+}
+html.dark{
+  --bg:#08151a; --surface:#12262c;
+  --border:rgba(255,255,255,.08);
+  --text:#eaf3f5; --text-dim:#9db4bb; --text-faint:#5b7480;
+  --success-bg:rgba(22,163,74,.15); --danger-bg:rgba(220,38,38,.15);
+  --warn-bg:rgba(245,158,11,.15); --info-bg:rgba(37,99,168,.18);
+  --purple-bg:rgba(139,92,246,.18);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;min-width:0;min-height:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
+.mono{font-family:'JetBrains Mono',monospace}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+.sidebar{background:linear-gradient(180deg,var(--brand-deep),var(--brand) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:60}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:15px;color:#0c1d22;font-weight:800}
+.brand-text strong{font-size:15px;font-weight:800;display:block}
+.brand-text span{font-size:10.5px;color:#9fd4de;text-transform:uppercase;letter-spacing:.06em}
+.nav-scroll{flex:1;overflow-y:auto;margin-top:6px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700;padding:14px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;transition:background .15s}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;font-weight:600}
+.nav-item .ic{width:17px;text-align:center}
+.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px}
+.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.topbar{min-height:var(--topbar-h);position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:10px 22px;background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+html.dark .topbar{background:rgba(18,38,44,.85)}
+.topbar h1{margin:0;font-size:17px;font-weight:800}
+.topbar .sub{font-size:11.5px;color:var(--text-dim);margin-top:2px}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.content{padding:16px 22px 40px;max-width:1560px;width:100%;margin:0 auto}
+
+.hamburger{display:none;background:transparent;border:1px solid var(--border);color:var(--text);width:38px;height:38px;border-radius:9px;font-size:15px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
+.scrim{display:none;position:fixed;inset:0;background:rgba(8,21,26,.5);z-index:55}
+.scrim.show{display:block}
+
+/* Hero */
+.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.hero-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+.hero-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--brand);opacity:.65}
+.hero-card.good::before{background:var(--success)}
+.hero-card.warn::before{background:var(--warn)}
+.hero-card.bad::before{background:var(--danger)}
+.hero-card .lbl{font-size:10.5px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-card .val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.hero-card .sub{font-size:10.5px;color:var(--text-faint);margin-top:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Grid layout */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media(max-width:1180px){ .grid{grid-template-columns:1fr} }
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;min-height:0}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.card-head h3{font-size:13.5px;font-weight:800}
+.card-head .sub{font-size:11px;color:var(--text-dim);margin-top:2px}
+.card-body{padding:14px 16px}
+
+/* Metric rows */
+.metric-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:12.8px;border-bottom:1px dashed var(--border)}
+.metric-row:last-child{border-bottom:none}
+.metric-row .k{color:var(--text-dim);font-weight:600}
+.metric-row .v{font-weight:700;font-variant-numeric:tabular-nums}
+.metric-row .v.good{color:var(--success)}
+.metric-row .v.warn{color:#b3720a}
+.metric-row .v.bad{color:var(--danger)}
+
+/* Bar */
+.bar{height:8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;overflow:hidden;margin-top:6px}
+.bar > span{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .25s}
+.bar.good > span{background:var(--success)}
+.bar.warn > span{background:var(--warn)}
+.bar.bad > span{background:var(--danger)}
+
+/* Provider list */
+.prov-list{list-style:none;display:flex;flex-direction:column;gap:2px}
+.prov-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--border);font-size:12.8px}
+.prov-item:last-child{border-bottom:none}
+.prov-dot{width:9px;height:9px;border-radius:50%;background:var(--text-faint);flex-shrink:0}
+.prov-dot.good{background:var(--success)}
+.prov-dot.warn{background:var(--warn)}
+.prov-dot.bad{background:var(--danger)}
+.prov-dot.neutral{background:var(--text-faint)}
+.prov-name{font-weight:600}
+.prov-name .env{font-size:10px;color:var(--text-faint);margin-left:6px;text-transform:uppercase;letter-spacing:.06em}
+.prov-meta{font-size:11px;color:var(--text-faint)}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.badge.good{background:var(--success-bg);color:var(--success)}
+.badge.warn{background:var(--warn-bg);color:#b3720a}
+.badge.bad{background:var(--danger-bg);color:var(--danger)}
+.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:12px;display:block}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Empty / unavailable */
+.empty{padding:32px 16px;text-align:center;color:var(--text-dim);font-size:12.5px}
+.empty .ic{font-size:24px;margin-bottom:8px;display:block;opacity:.5}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;font-size:12.5px;font-weight:600;border:1px solid transparent;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;text-decoration:none}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:var(--brand-light)}
+.btn-ghost{background:var(--surface);color:var(--text);border-color:var(--border)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-sm{padding:7px 12px;font-size:11.5px;min-height:34px}
+
+/* Toast */
+.toast-stack{position:fixed;bottom:18px;right:18px;z-index:1200;display:flex;flex-direction:column;gap:10px;max-width:380px}
+.toast{background:#0c1f26;color:#fff;padding:12px 16px;border-radius:11px;font-size:12.7px;font-weight:500;box-shadow:var(--shadow-md);border-left:3px solid var(--gold);animation:toastIn .22s ease}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:var(--danger)}
+.toast.warn{border-left-color:#b3720a}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+/* Responsive */
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;width:82%;max-width:320px;height:100dvh;transform:translateX(-100%);transition:transform .25s ease;box-shadow:var(--shadow-md)}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:inline-flex}
+  .topbar{padding:10px 12px}
+  .content{padding:12px 12px 60px}
+  .hero{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:560px){
+  .topbar-actions{width:100%;margin-left:0}
+  .topbar-actions .btn{flex:1;justify-content:center}
+  .hero{grid-template-columns:1fr}
+  .toast-stack{left:12px;right:12px;max-width:none}
+}
+</style>
+</head>
+<body>
+
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+<aside class="sidebar" id="sidebar">
+    <div class="brand">
+        <div class="brand-mark">M</div>
+        <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
+    </div>
+    <nav class="nav-scroll">
+        <div class="nav-label">Overview</div>
+        <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
+        <a href="/admin/infrastructure" class="nav-item active"><span class="ic">🛰️</span>Infrastructure</a>
+        <div class="nav-label">Customers</div>
+        <a href="/admin/users" class="nav-item"><span class="ic">👥</span>Users</a>
+        <a href="/admin/support" class="nav-item"><span class="ic">💬</span>Support</a>
+        <div class="nav-label">Money</div>
+        <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span>Transactions</a>
+        <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span>Deposits</a>
+        <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span>Ledger</a>
+        <a href="/admin/refunds" class="nav-item"><span class="ic">↩️</span>Refunds</a>
+        <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span>Reconciliation</a>
+        <div class="nav-label">Operations</div>
+        <a href="/admin/orders" class="nav-item"><span class="ic">🧮</span>Orders</a>
+        <a href="/admin/providers" class="nav-item"><span class="ic">🔌</span>Providers</a>
+        <a href="/admin/webhooks" class="nav-item"><span class="ic">🪝</span>Webhooks</a>
+        <div class="nav-label">System</div>
+        <a href="/admin/audit" class="nav-item"><span class="ic">📋</span>Audit Log</a>
+        <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span>Settings</a>
+    </nav>
+    <div class="sidebar-foot">
+        <div class="av" id="adminAvatar">DA</div>
+        <div style="min-width:0;overflow:hidden">
+            <strong id="adminName" style="font-size:12.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Admin</strong>
+            <div id="adminRole" style="font-size:10.5px;color:#8fbac2">Loading…</div>
+        </div>
+    </div>
+</aside>
+
+<div class="main">
+    <header class="topbar">
+        <button class="hamburger" id="hamburger" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+        <div style="min-width:0">
+            <h1>🛰️ Infrastructure</h1>
+            <div class="sub">Read-only view of the MilesSpace platform. Data is cached server-side and refreshed on a schedule.</div>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-ghost btn-sm" id="refreshBtn"><i class="fas fa-rotate-right"></i> Refresh</button>
+            <a class="btn btn-ghost btn-sm" href="https://railway.com/dashboard" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Railway</a>
+        </div>
+    </header>
+
+    <div class="content">
+
+        <!-- Hero KPIs -->
+        <section class="hero" id="hero">
+            <div class="hero-card"><div class="lbl">Platform</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div><div class="sub">—</div></div>
+            <div class="hero-card"><div class="lbl">API</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div><div class="sub">—</div></div>
+            <div class="hero-card"><div class="lbl">Database</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div><div class="sub">—</div></div>
+            <div class="hero-card"><div class="lbl">Providers</div><div class="val"><span class="skel" style="width:70px;height:20px"></span></div><div class="sub">—</div></div>
+        </section>
+
+        <div class="grid">
+
+            <!-- Cost -->
+            <div class="card" id="costCard">
+                <div class="card-head">
+                    <div>
+                        <h3>Cost & usage</h3>
+                        <div class="sub" id="costSub">Railway billing period</div>
+                    </div>
+                </div>
+                <div class="card-body" id="costBody">
+                    <div class="skel" style="height:18px;width:60%;margin-bottom:10px"></div>
+                    <div class="skel" style="height:18px;width:80%"></div>
+                </div>
+            </div>
+
+            <!-- Server resources -->
+            <div class="card" id="resourceCard">
+                <div class="card-head">
+                    <div>
+                        <h3>Server resources</h3>
+                        <div class="sub" id="resourceSub">Last hour · Railway metrics</div>
+                    </div>
+                </div>
+                <div class="card-body" id="resourceBody">
+                    <div class="skel" style="height:18px;width:60%;margin-bottom:10px"></div>
+                    <div class="skel" style="height:18px;width:80%"></div>
+                </div>
+            </div>
+
+            <!-- API metrics -->
+            <div class="card" id="apiCard">
+                <div class="card-head">
+                    <div>
+                        <h3>API metrics</h3>
+                        <div class="sub">Last 60 minutes · in-process</div>
+                    </div>
+                </div>
+                <div class="card-body" id="apiBody">
+                    <div class="skel" style="height:18px;width:60%;margin-bottom:10px"></div>
+                    <div class="skel" style="height:18px;width:80%"></div>
+                </div>
+            </div>
+
+            <!-- Deployment -->
+            <div class="card" id="deployCard">
+                <div class="card-head">
+                    <div>
+                        <h3>Deployment</h3>
+                        <div class="sub" id="deploySub">Railway · current environment</div>
+                    </div>
+                </div>
+                <div class="card-body" id="deployBody">
+                    <div class="skel" style="height:18px;width:60%;margin-bottom:10px"></div>
+                    <div class="skel" style="height:18px;width:80%"></div>
+                </div>
+            </div>
+
+            <!-- Providers -->
+            <div class="card" id="providersCard" style="grid-column:1 / -1">
+                <div class="card-head">
+                    <div>
+                        <h3>Providers</h3>
+                        <div class="sub" id="providersSub">Snapshot from provider_health</div>
+                    </div>
+                    <a class="btn btn-ghost btn-sm" href="/admin/providers"><i class="fas fa-arrow-up-right-from-square"></i> Open providers</a>
+                </div>
+                <div class="card-body">
+                    <ul class="prov-list" id="providersList">
+                        <li class="prov-item"><span class="skel" style="height:14px;width:50%"></span></li>
+                        <li class="prov-item"><span class="skel" style="height:14px;width:50%"></span></li>
+                        <li class="prov-item"><span class="skel" style="height:14px;width:50%"></span></li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+'use strict';
+
+const API = {
+    overview:   '/api/admin/infrastructure/overview',
+    usage:      '/api/admin/infrastructure/usage',
+    metrics:    '/api/admin/infrastructure/metrics',
+    deployment: '/api/admin/infrastructure/deployment',
+    health:     '/api/admin/infrastructure/health',
+    me:         '/api/admin/me'
+};
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+function toast(msg, type='info') {
+    const stack = $('#toastStack');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    stack.appendChild(el);
+    setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.remove(),220); }, 3400);
+}
+function fmtNum(v, digits = 0) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return n.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits });
+}
+function fmtMoney(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return '$' + n.toFixed(2);
+}
+function fmtBytesGb(gb) {
+    const n = Number(gb);
+    if (!Number.isFinite(n)) return '—';
+    if (n < 0.01) return (n * 1024).toFixed(1) + ' MB';
+    return n.toFixed(2) + ' GB';
+}
+function relTime(iso) {
+    if (!iso) return '—';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (!Number.isFinite(s)) return '—';
+    if (s < 0) return 'just now';
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+}
+
+async function api(url) {
+    if (!window.AdminSession || typeof AdminSession.fetch !== 'function') {
+        return { ok:false, reason:'no_session', error:'Authentication layer not loaded.' };
+    }
+    try {
+        const res = await AdminSession.fetch(url);
+        let json = null;
+        try { json = await res.json(); } catch {}
+        if (res.status === 401) return { ok:false, reason:'unauthorized' };
+        if (res.status === 403) return { ok:false, reason:'forbidden', code: json?.code };
+        if (!res.ok || json?.success === false) {
+            return { ok:false, reason:'api_error', error: json?.error || json?.message, code: json?.code };
+        }
+        return { ok:true, data: json };
+    } catch (e) {
+        return { ok:false, reason:'network_error', error: e.message };
+    }
+}
+
+// ─── Status helpers ─────────────────────────────────────────────
+function statusClass(s) {
+    const v = String(s || '').toLowerCase();
+    if (['operational','healthy','success','running','configured'].includes(v)) return 'good';
+    if (['degraded','warning','initializing','configured'].includes(v)) return 'warn';
+    if (['unreachable','failed','crashed','auth_failed','circuit_open','rate_limited','major_outage'].includes(v)) return 'bad';
+    return 'neutral';
+}
+function statusLabel(s) {
+    return String(s || 'unknown').replace(/_/g,' ');
+}
+
+// ─── Render hero ────────────────────────────────────────────────
+function renderHero(health) {
+    const overall = health.overall || 'unknown';
+    const api = health.api || {};
+    const db = health.database || {};
+    const prov = health.providers || { down: 0, criticalDown: 0 };
+
+    const platformClass = overall === 'operational' ? 'good'
+                        : overall === 'degraded' ? 'warn'
+                        : overall === 'major_outage' ? 'bad' : '';
+    const apiClass = (api.serverErrorRatePct ?? 0) > 5 ? 'bad'
+                    : (api.serverErrorRatePct ?? 0) > 1 ? 'warn' : 'good';
+    const dbClass = statusClass(db.status);
+    const provClass = prov.criticalDown > 0 ? 'bad'
+                    : prov.down > 0 ? 'warn' : 'good';
+
+    $('#hero').innerHTML = `
+        <div class="hero-card ${platformClass}">
+            <div class="lbl">Platform</div>
+            <div class="val">${esc(statusLabel(overall))}</div>
+            <div class="sub">${health.lastSnapshotAt ? 'updated ' + esc(relTime(health.lastSnapshotAt)) : 'no snapshot yet'}</div>
+        </div>
+        <div class="hero-card ${apiClass}">
+            <div class="lbl">API</div>
+            <div class="val">${api.requests != null ? fmtNum(api.requests) : '—'}</div>
+            <div class="sub">${api.serverErrorRatePct != null ? api.serverErrorRatePct + '% 5xx · ' + (api.avgLatencyMs || 0) + ' ms avg' : 'no traffic in window'}</div>
+        </div>
+        <div class="hero-card ${dbClass}">
+            <div class="lbl">Database</div>
+            <div class="val">${esc(statusLabel(db.status))}</div>
+            <div class="sub">${db.latencyMs != null ? db.latencyMs + ' ms ping' : 'no data'}</div>
+        </div>
+        <div class="hero-card ${provClass}">
+            <div class="lbl">Providers</div>
+            <div class="val">${prov.down} down</div>
+            <div class="sub">${prov.criticalDown} critical</div>
+        </div>
+    `;
+}
+
+// ─── Cost card ──────────────────────────────────────────────────
+function renderCost(usage) {
+    const body = $('#costBody');
+    const sub = $('#costSub');
+    if (!usage.available) {
+        body.innerHTML = `<div class="empty"><span class="ic">💳</span>Railway usage not available.<br><span style="font-size:11px">${esc(usage.reason || '')}</span></div>`;
+        sub.textContent = '—';
+        return;
+    }
+
+    const current = usage.current ?? 0;
+    const estimated = usage.estimated ?? 0;
+    const included = usage.included ?? 5;
+    const budget = 10; // soft budget for display; actual hard limit is in Railway
+    const pct = Math.min(100, Math.round((estimated / budget) * 100));
+    const barClass = pct >= 90 ? 'bad' : pct >= 70 ? 'warn' : 'good';
+
+    let periodLine = '';
+    if (usage.periodStart && usage.periodEnd) {
+        const s = new Date(usage.periodStart).toISOString().slice(0,10);
+        const e = new Date(usage.periodEnd).toISOString().slice(0,10);
+        periodLine = `${s} → ${e}`;
+    }
+    sub.textContent = periodLine || 'current billing period';
+
+    body.innerHTML = `
+        <div class="metric-row"><span class="k">Current usage</span><span class="v">${esc(fmtMoney(current))}</span></div>
+        <div class="metric-row"><span class="k">Estimated</span><span class="v">${esc(fmtMoney(estimated))}</span></div>
+        <div class="metric-row"><span class="k">Included</span><span class="v">${esc(fmtMoney(included))}</span></div>
+        <div class="metric-row"><span class="k">Overage</span><span class="v">${esc(fmtMoney(usage.overage ?? 0))}</span></div>
+        <div style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim);margin-bottom:4px">
+                <span>Budget $${budget.toFixed(0)}</span>
+                <span>${pct}%</span>
+            </div>
+            <div class="bar ${barClass}"><span style="width:${pct}%"></span></div>
+        </div>
+    `;
+}
+
+// ─── Server resources card ─────────────────────────────────────
+function renderResources(metrics) {
+    const body = $('#resourceBody');
+    const server = metrics.server || {};
+    const hasAny = Object.values(server).some(v => v && Number.isFinite(v.latest));
+    if (!hasAny) {
+        body.innerHTML = `<div class="empty"><span class="ic">📈</span>Server metrics not available.<br><span style="font-size:11px">Railway metrics are fetched every 5 minutes.</span></div>`;
+        return;
+    }
+
+    const row = (label, key, formatter, unit = '') => {
+        const m = server[key];
+        if (!m) return `<div class="metric-row"><span class="k">${label}</span><span class="v">—</span></div>`;
+        const latest = formatter(m.latest);
+        const peak = formatter(m.max);
+        return `<div class="metric-row"><span class="k">${label}</span><span class="v">${latest}${unit} <span style="color:var(--text-faint);font-weight:500;font-size:11px">peak ${peak}${unit}</span></span></div>`;
+    };
+
+    body.innerHTML = `
+        ${row('CPU', 'CPU_USAGE', v => (v * 100).toFixed(1), '%')}
+        ${row('Memory', 'MEMORY_USAGE_GB', v => v.toFixed(3), ' GB')}
+        ${row('Network TX', 'NETWORK_TX_GB', v => fmtBytesGb(v))}
+        ${row('Network RX', 'NETWORK_RX_GB', v => fmtBytesGb(v))}
+        ${row('Disk', 'DISK_USAGE_GB', v => v.toFixed(2), ' GB')}
+    `;
+}
+
+// ─── API metrics card ──────────────────────────────────────────
+function renderApi(metrics) {
+    const body = $('#apiBody');
+    const api = metrics.api || {};
+    const rateClass = (api.serverErrorRatePct ?? 0) > 5 ? 'bad'
+                    : (api.serverErrorRatePct ?? 0) > 1 ? 'warn' : 'good';
+
+    body.innerHTML = `
+        <div class="metric-row"><span class="k">Requests (60m)</span><span class="v">${esc(fmtNum(api.requests || 0))}</span></div>
+        <div class="metric-row"><span class="k">Success</span><span class="v good">${esc(fmtNum(api.success || 0))}</span></div>
+        <div class="metric-row"><span class="k">4xx</span><span class="v warn">${esc(fmtNum(api.errors4xx || 0))}</span></div>
+        <div class="metric-row"><span class="k">5xx</span><span class="v bad">${esc(fmtNum(api.errors5xx || 0))}</span></div>
+        <div class="metric-row"><span class="k">Slow (&gt;1s)</span><span class="v">${esc(fmtNum(api.slowRequests || 0))}</span></div>
+        <div class="metric-row"><span class="k">Avg latency</span><span class="v">${api.avgLatencyMs != null ? esc(fmtNum(api.avgLatencyMs)) + ' ms' : '—'}</span></div>
+        <div class="metric-row"><span class="k">5xx rate</span><span class="v ${rateClass}">${api.serverErrorRatePct != null ? esc(api.serverErrorRatePct) + '%' : '—'}</span></div>
+    `;
+}
+
+// ─── Deployment card ───────────────────────────────────────────
+function renderDeployment(dep) {
+    const body = $('#deployBody');
+    const sub = $('#deploySub');
+    if (!dep.available) {
+        body.innerHTML = `<div class="empty"><span class="ic">🚀</span>Deployment info not available.<br><span style="font-size:11px">${esc(dep.reason || '')}</span></div>`;
+        sub.textContent = '—';
+        return;
+    }
+    const cls = statusClass(dep.status);
+    sub.textContent = `Latest · ${relTime(dep.createdAt)}`;
+
+    body.innerHTML = `
+        <div class="metric-row"><span class="k">Status</span><span class="v"><span class="badge ${cls}">${esc(dep.status)}</span></span></div>
+        <div class="metric-row"><span class="k">Created</span><span class="v">${esc(relTime(dep.createdAt))}</span></div>
+        <div class="metric-row"><span class="k">Updated</span><span class="v">${esc(relTime(dep.updatedAt))}</span></div>
+        <div class="metric-row"><span class="k">Deployment ID</span><span class="v mono" style="font-size:11px">${esc((dep.id || '').slice(0,12))}…</span></div>
+        ${dep.url ? `<div class="metric-row"><span class="k">URL</span><span class="v"><a href="${esc(dep.url)}" target="_blank" rel="noopener" style="color:var(--brand)">${esc(dep.url.replace(/^https?:\/\//,''))}</a></span></div>` : ''}
+    `;
+}
+
+// ─── Providers card ────────────────────────────────────────────
+function renderProviders(providers) {
+    const list = $('#providersList');
+    const sub = $('#providersSub');
+    const rows = providers?.providers || [];
+    if (!rows.length) {
+        list.innerHTML = `<li class="empty"><span class="ic">🔌</span>No providers registered.</li>`;
+        sub.textContent = '—';
+        return;
+    }
+    sub.textContent = `${rows.length} providers · ${providers.down || 0} down · ${providers.criticalDown || 0} critical`;
+    list.innerHTML = rows.map(p => {
+        const cls = statusClass(p.status);
+        return `
+            <li class="prov-item">
+                <span class="prov-dot ${cls}"></span>
+                <span class="prov-name">${esc(p.label)}${p.environment ? `<span class="env">${esc(p.environment)}</span>` : ''}</span>
+                <span class="prov-meta">${esc(statusLabel(p.status))}${p.latencyMs != null ? ' · ' + esc(fmtNum(p.latencyMs)) + ' ms' : ''}${p.lastCheckedAt ? ' · ' + esc(relTime(p.lastCheckedAt)) : ''}</span>
+            </li>
+        `;
+    }).join('');
+}
+
+// ─── Loaders ────────────────────────────────────────────────────
+async function loadAll() {
+    // 1. Health first — cheap and gives us the hero + providers.
+    const healthRes = await api(API.health);
+    if (!healthRes.ok) {
+        const msg = healthRes.reason === 'forbidden' ? 'You do not have permission to view infrastructure.'
+                  : healthRes.reason === 'unauthorized' ? 'Your session has expired.'
+                  : healthRes.error || 'Unable to load infrastructure.';
+        toast(msg, 'error');
+        return;
+    }
+    const health = healthRes.data.health || {};
+    renderHero(health);
+
+    // 2. Overview second — gives us providers + railway config flag.
+    const overviewRes = await api(API.overview);
+    if (overviewRes.ok) {
+        renderProviders(overviewRes.data.overview?.providers || { providers: [] });
+    }
+
+    // 3. Usage, metrics, deployment — parallel, non-blocking.
+    const [usageRes, metricsRes, deployRes] = await Promise.all([
+        api(API.usage),
+        api(API.metrics),
+        api(API.deployment)
+    ]);
+    if (usageRes.ok)   renderCost(usageRes.data.usage || {});
+    if (metricsRes.ok) { renderResources(metricsRes.data.metrics || {}); renderApi(metricsRes.data.metrics || {}); }
+    if (deployRes.ok)  renderDeployment(deployRes.data.deployment || {});
+}
+
+async function loadAdmin() {
+    const res = await api(API.me);
+    if (!res.ok) return;
+    const u = res.data.data?.user || res.data.user;
+    if (!u) return;
+    const name = u.username || u.email?.split('@')[0] || 'Admin';
+    const role = u.role || 'admin';
+    $('#adminName').textContent = name;
+    $('#adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+    $('#adminAvatar').textContent = name.slice(0,1).toUpperCase();
+}
+
+// ─── Init ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    if (!AdminSession.getToken()) return AdminSession.redirectToLogin();
+
+    $('#hamburger')?.addEventListener('click', () => {
+        $('#sidebar').classList.add('open');
+        $('#scrim').classList.add('show');
+    });
+    $('#scrim')?.addEventListener('click', () => {
+        $('#sidebar').classList.remove('open');
+        $('#scrim').classList.remove('show');
+    });
+    $('#refreshBtn')?.addEventListener('click', () => {
+        loadAll();
+        toast('Refreshed', 'success');
+    });
+
+    loadAdmin();
+    loadAll();
+
+    // Light refresh — only re-reads from our own API. Safe at 60s
+    // because the scheduler is what touches Railway, not this page.
+    setInterval(() => { loadAll(); }, 60 * 1000);
+});
+</script>
+</body>
+</html>

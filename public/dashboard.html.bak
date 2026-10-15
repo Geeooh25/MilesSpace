@@ -1,0 +1,1616 @@
+<!-- dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#fbfaf7">
+<link rel="canonical" href="https://www.milesspaceedigital.com/">
+<link rel="icon" href="/images/miles.png" type="image/png">
+<link rel="apple-touch-icon" href="/images/miles.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MilesSpace">
+<meta property="og:title" content="MilesSpace — Digital Wallet & Digital Services">
+<meta property="og:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta property="og:url" content="https://www.milesspaceedigital.com/">
+<meta property="og:image" content="https://www.milesspaceedigital.com/images/social-preview.png">
+<meta property="og:image:secure_url" content="https://www.milesspaceedigital.com/images/social-preview.png">
+<meta property="og:image:alt" content="MilesSpace digital wallet and services dashboard">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MilesSpace — Digital Wallet & Digital Services">
+<meta name="twitter:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more.">
+<meta name="twitter:image" content="https://www.milesspaceedigital.com/images/social-preview.png">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>MilesSpace | Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://api.milesspace.com"/>
+<link rel="dns-prefetch" href="https://api.milesspace.com"/>
+
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+<style>
+:root{
+  --p:#0c3d4a;--pm:#155e72;--pl:#e8f4f7;--pxl:#f2fafb;
+  --acc:#f59e0b;--acd:#d97706;--acl:#fef3c7;
+  --ok:#10b981;--okl:#d1fae5;
+  --err:#ef4444;--erl:#fee2e2;
+  --usd:#1652f0;--usdl:#dbeafe;
+  --bg:#edf1f4;--srf:#fff;--srf2:#f7f9fb;
+  --bdr:#dde4e9;--t1:#0a2530;--t2:#456475;--t3:#8aa4ae;
+  --sw:264px;--r:12px;--rl:18px;--rxl:24px;--rp:999px;
+  --s0:0 1px 3px rgba(0,0,0,.04);
+  --s1:0 4px 14px rgba(0,0,0,.07);
+  --s2:0 8px 28px rgba(0,0,0,.1);
+  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+  --ease:cubic-bezier(.25,.8,.25,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:15px;scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{max-width:100vw}
+body{font-family:var(--fb);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body.sb-open{overflow:hidden}
+a{text-decoration:none;color:inherit}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select{font-family:inherit}
+
+/* ─── Overlay ─── */
+.ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.45);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);z-index:590}
+.ov.on{display:block}
+
+/* ─── Sidebar ─── */
+.sidebar{
+  width:var(--sw);background:var(--srf);border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;
+  height:100dvh;z-index:600;transition:transform .3s var(--ease),visibility .3s;
+  overflow-y:auto;overflow-x:hidden;scrollbar-width:none;
+}
+.sidebar::-webkit-scrollbar{display:none}
+@media(min-width:1025px){
+  .sidebar{transform:translateX(0)!important;visibility:visible!important}
+  .tb-hbg{display:none!important}
+}
+@media(max-width:1024px){
+  .sidebar{
+    transform:translateX(-100%);
+    visibility:hidden;
+    width:min(88vw,300px);
+    max-width:300px;
+    box-shadow:0 0 40px rgba(10,37,48,.18);
+  }
+  .sidebar.open{transform:translateX(0);visibility:visible}
+  .main{margin-left:0!important}
+}
+
+.sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1rem;color:var(--t1);font-family:var(--fd)}
+.sb-lic{width:30px;height:30px;background:var(--acc);border-radius:8px;display:grid;place-items:center;font-size:.8rem;color:#fff;flex-shrink:0;overflow:hidden;box-shadow:0 4px 10px rgba(245,166,35,.35)}
+.sb-lic img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+.sb-sec{padding:16px 16px 5px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.sb-nav{padding:0 8px}
+.sb-lnk{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--r);color:var(--t2);font-size:.87rem;font-weight:500;transition:all .18s;margin-bottom:2px;text-decoration:none}
+.sb-lnk i{width:16px;text-align:center;font-size:.85rem;flex-shrink:0}
+.sb-lnk:hover{background:var(--bg);color:var(--t1)}
+.sb-lnk.active{background:var(--pl);color:var(--p);font-weight:600}
+.sb-lnk.active i{color:var(--p)}
+.sb-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--bdr);flex-shrink:0}
+.sb-prof{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);transition:all .18s;cursor:pointer;text-decoration:none}
+.sb-prof:hover{background:var(--bg)}
+.sb-av{width:32px;height:32px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-weight:700;font-size:.82rem;color:#fff;flex-shrink:0;overflow:hidden;border:2px solid var(--acc)}
+.sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:.8rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-ue{font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-out{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;color:var(--t3);font-size:.78rem;transition:all .18s;cursor:pointer;border:none;background:none;flex-shrink:0}
+.sb-out:hover{background:var(--erl);color:var(--err)}
+
+.app{display:flex;min-height:100vh}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* ─── Topbar ─── */
+.topbar{
+  background:var(--srf);border-bottom:1px solid var(--bdr);
+  padding:0 16px;height:60px;display:flex;align-items:center;
+  position:sticky;top:0;z-index:400;gap:10px;
+}
+.tb-hbg{
+  width:42px;height:42px;border-radius:10px;background:var(--pl);color:var(--p);
+  font-size:.95rem;display:grid;place-items:center;flex-shrink:0;
+  cursor:pointer;transition:all .2s;border:none;
+}
+.tb-hbg:hover{background:var(--p);color:#fff}
+.tb-brand{
+  font-family:var(--fd);font-size:.9rem;font-weight:700;color:var(--t1);flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-icon-btn{width:40px;height:40px;border-radius:10px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.88rem;cursor:pointer;transition:all .2s;position:relative;text-decoration:none}
+.tb-icon-btn:hover{background:var(--pl);color:var(--p)}
+.notif-dot{position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--err);border:2px solid var(--srf)}
+.tb-av{width:38px;height:38px;border-radius:50%;background:var(--p);display:grid;place-items:center;font-family:var(--fd);font-weight:800;font-size:.82rem;color:#fff;border:2px solid var(--acc);cursor:pointer;overflow:hidden;flex-shrink:0}
+.tb-av img{width:100%;height:100%;object-fit:cover}
+
+/* ─── Content ─── */
+.content{padding:16px;flex:1;min-width:0}
+@media(min-width:768px){.content{padding:20px 22px}}
+
+/* ─── Balance Hero ─── */
+.balance-hero{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);padding:18px 16px;margin-bottom:20px;box-shadow:var(--s1);position:relative;overflow:hidden}
+.bh-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.bh-greeting{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.bh-greeting-lbl{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.bh-greeting-name{font-family:var(--fd);font-size:.85rem;font-weight:800;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.curr-selector{position:relative;flex-shrink:0}
+.curr-trigger{display:flex;align-items:center;gap:5px;padding:7px 12px 7px 10px;background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--rp);cursor:pointer;transition:all .2s;user-select:none;-webkit-user-select:none;min-height:36px}
+.curr-trigger:hover{background:var(--pl);border-color:var(--p)}
+.curr-trigger:active{transform:scale(.97)}
+.curr-flag{font-size:.9rem;line-height:1}
+.curr-name{font-family:var(--fd);font-size:.72rem;font-weight:700;color:var(--t1)}
+.curr-chev{font-size:.55rem;color:var(--t3);transition:transform .22s}
+.curr-selector.open .curr-chev{transform:rotate(180deg)}
+.curr-dropdown{position:absolute;top:calc(100% + 5px);right:0;width:220px;max-width:calc(100vw - 32px);background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rl);box-shadow:var(--s2);z-index:60;overflow:hidden;display:none}
+.curr-selector.open .curr-dropdown{display:block;animation:dropIn .2s var(--ease)}
+@keyframes dropIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.curr-dropdown-hd{padding:8px 12px 4px;font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.curr-opt{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;transition:all .18s}
+.curr-opt:hover{background:var(--srf2)}
+.curr-opt.active{background:var(--pl)}
+.curr-opt-flag{font-size:.95rem;flex-shrink:0;width:22px;text-align:center}
+.curr-opt-info{flex:1;min-width:0}
+.curr-opt-name{font-size:.74rem;font-weight:600;color:var(--t1);display:block}
+.curr-opt-sub{font-size:.62rem;color:var(--t3);margin-top:1px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.curr-opt-bal{font-family:var(--fd);font-size:.7rem;font-weight:700;color:var(--t2);flex-shrink:0;text-align:right}
+.curr-opt.active .curr-opt-name,.curr-opt.active .curr-opt-bal{color:var(--p)}
+.curr-opt-check{width:14px;height:14px;border-radius:50%;background:var(--ok);display:none;place-items:center;font-size:.4rem;color:#fff;flex-shrink:0}
+.curr-opt.active .curr-opt-check{display:grid}
+.bh-balance{margin-bottom:12px}
+.bh-bal-lbl{font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.eye-btn{background:var(--srf2);border:1px solid var(--bdr);border-radius:5px;width:22px;height:22px;display:grid;place-items:center;cursor:pointer;color:var(--t2);font-size:.6rem;transition:all .18s}
+.eye-btn:hover{background:var(--pl);color:var(--p);border-color:var(--p)}
+.bh-amount-wrap{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;margin-bottom:4px}
+.bh-currency-sym{font-family:var(--fd);font-size:1.2rem;font-weight:800;color:var(--t3);flex-shrink:0;align-self:flex-start;padding-top:4px}
+.bh-main-amount{font-family:var(--fd);font-size:clamp(1.6rem, 8vw, 2.8rem);font-weight:800;color:var(--t1);letter-spacing:-1px;line-height:1;transition:all .25s;word-break:break-all}
+.bh-main-amount.hidden{letter-spacing:2px;opacity:.4}
+.bh-change{display:flex;align-items:center;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.change-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--rp);font-size:.6rem;font-weight:700}
+.change-badge.pos{background:var(--okl);color:#065f46;border:1px solid #a7f3d0}
+.change-badge.neg{background:var(--erl);color:#991b1b;border:1px solid #fecaca}
+.change-period{font-size:.6rem;color:var(--t3)}
+
+/* ─── Actions Row — horizontal scroll on all sizes ─── */
+.bh-actions{
+  display:flex;
+  gap:6px;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+  padding:2px 2px 4px;
+  scroll-snap-type:x proximity;
+  margin:0 -2px;
+}
+.bh-actions::-webkit-scrollbar{display:none}
+.bh-btn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;transition:all .22s;flex:0 0 auto;
+  min-width:64px;max-width:80px;
+  scroll-snap-align:start;
+  text-decoration:none;
+}
+.bh-btn-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:.85rem;transition:all .22s;border:1px solid var(--bdr)}
+.bh-btn:hover .bh-btn-ic{transform:translateY(-2px);box-shadow:var(--s1)}
+.bh-btn-lbl{font-size:.58rem;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;text-align:center}
+.bh-btn.dep .bh-btn-ic{background:var(--okl);color:#065f46;border-color:#bbf0d8}
+.bh-btn.dep:hover .bh-btn-ic{background:var(--ok);color:#fff}
+.bh-btn.wd .bh-btn-ic{background:var(--erl);color:var(--err);border-color:#fecaca}
+.bh-btn.wd:hover .bh-btn-ic{background:var(--err);color:#fff}
+.bh-btn.gc .bh-btn-ic{background:var(--acl);color:var(--acd);border-color:#fde7ad}
+.bh-btn.gc:hover .bh-btn-ic{background:var(--acc);color:#fff}
+.bh-btn.hi .bh-btn-ic{background:var(--usdl);color:var(--usd);border-color:#c7d9ff}
+.bh-btn.hi:hover .bh-btn-ic{background:var(--usd);color:#fff}
+.bh-btn.crypto .bh-btn-ic{background:#fef3c7;color:#d97706;border-color:#fde68a}
+.bh-btn.crypto:hover .bh-btn-ic{background:#d97706;color:#fff}
+
+/* ─── Ticker ─── */
+.ticker-section{margin-bottom:20px}
+.ticker-lbl{display:flex;align-items:center;gap:7px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px;padding:0 2px}
+.ticker-lbl i{color:var(--p)}
+.ticker-wrap{overflow:hidden;position:relative;background:var(--srf);border:1px solid var(--bdr);border-radius:var(--r);padding:4px 0}
+.ticker-wrap::before,.ticker-wrap::after{content:'';position:absolute;top:0;bottom:0;width:30px;z-index:2;pointer-events:none}
+.ticker-wrap::before{left:0;background:linear-gradient(to right,var(--srf),transparent)}
+.ticker-wrap::after{right:0;background:linear-gradient(to left,var(--srf),transparent)}
+.ticker-track{display:flex;gap:12px;animation:ticker 30s linear infinite;width:max-content;padding:4px 0}
+.ticker-track:hover{animation-play-state:paused}
+.ticker-item{display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--rp);white-space:nowrap;flex-shrink:0;cursor:pointer;transition:all .2s}
+.ticker-item:hover{border-color:var(--p);transform:translateY(-1px);box-shadow:var(--s0)}
+.ticker-icon{font-size:.9rem;flex-shrink:0}
+.ticker-text{font-size:.72rem;font-weight:500;color:var(--t1)}
+.ticker-badge{font-size:.6rem;font-weight:700;padding:1px 8px;border-radius:4px;background:var(--acc);color:#fff}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ─── Announcements ─── */
+.announce-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin-bottom:16px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+.announce-row::-webkit-scrollbar{display:none}
+.ann-card{flex-shrink:0;width:200px;border-radius:var(--rl);padding:14px;position:relative;overflow:hidden;cursor:pointer;transition:all .22s;text-decoration:none;scroll-snap-align:start}
+.ann-card:hover{transform:translateY(-2px)}
+.ann-card.c1{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.ann-card.c2{background:linear-gradient(135deg,#7c3aed,#4c1d95)}
+.ann-card.c3{background:linear-gradient(135deg,var(--p),#1a5f75)}
+.ann-card.c4{background:linear-gradient(135deg,#10b981,#047857)}
+.ann-card.c5{background:linear-gradient(135deg,#0c3d4a,#1a5f75)}
+.ann-card h4{font-family:var(--fd);font-size:.75rem;font-weight:800;color:#fff;margin-bottom:3px}
+.ann-card p{font-size:.62rem;color:rgba(255,255,255,.72);line-height:1.4;margin-bottom:8px}
+.ann-lm{display:inline-flex;align-items:center;gap:3px;font-size:.62rem;font-weight:700;color:#fff}
+
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+.section-hd h2{font-family:var(--fd);font-size:.82rem;font-weight:700;color:var(--t1)}
+.view-all{font-size:.7rem;font-weight:600;color:var(--pm);cursor:pointer;transition:opacity .18s;text-decoration:none;white-space:nowrap}
+.view-all:hover{opacity:.7}
+
+/* ─── Products grid ─── */
+.prod-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+@media(max-width:640px){
+  .prod-grid{
+    display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:8px;
+    padding:2px 2px 6px;margin:0 -2px 16px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;
+  }
+  .prod-grid::-webkit-scrollbar{display:none}
+  .prod-card{flex:0 0 auto;min-width:120px;max-width:140px;scroll-snap-align:start}
+}
+.prod-card{background:var(--srf);border:1.5px solid var(--bdr);border-radius:var(--rl);padding:14px 8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;transition:all .22s;cursor:pointer;text-decoration:none}
+.prod-card:hover{border-color:var(--p);box-shadow:var(--s1);transform:translateY(-2px)}
+.pc-icon{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:.85rem;flex-shrink:0}
+.pc-name{font-family:var(--fd);font-size:.7rem;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pc-sub{font-size:.62rem;color:var(--t3);margin-top:-3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:480px){.pc-name{font-size:.66rem}.pc-sub{display:none}}
+
+/* ─── Transactions ─── */
+.tx-card{background:var(--srf);border:1px solid var(--bdr);border-radius:var(--rxl);overflow:hidden;box-shadow:var(--s0);margin-bottom:16px}
+.tx-hd{padding:12px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tx-hd h3{font-family:var(--fd);font-size:.8rem;font-weight:700;display:flex;align-items:center;gap:6px}
+.tx-hd h3 i{color:var(--p)}
+.tx-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative}
+.tx-scroll::after{
+  content:'';position:absolute;top:0;right:0;bottom:0;width:20px;
+  background:linear-gradient(to left,var(--srf),transparent);
+  pointer-events:none;opacity:0;transition:opacity .2s;
+}
+.tx-scroll.has-overflow::after{opacity:1}
+table{width:100%;border-collapse:collapse;min-width:480px}
+th{padding:8px 12px;background:var(--srf2);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--t3);text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+td{padding:10px 12px;font-size:.72rem;border-bottom:1px solid var(--bdr);color:var(--t1);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.tx-row{cursor:pointer;transition:background .15s}
+tr.tx-row:hover{background:var(--srf2)}
+tr.tx-row:active{background:var(--pl)}
+.tx-type-ic{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;font-size:.7rem;flex-shrink:0}
+.tx-type-wrap{display:flex;align-items:center;gap:8px}
+.tx-type-name{font-size:.72rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.tx-type-sub{font-size:.58rem;color:var(--t3)}
+.tx-badge{display:inline-flex;align-items:center;padding:1px 8px;border-radius:5px;font-size:.55rem;font-weight:700;margin-top:3px}
+.tx-badge.sold{background:#fce7f3;color:#be185d}
+.tx-badge.bought{background:var(--pl);color:var(--pm)}
+.tx-badge.in{background:var(--okl);color:#065f46}
+.tx-badge.out{background:var(--erl);color:#991b1b}
+.tx-ref{font-family:var(--fd);font-size:.7rem;font-weight:700;color:var(--t2);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;display:inline-block}
+.tx-status-row{display:flex;align-items:center;gap:5px}
+.tx-status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tx-status-dot.ok{background:var(--ok)}
+.tx-status-dot.pend{background:var(--acc)}
+.tx-status-dot.err{background:var(--err)}
+.tx-status-txt{font-size:.68rem;font-weight:600}
+.tx-status-txt.ok{color:var(--ok)}
+.tx-status-txt.pend{color:var(--acd)}
+.tx-status-txt.err{color:var(--err)}
+.tx-amt{font-family:var(--fd);font-weight:700;color:var(--t1);font-size:.74rem;white-space:nowrap}
+.tx-empty{text-align:center;padding:24px;color:var(--t3);font-size:.75rem}
+.tx-empty i{font-size:1.4rem;display:block;margin-bottom:8px;color:var(--bdr)}
+.tx-skel td{padding:0}
+.tx-skel-inner{height:44px;background:linear-gradient(90deg,var(--srf2) 25%,var(--bdr) 50%,var(--srf2) 75%);background-size:400% 100%;animation:shimmer 1.4s infinite}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* ─── TX Sheet ─── */
+.tx-sheet-ov{display:none;position:fixed;inset:0;background:rgba(10,37,48,.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:800}
+.tx-sheet-ov.on{display:block;animation:fadeOv .2s ease}
+@keyframes fadeOv{from{opacity:0}to{opacity:1}}
+.tx-sheet{position:fixed;right:0;top:0;bottom:0;width:400px;max-width:92vw;background:var(--srf);z-index:801;transform:translateX(100%);transition:transform .28s var(--ease);display:flex;flex-direction:column;box-shadow:var(--s2)}
+.tx-sheet.on{transform:translateX(0)}
+@media(max-width:640px){.tx-sheet{width:100%;max-width:100%;top:auto;bottom:0;height:88vh;border-radius:20px 20px 0 0;transform:translateY(100%)}.tx-sheet.on{transform:translateY(0)}}
+.tx-sheet-hd{padding:14px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.tx-sheet-back{width:34px;height:34px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.8rem;cursor:pointer;transition:all .18s;flex-shrink:0}
+.tx-sheet-back:hover{background:var(--pl);color:var(--p)}
+.tx-sheet-hd h3{font-family:var(--fd);font-size:.85rem;font-weight:700;color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx-sheet-share{width:34px;height:34px;border-radius:9px;background:var(--srf2);border:1px solid var(--bdr);display:grid;place-items:center;color:var(--t2);font-size:.75rem;cursor:pointer;transition:all .18s;flex-shrink:0}
+.tx-sheet-share:hover{background:var(--pl);color:var(--p)}
+.tx-sheet-body{padding:18px 16px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.tx-sheet-icon-row{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:18px;text-align:center}
+.tx-sheet-icon{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;font-size:1.25rem}
+.tx-sheet-amt{font-family:var(--fd);font-size:1.55rem;font-weight:800;color:var(--t1);word-break:break-all;text-align:center}
+.tx-sheet-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--bdr)}
+.tx-sheet-row:last-child{border-bottom:none}
+.tx-sheet-lbl{font-size:.68rem;color:var(--t3);flex-shrink:0}
+.tx-sheet-val{font-size:.72rem;font-weight:600;color:var(--t1);text-align:right;display:flex;align-items:center;gap:6px;justify-content:flex-end;flex-wrap:wrap;word-break:break-all}
+.tx-sheet-copy{color:var(--t3);cursor:pointer;font-size:.65rem;transition:color .18s}
+.tx-sheet-copy:hover{color:var(--p)}
+.tx-sheet-foot{padding:14px 16px;border-top:1px solid var(--bdr);flex-shrink:0}
+.tx-sheet-view-all{display:block;text-align:center;padding:12px;background:var(--pl);color:var(--p);border-radius:var(--r);font-size:.78rem;font-weight:700}
+
+/* ─── Mobile Nav ─── */
+.mnav{
+  display:none;position:fixed;
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  left:50%;transform:translateX(-50%);
+  width:calc(100% - 20px);max-width:420px;height:56px;
+  background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.8);border-radius:18px;
+  box-shadow:0 6px 24px rgba(12,61,74,.15);
+  z-index:450;align-items:center;justify-content:space-around;padding:0 6px;
+}
+.mni{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.5rem;font-weight:600;color:var(--t3);text-decoration:none;flex:1;background:none;border:none;padding:6px 2px;min-height:44px}
+.mni i{font-size:.85rem;padding:4px 8px;border-radius:8px;transition:all .18s}
+.mni.active{color:var(--p)}
+.mni.active i{background:var(--pl);color:var(--p)}
+
+/* ─── Toasts ─── */
+.toasts{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom,0px));right:12px;z-index:900;display:flex;flex-direction:column;gap:5px;max-width:280px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:6px;padding:9px 13px;border-radius:var(--rp);box-shadow:var(--s2);font-size:.72rem;font-weight:500;pointer-events:auto;animation:tIn .22s ease}
+.toast.ok{background:var(--okl);color:#065f46}
+.toast.err{background:var(--erl);color:#991b1b}
+.toast.info{background:var(--srf);color:var(--t1);border:1px solid var(--bdr)}
+@keyframes tIn{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+
+/* ─── Responsive ─── */
+@media(max-width:768px){
+  .content{padding:12px 10px calc(100px + env(safe-area-inset-bottom,0px))}
+  .topbar{height:56px;padding:0 12px;gap:8px}
+  .tb-brand{font-size:.85rem}
+  .mnav{display:flex}
+  .balance-hero{padding:14px 12px;border-radius:var(--rl)}
+  .bh-main-amount{font-size:clamp(1.5rem, 8vw, 2.2rem)}
+  .bh-btn{min-width:60px;max-width:72px}
+  .bh-btn-ic{width:38px;height:38px;font-size:.8rem}
+  .bh-btn-lbl{font-size:.55rem}
+  table{min-width:440px}
+}
+@media(max-width:480px){
+  .bh-greeting-name{font-size:.78rem}
+  .bh-main-amount{font-size:clamp(1.35rem, 7vw, 1.9rem)}
+  .bh-currency-sym{font-size:1rem}
+  .ann-card{width:170px}
+  .curr-dropdown{width:210px}
+}
+@media(max-width:360px){
+  .bh-main-amount{font-size:1.25rem}
+  .bh-btn{min-width:56px}
+  .bh-btn-ic{width:34px;height:34px;font-size:.75rem}
+}
+
+.fu{animation:fadeUp .4s var(--ease) both}
+.d1{animation-delay:.03s}.d2{animation-delay:.07s}.d3{animation-delay:.11s}.d4{animation-delay:.15s}.d5{animation-delay:.19s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ─── PIN Overlay ─── */
+body.pin-locked .app{filter:blur(4px);pointer-events:none;user-select:none;-webkit-user-select:none}
+body.pin-locked .mnav{filter:blur(4px);pointer-events:none;user-select:none;-webkit-user-select:none}
+body.pin-locked{overflow:hidden}
+.pin-ov{display:none;position:fixed;inset:0;z-index:2000;background:rgba(10,37,48,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);justify-content:flex-end;align-items:stretch}
+.pin-ov.on{display:flex}
+.pin-panel{width:420px;max-width:94vw;background:var(--srf);box-shadow:var(--s2);z-index:2001;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .32s var(--ease);overflow-y:auto;margin:0;border-radius:0}
+.pin-ov.on .pin-panel{transform:translateX(0)}
+@media(max-width:640px){.pin-panel{width:100%;max-width:100%;height:100%;border-radius:0}}
+.pin-panel-hd{padding:28px 24px 18px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.pin-panel-ic{width:46px;height:46px;border-radius:14px;background:var(--pl);color:var(--p);display:grid;place-items:center;font-size:1.15rem;margin-bottom:14px}
+.pin-panel-hd h3{font-family:var(--fd);font-size:1.15rem;font-weight:800;color:var(--t1);margin-bottom:6px}
+.pin-panel-hd p{font-size:.78rem;color:var(--t2);line-height:1.55}
+.pin-panel-body{padding:22px 24px 26px;flex:1}
+.pin-fg{margin-bottom:20px}
+.pin-lbl{display:block;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:9px}
+.pin-boxes{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.pin-boxes.shake{animation:pinShake .4s}
+@keyframes pinShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.pin-box{width:54px;height:58px;border:1.5px solid var(--bdr);border-radius:var(--r);text-align:center;font-family:var(--fd);font-size:1.35rem;font-weight:800;color:var(--t1);background:var(--srf2);transition:all .18s;outline:none}
+.pin-box:focus{border-color:var(--p);background:var(--srf);box-shadow:0 0 0 3px var(--pl)}
+.pin-box.filled{border-color:var(--p)}
+.pin-box.err{border-color:var(--err);background:var(--erl)}
+.pin-errmsg{font-size:.68rem;color:var(--err);margin-top:7px;min-height:14px;text-align:center}
+.pin-tips{background:var(--srf2);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px 16px;margin-bottom:22px}
+.pin-tips-hd{font-size:.72rem;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.pin-tips-hd i{color:var(--acc)}
+.pin-tips ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+.pin-tips li{font-size:.68rem;color:var(--t2);padding-left:16px;position:relative}
+.pin-tips li::before{content:'✓';position:absolute;left:0;color:var(--ok);font-weight:700}
+.pin-submit{width:100%;padding:14px;border-radius:var(--r);background:var(--p);color:#fff;font-family:var(--fd);font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;border:none;cursor:pointer}
+.pin-submit:disabled{opacity:.5;cursor:not-allowed}
+.pin-submit:not(:disabled):hover{background:var(--pm);transform:translateY(-1px);box-shadow:var(--s1)}
+.pin-submit .spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+<script src="/js/session.js"></script>
+<script src="/js/presence.js"></script>
+
+<script>
+    (function() {
+        try {
+            const sess = JSON.parse(localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess') || '{}');
+            const user = sess.user || {};
+            window.__MILES_USER_ID = user.id || '';
+            window.__MILES_TOKEN = sess.token || '';
+            window.__MILES_USERNAME = user.username || 'User';
+        } catch(e) {
+            window.__MILES_USER_ID = '';
+            window.__MILES_TOKEN = '';
+            window.__MILES_USERNAME = 'User';
+        }
+    })();
+</script>
+<script src="/js/miles-widget.js" defer></script>
+</head>
+<body>
+
+<div class="ov" id="ov"></div>
+
+<div class="app">
+
+<aside class="sidebar" id="sb">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
+      MilesSpace
+    </div>
+  </div>
+  <p class="sb-sec">Menu</p>
+  <nav class="sb-nav">
+    <a href="dashboard.html" class="sb-lnk active"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="boost.html" class="sb-lnk"><i class="fas fa-chart-line"></i> Social Boosting</a>
+    <a href="virtual.html" class="sb-lnk"><i class="fas fa-phone-alt"></i> Virtual Numbers</a>
+    <a href="market.html" class="sb-lnk"><i class="fas fa-store"></i> Marketplace</a>
+    <a href="airtime.html" class="sb-lnk"><i class="fas fa-globe"></i> Global Airtime</a>
+    <a href="bills.html" class="sb-lnk"><i class="fas fa-file-invoice-dollar"></i> Airtime, Data &amp; Bills</a>
+    <a href="esim.html" class="sb-lnk"><i class="fas fa-sim-card"></i> Buy eSIM</a>
+    <a href="giftcards.html" class="sb-lnk"><i class="fas fa-gift"></i> Gift Cards</a>
+    <a href="history.html" class="sb-lnk"><i class="fas fa-history"></i> History</a>
+    <a href="fund.html" class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
+  </nav>
+  <p class="sb-sec">Account</p>
+  <nav class="sb-nav">
+    <a href="usersettings.html" class="sb-lnk"><i class="fas fa-user-cog"></i> Settings</a>
+    <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
+  </nav>
+  <div class="sb-foot">
+    <div class="sb-prof">
+      <a href="usersettings.html" class="sb-prof-link" style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;text-decoration:none">
+        <div class="sb-av" id="sbAv">U</div>
+        <div class="sb-ui"><p class="sb-un" id="sbName">Loading…</p><p class="sb-ue" id="sbEmail"></p></div>
+      </a>
+      <button class="sb-out" id="logoutBtn" title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="tb-hbg" id="hbg" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+    <span class="tb-brand">MilesSpace</span>
+    <div class="tb-right">
+      <a href="notifications.html" class="tb-icon-btn" aria-label="Notifications">
+        <i class="fas fa-bell"></i><span class="notif-dot"></span>
+      </a>
+      <a href="usersettings.html" class="tb-av" id="tbAv">U</a>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <div class="balance-hero fu d1">
+      <div class="bh-top">
+        <div class="bh-greeting">
+          <span class="bh-greeting-lbl" id="greetingLabel">Good Morning ☀️</span>
+          <span class="bh-greeting-name" id="greetName">Loading…</span>
+        </div>
+        <div class="curr-selector" id="currSelector">
+          <div class="curr-trigger" id="currTrigger">
+            <span class="curr-flag" id="currFlag">🇳🇬</span>
+            <span class="curr-name" id="currName">NGN</span>
+            <i class="fas fa-chevron-down curr-chev"></i>
+          </div>
+          <div class="curr-dropdown" id="currDropdown">
+            <div class="curr-dropdown-hd">Select wallet</div>
+            <div class="curr-opt active" data-key="ngn">
+              <span class="curr-opt-flag">🇳🇬</span>
+              <div class="curr-opt-info">
+                <span class="curr-opt-name">Nigerian Naira</span>
+                <span class="curr-opt-sub" id="drop-ngn-sub">₦0.00</span>
+              </div>
+              <span class="curr-opt-bal">NGN</span>
+              <span class="curr-opt-check"><i class="fas fa-check" style="font-size:.5rem"></i></span>
+            </div>
+            <div class="curr-opt" data-key="usd">
+              <span class="curr-opt-flag">🌐</span>
+              <div class="curr-opt-info">
+                <span class="curr-opt-name">US Dollar</span>
+                <span class="curr-opt-sub" id="drop-usd-sub">$0.00</span>
+              </div>
+              <span class="curr-opt-bal">USD</span>
+              <span class="curr-opt-check"><i class="fas fa-check" style="font-size:.5rem"></i></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bh-balance">
+        <div class="bh-bal-lbl">
+          <span id="balLabel">Naira Balance</span>
+          <button class="eye-btn" id="eyeBtn" aria-label="Toggle balance visibility"><i class="fas fa-eye" id="eyeIc"></i></button>
+        </div>
+        <div class="bh-amount-wrap">
+          <span class="bh-currency-sym" id="currSym">₦</span>
+          <span class="bh-main-amount" id="mainBal">0.00</span>
+        </div>
+      </div>
+      <div class="bh-change">
+        <span class="change-badge pos" id="changeBadge">
+          <i class="fas fa-arrow-up" style="font-size:.55rem"></i> 0.00%
+        </span>
+        <span class="change-period">vs last week</span>
+      </div>
+      <div class="bh-actions">
+        <div class="bh-btn dep" onclick="location.href='fund.html'">
+          <div class="bh-btn-ic"><i class="fas fa-plus"></i></div>
+          <span class="bh-btn-lbl">Deposit</span>
+        </div>
+        <div class="bh-btn wd" onclick="location.href='fund.html?op=withdraw'">
+          <div class="bh-btn-ic"><i class="fas fa-arrow-up-from-bracket"></i></div>
+          <span class="bh-btn-lbl">Withdraw</span>
+        </div>
+        <div class="bh-btn gc" onclick="location.href='/esim.html'">
+          <div class="bh-btn-ic"><i class="fas fa-sim-card"></i></div>
+          <span class="bh-btn-lbl">Esim</span>
+        </div>
+        <div class="bh-btn hi" onclick="location.href='history.html'">
+          <div class="bh-btn-ic"><i class="fas fa-clock-rotate-left"></i></div>
+          <span class="bh-btn-lbl">History</span>
+        </div>
+        <div class="bh-btn crypto" onclick="location.href='/giftcards.html'">
+          <div class="bh-btn-ic"><i class="fas fa-gift"></i></div>
+          <span class="bh-btn-lbl">Gift Card</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ticker-section fu d2">
+      <div class="ticker-lbl">
+        <i class="fas fa-bullhorn" id="tickerIcon"></i>
+        <span id="tickerTitle">Live Updates</span>
+      </div>
+      <div class="ticker-wrap">
+        <div class="ticker-track" id="tickerTrack">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:.74rem;color:var(--t3)">
+            <i class="fas fa-spinner fa-spin"></i> Loading updates…
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="announce-row fu d2">
+      <a href="fund.html" class="ann-card c1">
+        <h4>💰 Fund Wallet</h4>
+        <p>Top up your NGN wallet instantly using bank transfer or card.</p>
+        <span class="ann-lm">Fund Now <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a href="/esim.html" class="ann-card c2">
+        <h4>📶 Buy eSIM</h4>
+        <p>Purchase eSIM for mobile connectivity.</p>
+        <span class="ann-lm">Buy Now <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a href="/airtime.html" class="ann-card c3">
+        <h4>📱 Global TopUp</h4>
+        <p>Global airtime and data top-up service.</p>
+        <span class="ann-lm">Recharge Now <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a href="/usersettings.html" class="ann-card c4">
+        <h4>🔐 Secure Your Account</h4>
+        <p>Enable 2FA, change password &amp; protect your wallet.</p>
+        <span class="ann-lm">Go to Security <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a href="/airtime.html" class="ann-card c5">
+        <h4>📱 Buy Airtime &amp; Data</h4>
+        <p>MTN, Airtel, Glo, 9mobile - recharge instantly.</p>
+        <span class="ann-lm">Recharge Now <i class="fas fa-arrow-right"></i></span>
+      </a>
+    </div>
+
+    <div class="fu d3">
+      <div class="section-hd">
+        <h2>Products</h2>
+        <a href="/products.html" class="view-all">View All →</a>
+      </div>
+      <div class="prod-grid">
+        <a href="/airtime.html" class="prod-card">
+          <div class="pc-icon" style="background:var(--acl);color:var(--acd)"><i class="fas fa-globe"></i></div>
+          <p class="pc-name">Global TopUp</p>
+          <p class="pc-sub">Global airtime and data top-up</p>
+        </a>
+        <a href="/esim.html" class="prod-card">
+          <div class="pc-icon" style="background:#fef3c7;color:#d97706"><i class="fas fa-sim-card"></i></div>
+          <p class="pc-name">Esim</p>
+          <p class="pc-sub">Purchase eSIM for mobile connectivity</p>
+        </a>
+        <a href="virtual.html" class="prod-card">
+          <div class="pc-icon" style="background:#ede9fe;color:#7c3aed"><i class="fas fa-phone-alt"></i></div>
+          <p class="pc-name">Virtual #</p>
+          <p class="pc-sub">OTP numbers</p>
+        </a>
+        <a href="market.html" class="prod-card">
+          <div class="pc-icon" style="background:var(--pl);color:var(--p)"><i class="fas fa-store"></i></div>
+          <p class="pc-name">Marketplace</p>
+          <p class="pc-sub">Verified accounts</p>
+        </a>
+      </div>
+    </div>
+
+    <div class="fu d4">
+      <div class="section-hd">
+        <h2>Recent Transactions</h2>
+        <a href="history.html" class="view-all">View All →</a>
+      </div>
+      <div class="tx-card">
+        <div class="tx-hd">
+          <h3><i class="fas fa-receipt"></i> Activity</h3>
+          <a href="history.html" style="font-size:.68rem;font-weight:600;color:var(--pm)">See all →</a>
+        </div>
+        <div class="tx-scroll">
+          <table>
+            <thead><tr><th>Type</th><th>Reference ID</th><th>Amount</th><th>Status</th><th>Date Created</th></tr></thead>
+            <tbody id="txBody">
+              <tr class="tx-skel"><td colspan="5"><div class="tx-skel-inner"></div></td></tr>
+              <tr class="tx-skel"><td colspan="5"><div class="tx-skel-inner"></div></td></tr>
+              <tr class="tx-skel"><td colspan="5"><div class="tx-skel-inner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <footer style="text-align:center;padding:12px 0 4px;font-size:.65rem;color:var(--t3)">
+      © 2025 MilesSpace · All rights reserved
+    </footer>
+  </main>
+</div>
+</div>
+
+<nav class="mnav">
+  <a href="dashboard.html" class="mni active"><i class="fas fa-home"></i><span>Home</span></a>
+  <a href="boost.html" class="mni"><i class="fas fa-chart-line"></i><span>Boost</span></a>
+  <a href="giftcards.html" class="mni"><i class="fas fa-gift"></i><span>Gift Cards</span></a>
+  <a href="market.html" class="mni"><i class="fas fa-store"></i><span>Market</span></a>
+  <button class="mni" id="milesMobileTrigger" style="background:none;border:none;">
+    <i class="fas fa-headset"></i><span>Support</span>
+  </button>
+</nav>
+
+<div class="toasts" id="toastWrap"></div>
+
+<div class="tx-sheet-ov" id="txSheetOv"></div>
+<div class="tx-sheet" id="txSheet">
+  <div class="tx-sheet-hd">
+    <button class="tx-sheet-back" id="txSheetBack"><i class="fas fa-arrow-left"></i></button>
+    <h3>Transaction Details</h3>
+    <button class="tx-sheet-share" id="txSheetShare" title="Share"><i class="fas fa-share-nodes"></i></button>
+  </div>
+  <div class="tx-sheet-body" id="txSheetBody"></div>
+  <div class="tx-sheet-foot">
+    <a href="history.html" class="tx-sheet-view-all">View All Transactions</a>
+  </div>
+</div>
+
+<div class="pin-ov" id="pinOv">
+  <div class="pin-panel" id="pinPanel">
+    <div class="pin-panel-hd">
+      <div class="pin-panel-ic"><i class="fas fa-lock"></i></div>
+      <h3>Create Transaction PIN</h3>
+      <p>This PIN protects every financial action on your account — deposits, withdrawals, bill payments, gift cards, and marketplace purchases.</p>
+    </div>
+    <div class="pin-panel-body">
+      <div class="pin-fg">
+        <label class="pin-lbl">PIN</label>
+        <div class="pin-boxes" id="pinBoxes1">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin1_1">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin1_2">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin1_3">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin1_4">
+        </div>
+        <p class="pin-errmsg" id="pinErr1"></p>
+      </div>
+      <div class="pin-fg">
+        <label class="pin-lbl">Confirm PIN</label>
+        <div class="pin-boxes" id="pinBoxes2">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin2_1">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin2_2">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin2_3">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-box" autocomplete="off" id="pin2_4">
+        </div>
+        <p class="pin-errmsg" id="pinErr2"></p>
+      </div>
+      <div class="pin-tips">
+        <p class="pin-tips-hd"><i class="fas fa-shield-alt"></i> Security Tips</p>
+        <ul>
+          <li>Never share your PIN with anyone</li>
+          <li>Avoid birthdays or repeated digits</li>
+          <li>Needed for withdrawals &amp; bill payments</li>
+          <li>MilesSpace staff will never ask for it</li>
+        </ul>
+      </div>
+      <button class="pin-submit" id="pinSubmitBtn" disabled>
+        <i class="fas fa-lock"></i> Create PIN
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const Cache = {
+  _data: {},
+  _ttl: {},
+  set(key, value, ttl = 60000) {
+    this._data[key] = value;
+    this._ttl[key] = Date.now() + ttl;
+  },
+  get(key) {
+    if (this._ttl[key] && Date.now() > this._ttl[key]) {
+      delete this._data[key];
+      delete this._ttl[key];
+      return null;
+    }
+    return this._data[key] || null;
+  },
+  clear() {
+    this._data = {};
+    this._ttl = {};
+  }
+};
+
+const State = {
+  hasPin: false,
+  balNGN: 0,
+  balUSD: 0,
+  activeCurr: 'ngn',
+  hidden: false,
+  tickerItems: [],
+  txCache: [],
+  pinSubmitting: false
+};
+
+const DOM = {
+  greetName: document.getElementById('greetName'),
+  greetingLabel: document.getElementById('greetingLabel'),
+  sbName: document.getElementById('sbName'),
+  sbEmail: document.getElementById('sbEmail'),
+  balLabel: document.getElementById('balLabel'),
+  currSym: document.getElementById('currSym'),
+  mainBal: document.getElementById('mainBal'),
+  changeBadge: document.getElementById('changeBadge'),
+  dropNgn: document.getElementById('drop-ngn-sub'),
+  dropUsd: document.getElementById('drop-usd-sub'),
+  eyeIc: document.getElementById('eyeIc'),
+  tickerTrack: document.getElementById('tickerTrack'),
+  tickerIcon: document.getElementById('tickerIcon'),
+  tickerTitle: document.getElementById('tickerTitle'),
+  txBody: document.getElementById('txBody'),
+};
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  let emoji, text;
+  if (hour >= 5 && hour < 12) { emoji = '☀️'; text = 'Good Morning'; }
+  else if (hour >= 12 && hour < 17) { emoji = '🌤️'; text = 'Good Afternoon'; }
+  else if (hour >= 17 && hour < 21) { emoji = '🌅'; text = 'Good Evening'; }
+  else { emoji = '🌙'; text = 'Good Night'; }
+  return { text, emoji };
+}
+
+function getToken() {
+  try {
+    const raw = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
+    return raw ? JSON.parse(raw).token : null;
+  } catch { return null; }
+}
+
+function getSession() {
+  try {
+    const raw = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function redirectToLogin() {
+  window.location.href = 'login.html';
+}
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toastWrap');
+  if (!c) return;
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  const ic = { ok: 'fa-check-circle', err: 'fa-times-circle', info: 'fa-info-circle' };
+  el.innerHTML = `<i class="fas ${ic[type] || ic.info}"></i><span>${msg}</span>`;
+  c.appendChild(el);
+  setTimeout(() => {
+    el.style.cssText = 'opacity:0;transition:all .25s';
+    setTimeout(() => el.remove(), 260);
+  }, 3500);
+}
+
+async function api(path, opts = {}, useCache = false) {
+  const cacheKey = path + JSON.stringify(opts);
+  if (useCache) {
+    const cached = Cache.get(cacheKey);
+    if (cached) return cached;
+  }
+
+  const token = getToken();
+  if (!token) { redirectToLogin(); throw new Error('No token'); }
+
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+  try {
+    const res = await fetch('/api' + path, { ...opts, headers });
+    if (res.status === 401) { redirectToLogin(); throw new Error('Session expired'); }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || 'HTTP ' + res.status);
+    if (useCache) Cache.set(cacheKey, json, 60000);
+    return json;
+  } catch(e) {
+    console.warn('API error:', e.message);
+    throw e;
+  }
+}
+
+const fNGN = n => '₦' + (Number(n) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fUSD = n => '$' + (Number(n) || 0).toFixed(2);
+
+const CUR_SYM = { NGN: '₦', USD: '$' };
+function fMoney(amount, currency) {
+  const cur = String(currency || 'NGN').toUpperCase();
+  const n = Number(amount) || 0;
+  if (cur === 'USD') return '$' + n.toFixed(2);
+  if (cur === 'NGN') {
+    return '₦' + n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  const sym = CUR_SYM[cur];
+  if (sym) return sym + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return cur + ' ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const currSelector = document.getElementById('currSelector');
+  const currTrigger = document.getElementById('currTrigger');
+
+  if (currTrigger) {
+    currTrigger.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      currSelector.classList.toggle('open');
+    });
+  }
+
+  document.querySelectorAll('.curr-opt').forEach(opt => {
+    opt.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      selectCurr(this.dataset.key);
+    });
+  });
+
+  document.addEventListener('click', function(e) {
+    if (currSelector && !currSelector.contains(e.target)) {
+      currSelector.classList.remove('open');
+    }
+  });
+
+  const eyeBtn = document.getElementById('eyeBtn');
+  if (eyeBtn) {
+    eyeBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      State.hidden = !State.hidden;
+      if (DOM.eyeIc) DOM.eyeIc.className = State.hidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+      renderBalance();
+    });
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      localStorage.removeItem('mx_sess');
+      sessionStorage.removeItem('mx_sess');
+      window.location.href = 'login.html';
+    });
+  }
+
+  const greeting = getGreeting();
+  if (DOM.greetingLabel) {
+    DOM.greetingLabel.textContent = `${greeting.text} ${greeting.emoji}`;
+  }
+
+  const mobileTrigger = document.getElementById('milesMobileTrigger');
+  if (mobileTrigger) {
+    mobileTrigger.addEventListener('click', function(e) {
+      e.preventDefault();
+      const launcher = document.getElementById('miles-launcher');
+      if (launcher) {
+        launcher.click();
+      } else if (window.MilesWidget) {
+        window.MilesWidget.toggle();
+      }
+    });
+  }
+
+  initTxSheet();
+  initTxScrollHint();
+});
+
+function initTxScrollHint() {
+  const scroller = document.querySelector('.tx-scroll');
+  if (!scroller) return;
+  const check = () => {
+    const has = scroller.scrollWidth > scroller.clientWidth + 4;
+    scroller.classList.toggle('has-overflow', has);
+  };
+  check();
+  window.addEventListener('resize', check);
+}
+
+function selectCurr(key) {
+  State.activeCurr = key;
+  const selector = document.getElementById('currSelector');
+  if (selector) selector.classList.remove('open');
+  document.querySelectorAll('.curr-opt').forEach(o => o.classList.toggle('active', o.dataset.key === key));
+  const info = { ngn: { flag: '🇳🇬', name: 'NGN' }, usd: { flag: '🌐', name: 'USD' } };
+  const flagEl = document.getElementById('currFlag');
+  const nameEl = document.getElementById('currName');
+  if (flagEl) flagEl.textContent = info[key].flag;
+  if (nameEl) nameEl.textContent = info[key].name;
+  renderBalance();
+}
+
+function renderBalance() {
+  if (!DOM.balLabel) return;
+  const bal = State.activeCurr === 'ngn' ? State.balNGN : State.balUSD;
+  const sym = State.activeCurr === 'ngn' ? '₦' : '$';
+  DOM.balLabel.textContent = State.activeCurr === 'ngn' ? 'Naira Balance' : 'Dollar Balance';
+  DOM.currSym.textContent = sym;
+
+  if (State.hidden) {
+    DOM.mainBal.textContent = '• • • • •';
+    DOM.mainBal.classList.add('hidden');
+  } else {
+    const parts = bal.toFixed(2).split('.');
+    DOM.mainBal.innerHTML = parts[0] + '<span class="cents">.' + parts[1] + '</span>';
+    DOM.mainBal.classList.remove('hidden');
+  }
+
+  if (DOM.dropNgn) DOM.dropNgn.textContent = State.hidden ? '₦ • • •' : fNGN(State.balNGN);
+  if (DOM.dropUsd) DOM.dropUsd.textContent = State.hidden ? '$ • • •' : fUSD(State.balUSD);
+}
+
+async function loadUser() {
+  try {
+    const result = await api('/auth/me', {}, true);
+    if (!result) return;
+    const data = result.data;
+    if (!data) return;
+
+    populateUser(data);
+
+    const pinAlreadySet = data.has_transaction_pin === true;
+    const hasHash = data.transaction_pin_hash !== null &&
+                    data.transaction_pin_hash !== undefined &&
+                    data.transaction_pin_hash !== '';
+    const finalPinStatus = pinAlreadySet || hasHash;
+
+    State.hasPin = finalPinStatus;
+
+    if (finalPinStatus) {
+      const ov = document.getElementById('pinOv');
+      if (ov) {
+        ov.classList.remove('on');
+        ov.style.display = 'none';
+      }
+      document.body.classList.remove('pin-locked');
+    } else {
+      document.body.classList.add('pin-locked');
+      const ov = document.getElementById('pinOv');
+      if (ov) {
+        ov.style.display = 'flex';
+        ov.classList.add('on');
+      }
+      setTimeout(() => {
+        const firstBox = document.getElementById('pin1_1');
+        if (firstBox) firstBox.focus();
+      }, 500);
+    }
+
+    const sess = getSession();
+    if (sess) {
+      sess.user = data;
+      sess.user.has_transaction_pin = finalPinStatus;
+      localStorage.setItem('mx_sess', JSON.stringify(sess));
+    }
+  } catch(e) {
+    console.warn('loadUser error:', e.message);
+  }
+}
+
+function populateUser(u) {
+  const name = u.username || u.full_name || u.email?.split('@')[0] || 'User';
+  const init = name.charAt(0).toUpperCase();
+  const avUrl = u.avatar_url || '';
+
+  const firstName = name.split(' ')[0];
+  if (DOM.greetName) DOM.greetName.textContent = firstName;
+  if (DOM.sbName) DOM.sbName.textContent = name;
+  if (DOM.sbEmail) DOM.sbEmail.textContent = u.email || '';
+
+  ['sbAv', 'tbAv'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (avUrl) {
+      el.innerHTML = `<img src="${avUrl}" alt=""/>`;
+    } else {
+      el.textContent = init;
+    }
+  });
+
+  State.balNGN = parseFloat(u.wallet_ngn) || 0;
+  State.balUSD = parseFloat(u.wallet_usd) || 0;
+  renderBalance();
+}
+
+async function loadTicker() {
+  if (!DOM.tickerTrack) return;
+  try {
+    const res = await api('/ticker/items', {}, true);
+    const items = res.data || [];
+    if (items.length > 0) {
+      State.tickerItems = items;
+      renderTicker(items);
+      if (DOM.tickerIcon) DOM.tickerIcon.className = items[0]?.icon || 'fas fa-bullhorn';
+      if (DOM.tickerTitle) DOM.tickerTitle.textContent = items[0]?.title || 'Live Updates';
+      return;
+    }
+
+    const defaultItems = [
+      { icon: '📢', text: 'Welcome to MilesSpace!', badge: 'NEW' },
+      { icon: '💰', text: 'USD wallet now available', badge: 'HOT' },
+      { icon: '📱', text: 'Virtual numbers from 120+ countries' },
+      { icon: '🎁', text: 'Buy and sell Gift Cards', badge: 'NEW' },
+    ];
+    State.tickerItems = defaultItems;
+    renderTicker(defaultItems);
+  } catch(e) {
+    console.warn('loadTicker error:', e.message);
+  }
+}
+
+function renderTicker(items) {
+  if (!DOM.tickerTrack) return;
+  const doubled = [...items, ...items, ...items];
+  DOM.tickerTrack.innerHTML = doubled.map(item => `
+    <div class="ticker-item">
+      <span class="ticker-icon">${item.icon || '📌'}</span>
+      <span class="ticker-text">${item.text || ''}</span>
+      ${item.badge ? `<span class="ticker-badge">${item.badge}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+let transactionsLoaded = false;
+
+const CREDIT_TYPES = new Set([
+  'deposit', 'credit', 'fund', 'refund', 'reversal',
+  'cashback', 'cashback_redeem', 'referral_bonus',
+  'giftcard_sell', 'transfer_in'
+]);
+const DEBIT_TYPES = new Set([
+  'withdrawal', 'giftcard_buy', 'purchase', 'boost', 'virtual', 'virtual_sms',
+  'marketplace', 'airtime', 'data', 'bills', 'electricity', 'cable',
+  'internet', 'esim', 'transfer_out'
+]);
+
+function isCreditTx(t, rawAmt) {
+  const cat = String(t.category || '').toLowerCase();
+  if (cat === 'credit') return true;
+  if (cat === 'debit') return false;
+  const type = String(t.type || '').toLowerCase();
+  if (CREDIT_TYPES.has(type)) return true;
+  if (DEBIT_TYPES.has(type)) return false;
+  return rawAmt > 0;
+}
+
+async function loadTransactions() {
+  if (transactionsLoaded) return;
+  if (!DOM.txBody) return;
+  try {
+    const res = await api('/transactions', {}, true);
+    const rows = res.data || res.transactions || [];
+    State.txCache = rows;
+    if (!rows.length) {
+      DOM.txBody.innerHTML = `<tr><td colspan="5"><div class="tx-empty"><i class="fas fa-receipt"></i>No transactions yet</div></td></tr>`;
+      return;
+    }
+    DOM.txBody.innerHTML = rows.slice(0, 8).map((t, idx) => {
+      const txCurrency = t.currency || 'NGN';
+      const rawAmt = Number(t.amount) || 0;
+      const absAmt = Math.abs(rawAmt);
+      const isCredit = isCreditTx(t, rawAmt);
+      const cfg = getTxType(t.type);
+      const ref = getTxRef(t);
+      const st = getStatusInfo(t.status);
+      return `<tr class="tx-row" data-idx="${idx}">
+        <td>
+          <div class="tx-type-wrap">
+            <div class="tx-type-ic" style="background:${cfg.bg};color:${cfg.cl}"><i class="${cfg.icon}"></i></div>
+            <div>
+              <div class="tx-type-name">${cfg.label}</div>
+              <span class="tx-badge ${cfg.badgeClass}">${cfg.badgeLabel}</span>
+            </div>
+          </div>
+        </td>
+        <td><span class="tx-ref">${ref}</span></td>
+        <td><span class="tx-amt">${isCredit ? '+' : '-'}${fMoney(absAmt, txCurrency)}</span></td>
+        <td>
+          <div class="tx-status-row">
+            <span class="tx-status-dot ${st.dot}"></span>
+            <span class="tx-status-txt ${st.dot}">${st.label}</span>
+          </div>
+        </td>
+        <td style="font-size:.68rem;color:var(--t3);white-space:nowrap">${t.created_at ? new Date(t.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : '—'}</td>
+      </tr>`;
+    }).join('');
+    wireTxRowClicks();
+    transactionsLoaded = true;
+  } catch(e) {
+    console.error('loadTransactions error:', e.message);
+  }
+}
+
+const TX_TYPE_MAP = {
+  deposit: { label: 'Deposit', icon: 'fas fa-plus-circle', bg: 'var(--okl)', cl: '#065f46', badgeLabel: 'Deposit', badgeClass: 'in' },
+  withdrawal: { label: 'Withdrawal', icon: 'fas fa-arrow-up', bg: 'var(--erl)', cl: 'var(--err)', badgeLabel: 'Withdrawal', badgeClass: 'out' },
+  boost: { label: 'Social Boost', icon: 'fas fa-chart-line', bg: 'var(--pl)', cl: 'var(--p)', badgeLabel: 'Purchase', badgeClass: 'bought' },
+  virtual: { label: 'Virtual Number', icon: 'fas fa-phone-alt', bg: '#ede9fe', cl: '#7c3aed', badgeLabel: 'Purchase', badgeClass: 'bought' },
+  virtual_sms: { label: 'Virtual Number', icon: 'fas fa-phone-alt', bg: '#ede9fe', cl: '#7c3aed', badgeLabel: 'Purchase', badgeClass: 'bought' },
+  marketplace: { label: 'Marketplace', icon: 'fas fa-store', bg: 'var(--acl)', cl: 'var(--acd)', badgeLabel: 'Purchase', badgeClass: 'bought' },
+  giftcard: { label: 'Gift Card', icon: 'fas fa-gift', bg: '#d1fae5', cl: '#065f46', badgeLabel: 'Sold', badgeClass: 'sold' },
+  giftcard_sell: { label: 'Gift Card Sale', icon: 'fas fa-gift', bg: '#d1fae5', cl: '#065f46', badgeLabel: 'Sold', badgeClass: 'sold' },
+  giftcard_buy: { label: 'Gift Card Purchase', icon: 'fas fa-gift', bg: 'var(--acl)', cl: 'var(--acd)', badgeLabel: 'Bought', badgeClass: 'bought' },
+  gift: { label: 'Gift', icon: 'fas fa-gift', bg: 'var(--acl)', cl: 'var(--acd)', badgeLabel: 'Gift', badgeClass: 'bought' },
+  cashback_redeem: { label: 'Cashback Redeem', icon: 'fas fa-coins', bg: 'var(--acl)', cl: 'var(--acd)', badgeLabel: 'Redeemed', badgeClass: 'in' },
+  cashback: { label: 'Cashback', icon: 'fas fa-coins', bg: 'var(--okl)', cl: '#065f46', badgeLabel: 'Credit', badgeClass: 'in' },
+  crypto: { label: 'Crypto Deposit', icon: 'fas fa-coins', bg: '#fef3c7', cl: '#d97706', badgeLabel: 'Deposit', badgeClass: 'in' },
+  airtime: { label: 'Airtime', icon: 'fas fa-mobile-screen', bg: 'var(--acl)', cl: 'var(--acd)', badgeLabel: 'Purchase', badgeClass: 'bought' },
+  data: { label: 'Data Purchase', icon: 'fas fa-wifi', bg: 'var(--pl)', cl: 'var(--p)', badgeLabel: 'Purchase', badgeClass: 'bought' },
+  bills: { label: 'Bill Payment', icon: 'fas fa-file-invoice-dollar', bg: 'var(--pl)', cl: 'var(--p)', badgeLabel: 'Payment', badgeClass: 'bought' },
+  electricity: { label: 'Electricity', icon: 'fas fa-bolt', bg: '#fef3c7', cl: '#d97706', badgeLabel: 'Payment', badgeClass: 'bought' },
+  cable: { label: 'Cable TV', icon: 'fas fa-tv', bg: '#ede9fe', cl: '#7c3aed', badgeLabel: 'Payment', badgeClass: 'bought' },
+  internet: { label: 'Internet', icon: 'fas fa-wifi', bg: 'var(--pl)', cl: 'var(--p)', badgeLabel: 'Payment', badgeClass: 'bought' },
+  esim: { label: 'eSIM', icon: 'fas fa-sim-card', bg: '#fef3c7', cl: '#d97706', badgeLabel: 'Purchase', badgeClass: 'bought' },
+  refund: { label: 'Refund', icon: 'fas fa-rotate-left', bg: 'var(--okl)', cl: '#065f46', badgeLabel: 'Refund', badgeClass: 'in' },
+  transfer_in: { label: 'Transfer Received', icon: 'fas fa-arrow-down', bg: 'var(--okl)', cl: '#065f46', badgeLabel: 'Received', badgeClass: 'in' },
+  transfer_out: { label: 'Transfer Sent', icon: 'fas fa-arrow-up', bg: 'var(--erl)', cl: 'var(--err)', badgeLabel: 'Sent', badgeClass: 'out' },
+};
+
+function getTxType(type) {
+  const key = (type || '').toLowerCase();
+  const found = TX_TYPE_MAP[key];
+  if (found) return found;
+  return { label: type || 'Transaction', icon: 'fas fa-receipt', bg: 'var(--pl)', cl: 'var(--p)', badgeLabel: 'Transaction', badgeClass: 'bought' };
+}
+
+function getTxRef(t) {
+  return t.reference_id || t.reference || t.ref || t.txn_ref || t.tx_ref || t.transaction_ref || t.id || '—';
+}
+
+function getStatusInfo(status) {
+  const s = (status || 'pending').toLowerCase();
+  if (['completed','success','successful','ok'].includes(s)) return { label: 'Completed', dot: 'ok' };
+  if (['failed','error','declined'].includes(s)) return { label: 'Failed', dot: 'err' };
+  return { label: 'Pending', dot: 'pend' };
+}
+
+function wireTxRowClicks() {
+  if (!DOM.txBody) return;
+  DOM.txBody.querySelectorAll('.tx-row').forEach(row => {
+    row.addEventListener('click', () => openTxSheet(Number(row.dataset.idx)));
+  });
+}
+
+function initTxSheet() {
+  const ov = document.getElementById('txSheetOv');
+  const sheet = document.getElementById('txSheet');
+  const back = document.getElementById('txSheetBack');
+  const close = () => { if (sheet) sheet.classList.remove('on'); if (ov) ov.classList.remove('on'); };
+  if (ov) ov.addEventListener('click', close);
+  if (back) back.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+}
+
+function openTxSheet(idx) {
+  const t = State.txCache[idx];
+  if (!t) return;
+  const cfg = getTxType(t.type);
+
+  const txCurrency = t.currency || 'NGN';
+  const rawAmt = Number(t.amount) || 0;
+  const absAmt = Math.abs(rawAmt);
+  const isCredit = isCreditTx(t, rawAmt);
+
+  const ref = getTxRef(t);
+  const st = getStatusInfo(t.status);
+
+  let extraRows = '';
+  if (t.description && t.description !== cfg.label) {
+    extraRows += `<div class="tx-sheet-row"><span class="tx-sheet-lbl">Description</span><span class="tx-sheet-val">${t.description}</span></div>`;
+  }
+  if (t.provider) {
+    extraRows += `<div class="tx-sheet-row"><span class="tx-sheet-lbl">Provider</span><span class="tx-sheet-val">${t.provider}</span></div>`;
+  }
+
+  const body = document.getElementById('txSheetBody');
+  if (body) {
+    body.innerHTML = `
+      <div class="tx-sheet-icon-row">
+        <div class="tx-sheet-icon" style="background:${cfg.bg};color:${cfg.cl}"><i class="${cfg.icon}"></i></div>
+        <div class="tx-sheet-amt">${(isCredit ? '+' : '-') + fMoney(absAmt, txCurrency)}</div>
+        <span class="tx-badge ${cfg.badgeClass}">${cfg.badgeLabel}</span>
+      </div>
+      <div class="tx-sheet-row"><span class="tx-sheet-lbl">Type</span><span class="tx-sheet-val">${cfg.label}</span></div>
+      <div class="tx-sheet-row"><span class="tx-sheet-lbl">Reference ID</span><span class="tx-sheet-val">${ref} <i class="fas fa-copy tx-sheet-copy" onclick="navigator.clipboard && navigator.clipboard.writeText('${ref}')"></i></span></div>
+      <div class="tx-sheet-row"><span class="tx-sheet-lbl">Status</span><span class="tx-sheet-val"><span class="tx-status-row"><span class="tx-status-dot ${st.dot}"></span><span class="tx-status-txt ${st.dot}">${st.label}</span></span></span></div>
+      <div class="tx-sheet-row"><span class="tx-sheet-lbl">Date</span><span class="tx-sheet-val">${t.created_at ? new Date(t.created_at).toLocaleString() : '—'}</span></div>
+      <div class="tx-sheet-row"><span class="tx-sheet-lbl">Amount</span><span class="tx-sheet-val">${fMoney(absAmt, txCurrency)}</span></div>
+      ${extraRows}
+    `;
+  }
+  const ov = document.getElementById('txSheetOv');
+  const sheet = document.getElementById('txSheet');
+  if (ov) ov.classList.add('on');
+  if (sheet) sheet.classList.add('on');
+}
+
+function initSidebar() {
+  const sb = document.getElementById('sb');
+  const ov = document.getElementById('ov');
+  const hbg = document.getElementById('hbg');
+  const isMobile = () => window.innerWidth < 1025;
+
+  const openDrawer = () => {
+    sb.classList.add('open');
+    ov.classList.add('on');
+    document.body.classList.add('sb-open');
+  };
+  const closeDrawer = () => {
+    sb.classList.remove('open');
+    ov.classList.remove('on');
+    document.body.classList.remove('sb-open');
+  };
+
+  if (hbg) {
+    hbg.addEventListener('click', function() {
+      if (!isMobile()) return;
+      if (sb.classList.contains('open')) closeDrawer();
+      else openDrawer();
+    });
+  }
+
+  if (ov) {
+    ov.addEventListener('click', closeDrawer);
+  }
+
+  document.querySelectorAll('.sb-lnk').forEach(link => {
+    link.addEventListener('click', function() {
+      if (isMobile()) closeDrawer();
+    });
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && sb.classList.contains('open')) {
+      closeDrawer();
+    }
+  });
+
+  window.addEventListener('resize', function() {
+    if (!isMobile()) {
+      closeDrawer();
+    }
+  });
+}
+
+const WEAK_PINS = ['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999',
+  '1234','4321','1212','2121','1122','2211','0123','1230','1010','9090'];
+
+function isWeakPin(pin) {
+  if (WEAK_PINS.includes(pin)) return true;
+  const d = pin.split('').map(Number);
+  if (d.every(x => x === d[0])) return true;
+  let ascending = true, descending = true;
+  for (let i = 1; i < d.length; i++) {
+    if (d[i] - d[i - 1] !== 1) ascending = false;
+    if (d[i - 1] - d[i] !== 1) descending = false;
+  }
+  return ascending || descending;
+}
+
+function getPinValue() {
+  const boxes1 = ['pin1_1', 'pin1_2', 'pin1_3', 'pin1_4'];
+  const boxes2 = ['pin2_1', 'pin2_2', 'pin2_3', 'pin2_4'];
+  const p1 = boxes1.map(id => document.getElementById(id)?.value || '').join('');
+  const p2 = boxes2.map(id => document.getElementById(id)?.value || '').join('');
+  return { p1, p2 };
+}
+
+function checkPinFormReady() {
+  const { p1, p2 } = getPinValue();
+  const btn = document.getElementById('pinSubmitBtn');
+  if (btn) btn.disabled = !(p1.length === 4 && p2.length === 4);
+}
+
+function shakeRow(rowId) {
+  const wrap = document.getElementById(rowId);
+  if (!wrap) return;
+  wrap.classList.remove('shake');
+  void wrap.offsetWidth;
+  wrap.classList.add('shake');
+}
+
+function markRowErr(rowId, on) {
+  const boxes = document.getElementById(rowId);
+  if (!boxes) return;
+  boxes.querySelectorAll('.pin-box').forEach(b => b.classList.toggle('err', on));
+}
+
+function clearPinErrors() {
+  const e1 = document.getElementById('pinErr1');
+  const e2 = document.getElementById('pinErr2');
+  if (e1) e1.textContent = '';
+  if (e2) e2.textContent = '';
+  markRowErr('pinBoxes1', false);
+  markRowErr('pinBoxes2', false);
+}
+
+function wirePinBoxes() {
+  const allBoxes = document.querySelectorAll('.pin-box');
+  allBoxes.forEach((box, i, arr) => {
+    box.addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9]/g, '').slice(0, 1);
+      this.classList.toggle('filled', !!this.value);
+      clearPinErrors();
+      if (this.value && i < arr.length - 1) {
+        arr[i + 1].focus();
+      }
+      checkPinFormReady();
+      if (this.value && i === arr.length - 1) {
+        setTimeout(() => submitTransactionPin(), 300);
+      }
+    });
+    box.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && !this.value && i > 0) {
+        arr[i - 1].focus();
+      }
+    });
+    box.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const text = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '').slice(0, 4);
+      const boxes = document.querySelectorAll('.pin-box');
+      text.split('').forEach((ch, idx) => {
+        if (boxes[idx]) { boxes[idx].value = ch; boxes[idx].classList.add('filled'); }
+      });
+      const next = boxes[Math.min(text.length, boxes.length - 1)];
+      if (next) next.focus();
+      checkPinFormReady();
+      if (text.length === 4) {
+        setTimeout(() => submitTransactionPin(), 300);
+      }
+    });
+  });
+}
+
+function initPinOnboarding() {
+  wirePinBoxes();
+
+  const btn = document.getElementById('pinSubmitBtn');
+  if (btn) btn.addEventListener('click', submitTransactionPin);
+
+  document.addEventListener('keydown', (e) => {
+    if (document.body.classList.contains('pin-locked') && e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+}
+
+function unlockDashboardAfterPin() {
+  State.hasPin = true;
+
+  const ov = document.getElementById('pinOv');
+  if (ov) {
+    ov.classList.remove('on');
+    ov.style.display = 'none';
+  }
+  document.body.classList.remove('pin-locked');
+
+  const sess = getSession();
+  if (sess && sess.user) {
+    sess.user.has_transaction_pin = true;
+    localStorage.setItem('mx_sess', JSON.stringify(sess));
+  }
+
+  loadUser().catch(() => {});
+  toast('✅ Transaction PIN created successfully. Your account is now fully secured.', 'ok');
+}
+
+async function submitTransactionPin() {
+  if (State.pinSubmitting) return;
+
+  const { p1, p2 } = getPinValue();
+  clearPinErrors();
+
+  if (p1.length !== 4 || p2.length !== 4) {
+    return;
+  }
+
+  if (isWeakPin(p1)) {
+    const e1 = document.getElementById('pinErr1');
+    if (e1) e1.textContent = 'This PIN is too easy to guess. Choose a less predictable one.';
+    markRowErr('pinBoxes1', true);
+    shakeRow('pinBoxes1');
+    return;
+  }
+
+  if (p1 !== p2) {
+    const e2 = document.getElementById('pinErr2');
+    if (e2) e2.textContent = 'Pins do not match';
+    markRowErr('pinBoxes2', true);
+    shakeRow('pinBoxes2');
+    return;
+  }
+
+  State.pinSubmitting = true;
+  const btn = document.getElementById('pinSubmitBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Securing account…';
+  }
+
+  try {
+    const response = await fetch('/api/auth/create-pin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getToken()
+      },
+      body: JSON.stringify({ pin: p1 })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      unlockDashboardAfterPin();
+    } else {
+      const errorMsg = data.message || data.error || 'Could not save your PIN. Please try again.';
+      const e2 = document.getElementById('pinErr2');
+      if (e2) e2.textContent = errorMsg;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-lock"></i> Create PIN';
+      }
+    }
+  } catch (error) {
+    const e2 = document.getElementById('pinErr2');
+    if (e2) e2.textContent = error.message || 'Network error. Please try again.';
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-lock"></i> Create PIN';
+    }
+  }
+
+  State.pinSubmitting = false;
+}
+
+function setupLazyLoading() {
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && entry.target.id === 'txBody' && !transactionsLoaded) {
+          loadTransactions();
+        }
+      });
+    }, { threshold: 0.1 });
+    const txBody = document.getElementById('txBody');
+    if (txBody) observer.observe(txBody);
+  } else {
+    window.addEventListener('load', () => { setTimeout(loadTransactions, 2000); });
+  }
+}
+
+function prefetchLinks() {
+  const pages = ['/fund.html','/giftcards.html','/history.html','/esim.html','/usersettings.html'];
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(() => {
+      pages.forEach(url => {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = url;
+        document.head.appendChild(link);
+      });
+    });
+  }
+}
+
+async function initDashboard() {
+  try {
+    const token = getToken();
+    if (token) {
+      const result = await api('/auth/me', {}, true);
+      if (result?.data) {
+        const pinSet = result.data.has_transaction_pin === true ||
+                       (result.data.transaction_pin_hash !== null &&
+                        result.data.transaction_pin_hash !== undefined &&
+                        result.data.transaction_pin_hash !== '');
+
+        if (pinSet) {
+          State.hasPin = true;
+          const ov = document.getElementById('pinOv');
+          if (ov) {
+            ov.classList.remove('on');
+            ov.style.display = 'none';
+          }
+          document.body.classList.remove('pin-locked');
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('Initial PIN check failed:', e.message);
+  }
+
+  initSidebar();
+  initPinOnboarding();
+  await loadUser();
+  loadTicker();
+  setupLazyLoading();
+  prefetchLinks();
+
+  setInterval(() => {
+    const tickerVisible = DOM.tickerTrack && DOM.tickerTrack.offsetParent !== null;
+    if (tickerVisible) loadTicker();
+    loadUser();
+  }, 60000);
+}
+
+document.addEventListener('DOMContentLoaded', initDashboard);
+
+window.Dashboard = {
+  refresh: initDashboard,
+  cache: Cache,
+  State: State,
+  loadTicker,
+  loadUser
+};
+
+console.log('✅ Dashboard loaded');
+console.log('   🔐 PIN Status:', State.hasPin ? 'SET' : 'NOT SET');
+console.log('   💬 Miles Support: Active via miles-widget.js');
+</script>
+</body>
+</html>

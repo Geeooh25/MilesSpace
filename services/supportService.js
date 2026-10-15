@@ -1,347 +1,246 @@
-// services/supportService.js
-//
-// Authoritative support service. Every admin support route goes
-// through here. Customer routes do NOT touch this — they live in
-// routes/messages.js and only ever read/write their own rows.
-//
-// Responsibilities:
-//   - list tickets (paginated, filtered)
-//   - get one ticket + its messages (with is_internal visible)
-//   - create a message (reply or internal note)
-//   - change status (with allowed transitions)
-//   - assign (validated against assignable admin roles)
-//   - close / reopen
-//   - stats
-//   - audit-write on every mutation via admin_audit_logs
-//   - notification to the customer (or not, for internal notes)
-//
-// No JWT, no req, no res. Pure service.
-
 'use strict';
 
 const { supabaseAdmin } = require('../db/supabase');
-const emailSvc = require('./emailService');
 
-const ASSIGNABLE_ROLES = ['super_admin', 'admin', 'finance', 'operations', 'support'];
+const ASSIGNABLE_ROLES = ['super_admin','admin','finance','operations','support'];
+const LIMIT_DEFAULT = 25;
+const LIMIT_MAX = 100;
 
-const TICKET_STATUSES = ['open','assigned','in_progress','waiting_user','waiting_support','resolved','closed'];
-const ALLOWED_TRANSITIONS = {
-    open:            ['assigned','in_progress','waiting_user','waiting_support','resolved','closed'],
-    assigned:        ['in_progress','waiting_user','waiting_support','resolved','closed'],
-    in_progress:     ['waiting_user','waiting_support','resolved','closed'],
-    waiting_user:    ['in_progress','waiting_support','resolved','closed'],
-    waiting_support: ['in_progress','waiting_user','resolved','closed'],
-    resolved:        ['closed','in_progress'],
-    closed:          ['in_progress']
-};
-
-const PRIORITIES = ['low','medium','high','urgent'];
-
-// ─── Helpers ────────────────────────────────────────────────────
 function serviceError(code, message, status = 400, extra = {}) {
     const e = new Error(message);
-    e.code = code; e.status = status;
+    e.code = code;
+    e.status = status;
     Object.assign(e, extra);
     return e;
 }
-
-function escapeLike(input) {
-    return String(input || '').replace(/[%_]/g, m => '\\' + m).slice(0, 100);
+function clampLimit(v) {
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n) || n <= 0) return LIMIT_DEFAULT;
+    return Math.min(n, LIMIT_MAX);
+}
+function clampPage(v) {
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n) || n <= 0) return 1;
+    return n;
+}
+function escapeLike(s) {
+    return String(s || '').replace(/[%_\\]/g, m => '\\' + m).slice(0, 100);
 }
 
-async function writeAudit({ adminId, adminEmail, action, resourceType, resourceId, before = null, after = null, reason = null, req }) {
-    try {
-        await supabaseAdmin.from('admin_audit_logs').insert({
-            admin_id: adminId,
-            admin_email: adminEmail || null,
-            action: String(action).slice(0, 120),
-            target_type: resourceType || null,
-            target_id: resourceId ? String(resourceId) : null,
-            before: before || null,
-            after: after || null,
-            reason: reason ? String(reason).slice(0, 500) : null,
-            ip_address: req?.ip || req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || null,
-            user_agent: req?.headers?.['user-agent'] || null,
-            created_at: new Date().toISOString()
-        });
-    } catch (e) {
-        console.warn('[SUPPORT AUDIT] insert failed:', e.message);
-    }
-}
-
-async function notifyCustomer(userId, title, message, link = '/messages', type = 'info') {
-    try {
-        await supabaseAdmin.from('notifications').insert({
-            user_id: userId,
-            title, message, type, link,
-            is_read: false,
-            created_at: new Date().toISOString()
-        });
-    } catch (e) {
-        console.warn('[SUPPORT NOTIFY] insert failed:', e.message);
-    }
-}
-
-async function emailCustomer(userId, subject, html) {
-    try {
-        const { data: profile } = await supabaseAdmin
-            .from('profiles').select('email, username').eq('id', userId).maybeSingle();
-        if (profile?.email) await emailSvc.sendEmail(profile.email, subject, html);
-    } catch (e) {
-        console.warn('[SUPPORT EMAIL] failed:', e.message);
-    }
-}
-
-// ─── LIST TICKETS ───────────────────────────────────────────────
-async function listTickets({ page = 1, limit = 50, status, priority, category, assigned, search, sort = 'recent' } = {}) {
-    limit = Math.min(Math.max(Number(limit) || 50, 1), 100);
-    page = Math.max(Number(page) || 1, 1);
+// ─── LIST (admin) ───────────────────────────────────────────────
+async function listTickets({
+    page = 1, limit = LIMIT_DEFAULT,
+    status, priority, category,
+    assigned, search, sort = 'recent',
+    viewerId = null
+} = {}) {
+    limit = clampLimit(limit);
+    page = clampPage(page);
     const offset = (page - 1) * limit;
 
     let q = supabaseAdmin
         .from('support_tickets')
         .select(`
             id, ticket_number, subject, description, status, priority, category,
-            assigned_to, created_at, updated_at, sla_breached, sla_at_risk,
-            user:profiles!user_id ( id, username, email, avatar_url ),
-            assigned:profiles!assigned_to ( id, username, email )
-        `, { count: 'exact' });
+            assigned_to, assigned_at, first_response_at, resolved_at, closed_at,
+            created_at, updated_at, last_message_at, last_user_message_at, last_admin_message_at,
+            unread_for_admin, sla_breached, sla_at_risk, version,
+            related_type, related_id, related_reference,
+            provider, payment_reference, transaction_id, deposit_id,
+            user_id, contact_name, contact_email,
+            user:profiles!user_id (id, username, email, avatar_url),
+            assigned:profiles!assigned_to (id, username, email)
+        `, { count: 'planned' });
 
-    if (status && TICKET_STATUSES.includes(status)) q = q.eq('status', status);
-    if (priority && PRIORITIES.includes(priority)) q = q.eq('priority', priority);
-    if (category) q = q.eq('category', category);
+    if (status && status !== 'all') q = q.eq('status', status);
+    if (priority && priority !== 'all') q = q.eq('priority', priority);
+    if (category && category !== 'all') q = q.eq('category', category);
+
     if (assigned === 'unassigned') q = q.is('assigned_to', null);
-    else if (assigned && assigned !== 'all' && assigned !== 'me') q = q.eq('assigned_to', assigned);
+    else if (assigned === 'me' && viewerId) q = q.eq('assigned_to', viewerId);
+    else if (assigned && assigned !== 'all') q = q.eq('assigned_to', assigned);
 
     if (search) {
         const s = escapeLike(search);
-        q = q.or(`subject.ilike.%${s}%,ticket_number.ilike.%${s}%,description.ilike.%${s}%`);
+        q = q.or(
+            `subject.ilike.%${s}%,ticket_number.ilike.%${s}%,description.ilike.%${s}%,contact_email.ilike.%${s}%,contact_name.ilike.%${s}%`
+        );
     }
 
-    if (sort === 'oldest') q = q.order('created_at', { ascending: true });
-    else if (sort === 'priority') q = q.order('priority', { ascending: false }).order('created_at', { ascending: false });
-    else q = q.order('updated_at', { ascending: false, nullsFirst: false });
+    if (sort === 'oldest') {
+        q = q.order('created_at', { ascending: true });
+    } else if (sort === 'priority') {
+        q = q.order('priority', { ascending: false })
+             .order('last_message_at', { ascending: false, nullsFirst: false });
+    } else {
+        q = q.order('last_message_at', { ascending: false, nullsFirst: false })
+             .order('created_at', { ascending: false });
+    }
 
     q = q.range(offset, offset + limit - 1);
-    const { data, count, error } = await q;
+
+    const { data, error } = await q;
     if (error) throw serviceError('LIST_FAILED', error.message, 500);
 
-    // Unread count per ticket (from ticket_messages, not embedded).
-    const ids = (data || []).map(t => t.id);
-    let unreadMap = {};
-    if (ids.length) {
-        const { data: rows } = await supabaseAdmin
-            .from('ticket_messages')
-            .select('ticket_id, is_read, sender_type, is_internal')
-            .in('ticket_id', ids);
-        for (const r of rows || []) {
-            if (r.is_internal) continue;
-            if (r.sender_type === 'admin') continue;
-            if (r.is_read) continue;
-            unreadMap[r.ticket_id] = (unreadMap[r.ticket_id] || 0) + 1;
-        }
-    }
-
-    const tickets = (data || []).map(t => ({
-        ...t,
-        unread_count: unreadMap[t.id] || 0,
-        last_message: null // filled below
-    }));
-
-    // Latest public message per ticket.
-    if (ids.length) {
-        const { data: latest } = await supabaseAdmin
-            .from('ticket_messages')
-            .select('ticket_id, message, created_at, sender_type, is_internal')
-            .in('ticket_id', ids)
-            .eq('is_internal', false)
-            .order('created_at', { ascending: false });
-        const seen = new Set();
-        for (const m of latest || []) {
-            if (seen.has(m.ticket_id)) continue;
-            seen.add(m.ticket_id);
-            const t = tickets.find(x => x.id === m.ticket_id);
-            if (t) t.last_message = m;
-        }
-    }
-
     return {
-        tickets,
+        tickets: data || [],
         page,
         limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit),
-        hasNextPage: (count || 0) > offset + limit,
+        total: (data || []).length,
+        totalPages: 1,
+        hasNextPage: (data || []).length === limit,
         hasPreviousPage: page > 1
     };
 }
 
-// ─── GET ONE TICKET ─────────────────────────────────────────────
-async function getTicket({ id, viewerId }) {
+// ─── GET ONE ────────────────────────────────────────────────────
+async function getTicket({ id, viewerId, viewerIsAdmin = false }) {
     const { data: ticket, error } = await supabaseAdmin
         .from('support_tickets')
         .select(`
-            id, user_id, ticket_number, subject, description, status, priority, category,
-            assigned_to, created_at, updated_at, sla_breached, sla_at_risk,
-            user:profiles!user_id ( id, username, email, avatar_url, wallet_ngn, wallet_usd, status, created_at ),
-            assigned:profiles!assigned_to ( id, username, email )
+            *,
+            user_id,
+            contact_name,
+            contact_email,
+            user:profiles!user_id (id, username, email, avatar_url, wallet_ngn, wallet_usd, status, created_at),
+            assigned:profiles!assigned_to (id, username, email)
         `)
         .eq('id', id)
         .maybeSingle();
     if (error) throw serviceError('GET_FAILED', error.message, 500);
     if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
 
-    const { data: messages, error: mErr } = await supabaseAdmin
+    if (!viewerIsAdmin && viewerId && String(ticket.user_id) !== String(viewerId)) {
+        throw serviceError('ACCESS_DENIED', 'Access denied', 403);
+    }
+
+    let q = supabaseAdmin
         .from('ticket_messages')
         .select(`
-            id, message, created_at, read_at, sender_id, sender_type, is_internal, attachments,
-            sender:profiles!sender_id ( id, username, email, avatar_url, role )
+            id, message, created_at, read_by_admin_at, read_by_user_at,
+            sender_id, sender_type, is_internal, attachments,
+            deleted_at, deleted_by, deletion_reason,
+            sender:profiles!sender_id (id, username, email, avatar_url, role)
         `)
         .eq('ticket_id', id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true });
+
+    if (!viewerIsAdmin) q = q.eq('is_internal', false);
+
+    const { data: messages, error: mErr } = await q;
     if (mErr) throw serviceError('MESSAGES_FAILED', mErr.message, 500);
 
-    // Mark customer messages as read for the admin (best-effort).
-    try {
-        const unread = (messages || []).filter(m => !m.is_read && m.sender_type === 'user').map(m => m.id);
-        if (unread.length) {
-            await supabaseAdmin.from('ticket_messages')
-                .update({ is_read: true, read_at: new Date().toISOString() })
-                .in('id', unread);
-        }
-    } catch (_) {}
-
-    return { ticket, messages: messages || [], viewerId: viewerId || null };
+    return {
+        ticket,
+        messages: messages || [],
+        viewerId: viewerId || null
+    };
 }
 
-// ─── CREATE REPLY OR INTERNAL NOTE ──────────────────────────────
-async function createMessage({ ticketId, adminId, adminEmail, message, isInternal = false, attachments = [], req }) {
+// ─── MARK READ (admin) ──────────────────────────────────────────
+async function markRead({ ticketId }) {
+    const nowIso = new Date().toISOString();
+    await supabaseAdmin
+        .from('ticket_messages')
+        .update({ read_by_admin_at: nowIso })
+        .eq('ticket_id', ticketId)
+        .eq('sender_type', 'user')
+        .is('read_by_admin_at', null);
+    await supabaseAdmin
+        .from('support_tickets')
+        .update({ unread_for_admin: 0, last_read_by_admin_at: nowIso })
+        .eq('id', ticketId);
+    return { read: true };
+}
+
+// ─── CREATE MESSAGE (atomic via RPC) ────────────────────────────
+async function createMessage({
+    ticketId, adminId, adminEmail, adminRole,
+    message, isInternal = false,
+    attachments = [], req = null
+}) {
     const body = String(message || '').trim().slice(0, 10000);
     if (!body && (!attachments || !attachments.length)) {
         throw serviceError('EMPTY_MESSAGE', 'Message or attachment required', 422);
     }
 
-    const { data: ticket, error: tErr } = await supabaseAdmin
-        .from('support_tickets')
-        .select('id, user_id, ticket_number, subject, status')
-        .eq('id', ticketId)
-        .maybeSingle();
-    if (tErr) throw serviceError('LOAD_FAILED', tErr.message, 500);
-    if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
-    if (ticket.status === 'closed') throw serviceError('CLOSED', 'Ticket is closed', 409);
+    const { data, error } = await supabaseAdmin.rpc('add_support_message', {
+        p_ticket_id:       ticketId,
+        p_sender_id:       adminId,
+        p_sender_type:     'admin',
+        p_message:         body || '📎 Attachment',
+        p_is_internal:     !!isInternal,
+        p_attachments:     attachments.length ? attachments : null,
+        p_idempotency_key: null,
+        p_ip_address:      req ? (req.ip || null) : null,
+        p_user_agent:      req ? (req.headers['user-agent'] || null) : null,
+        p_request_id:      req ? (req.requestId || null) : null
+    });
 
-    const senderType = 'admin';
+    if (error) throw serviceError('MESSAGE_FAILED', error.message, 500);
+    if (!data || data.ok !== true) {
+        const err = (data && data.error) || 'MESSAGE_FAILED';
+        if (err === 'TICKET_NOT_FOUND') throw serviceError('NOT_FOUND', 'Ticket not found', 404);
+        if (err === 'TICKET_CLOSED')    throw serviceError('CLOSED', 'Ticket is closed', 409);
+        throw serviceError('MESSAGE_FAILED', err, 500);
+    }
+    return data.message;
+}
 
-    const { data: msg, error } = await supabaseAdmin
-        .from('ticket_messages')
-        .insert({
-            ticket_id: ticket.id,
-            sender_id: adminId,
-            sender_type: senderType,
-            message: body || '📎 Attachment',
-            attachments: attachments.length ? attachments : null,
-            is_internal: !!isInternal,
-            is_read: false,
-            created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-    if (error) throw serviceError('INSERT_FAILED', error.message, 500);
+// ─── CHANGE STATUS (atomic via RPC) ─────────────────────────────
+async function changeStatus({
+    ticketId, nextStatus, adminId, reason = null,
+    expectedVersion = null, req = null
+}) {
+    const { data, error } = await supabaseAdmin.rpc('change_support_status', {
+        p_ticket_id:        ticketId,
+        p_next_status:      nextStatus,
+        p_actor_id:         adminId,
+        p_actor_type:       'admin',
+        p_reason:           reason,
+        p_expected_version: expectedVersion,
+        p_request_id:       req ? (req.requestId || null) : null,
+        p_ip_address:       req ? (req.ip || null) : null
+    });
+    if (error) throw serviceError('STATUS_FAILED', error.message, 500);
+    if (!data) throw serviceError('STATUS_FAILED', 'No response', 500);
 
-    // Update the ticket: status + timestamp.
-    const nextStatus = isInternal
-        ? (ticket.status === 'closed' ? 'in_progress' : ticket.status)
-        : 'waiting_user';
-    await supabaseAdmin
-        .from('support_tickets')
-        .update({ status: nextStatus, updated_at: new Date().toISOString() })
-        .eq('id', ticket.id);
-
-    // Notify + email the customer, but NOT for internal notes.
-    if (!isInternal) {
-        await notifyCustomer(
-            ticket.user_id,
-            `📩 Reply on ${ticket.ticket_number}`,
-            body.slice(0, 180) || '📎 Attachment',
-            `/tickets/${ticket.ticket_number}`
+    if (data.ok === true) {
+        return { status: data.status, version: data.version };
+    }
+    if (data.error === 'INVALID_TRANSITION') {
+        throw serviceError(
+            'INVALID_TRANSITION',
+            `Cannot move from ${data.from} to ${data.to}`,
+            409
         );
-        try {
-            await emailCustomer(
-                ticket.user_id,
-                `MilesSpace — Reply on ticket ${ticket.ticket_number}`,
-                `<p>Hi,</p><p>You have a new reply on <strong>${ticket.ticket_number}</strong>.</p>
-                 <p style="background:#f4f7fb;padding:12px;border-radius:8px">${body.replace(/</g,'&lt;') || '📎 Attachment'}</p>
-                 <p>Sign in to view and respond.</p>`
-            );
-        } catch (_) {}
     }
-
-    // Emit to authorized rooms only.
-    if (global.io) {
-        if (!isInternal) {
-            global.io.to(`user:${ticket.user_id}`).emit('support:reply', { ticket_id: ticket.id, message: msg });
-        }
-        global.io.to('admins').emit('support:updated', { ticket_id: ticket.id, status: nextStatus, is_internal: !!isInternal });
+    if (data.error === 'STALE_VERSION') {
+        throw serviceError(
+            'STALE_VERSION',
+            'Someone else updated this ticket. Reload and try again.',
+            409,
+            { current_version: data.current_version }
+        );
     }
-
-    await writeAudit({
-        adminId, adminEmail,
-        action: isInternal ? 'SUPPORT_INTERNAL_NOTE' : 'SUPPORT_TICKET_REPLY',
-        resourceType: 'support_ticket', resourceId: ticket.id,
-        after: { message: body.slice(0, 400), is_internal: !!isInternal, status: nextStatus },
-        req
-    });
-
-    return msg;
+    if (data.error === 'TICKET_NOT_FOUND') {
+        throw serviceError('NOT_FOUND', 'Ticket not found', 404);
+    }
+    throw serviceError('STATUS_FAILED', data.error || 'Unknown', 500);
 }
 
-// ─── CHANGE STATUS ──────────────────────────────────────────────
-async function changeStatus({ ticketId, nextStatus, adminId, adminEmail, reason = null, req }) {
-    if (!TICKET_STATUSES.includes(nextStatus)) {
-        throw serviceError('INVALID_STATUS', `Invalid status: ${nextStatus}`, 422, { allowed: TICKET_STATUSES });
-    }
-    const { data: ticket } = await supabaseAdmin
-        .from('support_tickets').select('id, user_id, ticket_number, status').eq('id', ticketId).maybeSingle();
-    if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
-
-    const allowed = ALLOWED_TRANSITIONS[ticket.status] || [];
-    if (!allowed.includes(nextStatus)) {
-        throw serviceError('INVALID_TRANSITION', `Cannot move from ${ticket.status} to ${nextStatus}`, 409, { allowed });
-    }
-
-    const { error } = await supabaseAdmin
-        .from('support_tickets')
-        .update({ status: nextStatus, updated_at: new Date().toISOString() })
-        .eq('id', ticket.id);
-    if (error) throw serviceError('UPDATE_FAILED', error.message, 500);
-
-    await notifyCustomer(
-        ticket.user_id,
-        `Ticket ${ticket.ticket_number} — ${nextStatus}`,
-        `Your ticket status changed to ${nextStatus}.`,
-        `/tickets/${ticket.ticket_number}`
-    );
-
-    if (global.io) {
-        global.io.to(`user:${ticket.user_id}`).emit('support:status', { ticket_id: ticket.id, status: nextStatus });
-        global.io.to('admins').emit('support:updated', { ticket_id: ticket.id, status: nextStatus });
-    }
-
-    await writeAudit({
-        adminId, adminEmail,
-        action: 'SUPPORT_STATUS_CHANGED',
-        resourceType: 'support_ticket', resourceId: ticket.id,
-        before: { status: ticket.status }, after: { status: nextStatus },
-        reason, req
-    });
-
-    return { status: nextStatus };
-}
-
-// ─── ASSIGN ─────────────────────────────────────────────────────
-async function assignTicket({ ticketId, adminId, adminEmail, assignTo, reason = null, req }) {
-    const { data: target } = await supabaseAdmin
-        .from('profiles').select('id, role, status, deleted_at').eq('id', assignTo).maybeSingle();
+// ─── ASSIGN (atomic via RPC) ────────────────────────────────────
+async function assignTicket({
+    ticketId, adminId, assignTo, reason = null,
+    expectedVersion = null, req = null
+}) {
+    const { data: target, error: tErr } = await supabaseAdmin
+        .from('profiles')
+        .select('id, role, status, deleted_at')
+        .eq('id', assignTo)
+        .maybeSingle();
+    if (tErr) throw serviceError('LOOKUP_FAILED', tErr.message, 500);
     if (!target) throw serviceError('AGENT_NOT_FOUND', 'Agent not found', 404);
     if (target.deleted_at || target.status === 'suspended') {
         throw serviceError('AGENT_INACTIVE', 'Agent is not active', 409);
@@ -350,83 +249,113 @@ async function assignTicket({ ticketId, adminId, adminEmail, assignTo, reason = 
         throw serviceError('NOT_ASSIGNABLE', 'User cannot be assigned tickets', 422);
     }
 
-    const { data: ticket } = await supabaseAdmin
-        .from('support_tickets').select('id, user_id, ticket_number, assigned_to, status')
-        .eq('id', ticketId).maybeSingle();
-    if (!ticket) throw serviceError('NOT_FOUND', 'Ticket not found', 404);
-
-    const nextStatus = ticket.status === 'open' ? 'assigned' : ticket.status;
-
-    const { error } = await supabaseAdmin
-        .from('support_tickets')
-        .update({ assigned_to: assignTo, status: nextStatus, updated_at: new Date().toISOString() })
-        .eq('id', ticket.id);
-    if (error) throw serviceError('UPDATE_FAILED', error.message, 500);
-
-    await writeAudit({
-        adminId, adminEmail,
-        action: 'SUPPORT_TICKET_ASSIGNED',
-        resourceType: 'support_ticket', resourceId: ticket.id,
-        before: { assigned_to: ticket.assigned_to },
-        after: { assigned_to: assignTo },
-        reason, req
+    const { data, error } = await supabaseAdmin.rpc('assign_support_ticket', {
+        p_ticket_id:        ticketId,
+        p_assign_to:        assignTo,
+        p_actor_id:         adminId,
+        p_reason:           reason,
+        p_expected_version: expectedVersion,
+        p_request_id:       req ? (req.requestId || null) : null
     });
-
-    if (global.io) global.io.to('admins').emit('support:updated', { ticket_id: ticket.id });
-
-    return { assigned_to: assignTo, status: nextStatus };
+    if (error) throw serviceError('ASSIGN_FAILED', error.message, 500);
+    if (!data || data.ok !== true) {
+        const err = (data && data.error) || 'ASSIGN_FAILED';
+        if (err === 'TICKET_NOT_FOUND') {
+            throw serviceError('NOT_FOUND', 'Ticket not found', 404);
+        }
+        if (err === 'STALE_VERSION') {
+            throw serviceError(
+                'STALE_VERSION',
+                'Someone else updated this ticket. Reload and try again.',
+                409,
+                { current_version: data.current_version }
+            );
+        }
+        throw serviceError('ASSIGN_FAILED', err, 500);
+    }
+    return {
+        assigned_to: data.assigned_to,
+        status: data.status,
+        version: data.version
+    };
 }
 
 // ─── STATS ──────────────────────────────────────────────────────
 async function getStats() {
-    const counts = {};
-    for (const status of TICKET_STATUSES) counts[status] = 0;
+    const zero = {
+        total: 0, open: 0, assigned: 0, in_progress: 0,
+        waiting_user: 0, waiting_support: 0, resolved: 0, closed: 0,
+        urgent: 0, high_priority: 0, unassigned: 0, unread: 0,
+        sla_breached: 0, sla_at_risk: 0,
+        avg_first_response_minutes: null
+    };
     try {
-        const { data, error } = await supabaseAdmin.from('support_tickets').select('status');
+        const { data, error } = await supabaseAdmin
+            .from('support_tickets')
+            .select(
+                'status, priority, assigned_to, sla_breached, sla_at_risk, ' +
+                'unread_for_admin, first_response_at, created_at'
+            );
         if (error) throw error;
-        let total = 0;
-        for (const row of data || []) {
-            counts[row.status] = (counts[row.status] || 0) + 1;
-            total += 1;
+
+        const out = { ...zero };
+        let responseSum = 0;
+        let responseCount = 0;
+
+        for (const r of (data || [])) {
+            out.total++;
+            if (out[r.status] !== undefined) out[r.status]++;
+            if (r.priority === 'urgent') out.urgent++;
+            if (r.priority === 'high')   out.high_priority++;
+            if (!r.assigned_to)          out.unassigned++;
+            if (r.unread_for_admin > 0)  out.unread++;
+            if (r.sla_breached)          out.sla_breached++;
+            if (r.sla_at_risk)           out.sla_at_risk++;
+
+            if (r.first_response_at && r.created_at) {
+                const ms = new Date(r.first_response_at) - new Date(r.created_at);
+                if (Number.isFinite(ms) && ms >= 0) {
+                    responseSum += ms / 60000;
+                    responseCount++;
+                }
+            }
         }
-        return {
-            total,
-            open: counts.open || 0,
-            assigned: counts.assigned || 0,
-            in_progress: counts.in_progress || 0,
-            waiting_user: counts.waiting_user || 0,
-            waiting_support: counts.waiting_support || 0,
-            resolved: counts.resolved || 0,
-            closed: counts.closed || 0,
-            urgent: 0, high_priority: 0, sla_breached: 0, unassigned: 0
-        };
+        out.avg_first_response_minutes = responseCount
+            ? Math.round(responseSum / responseCount)
+            : null;
+        return out;
     } catch (e) {
-        console.error('[SUPPORT STATS] failed:', e.message);
-        return { total: 0, open: 0, assigned: 0, in_progress: 0, waiting_user: 0, waiting_support: 0, resolved: 0, closed: 0, urgent: 0, high_priority: 0, sla_breached: 0, unassigned: 0 };
+        console.warn('[supportService.getStats] failed:', e.message);
+        return zero;
     }
 }
 
-// ─── ADMINS (assignable agents) ─────────────────────────────────
+// ─── ASSIGNABLE ADMINS ──────────────────────────────────────────
 async function listAssignableAdmins() {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
         .from('profiles')
         .select('id, username, email, role, status')
         .in('role', ASSIGNABLE_ROLES)
         .is('deleted_at', null)
         .neq('status', 'suspended')
         .order('username', { ascending: true });
+    if (error) {
+        console.warn('[supportService.listAssignableAdmins] failed:', error.message);
+        return [];
+    }
     return data || [];
 }
 
 module.exports = {
     listTickets,
     getTicket,
+    markRead,
     createMessage,
     changeStatus,
     assignTicket,
     getStats,
     listAssignableAdmins,
-    TICKET_STATUSES,
-    PRIORITIES,
-    ASSIGNABLE_ROLES
+    ASSIGNABLE_ROLES,
+    LIMIT_DEFAULT,
+    LIMIT_MAX
 };

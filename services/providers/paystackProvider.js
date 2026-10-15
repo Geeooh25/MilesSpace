@@ -1,36 +1,55 @@
-// services/providers/paystackProvider.js
-// ─────────────────────────────────────────────────────────────────
-// Paystack adapter — deposit funding + webhook verification.
-//
-// Signature: HMAC-SHA512 over the RAW request body, using the secret
-// key as the HMAC key. The signature arrives in the
-// `x-paystack-signature` header. This is Paystack's documented
-// scheme; treat it as required, not optional.
-// ─────────────────────────────────────────────────────────────────
-
 'use strict';
 
 const crypto = require('crypto');
 const axios = require('axios');
-const { ProviderError, notSupported } = require('./providerBase');
+const {
+    ProviderError, notSupported, withTimeout, TIMEOUTS,
+    HEALTH_STRATEGY, shapeProviderError, sanitizeProviderError
+} = require('./providerBase');
 
 const NAME = 'paystack';
+const LABEL = 'Paystack';
 
 function secretKey() { return process.env.PAYSTACK_SECRET_KEY || null; }
+function webhookSec() { return process.env.PAYSTACK_WEBHOOK_SECRET || null; }
 function isConfigured() { return Boolean(secretKey()); }
 
-async function callApi(method, path, body = null) {
+async function callApi(method, path, body = null, { timeoutMs = TIMEOUTS.READ } = {}) {
     if (!isConfigured()) {
-        throw new ProviderError('PAYSTACK_SECRET_KEY is not set.', { code: 'PROVIDER_NOT_CONFIGURED', httpStatus: 503 });
+        throw new ProviderError('PAYSTACK_SECRET_KEY is not set.', { code: 'PROVIDER_NOT_CONFIGURED', category: 'CONFIGURATION', httpStatus: 503 });
     }
-    const res = await axios({
-        method,
-        url: `https://api.paystack.co${path}`,
-        data: body,
-        headers: { Authorization: `Bearer ${secretKey()}`, 'Content-Type': 'application/json' },
-        timeout: 20000
-    });
-    return res.data;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const res = await axios({
+            method,
+            url: `https://api.paystack.co${path}`,
+            data: body,
+            headers: { Authorization: `Bearer ${secretKey()}`, 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            validateStatus: () => true
+        });
+        clearTimeout(timer);
+        if (res.status >= 400) {
+            const msg = res.data?.message || `Paystack HTTP ${res.status}`;
+            const err = new ProviderError(sanitizeProviderError(msg, 300), {
+                code: `HTTP_${res.status}`,
+                httpStatus: res.status,
+                ambiguous: res.status >= 500,
+                definitive: res.status >= 400 && res.status < 500,
+                providerData: res.data
+            });
+            err.response = res;
+            throw err;
+        }
+        return res.data;
+    } catch (e) {
+        clearTimeout(timer);
+        if (e.name === 'AbortError' || e.code === 'ERR_CANCELED') {
+            throw new ProviderError('Paystack request timed out', { code: 'PROVIDER_TIMEOUT', category: 'TIMEOUT', ambiguous: true, httpStatus: 504 });
+        }
+        throw e;
+    }
 }
 
 function normalizeStatus(providerStatus) {
@@ -45,31 +64,20 @@ function normalizeStatus(providerStatus) {
 async function getOrderStatus(order) {
     if (!order?.provider_reference) return { status: null, raw: null };
     const data = await callApi('GET', `/transaction/verify/${encodeURIComponent(order.provider_reference)}`);
-    return {
-        status: data?.data?.status || null,
-        raw: data
-    };
+    return { status: data?.data?.status || null, raw: data };
 }
 
-async function createOrder() {
-    // Paystack uses /transaction/initialize, but the deposit initiator
-    // already exists in this codebase. Return unsupported so the
-    // pipeline doesn't try to call this.
-    return notSupported('PAYSTACK_INIT_HANDLED_ELSEWHERE');
-}
-
+async function createOrder() { return notSupported('PAYSTACK_INIT_HANDLED_ELSEWHERE'); }
 async function cancelOrder() { return notSupported('PAYSTACK_CANCEL_NOT_SUPPORTED'); }
 async function refundOrder() { return notSupported('PAYSTACK_REFUND_NOT_IMPLEMENTED'); }
-async function getBalance() { return notSupported('PAYSTACK_BALANCE_NOT_IMPLEMENTED'); }
 
 function verifyWebhook({ rawBody, headers }) {
     const signature = headers?.['x-paystack-signature'];
-    if (!signature) return { ok: false, reason: 'MISSING_SIGNATURE' };
-    if (!secretKey()) return { ok: false, reason: 'PROVIDER_NOT_CONFIGURED' };
-
+    if (!signature) return { ok: false, signatureValid: false, reason: 'MISSING_SIGNATURE' };
+    const key = webhookSec() || secretKey();
+    if (!key) return { ok: false, signatureValid: false, reason: 'PROVIDER_NOT_CONFIGURED' };
     const bodyStr = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody || {});
-    const expected = crypto.createHmac('sha512', secretKey()).update(bodyStr).digest('hex');
-
+    const expected = crypto.createHmac('sha512', key).update(bodyStr).digest('hex');
     try {
         const a = Buffer.from(signature, 'hex');
         const b = Buffer.from(expected, 'hex');
@@ -81,12 +89,14 @@ function verifyWebhook({ rawBody, headers }) {
 }
 
 function parseWebhook(payload) {
-    const eventType = payload?.event || null;
     const data = payload?.data || {};
-    const providerOrderId = data?.reference ? String(data.reference) : null;
-    const status = data?.status || null;
-    const eventId = payload?.id ? String(payload.id) : null;
-    return { providerOrderId, status, eventType, eventId, raw: payload };
+    return {
+        providerOrderId: data?.reference ? String(data.reference) : null,
+        status: data?.status || null,
+        eventType: payload?.event || null,
+        eventId: payload?.id ? String(payload.id) : null,
+        raw: payload
+    };
 }
 
 function fingerprint(payload) {
@@ -99,26 +109,39 @@ function fingerprint(payload) {
 }
 
 async function healthCheck() {
-    if (!isConfigured()) return { configured: false, reachable: false, lastError: 'PAYSTACK_SECRET_KEY missing' };
+    if (!isConfigured()) {
+        return {
+            configured: false, reachable: false, authenticated: false, functional: false,
+            healthStrategy: HEALTH_STRATEGY.BALANCE,
+            errorCode: 'NOT_CONFIGURED', errorCategory: 'CONFIGURATION',
+            errorMessage: 'PAYSTACK_SECRET_KEY missing'
+        };
+    }
+    const started = Date.now();
     try {
-        await callApi('GET', '/balance');
-        return { configured: true, reachable: true, lastError: null };
+        await withTimeout(() => callApi('GET', '/balance', null, { timeoutMs: TIMEOUTS.HEALTH }), TIMEOUTS.HEALTH, 'paystack.healthCheck');
+        return {
+            configured: true, reachable: true, authenticated: true, functional: true,
+            latencyMs: Date.now() - started,
+            healthStrategy: HEALTH_STRATEGY.BALANCE
+        };
     } catch (e) {
-        return { configured: true, reachable: false, lastError: e.message };
+        const shaped = shapeProviderError(e);
+        const authFail = shaped.httpStatus === 401 || shaped.httpStatus === 403;
+        return {
+            configured: true, reachable: !authFail, authenticated: !authFail, functional: false,
+            latencyMs: Date.now() - started,
+            healthStrategy: HEALTH_STRATEGY.BALANCE,
+            errorCode: shaped.code,
+            errorCategory: shaped.category,
+            errorMessage: sanitizeProviderError(shaped.message, 300)
+        };
     }
 }
 
 module.exports = {
-    name: NAME,
-    isConfigured,
-    getOrderStatus,
-    createOrder,
-    cancelOrder,
-    refundOrder,
-    getBalance,
-    verifyWebhook,
-    parseWebhook,
-    normalizeStatus,
-    fingerprint,
-    healthCheck
+    name: NAME, label: LABEL, isConfigured, healthCheck,
+    healthStrategy: HEALTH_STRATEGY.BALANCE,
+    getOrderStatus, createOrder, cancelOrder, refundOrder,
+    verifyWebhook, parseWebhook, normalizeStatus, fingerprint
 };

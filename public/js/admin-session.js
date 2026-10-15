@@ -1,45 +1,89 @@
-// /public/js/admin-session.js - COMPLETE FIXED VERSION
-// Single source of truth for admin authentication
-// All paths correctly use /api/admin/*
+// /public/js/admin-session.js
+// ─────────────────────────────────────────────────────────────────
+// Single source of truth for admin authentication.
+//
+// Architecture (matches docs/admin-session-design.md):
+//
+//   Admin page
+//      │
+//      ├─ JWT valid locally → continue, schedule next check near expiry
+//      │
+//      └─ JWT expired / expiring
+//             │
+//             ├─ refresh token present → POST /api/admin/refresh
+//             │      ├─ ok   → save new token, reschedule
+//             │      └─ 401  → save current URL, go to login
+//             │
+//             └─ no refresh token → save current URL, go to login
+//
+//   Login page
+//      │
+//      ├─ already have a valid session? → verify server → redirect to saved URL (or dashboard)
+//      └─ otherwise wait for the operator to log in.
+//
+//   On login success (from the login page's own code):
+//      AdminSession.redirectAfterLogin()
+//
+// Guarantees:
+//   • The server is authoritative. A 401 from any adminFetch() always
+//     wins over the local clock.
+//   • No periodic server pings. The session is checked locally; the
+//     server is contacted only at startup, near expiry, on refresh,
+//     or when the tab becomes visible after being hidden.
+//   • Return URL is only ever an internal /admin/ path. Never an
+//     absolute URL. Never a URL on another origin.
+//   • 403 (authenticated but unauthorized) NEVER clears the session.
+//     Only 401 does.
+// ─────────────────────────────────────────────────────────────────
 
-(function() {
+(function () {
     'use strict';
 
+    // ─── CONFIG ─────────────────────────────────────────────────────
     const ADMIN_SESSION_KEY = 'admin_sess';
-    const LOGIN_URL = '/admin/index.html';
-    const DASHBOARD_URL = '/admin/dashboard.html';
+    const RETURN_URL_KEY    = 'admin_return_url';
+    const LOGIN_URL         = '/admin/index.html';
+    const DASHBOARD_URL     = '/admin/dashboard.html';
 
-    // ─── PAGE DETECTION ──────────────────────────────────────────────
+    // How close to expiry to proactively refresh. 5 minutes.
+    const REFRESH_BEFORE_MS = 5 * 60 * 1000;
+    // Never schedule a timer sooner than this — protects against a
+    // pathological token with a bad exp.
+    const MIN_TIMER_MS      = 1000;
+
+    // ─── PAGE DETECTION ─────────────────────────────────────────────
     const pathname = window.location.pathname;
     const IS_ADMIN_PAGE = pathname.startsWith('/admin');
-    const IS_LOGIN_PAGE = pathname === '/admin' || 
-                          pathname === '/admin/' || 
-                          pathname === '/admin/index.html' ||
-                          pathname === '/admin/index' ||
-                          pathname === '/admin/login' ||
-                          pathname === '/admin/login.html';
-    const IS_DASHBOARD_PAGE = pathname === '/admin/dashboard' ||
-                              pathname === '/admin/dashboard/' ||
-                              pathname === '/admin/dashboard.html';
+    const IS_LOGIN_PAGE =
+        pathname === '/admin' ||
+        pathname === '/admin/' ||
+        pathname === '/admin/index' ||
+        pathname === '/admin/index.html' ||
+        pathname === '/admin/login' ||
+        pathname === '/admin/login.html';
+    const IS_DASHBOARD_PAGE =
+        pathname === '/admin/dashboard' ||
+        pathname === '/admin/dashboard/' ||
+        pathname === '/admin/dashboard.html';
 
-    if (!IS_ADMIN_PAGE) {
-        return;
-    }
+    if (!IS_ADMIN_PAGE) return;
 
     // ─── STATE ──────────────────────────────────────────────────────
-    let isRedirecting = false;
-    let heartbeatTimer = null;
-    let initAttempted = false;
-    let isVerifying = false;
-    let refreshInProgress = false;
+    let isRedirecting   = false;
+    let isVerifying     = false;
+    let refreshInFlight = false;
+    let expiryTimer     = null;
+    let initAttempted   = false;
 
-    // ─── SESSION HELPERS ─────────────────────────────────────────────
+    // ─── SESSION STORAGE ────────────────────────────────────────────
 
     function getAdminSession() {
         try {
             const raw = localStorage.getItem(ADMIN_SESSION_KEY);
             if (!raw) return null;
-            return JSON.parse(raw);
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return null;
+            return parsed;
         } catch (e) {
             console.error('[ADMIN SESSION] Invalid session data:', e);
             return null;
@@ -47,29 +91,64 @@
     }
 
     function getAdminToken() {
-        const session = getAdminSession();
-        return session?.token || null;
+        const s = getAdminSession();
+        return s && s.token ? s.token : null;
     }
 
     function getAdminUser() {
-        const session = getAdminSession();
-        return session?.user || null;
+        const s = getAdminSession();
+        return s && s.user ? s.user : null;
     }
 
     function getRefreshToken() {
-        const session = getAdminSession();
-        return session?.refreshToken || null;
+        const s = getAdminSession();
+        return s && s.refreshToken ? s.refreshToken : null;
     }
+
+    function clearAdminSession() {
+        try {
+            localStorage.removeItem(ADMIN_SESSION_KEY);
+            sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        } catch (_) { /* ignore */ }
+        console.log('[ADMIN SESSION] Session cleared');
+    }
+
+    function saveAdminSession(token, user, refreshToken) {
+        if (!token || typeof token !== 'string' || token.split('.').length !== 3) {
+            throw new Error('Cannot save invalid admin token');
+        }
+        const expiresAt = getTokenExpiry(token);
+        const session = {
+            token: token,
+            refreshToken: refreshToken || null,
+            user: user || null,
+            loggedAt: Date.now(),
+            expiresAt: expiresAt
+        };
+        try {
+            localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+        } catch (e) {
+            console.error('[ADMIN SESSION] Could not persist session:', e);
+            throw e;
+        }
+        console.log(
+            '[ADMIN SESSION] Saved. Expires:',
+            expiresAt ? new Date(expiresAt).toLocaleString() : 'INVALID'
+        );
+        return session;
+    }
+
+    // ─── JWT (local, no crypto) ─────────────────────────────────────
 
     function decodeJwtPayload(token) {
         try {
-            if (!token) return null;
+            if (!token || typeof token !== 'string') return null;
             const parts = token.split('.');
             if (parts.length !== 3) return null;
             let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
             while (base64.length % 4 !== 0) base64 += '=';
             return JSON.parse(atob(base64));
-        } catch (e) {
+        } catch (_) {
             return null;
         }
     }
@@ -92,70 +171,85 @@
         return !isTokenExpired(token);
     }
 
-    function clearAdminSession() {
-        localStorage.removeItem(ADMIN_SESSION_KEY);
-        sessionStorage.removeItem(ADMIN_SESSION_KEY);
-        console.log('[ADMIN SESSION] Session cleared');
+    // ─── RETURN-URL HANDLING ────────────────────────────────────────
+
+    function saveReturnUrl() {
+        if (IS_LOGIN_PAGE) return;
+        const current = window.location.pathname + window.location.search + window.location.hash;
+        // Only internal admin pages. Never absolute, never another origin.
+        if (!current.startsWith('/admin/')) return;
+        try {
+            sessionStorage.setItem(RETURN_URL_KEY, current);
+        } catch (_) { /* ignore */ }
     }
 
-    function saveAdminSession(token, user, refreshToken = null) {
-        if (!token) {
-            throw new Error('Cannot save empty admin token');
+    function getReturnUrl() {
+        try {
+            const raw = sessionStorage.getItem(RETURN_URL_KEY);
+            if (!raw) return null;
+            if (!raw.startsWith('/admin/')) {
+                sessionStorage.removeItem(RETURN_URL_KEY);
+                return null;
+            }
+            // Never return the login page itself — protects against a loop.
+            if (raw === LOGIN_URL || raw.startsWith('/admin/index')) {
+                sessionStorage.removeItem(RETURN_URL_KEY);
+                return null;
+            }
+            return raw;
+        } catch (_) {
+            return null;
         }
-
-        const expiresAt = getTokenExpiry(token);
-        const session = {
-            token: token,
-            refreshToken: refreshToken || null,
-            user: user || null,
-            loggedAt: Date.now(),
-            expiresAt: expiresAt
-        };
-
-        localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
-        console.log('[ADMIN SESSION] Saved, expires:', expiresAt ? new Date(expiresAt).toLocaleString() : 'INVALID');
-        return session;
     }
 
-    // ─── REDIRECT ────────────────────────────────────────────────────
+    function clearReturnUrl() {
+        try { sessionStorage.removeItem(RETURN_URL_KEY); } catch (_) { /* ignore */ }
+    }
+
+    // ─── REDIRECTS ──────────────────────────────────────────────────
 
     function redirectToLogin() {
-        if (IS_LOGIN_PAGE || isRedirecting) {
-            return;
-        }
+        if (IS_LOGIN_PAGE || isRedirecting) return;
         isRedirecting = true;
-        stopHeartbeat();
-        console.log('[ADMIN SESSION] Redirecting to login');
+        stopExpiryTimer();
+        saveReturnUrl();
+        console.log('[ADMIN SESSION] Redirecting to login. Return URL saved.');
         window.location.replace(LOGIN_URL);
     }
 
     function redirectToDashboard() {
-        if (IS_DASHBOARD_PAGE || isRedirecting) {
-            return;
-        }
+        if (IS_DASHBOARD_PAGE || isRedirecting) return;
         isRedirecting = true;
         console.log('[ADMIN SESSION] Redirecting to dashboard');
         window.location.replace(DASHBOARD_URL);
     }
 
-    // ─── SERVER VERIFICATION ──────────────────────────────────────
+    // Called by the login page after a successful login.
+    function redirectAfterLogin() {
+        const target = getReturnUrl();
+        if (target) {
+            clearReturnUrl();
+            console.log('[ADMIN SESSION] Returning to:', target);
+            window.location.replace(target);
+            return;
+        }
+        window.location.replace(DASHBOARD_URL);
+    }
+
+    // ─── SERVER VERIFICATION ────────────────────────────────────────
 
     async function verifyAdminSession() {
-        if (isVerifying) {
-            console.log('[ADMIN SESSION] Verification already in progress');
-            return true;
-        }
+        if (isVerifying) return true;
         isVerifying = true;
 
         const token = getAdminToken();
         if (!token) {
             isVerifying = false;
-            console.log('[ADMIN SESSION] No token found');
             return false;
         }
 
         try {
-            console.log('[ADMIN SESSION] Verifying with server...');
+            console.log('[ADMIN SESSION] Verifying with server…');
             const response = await fetch('/api/admin/session', {
                 method: 'GET',
                 headers: {
@@ -166,244 +260,232 @@
             });
 
             if (response.ok) {
-                const data = await response.json();
-                console.log('[ADMIN SESSION] Server verification successful');
+                console.log('[ADMIN SESSION] Server verification OK');
                 isVerifying = false;
                 return true;
             }
 
-            // Handle specific error codes
             if (response.status === 401 || response.status === 403) {
-                let errorData;
+                let errorCode = 'UNKNOWN';
                 try {
-                    errorData = await response.json();
-                } catch (e) {
-                    errorData = {};
-                }
-                
-                const errorCode = errorData.code || 'UNKNOWN';
+                    const body = await response.json();
+                    errorCode = body && body.code ? body.code : 'UNKNOWN';
+                } catch (_) { /* ignore */ }
+
                 console.warn('[ADMIN SESSION] Server rejected session:', response.status, errorCode);
-                
-                // Only clear session for specific codes
-                if (errorCode === 'SESSION_REVOKED' || 
-                    errorCode === 'SESSION_EXPIRED' || 
+
+                // Only clear on auth-fatal codes. Permission problems (403) can
+                // come from a route this session simply doesn't have, and must
+                // not log the operator out.
+                if (response.status === 401 && (
+                    errorCode === 'SESSION_REVOKED' ||
+                    errorCode === 'SESSION_EXPIRED' ||
                     errorCode === 'NO_ACTIVE_SESSION' ||
                     errorCode === 'INVALID_SESSION' ||
-                    errorCode === 'NO_TOKEN') {
+                    errorCode === 'NO_TOKEN'
+                )) {
                     clearAdminSession();
                     redirectToLogin();
                 }
-                
                 isVerifying = false;
                 return false;
             }
 
-            // Don't logout on 500/503/network errors
-            console.warn('[ADMIN SESSION] Server error:', response.status);
+            // 5xx, network flakes, etc. Do not log out.
+            console.warn('[ADMIN SESSION] Server error, keeping session:', response.status);
             isVerifying = false;
             return true;
 
-        } catch (error) {
-            console.warn('[ADMIN SESSION] Network error, keeping session:', error.message);
+        } catch (err) {
+            console.warn('[ADMIN SESSION] Verification network error, keeping session:', err.message);
             isVerifying = false;
             return true;
         }
     }
 
-    // ─── TOKEN REFRESH ─────────────────────────────────────────────
+    // ─── TOKEN REFRESH ──────────────────────────────────────────────
 
-    async function refreshAdminToken() {
-        if (refreshInProgress) {
-            console.log('[ADMIN SESSION] Refresh already in progress');
-            return false;
-        }
+   // Shared promise — every caller during an in-flight refresh awaits
+// the same outcome. Never returns false just because another call
+// already started the refresh.
+let refreshPromise = null;
 
-        const refreshToken = getRefreshToken();
-        if (!refreshToken) {
-            console.warn('[ADMIN SESSION] No refresh token available');
-            return false;
-        }
+async function refreshAdminToken() {
+    if (refreshPromise) return refreshPromise;
 
-        refreshInProgress = true;
-        console.log('[ADMIN SESSION] Attempting token refresh...');
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+        console.warn('[ADMIN SESSION] No refresh token available');
+        return false;
+    }
 
+    refreshPromise = (async () => {
+        console.log('[ADMIN SESSION] Attempting refresh…');
         try {
             const response = await fetch('/api/admin/refresh', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refresh_token: refreshToken })
             });
 
             if (response.ok) {
-    const data = await response.json();
-    const newToken = data.data?.access_token || data.access_token;
-    const newRefresh = data.data?.refresh_token || data.refresh_token || refreshToken;
-    // Prefer the user object from the refresh response (role may
-    // have changed). Fall back to the cached user.
-    const freshUser = data.data?.user || data.user || getAdminUser();
+                const data = await response.json();
+                const newToken   = (data && data.data && data.data.access_token)   || (data && data.access_token);
+                const newRefresh = (data && data.data && data.data.refresh_token)  || (data && data.refresh_token) || refreshToken;
+                const freshUser  = (data && data.data && data.data.user)           || (data && data.user)          || getAdminUser();
 
-    if (newToken) {
-        saveAdminSession(newToken, freshUser, newRefresh);
-        console.log('[ADMIN SESSION] Token refreshed successfully');
-        refreshInProgress = false;
-        return true;
+                if (newToken && typeof newToken === 'string' && newToken.split('.').length === 3) {
+                    saveAdminSession(newToken, freshUser, newRefresh);
+                    console.log('[ADMIN SESSION] Token refreshed');
+                    return true;
+                }
+                console.warn('[ADMIN SESSION] Refresh returned no usable token');
+                return false;
+            }
+
+            if (response.status === 401) {
+                console.warn('[ADMIN SESSION] Refresh rejected — logging out');
+                clearAdminSession();
+                saveReturnUrl();
+                redirectToLogin();
+                return false;
+            }
+
+            console.warn('[ADMIN SESSION] Refresh failed with status', response.status);
+            return false;
+        } catch (err) {
+            console.warn('[ADMIN SESSION] Refresh network error:', err.message);
+            return false;
+        }
+    })();
+
+    try {
+        return await refreshPromise;
+    } finally {
+        refreshPromise = null;
     }
 }
+    // ─── EXPIRY TIMER (replaces the old 45s heartbeat) ──────────────
+    //
+    // We schedule a single timer that fires ~30s before the token
+    // expires. That is the only moment we proactively contact the
+    // server. If the token is refreshed, we reschedule. If it is not,
+    // we log out. Between those moments, no requests are made just to
+    // keep the session alive.
 
-            console.warn('[ADMIN SESSION] Refresh failed:', response.status);
-            
-            // If refresh fails with 401, clear session
-            if (response.status === 401) {
-                clearAdminSession();
-                redirectToLogin();
-            }
-            
-            refreshInProgress = false;
-            return false;
-
-        } catch (error) {
-            console.warn('[ADMIN SESSION] Refresh error:', error.message);
-            refreshInProgress = false;
-            return false;
+    function stopExpiryTimer() {
+        if (expiryTimer) {
+            clearTimeout(expiryTimer);
+            expiryTimer = null;
         }
     }
 
-    // ─── HEARTBEAT ──────────────────────────────────────────────────
+    function scheduleTokenExpiryCheck() {
+        stopExpiryTimer();
+        if (IS_LOGIN_PAGE) return;
 
-    function startHeartbeat() {
-        stopHeartbeat();
+        const token = getAdminToken();
+        if (!token) { redirectToLogin(); return; }
 
-        if (IS_LOGIN_PAGE) {
-            return;
-        }
+        const expiry = getTokenExpiry(token);
+        if (!expiry) { clearAdminSession(); redirectToLogin(); return; }
 
-        console.log('[ADMIN SESSION] Starting heartbeat');
+        const timeLeft = expiry - Date.now();
+        const checkIn = Math.max(timeLeft - 30_000, MIN_TIMER_MS);
 
-        heartbeatTimer = setInterval(async () => {
-            const token = getAdminToken();
+        console.log(`[ADMIN SESSION] Next expiry check in ${Math.round(checkIn / 1000)}s`);
 
-            if (!token) {
-                stopHeartbeat();
-                redirectToLogin();
+        expiryTimer = setTimeout(async () => {
+            const current = getAdminToken();
+            if (!current) { redirectToLogin(); return; }
+
+            if (!isTokenExpired(current)) {
+                // Token changed while we were sleeping (e.g. refreshed
+                // by an adminFetch). Reschedule against the new exp.
+                scheduleTokenExpiryCheck();
                 return;
             }
 
-            // Check token expiry
-            const expiry = getTokenExpiry(token);
-            if (expiry) {
-                const timeLeft = expiry - Date.now();
-                
-                // If token is expired or expiring soon (within 5 minutes)
-                if (timeLeft < 300000) {
-                    if (timeLeft <= 0) {
-                        // Token expired - try refresh
-                        console.warn('[ADMIN SESSION] Token expired, attempting refresh...');
-                        const refreshed = await refreshAdminToken();
-                        if (!refreshed) {
-                            clearAdminSession();
-                            redirectToLogin();
-                            return;
-                        }
-                    } else if (timeLeft > 0) {
-                        // Token expiring soon - refresh proactively
-                        console.log(`[ADMIN SESSION] Token expires in ${Math.round(timeLeft/1000)}s, refreshing...`);
-                        await refreshAdminToken();
-                    }
-                    return;
-                }
+            console.warn('[ADMIN SESSION] Token expired — attempting refresh');
+            const refreshed = await refreshAdminToken();
+
+            if (refreshed) {
+                scheduleTokenExpiryCheck();
+                return;
             }
 
-            // Send heartbeat to keep session alive
-            const tokenAfterRefresh = getAdminToken();
-            if (tokenAfterRefresh) {
-                try {
-                    // Simple ping to keep session alive
-                    await fetch('/api/admin/session', {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${tokenAfterRefresh}`,
-                            'Cache-Control': 'no-cache'
-                        },
-                        cache: 'no-store'
-                    });
-                } catch (e) {
-                    // Silently handle heartbeat errors
-                }
-            }
-
-        }, 45000); // Every 45 seconds
+            console.warn('[ADMIN SESSION] Refresh failed — logging out');
+            clearAdminSession();
+            redirectToLogin();
+        }, checkIn);
     }
 
-    function stopHeartbeat() {
-        if (heartbeatTimer) {
-            clearInterval(heartbeatTimer);
-            heartbeatTimer = null;
-            console.log('[ADMIN SESSION] Heartbeat stopped');
-        }
-    }
+    // Kept as public API for pages that historically called
+    // startHeartbeat()/stopHeartbeat(). They now map to the expiry timer.
+    function startHeartbeat() { scheduleTokenExpiryCheck(); }
+    function stopHeartbeat()  { stopExpiryTimer(); }
 
-    // ─── ADMIN FETCH ─────────────────────────────────────────────────
+    // ─── ADMIN FETCH (server is authoritative) ─────────────────────
 
-    async function adminFetch(url, options = {}) {
+    async function adminFetch(url, options) {
+        options = options || {};
+
         let token = getAdminToken();
-
         if (!token) {
+            saveReturnUrl();
             redirectToLogin();
             throw new Error('Admin authentication required');
         }
 
-        // Check if token is expired or expiring soon
+        // If we're close to expiry, try one refresh first. If it fails
+        // because the token is already dead, we bail.
         const expiry = getTokenExpiry(token);
         if (expiry) {
             const timeLeft = expiry - Date.now();
-            if (timeLeft < 300000) {
-                // Try to refresh
+            if (timeLeft < REFRESH_BEFORE_MS) {
                 const refreshed = await refreshAdminToken();
                 if (refreshed) {
                     token = getAdminToken();
                 } else if (timeLeft <= 0) {
-                    // Token expired and refresh failed
                     clearAdminSession();
+                    saveReturnUrl();
                     redirectToLogin();
                     throw new Error('Admin session expired');
                 }
             }
         }
 
-        const headers = {
-            ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-            ...(options.headers || {}),
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-cache'
-        };
+        const isFormData = (typeof FormData !== 'undefined') && (options.body instanceof FormData);
+        const headers = Object.assign(
+            {},
+            isFormData ? {} : { 'Content-Type': 'application/json' },
+            options.headers || {},
+            {
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache'
+            }
+        );
 
-        const response = await fetch(url, { 
-            ...options, 
-            headers,
+        const response = await fetch(url, Object.assign({}, options, {
+            headers: headers,
             cache: 'no-store'
-        });
+        }));
 
-        // If unauthorized, clear session and redirect
-               // 401 = not authenticated → logout.
-        // 403 = authenticated but not authorized → DO NOT logout.
-        //       Let the caller surface the error. Clearing the session
-        //       on a 403 would silently log out a Finance admin who
-        //       simply lacks wallets.adjust.
+        // 401 → not authenticated. Log out. Do NOT clear on 403.
         if (response.status === 401) {
             clearAdminSession();
+            saveReturnUrl();
             redirectToLogin();
             throw new Error('Admin session expired');
         }
+
+        // 403 → authenticated but unauthorized. Surface but do not log out.
         if (response.status === 403) {
             let body = null;
-            try { body = await response.clone().json(); } catch (_) {}
-            const err = new Error(
-                body?.error || 'You do not have permission to perform this action.'
-            );
-            err.code = body?.code || 'PERMISSION_DENIED';
-            err.required = body?.required || null;
+            try { body = await response.clone().json(); } catch (_) { /* ignore */ }
+            const err = new Error((body && body.error) || 'You do not have permission to perform this action.');
+            err.code = (body && body.code) || 'PERMISSION_DENIED';
+            err.required = (body && body.required) || null;
             err.status = 403;
             throw err;
         }
@@ -411,11 +493,12 @@
         return response;
     }
 
-    // ─── LOGOUT ──────────────────────────────────────────────────────
+    // ─── LOGOUT ─────────────────────────────────────────────────────
 
     async function logoutAdmin() {
         const token = getAdminToken();
-        stopHeartbeat();
+        stopExpiryTimer();
+        clearReturnUrl();
 
         try {
             if (token) {
@@ -428,58 +511,50 @@
                     keepalive: true
                 });
             }
-        } catch (error) {
-            console.warn('[ADMIN SESSION] Logout request failed:', error.message);
+        } catch (err) {
+            console.warn('[ADMIN SESSION] Logout request failed:', err.message);
         } finally {
             clearAdminSession();
             window.location.replace(LOGIN_URL);
         }
     }
 
-    // ─── INIT ──────────────────────────────────────────────────────
+    // ─── INIT ───────────────────────────────────────────────────────
 
     async function init() {
-        if (initAttempted) {
-            console.log('[ADMIN SESSION] Already initialized');
-            return;
-        }
+        if (initAttempted) return;
         initAttempted = true;
 
         console.log('[ADMIN SESSION] Initializing on:', pathname);
         console.log('[ADMIN SESSION] Is login page:', IS_LOGIN_PAGE);
-        console.log('[ADMIN SESSION] Is dashboard page:', IS_DASHBOARD_PAGE);
 
-        // ─── Login Page ────────────────────────────────────────────
+        // ─── Login page ────────────────────────────────────────────
         if (IS_LOGIN_PAGE) {
-            console.log('[ADMIN SESSION] On login page');
-            
-            // Check if there's a valid session - if so, redirect to dashboard
             const session = getAdminSession();
-            if (session && session.token) {
-                const tokenValid = !isTokenExpired(session.token);
-                if (tokenValid) {
-                    // Verify with server before redirecting
-                    const verified = await verifyAdminSession();
-                    if (verified) {
-                        console.log('[ADMIN SESSION] Valid session on login page, redirecting to dashboard');
-                        redirectToDashboard();
-                        return;
-                    }
-                } else {
-                    // Token expired, clear it
-                    clearAdminSession();
+            if (session && session.token && !isTokenExpired(session.token)) {
+                const verified = await verifyAdminSession();
+                if (verified) {
+                    console.log('[ADMIN SESSION] Valid session on login page — redirecting after login');
+                    redirectAfterLogin();
+                    return;
                 }
+            } else if (session && session.token && isTokenExpired(session.token)) {
+                // Try a refresh before giving up. If it works, we can
+                // return the operator to where they were.
+                const refreshed = await refreshAdminToken();
+                if (refreshed) {
+                    redirectAfterLogin();
+                    return;
+                }
+                clearAdminSession();
             }
-            
             console.log('[ADMIN SESSION] Login page ready');
             return;
         }
 
-        // ─── Protected Admin Page ─────────────────────────────────
-        console.log('[ADMIN SESSION] On protected page');
-
+        // ─── Protected admin page ──────────────────────────────────
         const token = getAdminToken();
-        console.log('[ADMIN SESSION] Token found:', !!token);
+        console.log('[ADMIN SESSION] Token present:', !!token);
 
         if (!token) {
             console.warn('[ADMIN SESSION] No admin token');
@@ -487,11 +562,9 @@
             return;
         }
 
-        // Check local token validity
+        // If already expired, try to refresh once before redirecting.
         if (isTokenExpired(token)) {
-            console.warn('[ADMIN SESSION] Admin token expired locally');
-            
-            // Try to refresh before redirecting
+            console.warn('[ADMIN SESSION] Token expired locally — attempting refresh');
             const refreshed = await refreshAdminToken();
             if (!refreshed) {
                 clearAdminSession();
@@ -500,75 +573,75 @@
             }
         }
 
-        console.log('[ADMIN SESSION] Local token valid');
-
-        // Verify with server - this is critical
+        // One server check at page load. This is the only unconditional
+        // network call the session layer makes.
         const verified = await verifyAdminSession();
         if (!verified) {
-            console.warn('[ADMIN SESSION] Server verification failed');
-            // Verification already handles redirect for failures
+            // verifyAdminSession() already redirected for fatal codes.
             return;
         }
 
-        // Start heartbeat for session maintenance
-        startHeartbeat();
+        // Schedule the next expiry check. No periodic heartbeat.
+        scheduleTokenExpiryCheck();
 
-        console.log('[ADMIN SESSION] Initialization complete - dashboard ready');
+        console.log('[ADMIN SESSION] Initialization complete');
     }
-
-    // ─── RUN ──────────────────────────────────────────────────────
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {
-        // Small delay to let page initialize
         setTimeout(init, 50);
     }
 
-    // Handle page visibility change - re-verify when tab becomes visible
+    // When the tab becomes visible, re-verify once. This is cheap and
+    // catches the case where the session was revoked while the tab was
+    // hidden. It does not run on a timer.
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && !IS_LOGIN_PAGE) {
-            const token = getAdminToken();
-            if (token) {
-                // Re-verify session when tab becomes visible
-                setTimeout(() => {
-                    verifyAdminSession();
-                }, 500);
-            }
-        }
+        if (document.hidden) return;
+        if (IS_LOGIN_PAGE) return;
+        const token = getAdminToken();
+        if (!token) return;
+        setTimeout(() => { verifyAdminSession().catch(() => {}); }, 400);
     });
 
-    // ─── EXPOSE ──────────────────────────────────────────────────────
+    // ─── EXPOSE ─────────────────────────────────────────────────────
 
     window.AdminSession = {
         // Getters
-        getSession: getAdminSession,
-        getToken: getAdminToken,
-        getUser: getAdminUser,
+        getSession:      getAdminSession,
+        getToken:        getAdminToken,
+        getUser:         getAdminUser,
         getRefreshToken: getRefreshToken,
-        
+
         // Session management
-        save: saveAdminSession,
+        save:  saveAdminSession,
         clear: clearAdminSession,
-        
-        // Validation
-        isValid: isSessionValid,
+
+        // Local checks
+        isValid:   isSessionValid,
         isExpired: isTokenExpired,
         getExpiry: getTokenExpiry,
-        
+
         // Server interactions
-        verify: verifyAdminSession,
+        verify:  verifyAdminSession,
         refresh: refreshAdminToken,
-        fetch: adminFetch,
-        logout: logoutAdmin,
-        
+        fetch:   adminFetch,
+        logout:  logoutAdmin,
+
         // Navigation
-        redirectToLogin: redirectToLogin,
+        redirectToLogin:     redirectToLogin,
         redirectToDashboard: redirectToDashboard,
-        
-        // Heartbeat
+        redirectAfterLogin:  redirectAfterLogin,
+
+        // Return-URL helpers (exposed in case a page wants them directly)
+        saveReturnUrl:  saveReturnUrl,
+        getReturnUrl:   getReturnUrl,
+        clearReturnUrl: clearReturnUrl,
+
+        // Backwards-compat aliases. The old heartbeat is now the
+        // expiry-scheduler — nothing here polls the server.
         startHeartbeat: startHeartbeat,
-        stopHeartbeat: stopHeartbeat
+        stopHeartbeat:  stopHeartbeat
     };
 
 })();

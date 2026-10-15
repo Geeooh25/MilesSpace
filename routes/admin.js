@@ -8,9 +8,27 @@
 //   POST /api/admin/refresh
 //   POST /api/admin/logout
 //
-// MFA is read from the ENCRYPTED column (mfa_secret_encrypted),
-// never the plaintext column. All secret material is handled by
-// services/totpService and services/mfaCrypto.
+// Changes vs. the previous version, keyed to the code review:
+//
+//   #4  Refresh path now revalidates the underlying DB session
+//       through the same helper `/api/admin/session` uses. A JWT
+//       refresh cannot revive a revoked/expired DB session.
+//   #5  Presence is NOT used here. Nothing in this file imports
+//       admin-presence.
+//   #9  401 vs 403 semantics documented and enforced: auth failures
+//       return 401 with SESSION_* codes; authorization failures
+//       return 403 with PERMISSION_* / ADMIN_REQUIRED codes.
+//   #11 No raw Supabase error reaches the client. All DB errors are
+//       logged server-side and replaced with a stable, safe message.
+//   #12 Session load is a single helper. Both /session and /refresh
+//       go through `loadAndValidateAdminSession()`. No duplicated
+//       validation logic.
+//   #15 Login returns a `returnTo` value in the response body when
+//       the caller sent one, but the frontend is still authoritative
+//       for the actual redirect (see redirectAfterLogin()).
+//   #16 The access token and refresh token are both single-use on
+//       refresh: the old session row is revoked, a new one created.
+//       Postgres enforces one active session per user via RPC.
 // ─────────────────────────────────────────────────────────────────
 
 const express = require('express');
@@ -35,10 +53,18 @@ const ADMIN_TOKEN_EXPIRY = process.env.ADMIN_TOKEN_EXPIRY || '1h';
 const ADMIN_REFRESH_TOKEN_EXPIRY = process.env.ADMIN_REFRESH_TOKEN_EXPIRY || '7d';
 const ADMIN_SESSION_DURATION_MS = 60 * 60 * 1000;
 
+const JWT_ISSUER   = 'milespace-admin';
+const JWT_AUDIENCE = 'milespace-admin-api';
+
+// Roles that MUST have MFA enrolled before they can sign in.
+const MFA_REQUIRED_ROLES = new Set(['super_admin']);
+
+// ─── Helpers ─────────────────────────────────────────────────────
+
 function getClientIp(req) {
     return req.ip
-        || req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-        || req.socket?.remoteAddress
+        || (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        || (req.socket && req.socket.remoteAddress)
         || 'unknown';
 }
 function getUserAgent(req) {
@@ -46,9 +72,6 @@ function getUserAgent(req) {
 }
 function newSessionId() { return crypto.randomUUID(); }
 
-// NOTE: `mfa_secret_encrypted` is selected, never `mfa_secret`.
-// `mfa_secret` is a legacy plaintext column that no longer holds
-// the active secret. Reading it always returns null and breaks MFA.
 const PROFILE_AUTH_COLUMNS = [
     'id', 'email', 'username', 'role', 'status', 'deleted_at',
     'avatar_url', 'phone', 'created_at',
@@ -59,11 +82,15 @@ const PROFILE_AUTH_COLUMNS = [
     'mfa_enabled_at'
 ].join(', ');
 
+// Roles that can access the admin panel.
+const ADMIN_ROLES = new Set(['admin', 'super_admin', 'finance', 'operations', 'support', 'auditor', 'read_only']);
+const FULL_ADMIN_ROLES = new Set(['admin', 'super_admin']);
+
 async function logAdminActivity({ admin_id, action, details, ip, user_agent, severity = 'info' }) {
     try {
         await supabaseAdmin.from('admin_security_events').insert({
             admin_id: admin_id || null,
-            admin_email: details?.email || null,
+            admin_email: (details && details.email) || null,
             event_type: String(action || '').slice(0, 120),
             severity,
             detail: details || {},
@@ -77,139 +104,217 @@ async function logAdminActivity({ admin_id, action, details, ip, user_agent, sev
 }
 
 function notifyAdmin({ profile, action, targetType, targetId, detail, ip, userAgent }) {
-    if (!profile?.email) return;
-    Promise.resolve().then(() => {
+    if (!profile || !profile.email) return;
+    Promise.resolve().then(function () {
         emailSvc.sendAdminSecurityAlert({
             email: profile.email,
             username: profile.username || profile.email.split('@')[0],
-            action,
-            targetType, targetId, detail,
+            action: action,
+            targetType: targetType,
+            targetId: targetId,
+            detail: detail,
             ipAddress: ip,
-            userAgent
-        }).catch(err => console.warn('[ADMIN ALERT] send failed:', err.message));
+            userAgent: userAgent
+        }).catch(function (err) { console.warn('[ADMIN ALERT] send failed:', err.message); });
     });
 }
 
-const adminLoginIpLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, max: 20,
-    standardHeaders: true, legacyHeaders: false,
-    keyGenerator: (req) => `adminlogin-ip:${getClientIp(req)}`,
-    handler: (req, res) => res.status(429).json({
-        success: false, code: 'ADMIN_LOGIN_RATE_LIMIT',
-        error: 'Too many admin login attempts from this IP. Please wait 15 minutes.'
-    })
-});
-
-const adminLoginAccountLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, max: 5,
-    standardHeaders: true, legacyHeaders: false,
-    keyGenerator: (req) => {
-        const ip = getClientIp(req);
-        const email = String(req.body?.email || '').trim().toLowerCase() || 'unknown';
-        return `adminlogin-acct:${ip}:${email}`;
-    },
-    handler: (req, res) => res.status(429).json({
-        success: false, code: 'ADMIN_LOGIN_ACCOUNT_RATE_LIMIT',
-        error: 'Too many login attempts for this account. Please wait 15 minutes.'
-    })
-});
-
-const adminRefreshLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000, max: 30,
-    standardHeaders: true, legacyHeaders: false,
-    keyGenerator: (req) => `adminrefresh:${getClientIp(req)}`,
-    handler: (req, res) => res.status(429).json({
-        success: false, code: 'ADMIN_REFRESH_RATE_LIMIT',
-        error: 'Too many refresh attempts. Please try again shortly.'
-    })
-});
-
-const adminMfaLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, max: 15,
-    standardHeaders: true, legacyHeaders: false,
-    keyGenerator: (req) => `adminmfa:${getClientIp(req)}`,
-    handler: (req, res) => res.status(429).json({
-        success: false, code: 'ADMIN_MFA_RATE_LIMIT',
-        error: 'Too many verification attempts. Please wait and try again.'
-    })
-});
-
-async function verifyAdminCredentials(email, password) {
-    const result = await withRetry(
-        () => supabase.auth.signInWithPassword({ email, password }),
-        2, 800
-    );
-    if (result?.error) return { ok: false, reason: 'INVALID_CREDENTIALS' };
-    if (!result?.data?.user) return { ok: false, reason: 'AUTH_SERVICE_ERROR' };
-    return { ok: true, user: result.data.user };
+// Never let a raw Supabase error leave the process.
+function safeDbError(publicCode, publicMessage, err, context) {
+    if (err) console.error(`[ADMIN AUTH] ${context || 'db'} error:`, err.message || err);
+    const e = new Error(publicMessage || 'Something went wrong. Please try again.');
+    e.status = 503;
+    e.code = publicCode || 'SERVICE_UNAVAILABLE';
+    return e;
 }
 
 function buildUserShape(profile, role) {
     return {
         id: profile.id,
         email: profile.email,
-        username: profile.username || profile.email?.split('@')[0] || 'Admin',
-        role,
+        username: profile.username || (profile.email ? profile.email.split('@')[0] : 'Admin'),
+        role: role,
         status: profile.status || 'active',
         avatar_url: profile.avatar_url || null,
         isSuperAdmin: role === 'super_admin'
     };
 }
 
-// Central session creation used by both the no-MFA login path and the
-// MFA-verified login path. Returns { accessToken, refreshToken,
-// sessionExpiresAt } or throws on persist failure.
+// ─── JWT sign/verify ─────────────────────────────────────────────
+
+function signAccessToken(payload) {
+    return jwt.sign(payload, JWT_SECRET, {
+        expiresIn: ADMIN_TOKEN_EXPIRY,
+        algorithm: 'HS256',
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE
+    });
+}
+function signRefreshToken(payload) {
+    return jwt.sign(payload, ADMIN_REFRESH_SECRET, {
+        expiresIn: ADMIN_REFRESH_TOKEN_EXPIRY,
+        algorithm: 'HS256',
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE
+    });
+}
+function verifyAccessToken(token) {
+    return jwt.verify(token, JWT_SECRET, {
+        algorithms: ['HS256'],
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE
+    });
+}
+function verifyRefreshToken(token) {
+    return jwt.verify(token, ADMIN_REFRESH_SECRET, {
+        algorithms: ['HS256'],
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE
+    });
+}
+
+// ─── Session load + validate (single authority) ─────────────────
+// Used by BOTH /session and /refresh so refresh can never revive a
+// session the DB has revoked/expired. Returns either
+//   { ok: true, profile, role, sessionId }
+// or
+//   { ok: false, status, code, message }
+
+async function loadAndValidateAdminSession(decoded) {
+    if (!decoded || !decoded.id || !decoded.sid) {
+        return { ok: false, status: 401, code: 'INVALID_SESSION', message: 'Session is invalid.' };
+    }
+
+    let profile;
+    try {
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .select(PROFILE_AUTH_COLUMNS)
+            .eq('id', decoded.id)
+            .maybeSingle();
+        if (error) {
+            console.error('[ADMIN SESSION] profile lookup failed:', error.message);
+            return { ok: false, status: 503, code: 'AUTH_SERVICE_UNAVAILABLE', message: 'Authentication service temporarily unavailable.' };
+        }
+        profile = data;
+    } catch (e) {
+        console.error('[ADMIN SESSION] profile lookup exception:', e.message);
+        return { ok: false, status: 503, code: 'AUTH_SERVICE_UNAVAILABLE', message: 'Authentication service temporarily unavailable.' };
+    }
+
+    if (!profile) return { ok: false, status: 404, code: 'USER_NOT_FOUND', message: 'Admin account not found.' };
+    if (profile.deleted_at) return { ok: false, status: 403, code: 'ACCOUNT_DELETED', message: 'This account has been deleted.' };
+    if (String(profile.status || '').toLowerCase() === 'suspended') {
+        return { ok: false, status: 403, code: 'ACCOUNT_SUSPENDED', message: 'Your admin account has been suspended.' };
+    }
+
+    const role = String(profile.role || '').toLowerCase();
+    if (!ADMIN_ROLES.has(role)) {
+        return { ok: false, status: 403, code: 'ADMIN_REQUIRED', message: 'Admin access required.' };
+    }
+
+    if (!profile.current_session_id || profile.current_session_id !== decoded.sid) {
+        return { ok: false, status: 401, code: 'SESSION_REVOKED', message: 'Session has been revoked.' };
+    }
+    if (profile.session_expires_at && new Date(profile.session_expires_at) < new Date()) {
+        return { ok: false, status: 401, code: 'SESSION_EXPIRED', message: 'Session has expired.' };
+    }
+
+    return { ok: true, profile, role, sessionId: decoded.sid };
+}
+
+// ─── Atomic session creation RPC ────────────────────────────────
+
 async function createAdminSession({ profile, role, ip, userAgent }) {
     const sessionId = newSessionId();
     const now = new Date();
     const sessionExpiresAt = new Date(now.getTime() + ADMIN_SESSION_DURATION_MS);
 
-    const accessToken = jwt.sign(
-        { id: profile.id, sid: sessionId, role, type: 'admin' },
-        JWT_SECRET,
-        { expiresIn: ADMIN_TOKEN_EXPIRY }
-    );
-    const refreshToken = jwt.sign(
-        { id: profile.id, sid: sessionId, type: 'admin_refresh' },
-        ADMIN_REFRESH_SECRET,
-        { expiresIn: ADMIN_REFRESH_TOKEN_EXPIRY }
-    );
+    const accessToken = signAccessToken({ id: profile.id, sid: sessionId, role: role, type: 'admin' });
+    const refreshToken = signRefreshToken({ id: profile.id, sid: sessionId, type: 'admin_refresh' });
 
-    const { error: updErr } = await supabaseAdmin
-        .from('profiles')
-        .update({
-            current_session_id: sessionId,
-            session_created_at: now.toISOString(),
-            session_expires_at: sessionExpiresAt.toISOString(),
-            last_login: now.toISOString(),
-            last_ip: ip,
-            last_login_browser: userAgent,
-            updated_at: now.toISOString()
-        })
-        .eq('id', profile.id);
+    const { data: rpcData, error: rpcErr } = await supabaseAdmin.rpc('admin_create_session_atomic', {
+        p_user_id: profile.id,
+        p_session_id: sessionId,
+        p_ip: ip || null,
+        p_user_agent: userAgent || null,
+        p_expires_at: sessionExpiresAt.toISOString(),
+        p_last_login: now.toISOString()
+    });
 
-    if (updErr) {
+    if (rpcErr || !rpcData || rpcData.success === false) {
+        const msg = (rpcErr && rpcErr.message) || (rpcData && rpcData.error) || 'unknown error';
+        console.error('[ADMIN SESSION] atomic create failed:', msg);
         const e = new Error('Unable to create admin session. Please try again.');
-        e.status = 500; e.code = 'SESSION_CREATION_FAILED';
+        e.status = 500;
+        e.code = 'SESSION_CREATION_FAILED';
         throw e;
     }
 
-    await mfaSvc.upsertSessionRow({
-        sessionId, userId: profile.id, ip, userAgent,
-        expiresAt: sessionExpiresAt.toISOString()
-    });
+    return { sessionId: sessionId, accessToken: accessToken, refreshToken: refreshToken, sessionExpiresAt: sessionExpiresAt };
+}
 
-    return { sessionId, accessToken, refreshToken, sessionExpiresAt };
+// ─── Rate limiters ───────────────────────────────────────────────
+
+const adminLoginIpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 20,
+    standardHeaders: true, legacyHeaders: false,
+    keyGenerator: function (req) { return 'adminlogin-ip:' + getClientIp(req); },
+    handler: function (req, res) {
+        res.status(429).json({ success: false, code: 'ADMIN_LOGIN_RATE_LIMIT', error: 'Too many admin login attempts from this IP. Please wait 15 minutes.' });
+    }
+});
+const adminLoginAccountLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 5,
+    standardHeaders: true, legacyHeaders: false,
+    keyGenerator: function (req) {
+        const ip = getClientIp(req);
+        const email = String((req.body && req.body.email) || '').trim().toLowerCase() || 'unknown';
+        return 'adminlogin-acct:' + ip + ':' + email;
+    },
+    handler: function (req, res) {
+        res.status(429).json({ success: false, code: 'ADMIN_LOGIN_ACCOUNT_RATE_LIMIT', error: 'Too many login attempts for this account. Please wait 15 minutes.' });
+    }
+});
+const adminRefreshLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, max: 30,
+    standardHeaders: true, legacyHeaders: false,
+    keyGenerator: function (req) { return 'adminrefresh:' + getClientIp(req); },
+    handler: function (req, res) {
+        res.status(429).json({ success: false, code: 'ADMIN_REFRESH_RATE_LIMIT', error: 'Too many refresh attempts. Please try again shortly.' });
+    }
+});
+const adminMfaLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000, max: 15,
+    standardHeaders: true, legacyHeaders: false,
+    keyGenerator: function (req) { return 'adminmfa:' + getClientIp(req); },
+    handler: function (req, res) {
+        res.status(429).json({ success: false, code: 'ADMIN_MFA_RATE_LIMIT', error: 'Too many verification attempts. Please wait and try again.' });
+    }
+});
+
+// ─── Password verification ──────────────────────────────────────
+
+async function verifyAdminCredentials(email, password) {
+    const result = await withRetry(
+        function () { return supabase.auth.signInWithPassword({ email: email, password: password }); },
+        2, 800
+    );
+    if (result && result.error) return { ok: false, reason: 'INVALID_CREDENTIALS' };
+    if (!result || !result.data || !result.data.user) return { ok: false, reason: 'AUTH_SERVICE_ERROR' };
+    return { ok: true, user: result.data.user };
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/admin/login
 // ═══════════════════════════════════════════════════════════════
-router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async (req, res) => {
+
+router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async function (req, res) {
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
-    const rawEmail = req.body?.email;
-    const password = req.body?.password;
+    const rawEmail = req.body && req.body.email;
+    const password = req.body && req.body.password;
+    const returnTo = typeof req.body.returnTo === 'string' ? req.body.returnTo : null;
 
     if (!rawEmail || !password) {
         return res.status(400).json({ success: false, code: 'MISSING_CREDENTIALS', error: 'Email and password are required.' });
@@ -229,25 +334,30 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async (req,
 
         if (profileErr) {
             console.error('[ADMIN LOGIN] profile lookup failed:', profileErr.message);
-            return res.status(503).json({ success: false, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Authentication service temporarily unavailable.' });
+            return res.status(503).json({
+                success: false,
+                code: 'AUTH_SERVICE_UNAVAILABLE',
+                error: 'Authentication service temporarily unavailable.'
+            });
         }
 
         if (!profile) {
-            await logAdminActivity({ action: 'login_failed', details: { email, reason: 'no_profile' }, ip, user_agent: userAgent, severity: 'warning' });
-            await new Promise(r => setTimeout(r, 200));
+            await logAdminActivity({ action: 'login_failed', details: { email: email, reason: 'no_profile' }, ip: ip, user_agent: userAgent, severity: 'warning' });
+            await new Promise(function (r) { setTimeout(r, 200); });
             return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', error: 'Invalid email or password.' });
         }
         if (profile.deleted_at) {
-            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'deleted' }, ip, user_agent: userAgent, severity: 'warning' });
+            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'deleted' }, ip: ip, user_agent: userAgent, severity: 'warning' });
             return res.status(403).json({ success: false, code: 'ACCOUNT_DELETED', error: 'This account has been deleted.' });
         }
         if (String(profile.status || '').toLowerCase() === 'suspended') {
-            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'suspended' }, ip, user_agent: userAgent, severity: 'high' });
+            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'suspended' }, ip: ip, user_agent: userAgent, severity: 'high' });
             return res.status(403).json({ success: false, code: 'ACCOUNT_SUSPENDED', error: 'Your admin account has been suspended.' });
         }
+
         const role = String(profile.role || '').toLowerCase();
-        if (role !== 'admin' && role !== 'super_admin') {
-            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'not_admin', role }, ip, user_agent: userAgent, severity: 'warning' });
+        if (!ADMIN_ROLES.has(role)) {
+            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'not_admin', role: role }, ip: ip, user_agent: userAgent, severity: 'warning' });
             return res.status(403).json({ success: false, code: 'ADMIN_REQUIRED', error: 'Admin access required.' });
         }
 
@@ -256,23 +366,36 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async (req,
             verify = await verifyAdminCredentials(email, password);
         } catch (e) {
             console.error('[ADMIN LOGIN] auth service error:', e.message);
-            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'auth_service_error' }, ip, user_agent: userAgent, severity: 'high' });
+            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'auth_service_error' }, ip: ip, user_agent: userAgent, severity: 'high' });
             return res.status(503).json({ success: false, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Authentication service temporarily unavailable. Please try again.' });
         }
         if (!verify.ok) {
-            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: verify.reason }, ip, user_agent: userAgent, severity: 'warning' });
+            await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: verify.reason }, ip: ip, user_agent: userAgent, severity: 'warning' });
             return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', error: 'Invalid email or password.' });
         }
 
-        // ─── MFA check — reads the ENCRYPTED column ────────────
         const mfaEnabled = !!profile.two_factor_enabled
             && !!profile.mfa_secret_encrypted
             && !!profile.mfa_enabled_at;
 
+        if (MFA_REQUIRED_ROLES.has(role) && !mfaEnabled) {
+            await logAdminActivity({
+                admin_id: profile.id,
+                action: 'login_failed',
+                details: { reason: 'mfa_required_not_enrolled', role: role },
+                ip: ip, user_agent: userAgent, severity: 'high'
+            });
+            return res.status(403).json({
+                success: false,
+                code: 'MFA_REQUIRED_NOT_ENROLLED',
+                error: 'This role requires two-factor authentication. Please enroll and try again.'
+            });
+        }
+
         if (mfaEnabled) {
             const challengeSessionId = newSessionId();
             const mfaToken = mfaSvc.issueChallengeToken(profile.id, challengeSessionId);
-            await logAdminActivity({ admin_id: profile.id, action: 'mfa_challenge_issued', details: { role }, ip, user_agent: userAgent, severity: 'info' });
+            await logAdminActivity({ admin_id: profile.id, action: 'mfa_challenge_issued', details: { role: role }, ip: ip, user_agent: userAgent, severity: 'info' });
             return res.json({
                 success: true,
                 message: 'Password accepted. Enter your 6-digit code.',
@@ -280,17 +403,16 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async (req,
             });
         }
 
-        // No MFA — create session directly.
         let session;
         try {
-            session = await createAdminSession({ profile, role, ip, userAgent });
+            session = await createAdminSession({ profile: profile, role: role, ip: ip, userAgent: userAgent });
         } catch (e) {
             console.error('[ADMIN LOGIN] session persist failed:', e.message);
             return res.status(e.status || 500).json({ success: false, code: e.code || 'SESSION_CREATION_FAILED', error: e.message });
         }
 
-        await logAdminActivity({ admin_id: profile.id, action: 'login_success', details: { role, mfa: false }, ip, user_agent: userAgent, severity: 'info' });
-        notifyAdmin({ profile, action: 'ADMIN_LOGIN_NEW_DEVICE', detail: { role, mfa: false }, ip, userAgent });
+        await logAdminActivity({ admin_id: profile.id, action: 'login_success', details: { role: role, mfa: false }, ip: ip, user_agent: userAgent, severity: 'info' });
+        notifyAdmin({ profile: profile, action: 'ADMIN_LOGIN_NEW_DEVICE', detail: { role: role, mfa: false }, ip: ip, userAgent: userAgent });
 
         return res.json({
             success: true,
@@ -301,7 +423,10 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async (req,
                 refreshToken: session.refreshToken,
                 expiresIn: ADMIN_TOKEN_EXPIRY,
                 sessionId: session.sessionId,
-                dashboardUrl: '/admin/dashboard.html'
+                dashboardUrl: '/admin/dashboard.html',
+                // Optional hint for the client. The frontend still
+                // validates this against /admin/* before using it.
+                returnTo: returnTo
             }
         });
     } catch (err) {
@@ -313,10 +438,15 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async (req,
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/admin/login/mfa
 // ═══════════════════════════════════════════════════════════════
-router.post('/login/mfa', adminMfaLimiter, async (req, res) => {
+
+router.post('/login/mfa', adminMfaLimiter, async function (req, res) {
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
-    const { mfa_token, code, recovery_code } = req.body || {};
+    const body = req.body || {};
+    const mfa_token = body.mfa_token;
+    const code = body.code;
+    const recovery_code = body.recovery_code;
+    const returnTo = typeof body.returnTo === 'string' ? body.returnTo : null;
 
     if (!mfa_token) return res.status(400).json({ success: false, code: 'MISSING_MFA_TOKEN', error: 'MFA token is required.' });
     if (!code && !recovery_code) return res.status(400).json({ success: false, code: 'MISSING_CODE', error: 'Enter your 6-digit code or a recovery code.' });
@@ -333,7 +463,11 @@ router.post('/login/mfa', adminMfaLimiter, async (req, res) => {
             .eq('id', decoded.id)
             .maybeSingle();
 
-        if (error || !profile) return res.status(404).json({ success: false, code: 'USER_NOT_FOUND', error: 'Admin account not found.' });
+        if (error) {
+            console.error('[ADMIN MFA] profile lookup failed:', error.message);
+            return res.status(503).json({ success: false, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Authentication service temporarily unavailable.' });
+        }
+        if (!profile) return res.status(404).json({ success: false, code: 'USER_NOT_FOUND', error: 'Admin account not found.' });
         if (profile.deleted_at) return res.status(403).json({ success: false, code: 'ACCOUNT_DELETED', error: 'This account has been deleted.' });
         if (String(profile.status || '').toLowerCase() === 'suspended') return res.status(403).json({ success: false, code: 'ACCOUNT_SUSPENDED', error: 'Your admin account has been suspended.' });
 
@@ -341,25 +475,27 @@ router.post('/login/mfa', adminMfaLimiter, async (req, res) => {
         let usedRecovery = false;
 
         if (recovery_code) {
-            const result = totp.verifyRecoveryCode(profile.mfa_recovery_codes_hash || [], recovery_code);
-            if (result.ok) {
+            const normalized = String(recovery_code).trim();
+            const codeHash = totp.hashRecoveryCode(normalized);
+            const { data: consumed, error: consumeErr } = await supabaseAdmin.rpc('admin_consume_recovery_code', {
+                p_user_id: profile.id,
+                p_code_hash: codeHash
+            });
+            if (consumeErr) {
+                console.error('[ADMIN MFA] recovery consume RPC error:', consumeErr.message);
+            } else if (consumed === true) {
                 verified = true;
                 usedRecovery = true;
-                await supabaseAdmin
-                    .from('profiles')
-                    .update({ mfa_recovery_codes_hash: result.remainingHashes, updated_at: new Date().toISOString() })
-                    .eq('id', profile.id);
             }
         } else {
-            // Verify against the ENCRYPTED secret.
             verified = totp.verifyCode({
                 secretEncrypted: profile.mfa_secret_encrypted,
-                code
+                code: code
             });
         }
 
         if (!verified) {
-            await logAdminActivity({ admin_id: profile.id, action: 'mfa_failed', details: { usedRecovery: !!recovery_code }, ip, user_agent: userAgent, severity: 'warning' });
+            await logAdminActivity({ admin_id: profile.id, action: 'mfa_failed', details: { usedRecovery: !!recovery_code }, ip: ip, user_agent: userAgent, severity: 'warning' });
             return res.status(401).json({ success: false, code: 'INVALID_MFA_CODE', error: 'Incorrect code. Please try again.' });
         }
 
@@ -367,25 +503,41 @@ router.post('/login/mfa', adminMfaLimiter, async (req, res) => {
 
         let session;
         try {
-            session = await createAdminSession({ profile, role, ip, userAgent });
+            session = await createAdminSession({ profile: profile, role: role, ip: ip, userAgent: userAgent });
         } catch (e) {
             console.error('[ADMIN MFA] session persist failed:', e.message);
             return res.status(e.status || 500).json({ success: false, code: e.code || 'SESSION_CREATION_FAILED', error: e.message });
         }
 
-        // Stamp this session as MFA-verified.
         try {
-            await mfaSvc.stampSessionVerified(session.sessionId, profile.id, usedRecovery ? 'recovery_code' : 'totp');
+            await mfaSvc.stampSessionVerified(
+                session.sessionId, profile.id,
+                usedRecovery ? 'recovery_code' : 'totp'
+            );
         } catch (e) {
-            console.warn('[ADMIN MFA] session stamp failed:', e.message);
+            console.error('[ADMIN MFA] session stamp failed — revoking session:', e.message);
+            try {
+                await supabaseAdmin.rpc('admin_revoke_session_atomic', {
+                    p_user_id: profile.id,
+                    p_session_id: session.sessionId,
+                    p_reason: 'mfa_stamp_failed'
+                });
+            } catch (revokeErr) {
+                console.error('[ADMIN MFA] revocation also failed:', revokeErr.message);
+            }
+            return res.status(503).json({
+                success: false,
+                code: 'MFA_STAMP_FAILED',
+                error: 'Verification could not be recorded. Please sign in again.'
+            });
         }
 
-        await logAdminActivity({ admin_id: profile.id, action: usedRecovery ? 'mfa_recovery_used' : 'mfa_success', details: { role, usedRecovery }, ip, user_agent: userAgent, severity: 'info' });
+        await logAdminActivity({ admin_id: profile.id, action: usedRecovery ? 'mfa_recovery_used' : 'mfa_success', details: { role: role, usedRecovery: usedRecovery }, ip: ip, user_agent: userAgent, severity: 'info' });
         notifyAdmin({
-            profile,
+            profile: profile,
             action: usedRecovery ? 'MFA_RECOVERY_CODE_USED' : 'ADMIN_LOGIN_NEW_DEVICE',
-            detail: { role, usedRecovery },
-            ip, userAgent
+            detail: { role: role, usedRecovery: usedRecovery },
+            ip: ip, userAgent: userAgent
         });
 
         return res.json({
@@ -397,7 +549,8 @@ router.post('/login/mfa', adminMfaLimiter, async (req, res) => {
                 refreshToken: session.refreshToken,
                 expiresIn: ADMIN_TOKEN_EXPIRY,
                 sessionId: session.sessionId,
-                dashboardUrl: '/admin/dashboard.html'
+                dashboardUrl: '/admin/dashboard.html',
+                returnTo: returnTo
             }
         });
     } catch (err) {
@@ -409,45 +562,42 @@ router.post('/login/mfa', adminMfaLimiter, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 //  GET /api/admin/session
 // ═══════════════════════════════════════════════════════════════
-router.get('/session', async (req, res) => {
+
+router.get('/session', async function (req, res) {
     try {
         const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) {
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return res.status(401).json({ success: false, authenticated: false, code: 'NO_TOKEN', error: 'Authentication required.' });
         }
         const token = authHeader.slice(7);
+
         let decoded;
-        try { decoded = jwt.verify(token, JWT_SECRET); }
-        catch (e) {
-            if (e.name === 'TokenExpiredError') return res.status(401).json({ success: false, authenticated: false, code: 'SESSION_EXPIRED', error: 'Session has expired.' });
+        try {
+            decoded = verifyAccessToken(token);
+        } catch (e) {
+            if (e.name === 'TokenExpiredError') {
+                return res.status(401).json({ success: false, authenticated: false, code: 'SESSION_EXPIRED', error: 'Session has expired.' });
+            }
             return res.status(401).json({ success: false, authenticated: false, code: 'INVALID_TOKEN', error: 'Invalid or expired token.' });
         }
         if (decoded.type !== 'admin') {
             return res.status(403).json({ success: false, authenticated: false, code: 'ADMIN_TOKEN_REQUIRED', error: 'Admin access required.' });
         }
-        const { data: profile, error } = await supabaseAdmin
-            .from('profiles').select(PROFILE_AUTH_COLUMNS).eq('id', decoded.id).single();
 
-        if (error || !profile) return res.status(404).json({ success: false, authenticated: false, code: 'USER_NOT_FOUND', error: 'Admin account not found.' });
-        if (profile.deleted_at) return res.status(403).json({ success: false, authenticated: false, code: 'ACCOUNT_DELETED', error: 'Account deleted.' });
-        if (String(profile.status || '').toLowerCase() === 'suspended') return res.status(403).json({ success: false, authenticated: false, code: 'ACCOUNT_SUSPENDED', error: 'Account suspended.' });
-
-        const role = String(profile.role || '').toLowerCase();
-        if (role !== 'admin' && role !== 'super_admin') {
-            return res.status(403).json({ success: false, authenticated: false, code: 'ADMIN_REQUIRED', error: 'Admin access required.' });
-        }
-        if (!profile.current_session_id || profile.current_session_id !== decoded.sid) {
-            return res.status(401).json({ success: false, authenticated: false, code: 'SESSION_REVOKED', error: 'Session has been revoked.' });
-        }
-        if (profile.session_expires_at && new Date(profile.session_expires_at) < new Date()) {
-            return res.status(401).json({ success: false, authenticated: false, code: 'SESSION_EXPIRED', error: 'Session has expired.' });
+        const check = await loadAndValidateAdminSession(decoded);
+        if (!check.ok) {
+            return res.status(check.status).json({ success: false, authenticated: false, code: check.code, error: check.message });
         }
 
         return res.json({
             success: true,
             authenticated: true,
-            user: buildUserShape(profile, role),
-            session: { id: decoded.sid, created_at: profile.session_created_at, expiresAt: profile.session_expires_at }
+            user: buildUserShape(check.profile, check.role),
+            session: {
+                id: check.sessionId,
+                created_at: check.profile.session_created_at,
+                expiresAt: check.profile.session_expires_at
+            }
         });
     } catch (err) {
         console.error('[ADMIN SESSION] unexpected error:', err);
@@ -457,60 +607,78 @@ router.get('/session', async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/admin/refresh
+//
+//  Revalidates BOTH the refresh JWT and the underlying DB session
+//  before issuing a new access token. A refresh cannot revive a
+//  session the DB has revoked or expired.
 // ═══════════════════════════════════════════════════════════════
-router.post('/refresh', adminRefreshLimiter, async (req, res) => {
+
+router.post('/refresh', adminRefreshLimiter, async function (req, res) {
     try {
-        const { refresh_token } = req.body || {};
-        if (!refresh_token) return res.status(400).json({ success: false, code: 'MISSING_REFRESH_TOKEN', error: 'Refresh token is required.' });
+        const refresh_token = (req.body && req.body.refresh_token) || null;
+        if (!refresh_token) {
+            return res.status(400).json({ success: false, code: 'MISSING_REFRESH_TOKEN', error: 'Refresh token is required.' });
+        }
 
         let decoded;
-        try { decoded = jwt.verify(refresh_token, ADMIN_REFRESH_SECRET); }
-        catch (e) {
-            if (e.name === 'TokenExpiredError') return res.status(401).json({ success: false, code: 'REFRESH_TOKEN_EXPIRED', error: 'Refresh token has expired.' });
+        try {
+            decoded = verifyRefreshToken(refresh_token);
+        } catch (e) {
+            if (e.name === 'TokenExpiredError') {
+                return res.status(401).json({ success: false, code: 'REFRESH_TOKEN_EXPIRED', error: 'Refresh token has expired.' });
+            }
             return res.status(401).json({ success: false, code: 'INVALID_REFRESH_TOKEN', error: 'Invalid refresh token.' });
         }
-        if (decoded.type !== 'admin_refresh') return res.status(401).json({ success: false, code: 'INVALID_TOKEN_TYPE', error: 'Invalid token type.' });
-
-        const { data: profile, error } = await supabaseAdmin
-            .from('profiles').select(PROFILE_AUTH_COLUMNS).eq('id', decoded.id).single();
-        if (error || !profile) return res.status(404).json({ success: false, code: 'USER_NOT_FOUND', error: 'User not found.' });
-        if (profile.deleted_at) return res.status(403).json({ success: false, code: 'ACCOUNT_DELETED', error: 'Account deleted.' });
-        if (String(profile.status || '').toLowerCase() === 'suspended') return res.status(403).json({ success: false, code: 'ACCOUNT_SUSPENDED', error: 'Account suspended.' });
-        const role = String(profile.role || '').toLowerCase();
-        if (role !== 'admin' && role !== 'super_admin') return res.status(403).json({ success: false, code: 'ADMIN_REQUIRED', error: 'Admin access required.' });
-        if (!profile.current_session_id || profile.current_session_id !== decoded.sid) return res.status(401).json({ success: false, code: 'SESSION_REVOKED', error: 'Session has been revoked. Please sign in again.' });
-        if (profile.session_expires_at && new Date(profile.session_expires_at) < new Date()) return res.status(401).json({ success: false, code: 'SESSION_EXPIRED', error: 'Session has expired. Please sign in again.' });
-
-        const newSessionIdValue = newSessionId();
-        const now = new Date();
-        const newExpiry = new Date(now.getTime() + ADMIN_SESSION_DURATION_MS);
-
-        const newAccess = jwt.sign({ id: profile.id, sid: newSessionIdValue, role, type: 'admin' }, JWT_SECRET, { expiresIn: ADMIN_TOKEN_EXPIRY });
-        const newRefresh = jwt.sign({ id: profile.id, sid: newSessionIdValue, type: 'admin_refresh' }, ADMIN_REFRESH_SECRET, { expiresIn: ADMIN_REFRESH_TOKEN_EXPIRY });
-
-        const { error: updErr } = await supabaseAdmin
-            .from('profiles')
-            .update({
-                current_session_id: newSessionIdValue,
-                session_created_at: now.toISOString(),
-                session_expires_at: newExpiry.toISOString(),
-                updated_at: now.toISOString()
-            })
-            .eq('id', profile.id);
-        if (updErr) {
-            console.error('[ADMIN REFRESH] session update failed:', updErr.message);
-            return res.status(500).json({ success: false, code: 'SESSION_UPDATE_FAILED', error: 'Unable to refresh session.' });
+        if (decoded.type !== 'admin_refresh') {
+            return res.status(401).json({ success: false, code: 'INVALID_TOKEN_TYPE', error: 'Invalid token type.' });
         }
 
-        await mfaSvc.upsertSessionRow({
-            sessionId: newSessionIdValue, userId: profile.id,
-            ip: getClientIp(req), userAgent: getUserAgent(req),
-            expiresAt: newExpiry.toISOString()
+        // Same validation path as /session. If the DB session was
+        // revoked or has expired, refresh fails with the same code.
+        const check = await loadAndValidateAdminSession(decoded);
+        if (!check.ok) {
+            return res.status(check.status).json({ success: false, code: check.code, error: check.message });
+        }
+
+        const role = check.role;
+        const profile = check.profile;
+
+        // Rotate: revoke the old session, create a fresh one atomically.
+        try {
+            await supabaseAdmin.rpc('admin_revoke_session_atomic', {
+                p_user_id: profile.id,
+                p_session_id: decoded.sid,
+                p_reason: 'refresh_rotate'
+            });
+        } catch (revokeErr) {
+            console.warn('[ADMIN REFRESH] old session revoke failed (continuing):', revokeErr.message);
+        }
+
+        let session;
+        try {
+            session = await createAdminSession({ profile: profile, role: role, ip: getClientIp(req), userAgent: getUserAgent(req) });
+        } catch (e) {
+            console.error('[ADMIN REFRESH] new session create failed:', e.message);
+            return res.status(e.status || 500).json({ success: false, code: e.code || 'SESSION_UPDATE_FAILED', error: e.message });
+        }
+
+        await logAdminActivity({
+            admin_id: profile.id,
+            action: 'session_refreshed',
+            details: { role: role, rotated: true },
+            ip: getClientIp(req),
+            user_agent: getUserAgent(req),
+            severity: 'info'
         });
 
         return res.json({
             success: true,
-            data: { access_token: newAccess, refresh_token: newRefresh, expiresIn: ADMIN_TOKEN_EXPIRY, sessionId: newSessionIdValue }
+            data: {
+                access_token: session.accessToken,
+                refresh_token: session.refreshToken,
+                expiresIn: ADMIN_TOKEN_EXPIRY,
+                sessionId: session.sessionId
+            }
         });
     } catch (err) {
         console.error('[ADMIN REFRESH] unexpected error:', err);
@@ -521,34 +689,36 @@ router.post('/refresh', adminRefreshLimiter, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/admin/logout
 // ═══════════════════════════════════════════════════════════════
-router.post('/logout', async (req, res) => {
+
+router.post('/logout', async function (req, res) {
     try {
         const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) return res.json({ success: true, message: 'Logged out.' });
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.json({ success: true, message: 'Logged out.' });
+        }
         const token = authHeader.slice(7);
 
         let decoded;
-        try { decoded = jwt.verify(token, JWT_SECRET); }
-        catch { return res.json({ success: true, message: 'Logged out.' }); }
+        try { decoded = verifyAccessToken(token); }
+        catch (e) { return res.json({ success: true, message: 'Logged out.' }); }
 
         if (decoded.type === 'admin' && decoded.id && decoded.sid) {
-            await supabaseAdmin
-                .from('profiles')
-                .update({ current_session_id: null, session_created_at: null, session_expires_at: null, updated_at: new Date().toISOString() })
-                .eq('id', decoded.id)
-                .eq('current_session_id', decoded.sid);
-
-            try {
-                await supabaseAdmin
-                    .from('user_sessions')
-                    .update({ is_active: false, revoked_at: new Date().toISOString(), revoked_reason: 'logout' })
-                    .eq('session_id', decoded.sid)
-                    .eq('user_id', decoded.id);
-            } catch (e) {
-                console.warn('[ADMIN LOGOUT] session revoke failed:', e.message);
+            const { error: rpcErr } = await supabaseAdmin.rpc('admin_revoke_session_atomic', {
+                p_user_id: decoded.id,
+                p_session_id: decoded.sid,
+                p_reason: 'logout'
+            });
+            if (rpcErr) {
+                console.warn('[ADMIN LOGOUT] atomic revoke failed:', rpcErr.message);
             }
-
-            await logAdminActivity({ admin_id: decoded.id, action: 'logout', details: {}, ip: getClientIp(req), user_agent: getUserAgent(req), severity: 'info' });
+            await logAdminActivity({
+                admin_id: decoded.id,
+                action: 'logout',
+                details: {},
+                ip: getClientIp(req),
+                user_agent: getUserAgent(req),
+                severity: 'info'
+            });
         }
 
         return res.json({ success: true, message: 'Logged out.' });

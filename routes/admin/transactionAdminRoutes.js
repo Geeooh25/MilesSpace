@@ -1,60 +1,48 @@
 // routes/admin/transactionAdminRoutes.js
 // ─────────────────────────────────────────────────────────────────
-// Admin Transactions module — ROUTES ONLY.
+// Admin Transactions — ROUTES.
 //
-// This file does four things and nothing else:
-//   1. Authenticate / authorize the caller.
-//   2. Validate the request shape (UUIDs, statuses, reason).
-//   3. Call transactionAdminService.
-//   4. Translate service errors into HTTP responses.
-//
-// There is NO business logic here. No pricing math. No DB writes.
-// Every financial mutation goes through the service, which delegates
-// to the existing LedgerService. This route file never touches the
-// transactions table directly.
-//
-// Routes (literal paths are declared before /:id):
-//   GET  /api/admin/transactions
-//   GET  /api/admin/transactions/recent
-//   GET  /api/admin/transactions/summary
-//   GET  /api/admin/transactions/export
-//   GET  /api/admin/transactions/:id
-//   GET  /api/admin/transactions/:id/ledger
-//   GET  /api/admin/transactions/:id/audit
-//   PUT  /api/admin/transactions/:id/status
-//   POST /api/admin/transactions/:id/refund
-//   POST /api/admin/transactions/:id/note
+//   • Refund route requires step-up MFA.
+//   • Refund route accepts an Idempotency-Key header.
+//   • request_id is generated per request and propagated into
+//     every service call.
+//   • Export is audited.
+//   • /transactions/:id returns refund_capability so the UI is
+//     driven by the server.
+//   • The summary route no longer 503s when the RPC is missing —
+//     the service falls back transparently.
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
-const {
-    requirePermission,
-    PERMISSIONS
-} = require('../../middleware/adminAuth');
+const { requirePermission, PERMISSIONS } = require('../../middleware/adminAuth');
+const { requireStepUpAuth } = require('../../middleware/adminStepUp');
 const txAdmin = require('../../services/transactionAdminService');
+const refundSvc = require('../../services/refundService');
+const { supabaseAdmin } = require('../../db/supabase');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── Response helpers ────────────────────────────────────────────
 
 function sendOk(res, payload) {
-    if (res.headersSent) return;
-    res.json({ success: true, ...payload });
+    if (!res.headersSent) res.json({ success: true, ...payload });
 }
+
 function sendErr(res, err) {
     if (res.headersSent) return;
     const status = err?.status || 500;
     const code = err?.code || 'TX_ADMIN_ERROR';
     const message = err?.message || 'Transaction request failed';
-
     const safe = { success: false, code, error: message };
     if (err?.allowed_transitions) safe.allowed_transitions = err.allowed_transitions;
     if (err?.current_status) safe.current_status = err.current_status;
+    if (err?.transaction_type) safe.transaction_type = err.transaction_type;
+    if (err?.ledger_transaction_id) safe.ledger_transaction_id = err.ledger_transaction_id;
     if (status >= 500) console.error('[ADMIN TX]', code, message);
-
     res.status(status).json(safe);
 }
 
@@ -63,13 +51,24 @@ function adminCtx(req) {
         adminId: req.adminContext?.id || null,
         adminEmail: req.adminContext?.email || null,
         ip: req.ip || req.headers['x-forwarded-for'] || null,
-        userAgent: req.headers['user-agent'] || null
+        userAgent: req.headers['user-agent'] || null,
+        requestId: req.requestId || null
     };
 }
 
+// ─── Request id middleware (scoped) ─────────────────────────────
+
+function attachRequestId(req, res, next) {
+    req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-Id', req.requestId);
+    next();
+}
+
+router.use('/transactions', attachRequestId);
+router.use('/refunds', attachRequestId);
+
 // ═════════════════════════════════════════════════════════════════
-//  LITERAL ROUTES — declared before /:id so Express never confuses
-//  /recent, /summary, /export with a UUID.
+//  LITERAL ROUTES (declared before /:id)
 // ═════════════════════════════════════════════════════════════════
 
 router.get(
@@ -79,7 +78,6 @@ router.get(
         try {
             const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
             const data = await txAdmin.getRecentTransactions({ limit });
-            // Dashboard frontend expects `transactions` at the top level.
             res.json({ success: true, transactions: data });
         } catch (err) { sendErr(res, err); }
     }
@@ -92,7 +90,7 @@ router.get(
         try {
             const summary = await txAdmin.getSummary({
                 from: req.query.from || null,
-                to:   req.query.to   || null,
+                to: req.query.to || null,
                 currency: req.query.currency || null,
                 type: req.query.type || null,
                 provider: req.query.provider || null
@@ -109,12 +107,25 @@ router.get(
         try {
             const csv = await txAdmin.exportTransactions({
                 from: req.query.from || null,
-                to:   req.query.to   || null,
+                to: req.query.to || null,
                 type: req.query.type || null,
                 status: req.query.status || null,
                 currency: req.query.currency || null,
                 provider: req.query.provider || null
             });
+
+            // Fire-and-forget audit (best effort).
+            supabaseAdmin.from('admin_audit_logs').insert({
+                admin_id: req.adminContext?.id || null,
+                action: 'transaction.export',
+                target_type: 'transactions_export',
+                target_id: null,
+                reason: `Exported transactions with filters: ${JSON.stringify(req.query)}`.slice(0, 500),
+                ip_address: req.ip || null,
+                user_agent: req.headers['user-agent'] || null,
+                request_id: req.requestId || null
+            }).then(() => {}).catch(() => {});
+
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename=transactions_${Date.now()}.csv`);
             res.send(csv);
@@ -123,7 +134,7 @@ router.get(
 );
 
 // ═════════════════════════════════════════════════════════════════
-//  GET /api/admin/transactions
+//  LIST
 // ═════════════════════════════════════════════════════════════════
 
 router.get(
@@ -132,18 +143,18 @@ router.get(
     async (req, res) => {
         try {
             const result = await txAdmin.getTransactions({
-                page:  parseInt(req.query.page, 10) || 1,
+                page: parseInt(req.query.page, 10) || 1,
                 limit: parseInt(req.query.limit, 10) || 25,
-                search:   req.query.search   || null,
-                type:     req.query.type     || null,
-                status:   req.query.status   || null,
+                search: req.query.search || null,
+                type: req.query.type || null,
+                status: req.query.status || null,
                 currency: req.query.currency || null,
                 provider: req.query.provider || null,
-                user_id:  req.query.user_id  || null,
-                from:     req.query.from     || null,
-                to:       req.query.to       || null,
-                sort:     req.query.sort     || 'created_at',
-                order:    req.query.order    || 'desc'
+                user_id: req.query.user_id || null,
+                from: req.query.from || null,
+                to: req.query.to || null,
+                sort: req.query.sort || 'created_at',
+                order: req.query.order || 'desc'
             });
             sendOk(res, result);
         } catch (err) { sendErr(res, err); }
@@ -151,10 +162,7 @@ router.get(
 );
 
 // ═════════════════════════════════════════════════════════════════
-//  PARAM ROUTES — every one validates the :id is a UUID.
-//  If it isn't, next() falls through to whatever router is mounted
-//  after this one. That prevents a literal path from ever reaching
-//  the DB as a garbage ID.
+//  PARAM ROUTES — every one validates :id is a UUID
 // ═════════════════════════════════════════════════════════════════
 
 router.get(
@@ -169,35 +177,7 @@ router.get(
     }
 );
 
-router.get(
-    '/transactions/:id/ledger',
-    requirePermission(PERMISSIONS.WALLETS_READ),
-    async (req, res, next) => {
-        if (!UUID_RE.test(String(req.params.id || ''))) return next();
-        try {
-            const entries = await txAdmin.getLedger(req.params.id);
-            sendOk(res, { entries });
-        } catch (err) { sendErr(res, err); }
-    }
-);
-
-router.get(
-    '/transactions/:id/audit',
-    requirePermission(PERMISSIONS.AUDIT_READ),
-    async (req, res, next) => {
-        if (!UUID_RE.test(String(req.params.id || ''))) return next();
-        try {
-            const audit = await txAdmin.getAudit(req.params.id);
-            sendOk(res, { audit });
-        } catch (err) { sendErr(res, err); }
-    }
-);
-
-// ─── PUT /transactions/:id/status ───────────────────────────────
-// The service decides whether the transition needs a financial
-// operation (e.g. pending → completed on a deposit) or is purely
-// administrative (e.g. manual_review → failed). The route only
-// validates the shape.
+// ─── Status change ──────────────────────────────────────────────
 router.put(
     '/transactions/:id/status',
     requirePermission(PERMISSIONS.TRANSACTIONS_RESOLVE),
@@ -206,16 +186,11 @@ router.put(
         try {
             const { status, reason } = req.body || {};
             if (!status || typeof status !== 'string') {
-                const e = new Error('A status is required.');
-                e.status = 422; e.code = 'STATUS_REQUIRED';
-                throw e;
+                throw Object.assign(new Error('A status is required.'), { status: 422, code: 'STATUS_REQUIRED' });
             }
             if (!reason || String(reason).trim().length < 4) {
-                const e = new Error('A reason is required (min 4 characters).');
-                e.status = 422; e.code = 'REASON_REQUIRED';
-                throw e;
+                throw Object.assign(new Error('A reason is required (min 4 characters).'), { status: 422, code: 'REASON_REQUIRED' });
             }
-
             const result = await txAdmin.changeStatus({
                 transactionId: req.params.id,
                 nextStatus: String(status).toLowerCase(),
@@ -227,30 +202,32 @@ router.put(
     }
 );
 
-// ─── POST /transactions/:id/refund ──────────────────────────────
+// ─── Refund (step-up + idempotency) ─────────────────────────────
 router.post(
     '/transactions/:id/refund',
     requirePermission(PERMISSIONS.TRANSACTIONS_REFUND),
+    requireStepUpAuth({ maxAgeSeconds: 300 }),
     async (req, res, next) => {
         if (!UUID_RE.test(String(req.params.id || ''))) return next();
         try {
-            const { reason } = req.body || {};
+            const { amount, reason } = req.body || {};
             if (!reason || String(reason).trim().length < 4) {
-                const e = new Error('A refund reason is required (min 4 characters).');
-                e.status = 422; e.code = 'REASON_REQUIRED';
-                throw e;
+                throw Object.assign(new Error('A refund reason is required (min 4 characters).'), { status: 422, code: 'REASON_REQUIRED' });
             }
+            const idempotencyKey = req.headers['idempotency-key'] || null;
             const result = await txAdmin.refundTransaction({
                 transactionId: req.params.id,
+                amount: amount != null ? Number(amount) : undefined,
                 reason: String(reason).slice(0, 500),
-                ctx: adminCtx(req)
+                ctx: adminCtx(req),
+                idempotencyKey
             });
             sendOk(res, result);
         } catch (err) { sendErr(res, err); }
     }
 );
 
-// ─── POST /transactions/:id/note ────────────────────────────────
+// ─── Note ───────────────────────────────────────────────────────
 router.post(
     '/transactions/:id/note',
     requirePermission(PERMISSIONS.TRANSACTIONS_RESOLVE),
@@ -259,9 +236,7 @@ router.post(
         try {
             const { note } = req.body || {};
             if (!note || String(note).trim().length < 2) {
-                const e = new Error('Note text is required.');
-                e.status = 422; e.code = 'NOTE_REQUIRED';
-                throw e;
+                throw Object.assign(new Error('Note text is required.'), { status: 422, code: 'NOTE_REQUIRED' });
             }
             const result = await txAdmin.addNote({
                 transactionId: req.params.id,
@@ -269,6 +244,37 @@ router.post(
                 ctx: adminCtx(req)
             });
             sendOk(res, result);
+        } catch (err) { sendErr(res, err); }
+    }
+);
+
+// ═════════════════════════════════════════════════════════════════
+//  REFUNDS — listing for /admin/refunds
+// ═════════════════════════════════════════════════════════════════
+
+router.get(
+    '/refunds',
+    requirePermission(PERMISSIONS.TRANSACTIONS_READ),
+    async (req, res) => {
+        try {
+            const result = await refundSvc.listRefunds({
+                status: req.query.status || 'all',
+                limit: req.query.limit || 50,
+                page: req.query.page || 1
+            });
+            sendOk(res, result);
+        } catch (err) { sendErr(res, err); }
+    }
+);
+
+router.get(
+    '/refunds/:id',
+    requirePermission(PERMISSIONS.TRANSACTIONS_READ),
+    async (req, res, next) => {
+        if (!UUID_RE.test(String(req.params.id || ''))) return next();
+        try {
+            const refund = await refundSvc.getRefund(req.params.id);
+            sendOk(res, { refund });
         } catch (err) { sendErr(res, err); }
     }
 );

@@ -392,4 +392,49 @@ router.post('/mfa/recovery-codes/regenerate', adminAuth, async (req, res) => {
     }
 });
 
+// ADD to routes/admin/mfaRoutes.js
+
+// ─── POST /api/admin/mfa/step-up ────────────────────────────────
+// Verifies a fresh TOTP code and marks the admin as stepped up for
+// a short window. The client can then re-issue a protected request
+// with the same code in X-Step-Up-Token, or omit it because the
+// server remembers the recent step-up.
+router.post('/mfa/step-up', adminAuth, async (req, res) => {
+    try {
+        const ctx = req.adminContext;
+        const code = String(req.body?.code || '').trim();
+        const scope = String(req.body?.scope || 'default').slice(0, 60);
+
+        if (!/^\d{6}$/.test(code)) {
+            return res.status(422).json({
+                success: false, code: 'INVALID_CODE_SHAPE',
+                error: 'Enter the 6-digit code.'
+            });
+        }
+
+        const state = await mfaSvc.getAdminMfaState(ctx.id);
+        if (!state || !state.mfaEnabled || !state.mfa_secret_encrypted) {
+            // If MFA is not enabled, nothing to step up. Treat as
+            // already stepped up so the caller can proceed.
+            return res.json({ success: true, step_up: true, mfa_enabled: false });
+        }
+
+        const ok = totp.verifyCode({ secretEncrypted: state.mfa_secret_encrypted, code });
+        if (!ok) {
+            return res.status(401).json({
+                success: false, code: 'INVALID_CODE',
+                error: 'Incorrect code.'
+            });
+        }
+
+        const { markStepUp } = require('../../middleware/stepUp');
+        markStepUp(ctx.id, scope);
+
+        return res.json({ success: true, step_up: true, ttl_seconds: 300, scope });
+    } catch (err) {
+        console.error('[ADMIN MFA] step-up error:', err.message);
+        return res.status(500).json({ success: false, code: 'STEP_UP_ERROR', error: 'Step-up failed.' });
+    }
+});
+
 module.exports = router;

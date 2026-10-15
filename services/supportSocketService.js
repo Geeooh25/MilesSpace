@@ -1,130 +1,120 @@
-// services/supportSocketService.js - Real-time support events
+'use strict';
+
 const { supabaseAdmin } = require('../db/supabase');
+const support = require('./supportService');
+
+const MAX_TYPING_ENTRIES = 500;
 
 class SupportSocketService {
     constructor(io) {
         this.io = io;
-        this.typingUsers = new Map(); // userId -> { ticketId, timeout }
+        this.typingUsers = new Map(); // `${userId}-${ticketId}` -> timeout
         this.setupEvents();
     }
 
     setupEvents() {
         this.io.on('connection', (socket) => {
-            // ─── TYPING INDICATORS ──────────────────────────────────
-            socket.on('support:typing:start', async (data) => {
-                const { ticketId } = data;
-                const userId = socket.userId;
-                const isAdmin = socket.userRole === 'admin' || socket.userRole === 'super_admin';
+            const userId   = socket.userId;
+            const userRole = socket.userRole;
+            const userName = socket.userName || 'User';
+            const isAdmin  = userRole === 'admin' || userRole === 'super_admin';
 
+            // ─── TYPING ─────────────────────────────────────────
+            socket.on('support:typing:start', (data) => {
+                const ticketId = data?.ticketId;
                 if (!ticketId) return;
 
-                // Clear existing timeout
                 const key = `${userId}-${ticketId}`;
-                if (this.typingUsers.has(key)) {
-                    clearTimeout(this.typingUsers.get(key));
-                }
+                const prev = this.typingUsers.get(key);
+                if (prev) clearTimeout(prev);
 
-                // Emit typing to other party
-                const room = isAdmin ? `user:${socket.userId}` : 'admins';
+                const room = isAdmin ? `user:${userId}` : 'admins';
                 this.io.to(room).emit('support:typing:start', {
-                    ticketId,
-                    userId,
-                    isAdmin,
-                    username: socket.userName || 'User',
+                    ticketId, userId, isAdmin, username: userName
                 });
 
-                // Auto-stop after 3 seconds of inactivity
                 const timeout = setTimeout(() => {
-                    this.io.to(room).emit('support:typing:stop', {
-                        ticketId,
-                        userId,
-                    });
+                    this.io.to(room).emit('support:typing:stop', { ticketId, userId });
                     this.typingUsers.delete(key);
                 }, 3000);
-
                 this.typingUsers.set(key, timeout);
+
+                // Bounded — refuse to hold more than MAX_TYPING_ENTRIES.
+                if (this.typingUsers.size > MAX_TYPING_ENTRIES) {
+                    const oldest = this.typingUsers.keys().next().value;
+                    clearTimeout(this.typingUsers.get(oldest));
+                    this.typingUsers.delete(oldest);
+                }
             });
 
             socket.on('support:typing:stop', (data) => {
-                const { ticketId } = data;
-                const userId = socket.userId;
-                const isAdmin = socket.userRole === 'admin' || socket.userRole === 'super_admin';
-
+                const ticketId = data?.ticketId;
+                if (!ticketId) return;
                 const key = `${userId}-${ticketId}`;
-                if (this.typingUsers.has(key)) {
-                    clearTimeout(this.typingUsers.get(key));
-                    this.typingUsers.delete(key);
-                }
+                const prev = this.typingUsers.get(key);
+                if (prev) clearTimeout(prev);
+                this.typingUsers.delete(key);
 
-                const room = isAdmin ? `user:${socket.userId}` : 'admins';
-                this.io.to(room).emit('support:typing:stop', {
-                    ticketId,
-                    userId,
-                });
+                const room = isAdmin ? `user:${userId}` : 'admins';
+                this.io.to(room).emit('support:typing:stop', { ticketId, userId });
             });
 
-            // ─── MESSAGE DELIVERY STATUS ──────────────────────────
+            // ─── DELIVERY + READ ────────────────────────────────
             socket.on('support:message:delivered', async (data) => {
-                const { messageId, ticketId } = data;
-                // Update message delivered status in database
-                await supabaseAdmin
-                    .from('ticket_messages')
-                    .update({ delivered_at: new Date().toISOString() })
-                    .eq('id', messageId);
+                const messageId = data?.messageId;
+                if (!messageId) return;
+                try {
+                    await supabaseAdmin
+                        .from('ticket_messages')
+                        .update({ delivered_at: new Date().toISOString() })
+                        .eq('id', messageId);
+                } catch (_) {}
             });
 
             socket.on('support:message:read', async (data) => {
-                const { messageId, ticketId } = data;
-                // Update message read status
-                const isAdmin = socket.userRole === 'admin' || socket.userRole === 'super_admin';
-                const updateField = isAdmin ? 'read_by_admin_at' : 'read_by_user_at';
-                
-                await supabaseAdmin
-                    .from('ticket_messages')
-                    .update({ [updateField]: new Date().toISOString() })
-                    .eq('id', messageId);
-            });
-
-            // ─── TICKET UPDATES ─────────────────────────────────────
-            socket.on('support:ticket:view', async (data) => {
-                const { ticketId } = data;
-                const userId = socket.userId;
-                const isAdmin = socket.userRole === 'admin' || socket.userRole === 'super_admin';
-
-                // Mark messages as read
-                if (isAdmin) {
+                const messageId = data?.messageId;
+                const ticketId  = data?.ticketId;
+                if (!messageId) return;
+                try {
+                    const patch = isAdmin
+                        ? { read_at: new Date().toISOString(), is_read: true, read_by_admin_at: new Date().toISOString() }
+                        : { read_at: new Date().toISOString(), is_read: true, read_by_user_at:  new Date().toISOString() };
                     await supabaseAdmin
                         .from('ticket_messages')
-                        .update({ read_by_admin_at: new Date().toISOString() })
-                        .eq('ticket_id', ticketId)
-                        .eq('sender_type', 'user')
-                        .is('read_by_admin_at', null);
-                } else {
-                    await supabaseAdmin
-                        .from('ticket_messages')
-                        .update({ read_by_user_at: new Date().toISOString() })
-                        .eq('ticket_id', ticketId)
-                        .in('sender_type', ['admin', 'support'])
-                        .is('read_by_user_at', null);
-                }
+                        .update(patch)
+                        .eq('id', messageId);
+
+                    if (ticketId && isAdmin) {
+                        await supabaseAdmin
+                            .from('support_tickets')
+                            .update({ last_read_by_admin_at: new Date().toISOString() })
+                            .eq('id', ticketId);
+                    }
+                } catch (_) {}
             });
 
-            // ─── JOIN TICKET ROOM ──────────────────────────────────
+            // ─── JOIN / LEAVE TICKET ROOMS ──────────────────────
             socket.on('support:ticket:join', (data) => {
-                const { ticketId } = data;
-                socket.join(`ticket:${ticketId}`);
+                const ticketId = data?.ticketId;
+                if (ticketId) socket.join(`ticket:${ticketId}`);
             });
-
             socket.on('support:ticket:leave', (data) => {
-                const { ticketId } = data;
-                socket.leave(`ticket:${ticketId}`);
+                const ticketId = data?.ticketId;
+                if (ticketId) socket.leave(`ticket:${ticketId}`);
             });
 
-            // ─── DISCONNECT ─────────────────────────────────────────
+            socket.on('support:ticket:view', async (data) => {
+                const ticketId = data?.ticketId;
+                if (!ticketId) return;
+                // Route through the service so there is one writer.
+                try {
+                    await support.getTicket({ id: ticketId, viewerId: userId });
+                } catch (_) {}
+            });
+
             socket.on('disconnect', () => {
-                // Clear all typing indicators for this user
                 for (const [key, timeout] of this.typingUsers) {
-                    if (key.startsWith(socket.userId)) {
+                    if (key.startsWith(`${userId}-`)) {
                         clearTimeout(timeout);
                         this.typingUsers.delete(key);
                     }
@@ -133,55 +123,38 @@ class SupportSocketService {
         });
     }
 
-    // ─── EMIT NEW MESSAGE ────────────────────────────────────────────
     emitNewMessage(ticketId, message, senderId, isAdmin) {
-        const room = `ticket:${ticketId}`;
-        this.io.to(room).emit('support:message:new', {
-            ticketId,
-            message,
-            senderId,
-            isAdmin,
-            timestamp: new Date().toISOString(),
+        this.io.to(`ticket:${ticketId}`).emit('support:message:new', {
+            ticketId, message, senderId, isAdmin,
+            timestamp: new Date().toISOString()
         });
     }
 
-    // ─── EMIT TICKET UPDATE ──────────────────────────────────────────
     emitTicketUpdate(ticketId, updateData) {
-        const room = `ticket:${ticketId}`;
-        this.io.to(room).emit('support:ticket:updated', {
-            ticketId,
-            ...updateData,
-            timestamp: new Date().toISOString(),
+        this.io.to(`ticket:${ticketId}`).emit('support:ticket:updated', {
+            ticketId, ...updateData,
+            timestamp: new Date().toISOString()
         });
     }
 
-    // ─── EMIT UNREAD UPDATE ──────────────────────────────────────────
     emitUnreadUpdate(userId, unreadCount) {
         this.io.to(`user:${userId}`).emit('support:unread:updated', {
             unreadCount,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date().toISOString()
         });
     }
 
-    // ─── EMIT TYPING ──────────────────────────────────────────────────
     emitTyping(ticketId, userId, username, isAdmin) {
-        const room = `ticket:${ticketId}`;
-        this.io.to(room).emit('support:typing', {
-            ticketId,
-            userId,
-            username,
-            isAdmin,
-            timestamp: new Date().toISOString(),
+        this.io.to(`ticket:${ticketId}`).emit('support:typing', {
+            ticketId, userId, username, isAdmin,
+            timestamp: new Date().toISOString()
         });
     }
 
-    // ─── EMIT TICKET ASSIGNED ────────────────────────────────────────
     emitTicketAssigned(ticketId, assignedTo) {
-        const room = `ticket:${ticketId}`;
-        this.io.to(room).emit('support:ticket:assigned', {
-            ticketId,
-            assignedTo,
-            timestamp: new Date().toISOString(),
+        this.io.to(`ticket:${ticketId}`).emit('support:ticket:assigned', {
+            ticketId, assignedTo,
+            timestamp: new Date().toISOString()
         });
     }
 }
