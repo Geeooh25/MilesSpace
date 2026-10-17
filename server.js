@@ -117,6 +117,8 @@ console.log('✅ Cookie parser enabled');
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
     'http://localhost:5000',
+    'https://milesspace-public.vercel.app/',
+    'https://milesspace.onrender.com',
     'https://milesspace.com',
     'https://www.milesspace.com'
 ];
