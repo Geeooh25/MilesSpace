@@ -613,3 +613,14 @@
 
     console.log('[SESSION] Ready — memory-only access token, HttpOnly refresh cookie, cross-tab coordinated');
 })();
+
+//by geeooh universal notifications badge
+
+/* ── Load notification badge everywhere ── */
+if (typeof document !== 'undefined' && !document.getElementById('notif-badge-script')) {
+  const s = document.createElement('script');
+  s.id = 'notif-badge-script';
+  s.src = '/js/notif-badge.js';
+  s.defer = true;
+  document.head.appendChild(s);
+}
