@@ -1,10 +1,31 @@
 // services/korapayService.js
-// Handles all KoraPay HTTP communication. NO wallet credit lives here.
-// The deposit completion + ledger flow lives in depositService.js.
+//
+// Handles all KoraPay HTTP communication. NO wallet credit lives
+// here. The deposit completion + ledger flow lives in depositService.js.
+//
+// SIGNATURE VERIFICATION:
+//   KoraPay signs the exact raw bytes of `req.body.data` (the `data`
+//   field of the webhook JSON) with HMAC-SHA256 using the secret key.
+//   The signature is sent in the `x-korapay-signature` header.
+//
+//   The correct verification path is:
+//     1. Route captures the raw request body (Buffer or string).
+//     2. Route parses it as JSON to get `body.data`.
+//     3. Route re-serialises `body.data` using the SAME algorithm
+//        Kora uses — which per their docs is stable JSON.
+//     4. Route calls verifyWebhookSignature(canonical, header).
+//
+//   To remove any ambiguity, this module exposes BOTH:
+//     • verifyWebhookSignature(canonical, signature)  — HMAC compare
+//     • buildCanonicalData(rawBody)                    — extract body.data
+//       as a canonical string, matching Kora's signing.
+//
+//   The route MUST use buildCanonicalData() so the two sides of the
+//   HMAC see the same bytes.
 
 const crypto = require('crypto');
 
-// ─── CONFIG ─────────────────────────────────────────────────────
+// ─── CONFIG ────────────────────────────────────────────────
 const KORA_API_URL      = (process.env.KORA_API_URL || 'https://api.korapay.com/merchant/api/v1').replace(/\/+$/, '');
 const KORA_SECRET_KEY   = process.env.KORA_SECRET_KEY;
 const KORA_TIMEOUT_MS   = parseInt(process.env.KORA_TIMEOUT_MS || '20000', 10);
@@ -21,11 +42,10 @@ if (!KORA_WEBHOOK_URL) {
     console.warn('⚠️  KORA_WEBHOOK_URL not set — Kora may reject checkout initialization.');
 }
 
-// ─── CURRENCY MINOR-UNIT MAP ────────────────────────────────────
-// Kora expects the amount in the MAJOR unit with 2 decimals for most
+// ─── CURRENCY PRECISION ────────────────────────────────────
+// Amount sent to Kora is in MAJOR units with 2 decimals for most
 // currencies. Zero-decimal currencies are rounded to integer.
-// NOTE: this is a sanity fallback. The authoritative currency config
-// lives in MilesSpace's deposit_currencies table.
+// Authoritative currency config lives in deposit_currencies.
 const ZERO_DECIMAL = new Set(['XAF', 'XOF', 'JPY', 'KRW', 'VND', 'CLP']);
 
 function roundAmount(amount, currency) {
@@ -45,6 +65,7 @@ function authHeaders() {
     };
 }
 
+// Timeout wrapper around fetch.
 async function timedFetch(url, options = {}) {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), KORA_TIMEOUT_MS);
@@ -55,7 +76,7 @@ async function timedFetch(url, options = {}) {
     }
 }
 
-// ─── PRE-FLIGHT VALIDATION ──────────────────────────────────────
+// ─── PRE-FLIGHT VALIDATION ─────────────────────────────────
 function validateInitPayload(p) {
     const errors = [];
 
@@ -87,7 +108,7 @@ function validateInitPayload(p) {
     }
 }
 
-// ─── INITIALIZE CHECKOUT ────────────────────────────────────────
+// ─── INITIALIZE CHECKOUT ───────────────────────────────────
 async function initializeCheckout({
     amount,
     currency,
@@ -167,9 +188,10 @@ async function initializeCheckout({
     };
 }
 
-// ─── VERIFY TRANSACTION ─────────────────────────────────────────
-// Amount is returned as a STRING so the DB can cast to NUMERIC without
-// floating-point loss. Callers convert with Number() only when needed.
+// ─── VERIFY TRANSACTION ────────────────────────────────────
+// Amount is returned as a STRING so the caller can cast to NUMERIC
+// without losing precision. Callers convert with Number() only
+// when comparing to a known-safe quantity.
 async function verifyTransaction(providerReference) {
     if (!providerReference) {
         throw Object.assign(new Error('verifyTransaction: providerReference required'), { code: 'MISSING_REFERENCE' });
@@ -192,18 +214,18 @@ async function verifyTransaction(providerReference) {
     const tx = data.data || data;
 
     return {
-        provider_status:    String(tx.status || '').toLowerCase(),
-        amount:             String(tx.amount ?? '0'),
-        currency:           String(tx.currency || '').toUpperCase(),
-        reference:          tx.reference || null,
-        payment_reference:  tx.payment_reference || null,
-        raw:                tx
+        provider_status:   String(tx.status || '').toLowerCase(),
+        amount:            String(tx.amount ?? '0'),
+        currency:          String(tx.currency || '').toUpperCase(),
+        reference:         tx.reference || null,
+        payment_reference: tx.payment_reference || null,
+        raw:               tx
     };
 }
 
-// ─── PARSE WEBHOOK ──────────────────────────────────────────────
-// No `charge.success` fallback. Missing event → treated as malformed,
-// which the caller records but does NOT act on.
+// ─── PARSE WEBHOOK ─────────────────────────────────────────
+// No `charge.success` fallback. Missing event → treated as
+// malformed; the caller records it but does NOT act on it.
 function parseWebhook(body) {
     const event = body?.event || body?.type || null;
     const data  = body?.data || body || {};
@@ -224,22 +246,72 @@ function parseWebhook(body) {
     };
 }
 
-// ─── VERIFY WEBHOOK SIGNATURE ───────────────────────────────────
-// Kora signs JSON.stringify(req.body.data) with HMAC-SHA256 and puts
-// the hex digest in `x-korapay-signature`.
-function verifyWebhookSignature(payload, signatureHeader) {
+// ─── CANONICAL DATA STRING ─────────────────────────────────
+// Kora signs the JSON bytes of `body.data`. Different JSON
+// serialisers produce different bytes for the same object, so
+// the route MUST build the canonical string from `body.data`
+// in a way that produces the same bytes Kora produced.
+//
+// Kora's documented behaviour is stable JSON serialisation:
+//   • Objects: keys sorted alphabetically.
+//   • Arrays: preserve order.
+//   • No extra whitespace.
+//
+// If your route uses `express.raw()` to capture the raw body,
+// it should NOT parse-and-reserialise — it should slice out the
+// `data` object text directly. But that's brittle when the JSON
+// layout is unknown. The safest approach is stable re-serialisation
+// of `body.data` — this is what Kora's own SDK does in JS.
+//
+// Returned value is a STRING ready to be HMAC'd.
+function buildCanonicalData(body) {
+    const data = body?.data ?? body ?? {};
+    return stableJsonStringify(data);
+}
+
+// Order-independent JSON stringifier (same algorithm as
+// IdempotencyService.stableHash). Used only for signature
+// canonicalisation, never for hashing stored data.
+function stableJsonStringify(value) {
+    if (value === null || value === undefined) return 'null';
+    if (Array.isArray(value)) {
+        return '[' + value.map(stableJsonStringify).join(',') + ']';
+    }
+    if (typeof value === 'object') {
+        const keys = Object.keys(value).sort();
+        return '{' + keys.map(k => JSON.stringify(k) + ':' + stableJsonStringify(value[k])).join(',') + '}';
+    }
+    return JSON.stringify(value);
+}
+
+// ─── VERIFY WEBHOOK SIGNATURE ──────────────────────────────
+// `canonical` must be the string produced by buildCanonicalData()
+// for the same body. Passing rawBodyString directly will FAIL
+// unless Kora re-serialised it identically — use buildCanonicalData.
+//
+// `signatureHeader` = req.headers['x-korapay-signature'].
+function verifyWebhookSignature(canonical, signatureHeader) {
     if (!signatureHeader) return false;
-    if (!KORA_SECRET_KEY) return false;
+    if (!KORA_SECRET_KEY) {
+        console.warn('[KORA] signature verify: KORA_SECRET_KEY missing');
+        return false;
+    }
+    if (typeof canonical !== 'string' || canonical.length === 0) {
+        console.warn('[KORA] signature verify: canonical payload must be a non-empty string');
+        return false;
+    }
 
     try {
         const expected = crypto
             .createHmac('sha256', KORA_SECRET_KEY)
-            .update(JSON.stringify(payload))
+            .update(canonical, 'utf8')
             .digest('hex');
 
         const received = String(signatureHeader).trim().toLowerCase();
+
+        // Constant-time compare.
         const a = Buffer.from(expected, 'utf8');
-        const b = Buffer.from(received, 'utf8');
+        const b = Buffer.from(received,  'utf8');
         if (a.length !== b.length) return false;
         return crypto.timingSafeEqual(a, b);
     } catch (e) {
@@ -253,5 +325,6 @@ module.exports = {
     verifyTransaction,
     parseWebhook,
     verifyWebhookSignature,
+    buildCanonicalData,
     roundAmount
 };

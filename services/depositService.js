@@ -1,16 +1,23 @@
 // services/depositService.js
-// Central service for KoraPay deposits.
+//
+// KoraPay deposit lifecycle.
 //
 // Guarantees:
-//   • Every deposit has a matching pending transaction row from the
-//     moment it is initialised.
-//   • On completion, that same row is flipped to 'completed' and the
-//     NGN flat fee is booked as a separate fee_revenue row.
-//   • On failure, the pending row is flipped to 'failed'.
-//   • On manual review, the pending row is flipped to 'manual_review'.
-//   • The wallet credit uses the LOCKED wallet_amount — never
-//     recalculated from today's rate.
-//   • Idempotent per provider_reference.
+//   • A deposit_requests row is written before Kora is contacted.
+//   • A pending transaction row exists for every deposit, always.
+//     If it cannot be inserted, the deposit creation throws.
+//   • Success path:
+//       1. Verify with Kora (unless the caller is the webhook and
+//          supplies a sealed trusted digest — see _isTrustedVerified).
+//       2. claim_kora_deposit_for_credit → single winner.
+//       3. LedgerService.createTransaction (reference KORA-<ref>).
+//       4. finalize_kora_deposit → status='completed', tx_id saved.
+//       5. Rewrite pending history row to completed.
+//       6. Book fee revenue (idempotent).
+//       7. Notify + email ONCE per deposit (deposit_notified flag).
+//   • Failure path (ledger failure, validation fail) releases the
+//     claim to `pending` so a later webhook can retry.
+//   • Duplicate webhooks/races: second caller gets claimed=false.
 
 const crypto = require('crypto');
 const { supabaseAdmin } = require('../db/supabase');
@@ -18,6 +25,8 @@ const { LedgerService } = require('./ledgerService');
 const { createNotification } = require('./notificationService');
 const korapayService = require('./korapayService');
 const emailService = require('./emailService');
+
+const EXACT_BAND = 0.02;
 
 // ─── REFERENCES ─────────────────────────────────────────────
 function buildInternalReference() {
@@ -34,23 +43,47 @@ function pendingRefFor(internalReference) {
     return `PENDING-${internalReference}`;
 }
 
+function finalRefFor(providerRef) {
+    return `KORA-${providerRef}`;
+}
+
 function num(v) {
     const n = Number(String(v ?? '0').replace(/,/g, ''));
     return Number.isFinite(n) ? n : 0;
 }
 
-// ─── TRANSACTION HELPERS ────────────────────────────────────
-/**
- * Insert (or refresh) the pending transaction row for a deposit.
- * Called at creation time and defensively on completion / failure.
- * Writes both `ref` and `reference`; sets `amount`, `amount_ngn`,
- * `amount_usd` so the row is never zero for the user.
- */
+// ─── TRUSTED VERIFICATION DIGEST ─────────────────────────────
+// A webhook handler may compute this from the signed raw payload
+// to signal to completeKoraDeposit that verification was already
+// done. It is a plain HMAC over the fields we care about.
+function computeVerifiedDigest(verified) {
+    const secret = process.env.KORA_WEBHOOK_SECRET || process.env.KORA_SECRET_KEY || '';
+    if (!secret) return null;
+    const body = JSON.stringify({
+        provider_status: String(verified.provider_status || verified.status || '').toLowerCase(),
+        amount:          String(verified.amount ?? ''),
+        currency:        String(verified.currency || '').toUpperCase(),
+        reference:       String(verified.reference || verified.payment_reference || '')
+    });
+    return crypto.createHmac('sha256', secret).update(body).digest('hex');
+}
+
+function _isTrustedVerified(providerTransaction) {
+    if (!providerTransaction || providerTransaction._trustedVerified !== true) return false;
+    const expected = computeVerifiedDigest(providerTransaction);
+    if (!expected) return false;
+    return crypto.timingSafeEqual(
+        Buffer.from(expected, 'hex'),
+        Buffer.from(String(providerTransaction._verifiedDigest || ''), 'hex')
+    );
+}
+
+// ─── PENDING TRANSACTION ROW ────────────────────────────────
+// Idempotent by reference. Returns row ID or throws.
 async function upsertPendingTransaction(deposit) {
     const walletCcy     = String(deposit.wallet_currency || deposit.target_currency || 'NGN').toUpperCase();
     const isNGNWallet   = walletCcy === 'NGN';
     const pendingAmount = num(deposit.wallet_amount || deposit.target_amount || deposit.expected_target_amount || 0);
-
     const ref = pendingRefFor(deposit.internal_reference);
     const now = new Date().toISOString();
 
@@ -68,38 +101,22 @@ async function upsertPendingTransaction(deposit) {
         fee_currency: deposit.fee_currency || null
     };
 
-    const payload = {
-        user_id: deposit.user_id,
-        type: 'deposit',
-        category: 'credit',
-        description: `Deposit — ${(deposit.payment_currency || deposit.source_currency || 'NGN')} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`,
-        currency: walletCcy,
-        status: 'pending',
-        ref,
-        reference: ref,
-        wallet_used: walletCcy,
-        amount: pendingAmount,
-        amount_ngn: isNGNWallet ? pendingAmount : 0,
-        amount_usd: isNGNWallet ? 0 : pendingAmount,
-        fee: 0,
-        revenue_ngn: 0,
-        revenue_usd: 0,
-        meta,
-        metadata: meta,
-        created_at: now,
-        updated_at: now
-    };
-
-    // Update-first so retries don't create duplicates.
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: readErr } = await supabaseAdmin
         .from('transactions')
-        .select('id')
-        .or(`ref.eq.${ref},reference.eq.${ref}`)
-        .eq('type', 'deposit')
+        .select('id, status')
+        .eq('reference', ref)
         .maybeSingle();
 
+    if (readErr) {
+        throw new Error(`upsertPendingTransaction: read failed — ${readErr.message}`);
+    }
+
     if (existing) {
-        await supabaseAdmin
+        // If a previous attempt already completed the row, do not
+        // touch its amount. Otherwise refresh.
+        if (existing.status === 'completed') return existing.id;
+
+        const { error: updErr } = await supabaseAdmin
             .from('transactions')
             .update({
                 amount: pendingAmount,
@@ -110,30 +127,60 @@ async function upsertPendingTransaction(deposit) {
                 updated_at: now
             })
             .eq('id', existing.id);
+        if (updErr) {
+            throw new Error(`upsertPendingTransaction: update failed — ${updErr.message}`);
+        }
         return existing.id;
     }
 
     const { data, error } = await supabaseAdmin
         .from('transactions')
-        .insert(payload)
+        .insert({
+            user_id: deposit.user_id,
+            type: 'deposit',
+            category: 'credit',
+            description: `Deposit — ${(deposit.payment_currency || deposit.source_currency || 'NGN')} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`,
+            currency: walletCcy,
+            status: 'pending',
+            ref,
+            reference: ref,
+            wallet_used: walletCcy,
+            amount: pendingAmount,
+            amount_ngn: isNGNWallet ? pendingAmount : 0,
+            amount_usd: isNGNWallet ? 0 : pendingAmount,
+            fee: 0,
+            revenue_ngn: 0,
+            revenue_usd: 0,
+            meta,
+            metadata: meta,
+            created_at: now,
+            updated_at: now
+        })
         .select('id')
         .single();
 
     if (error) {
-        console.warn('[DEPOSIT] pending transaction insert failed:', error.message);
-        return null;
+        if (error.code === '23505') {
+            const { data: raced, error: reErr } = await supabaseAdmin
+                .from('transactions')
+                .select('id')
+                .eq('reference', ref)
+                .maybeSingle();
+            if (reErr) throw new Error(`upsertPendingTransaction: reread failed — ${reErr.message}`);
+            if (raced) return raced.id;
+        }
+        throw new Error(`upsertPendingTransaction: insert failed — ${error.message}`);
     }
     return data.id;
 }
 
-/**
- * Flip the pending row to completed (or insert a completed row if
- * none exists). Sets the credited amount and the fee.
- */
+// ─── FINALIZE COMPLETED ────────────────────────────────────
+// Called AFTER the ledger has already succeeded. On every branch,
+// the caller MUST have already verified the ledger row (by ref).
 async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit, walletCurrency, feeAmount }) {
     const now = new Date().toISOString();
     const pendingRef = pendingRefFor(deposit.internal_reference);
-    const finalRef = `KORA-${providerRef}`;
+    const finalRef = finalRefFor(providerRef);
     const isNGN = walletCurrency === 'NGN';
     const fee   = num(feeAmount || 0);
 
@@ -152,16 +199,16 @@ async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit
         provider_reference: providerRef
     };
 
-    // Try to flip the pending row.
-    const { data: pendingRow } = await supabaseAdmin
+    // 1. Try to rewrite the pending row.
+    const { data: pendingRow, error: prErr } = await supabaseAdmin
         .from('transactions')
         .select('id')
-        .or(`ref.eq.${pendingRef},reference.eq.${pendingRef}`)
-        .eq('type', 'deposit')
+        .eq('reference', pendingRef)
         .maybeSingle();
+    if (prErr) throw new Error(`finalizeTransactionCompleted: read pending failed — ${prErr.message}`);
 
     if (pendingRow) {
-        await supabaseAdmin
+        const { error: updErr } = await supabaseAdmin
             .from('transactions')
             .update({
                 status: 'completed',
@@ -180,11 +227,39 @@ async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit
                 updated_at: now
             })
             .eq('id', pendingRow.id);
-        return pendingRow.id;
+
+        if (!updErr) return pendingRow.id;
+        if (updErr.code !== '23505') {
+            throw new Error(`finalizeTransactionCompleted: update failed — ${updErr.message}`);
+        }
     }
 
-    // No pending row — insert a completed one so the user still sees it.
-    const { data: inserted } = await supabaseAdmin
+    // 2. The final row may already exist (idempotent retry). Only
+    //    return it if the fields match.
+    const { data: existingFinal, error: efErr } = await supabaseAdmin
+        .from('transactions')
+        .select('id, user_id, amount, currency, source_id')
+        .eq('reference', finalRef)
+        .maybeSingle();
+    if (efErr) throw new Error(`finalizeTransactionCompleted: read final failed — ${efErr.message}`);
+
+    if (existingFinal) {
+        const matches =
+            String(existingFinal.user_id) === String(deposit.user_id) &&
+            Math.abs(num(existingFinal.amount) - walletCredit) < 0.005 &&
+            String(existingFinal.currency).toUpperCase() === String(walletCurrency).toUpperCase() &&
+            String(existingFinal.source_id || '') === String(deposit.id);
+
+        if (!matches) {
+            throw new Error(
+                `finalizeTransactionCompleted: reference ${finalRef} exists but does not match the intended deposit`
+            );
+        }
+        return existingFinal.id;
+    }
+
+    // 3. No pending row. Insert a completed one.
+    const { data: inserted, error: insErr } = await supabaseAdmin
         .from('transactions')
         .insert({
             user_id: deposit.user_id,
@@ -211,13 +286,22 @@ async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit
         .select('id')
         .single();
 
-    return inserted?.id || null;
+    if (insErr) {
+        if (insErr.code === '23505') {
+            const { data: dupe, error: dupErr } = await supabaseAdmin
+                .from('transactions')
+                .select('id')
+                .eq('reference', finalRef)
+                .maybeSingle();
+            if (dupErr) throw new Error(`finalizeTransactionCompleted: reread failed — ${dupErr.message}`);
+            if (dupe) return dupe.id;
+        }
+        throw new Error(`finalizeTransactionCompleted: insert failed — ${insErr.message}`);
+    }
+    return inserted.id;
 }
 
-/**
- * Book the flat fee as a separate revenue row (NGN only).
- * Idempotent per `FEE-${providerRef}`.
- */
+// ─── FEE REVENUE ───────────────────────────────────────────
 async function bookFeeRevenue(deposit, { providerRef, feeAmount }) {
     const fee = num(feeAmount || 0);
     if (fee <= 0) return null;
@@ -226,14 +310,30 @@ async function bookFeeRevenue(deposit, { providerRef, feeAmount }) {
     const now = new Date().toISOString();
     const feeRef = `FEE-${providerRef}`;
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: readErr } = await supabaseAdmin
         .from('transactions')
-        .select('id')
-        .or(`ref.eq.${feeRef},reference.eq.${feeRef}`)
-        .eq('type', 'fee_revenue')
+        .select('id, user_id, amount, currency')
+        .eq('reference', feeRef)
         .maybeSingle();
+    if (readErr) throw new Error(`bookFeeRevenue: read failed — ${readErr.message}`);
 
-    if (existing) return existing.id;
+    if (existing) {
+        const matches =
+            String(existing.user_id) === String(deposit.user_id) &&
+            Math.abs(num(existing.amount) - fee) < 0.005 &&
+            String(existing.currency).toUpperCase() === 'NGN';
+        if (!matches) {
+            throw new Error(`bookFeeRevenue: reference ${feeRef} exists but does not match`);
+        }
+        return existing.id;
+    }
+
+    const meta = {
+        provider: 'korapay',
+        deposit_id: deposit.id,
+        deposit_reference: deposit.internal_reference,
+        fee_currency: 'NGN'
+    };
 
     const { data, error } = await supabaseAdmin
         .from('transactions')
@@ -253,18 +353,8 @@ async function bookFeeRevenue(deposit, { providerRef, feeAmount }) {
             fee: 0,
             revenue_ngn: fee,
             revenue_usd: 0,
-            meta: {
-                provider: 'korapay',
-                deposit_id: deposit.id,
-                deposit_reference: deposit.internal_reference,
-                fee_currency: 'NGN'
-            },
-            metadata: {
-                provider: 'korapay',
-                deposit_id: deposit.id,
-                deposit_reference: deposit.internal_reference,
-                fee_currency: 'NGN'
-            },
+            meta,
+            metadata: meta,
             created_at: now,
             completed_at: now,
             updated_at: now
@@ -273,20 +363,25 @@ async function bookFeeRevenue(deposit, { providerRef, feeAmount }) {
         .single();
 
     if (error) {
-        console.warn('[DEPOSIT] fee_revenue insert failed:', error.message);
-        return null;
+        if (error.code === '23505') {
+            const { data: dupe } = await supabaseAdmin
+                .from('transactions')
+                .select('id')
+                .eq('reference', feeRef)
+                .maybeSingle();
+            if (dupe) return dupe.id;
+        }
+        throw new Error(`bookFeeRevenue: insert failed — ${error.message}`);
     }
     return data.id;
 }
 
-/**
- * Flip a pending row to a non-success state.
- */
+// ─── FINALIZE NON-SUCCESS ──────────────────────────────────
 async function finalizeTransactionNonSuccess(deposit, { status, reason }) {
     const now = new Date().toISOString();
     const pendingRef = pendingRefFor(deposit.internal_reference);
 
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
         .from('transactions')
         .update({
             status,
@@ -308,9 +403,14 @@ async function finalizeTransactionNonSuccess(deposit, { status, reason }) {
                 updated_at: now
             }
         })
-        .or(`ref.eq.${pendingRef},reference.eq.${pendingRef}`)
-        .eq('type', 'deposit')
+        .eq('reference', pendingRef)
         .neq('status', 'completed');
+
+    if (error) {
+        console.warn('[DEPOSIT] finalizeTransactionNonSuccess failed:', error.message);
+        // Non-fatal: the history row's state is cosmetic. The
+        // authoritative state is deposit_requests.status.
+    }
 }
 
 // ─── CREATE DEPOSIT ─────────────────────────────────────────
@@ -326,7 +426,6 @@ async function createDepositRequest({
     const merchantReference = buildMerchantReference();
     const now = new Date().toISOString();
 
-    // ─── 1. Insert deposit_requests ─────────────────────────
     const { data, error } = await supabaseAdmin
         .from('deposit_requests')
         .insert({
@@ -335,7 +434,6 @@ async function createDepositRequest({
             provider: 'korapay',
             merchant_reference: merchantReference,
 
-            // Canonical fields
             payment_currency: breakdown.payment_currency,
             payment_amount:   breakdown.payment_amount,
             wallet_currency:  breakdown.wallet_currency,
@@ -349,7 +447,6 @@ async function createDepositRequest({
             quote_id:         quoteId,
             quote_expires_at: quoteExpiresAt,
 
-            // Legacy mirrors
             source_currency:        cfg.code,
             source_amount:          breakdown.payment_amount,
             target_currency:        breakdown.wallet_currency,
@@ -369,95 +466,130 @@ async function createDepositRequest({
 
     if (error) throw error;
 
-    // ─── 2. Insert pending transaction row ──────────────────
-    await upsertPendingTransaction(data);
+    // If the pending transaction row cannot be written, abandon the
+    // deposit. Do not leave a bare deposit_requests row behind.
+    try {
+        await upsertPendingTransaction(data);
+    } catch (pendingErr) {
+        await supabaseAdmin
+            .from('deposit_requests')
+            .update({
+                status: 'failed',
+                failure_reason: `PENDING_TX_FAILED: ${pendingErr.message}`.slice(0, 500),
+                failed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', data.id);
+        throw new Error(`Failed to create pending transaction: ${pendingErr.message}`);
+    }
 
     return data;
 }
 
 // ─── COMPLETE DEPOSIT ───────────────────────────────────────
 async function completeKoraDeposit({ depositId, providerTransaction, source }) {
-    // ─── 1. Lock deposit row ────────────────────────────────
-    const { data: deposit, error: depErr } = await supabaseAdmin
-        .from('deposit_requests')
-        .select('*')
-        .eq('id', depositId)
-        .maybeSingle();
-
-    if (depErr) throw depErr;
-    if (!deposit) return { completed: false, reason: 'DEPOSIT_NOT_FOUND' };
-
-    if (deposit.status === 'completed') {
-        return {
-            completed: true,
-            already_completed: true,
-            reason: 'DEPOSIT_ALREADY_COMPLETED',
-            transaction_id: deposit.ledger_transaction_id
-        };
-    }
-
     const providerRef = providerTransaction?.reference || providerTransaction?.payment_reference;
     if (!providerRef) return { completed: false, reason: 'MISSING_PROVIDER_REFERENCE' };
 
-    // ─── 2. Server-side verification ────────────────────────
+    // ── 1. Verification. Only the webhook route may set
+    //       _trustedVerified + _verifiedDigest (from a signed raw
+    //       payload). Anyone else: always verify.
     let verified = providerTransaction;
-    if (!providerTransaction._verified) {
+    if (!_isTrustedVerified(providerTransaction)) {
         try {
             verified = await korapayService.verifyTransaction(providerRef);
             verified._verified = true;
         } catch (err) {
             console.error('[DEPOSIT] verify failed:', err.message);
-            await supabaseAdmin
-                .from('deposit_requests')
-                .update({ status: 'processing', updated_at: new Date().toISOString() })
-                .eq('id', deposit.id)
-                .eq('status', 'pending');
             return { completed: false, reason: 'PAYMENT_NOT_VERIFIED' };
         }
     }
 
-    // ─── 3. Provider status ─────────────────────────────────
     const pStatus = String(verified.provider_status || verified.status || '').toLowerCase();
     if (!['success', 'successful', 'completed'].includes(pStatus)) {
+        // Guarded transition — only move out of `pending`.
         await supabaseAdmin
             .from('deposit_requests')
             .update({ status: 'processing', updated_at: new Date().toISOString() })
-            .eq('id', deposit.id)
+            .eq('id', depositId)
             .eq('status', 'pending');
         return { completed: false, reason: `PROVIDER_STATUS_${pStatus || 'UNKNOWN'}` };
     }
 
-    // ─── 4. Verify currency + amount ────────────────────────
+    // ── 2. Atomic claim. Only one caller wins.
+    const { data: claimResult, error: claimErr } = await supabaseAdmin
+        .rpc('claim_kora_deposit_for_credit', { p_provider_ref: providerRef });
+
+    if (claimErr) {
+        console.error('[DEPOSIT] claim failed:', claimErr.message);
+        return { completed: false, reason: 'CLAIM_FAILED' };
+    }
+
+    const claim = Array.isArray(claimResult) ? claimResult[0] : claimResult;
+    if (!claim) return { completed: false, reason: 'DEPOSIT_NOT_FOUND' };
+
+    if (!claim.claimed) {
+        const alreadyCompleted = claim.existing_status === 'completed';
+        return {
+            completed: alreadyCompleted,
+            already_completed: alreadyCompleted,
+            reason: alreadyCompleted ? 'DEPOSIT_ALREADY_COMPLETED' : 'CLAIMED_ELSEWHERE'
+        };
+    }
+
+    // ── 3. Read the full row.
+    const { data: deposit, error: depErr } = await supabaseAdmin
+        .from('deposit_requests')
+        .select('*')
+        .eq('id', claim.deposit_id)
+        .maybeSingle();
+
+    if (depErr || !deposit) {
+        await supabaseAdmin.rpc('release_kora_deposit_claim', {
+            p_deposit_id: claim.deposit_id,
+            p_reason: 'DEPOSIT_READ_FAILED'
+        });
+        return { completed: false, reason: 'DEPOSIT_READ_FAILED' };
+    }
+
+    // ── 4. Validate provider response.
     const providerCurrency = String(verified.currency || '').toUpperCase();
-    const providerAmount   = num(verified.amount);
+    const providerAmount   = Number(verified.amount);
     const expectedCcy      = String(deposit.payment_currency || deposit.source_currency || '').toUpperCase();
     const expectedAmt      = num(deposit.payment_amount || deposit.source_amount);
 
-    if (providerCurrency && expectedCcy && providerCurrency !== expectedCcy) {
-        await markManualReview(deposit.id, 'PAYMENT_CURRENCY_MISMATCH');
-        return { completed: false, reason: 'PAYMENT_CURRENCY_MISMATCH' };
+    if (!providerCurrency) {
+        await _releaseAndMark(claim.deposit_id, 'manual_review', 'MISSING_PROVIDER_CURRENCY');
+        return { completed: false, reason: 'MISSING_PROVIDER_CURRENCY' };
     }
-    if (!providerAmount) {
-        await markManualReview(deposit.id, 'MISSING_PROVIDER_AMOUNT');
+    if (!Number.isFinite(providerAmount) || providerAmount <= 0) {
+        await _releaseAndMark(claim.deposit_id, 'manual_review', 'MISSING_PROVIDER_AMOUNT');
         return { completed: false, reason: 'MISSING_PROVIDER_AMOUNT' };
     }
-
-    const drift = expectedAmt > 0 ? Math.abs(providerAmount - expectedAmt) / expectedAmt : 1;
-    if (drift > 0.02) {
-        await markManualReview(deposit.id, providerAmount < expectedAmt ? 'UNDERPAID' : 'OVERPAID');
-        return { completed: false, reason: providerAmount < expectedAmt ? 'UNDERPAID' : 'OVERPAID' };
+    if (providerCurrency !== expectedCcy) {
+        await _releaseAndMark(claim.deposit_id, 'manual_review', 'PAYMENT_CURRENCY_MISMATCH');
+        return { completed: false, reason: 'PAYMENT_CURRENCY_MISMATCH' };
+    }
+    if (expectedAmt <= 0) {
+        await _releaseAndMark(claim.deposit_id, 'manual_review', 'INVALID_EXPECTED_AMOUNT');
+        return { completed: false, reason: 'INVALID_EXPECTED_AMOUNT' };
     }
 
-    // ─── 5. Credit the LOCKED wallet_amount ─────────────────
+    const drift = Math.abs(providerAmount - expectedAmt) / expectedAmt;
+    if (drift > EXACT_BAND) {
+        const reason = providerAmount < expectedAmt ? 'UNDERPAID' : 'OVERPAID';
+        await _releaseAndMark(claim.deposit_id, 'manual_review', reason);
+        return { completed: false, reason };
+    }
+
+    // ── 5. Credit the LOCKED wallet_amount.
     const walletCurrency = String(deposit.wallet_currency || deposit.target_currency || 'NGN').toUpperCase();
     const walletCredit   = num(deposit.wallet_amount || deposit.target_amount || deposit.expected_target_amount);
 
     if (!Number.isFinite(walletCredit) || walletCredit <= 0) {
-        await markManualReview(deposit.id, 'INVALID_WALLET_AMOUNT');
+        await _releaseAndMark(claim.deposit_id, 'manual_review', 'INVALID_WALLET_AMOUNT');
         return { completed: false, reason: 'INVALID_WALLET_AMOUNT' };
     }
-
-    const account = await LedgerService.getOrCreateAccount(deposit.user_id, walletCurrency);
 
     let ledgerResult;
     try {
@@ -467,7 +599,7 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
             amount: walletCredit,
             currency: walletCurrency,
             description: `Deposit — ${deposit.payment_currency || deposit.source_currency} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`,
-            reference: `KORA-${providerRef}`,
+            reference: finalRefFor(providerRef),
             sourceType: 'kora_deposit',
             sourceId: deposit.id,
             provider: 'korapay',
@@ -488,57 +620,136 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
             idempotencyKey: `kora-deposit-${providerRef}`
         });
     } catch (ledgerErr) {
-        console.error('[DEPOSIT] ledger credit failed:', ledgerErr.message);
-        await supabaseAdmin
-            .from('deposit_requests')
-            .update({
-                status: 'processing',
-                failure_reason: 'LEDGER_CREDIT_FAILED',
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', deposit.id)
-            .neq('status', 'completed');
+        console.error('[DEPOSIT] LEDGER CREDIT FAILED:', ledgerErr.message);
+        // Release the claim so a later webhook can retry.
+        await supabaseAdmin.rpc('release_kora_deposit_claim', {
+            p_deposit_id: claim.deposit_id,
+            p_reason: `LEDGER_CREDIT_FAILED: ${ledgerErr.message}`.slice(0, 500)
+        });
         return { completed: false, reason: 'LEDGER_CREDIT_FAILED' };
     }
 
-    // ─── 6. Mark deposit completed ──────────────────────────
-    const now = new Date().toISOString();
-    await supabaseAdmin
-        .from('deposit_requests')
-        .update({
-            status: 'completed',
-            provider_reference: providerRef,
-            amount_paid: providerAmount,
-            ledger_transaction_id: ledgerResult?.transaction_id || null,
-            unified_transaction_id: ledgerResult?.transaction_id || null,
-            completed_at: now,
-            updated_at: now
-        })
-        .eq('id', deposit.id)
-        .neq('status', 'completed');
+    if (!ledgerResult || (!ledgerResult.transaction_id && !ledgerResult.already_exists)) {
+        await supabaseAdmin.rpc('release_kora_deposit_claim', {
+            p_deposit_id: claim.deposit_id,
+            p_reason: 'LEDGER_NO_TRANSACTION_ID'
+        });
+        return { completed: false, reason: 'LEDGER_NO_TRANSACTION_ID' };
+    }
 
-    // ─── 7. Flip the pending user-facing row to completed ───
-    await finalizeTransactionCompleted(deposit, {
-        providerRef,
-        walletCredit,
-        walletCurrency,
-        feeAmount: num(deposit.fee_amount || 0)
-    });
+    const txId = ledgerResult.transaction_id || null;
+    const now  = new Date().toISOString();
 
-    // ─── 8. Book the flat fee as revenue (NGN only) ─────────
-    await bookFeeRevenue(deposit, {
-        providerRef,
-        feeAmount: num(deposit.fee_amount || 0)
-    });
+    // ── 6. Finalize the deposit. Check the RPC result.
+    const { data: finalizeResult, error: finalizeErr } = await supabaseAdmin
+        .rpc('finalize_kora_deposit', {
+            p_deposit_id: claim.deposit_id,
+            p_new_status: 'completed',
+            p_tx_id: txId,
+            p_reason: null,
+            p_amount_paid: providerAmount
+        });
 
-    // ─── 9. Notify + email (non-fatal) ──────────────────────
+    if (finalizeErr) {
+        console.error('[DEPOSIT] finalize RPC failed:', finalizeErr.message);
+        // Ledger succeeded. Cannot roll it back. The deposit is stuck
+        // in `processing_credit` and will be repaired on the next
+        // webhook retry (ledger's 23505 + finalize will then work).
+        return { completed: false, reason: 'FINALIZE_FAILED', transaction_id: txId };
+    }
+    if (!finalizeResult || finalizeResult.updated !== true) {
+        // The row may already have been `completed` — verify with a read.
+        const { data: confirmed } = await supabaseAdmin
+            .from('deposit_requests')
+            .select('status, ledger_transaction_id')
+            .eq('id', claim.deposit_id)
+            .maybeSingle();
+        if (!confirmed || confirmed.status !== 'completed') {
+            console.error('[DEPOSIT] finalize did not mark completed:', { finalizeResult, confirmed });
+            return { completed: false, reason: 'FINALIZE_NO_EFFECT', transaction_id: txId };
+        }
+    }
+
+    // ── 7. Flip the pending history row.
     try {
-        const walletStr = walletCurrency === 'USD'
-            ? `$${walletCredit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : `₦${walletCredit.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        await finalizeTransactionCompleted(deposit, {
+            providerRef,
+            walletCredit,
+            walletCurrency,
+            feeAmount: num(deposit.fee_amount || 0)
+        });
+    } catch (histErr) {
+        console.error('[DEPOSIT] history finalize failed:', histErr.message);
+        // History is cosmetic. Notify and return success.
+    }
 
-        const paymentStr = `${deposit.payment_currency || deposit.source_currency} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`;
+    // ── 8. Book fee (best-effort, idempotent).
+    try {
+        await bookFeeRevenue(deposit, {
+            providerRef,
+            feeAmount: num(deposit.fee_amount || 0)
+        });
+    } catch (feeErr) {
+        console.warn('[DEPOSIT] fee booking failed:', feeErr.message);
+    }
 
+    // ── 9. Notification + email, ONCE per deposit.
+    await _notifyDepositOnce(deposit, walletCredit, walletCurrency, now);
+
+    return {
+        completed: true,
+        transaction_id: txId,
+        wallet_currency: walletCurrency,
+        wallet_amount: walletCredit,
+        already_exists: !!ledgerResult.already_exists
+    };
+}
+
+// ─── RELEASE + MARK ────────────────────────────────────────
+async function _releaseAndMark(depositId, status, reason) {
+    await supabaseAdmin.rpc('finalize_kora_deposit', {
+        p_deposit_id: depositId,
+        p_new_status: status,
+        p_tx_id: null,
+        p_reason: reason,
+        p_amount_paid: null
+    });
+    const { data: dep } = await supabaseAdmin
+        .from('deposit_requests')
+        .select('*')
+        .eq('id', depositId)
+        .maybeSingle();
+    if (dep) await finalizeTransactionNonSuccess(dep, { status, reason });
+}
+
+// ─── NOTIFY ONCE ───────────────────────────────────────────
+// Uses deposit_requests.deposit_notified to guarantee exactly one
+// notification + one email per deposit even if the deposit is
+// credited from a retry path.
+async function _notifyDepositOnce(deposit, walletCredit, walletCurrency, completedAtIso) {
+    // Atomic claim of the notification slot.
+    const { data: updated, error } = await supabaseAdmin
+        .from('deposit_requests')
+        .update({ deposit_notified: true })
+        .eq('id', deposit.id)
+        .eq('deposit_notified', false)
+        .select('id');
+
+    if (error) {
+        console.warn('[DEPOSIT] notification claim failed:', error.message);
+        return;
+    }
+    if (!updated || updated.length === 0) {
+        // Somebody else already notified.
+        return;
+    }
+
+    const walletStr = walletCurrency === 'USD'
+        ? `$${walletCredit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : `₦${walletCredit.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const paymentStr = `${deposit.payment_currency || deposit.source_currency} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`;
+
+    try {
         await createNotification(
             deposit.user_id,
             '💰 Wallet Funded',
@@ -546,36 +757,40 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
             'success',
             '/fund'
         );
+    } catch (notifyErr) {
+        console.warn('[DEPOSIT] notification error:', notifyErr.message);
+    }
 
+    try {
         const { data: profile } = await supabaseAdmin
             .from('profiles')
             .select('email, username')
             .eq('id', deposit.user_id)
             .maybeSingle();
 
-        if (profile?.email) {
-            await emailService.sendPaymentReceived(
-                profile.email,
-                profile.username || 'User',
-                walletCredit,
-                walletCurrency,
-                deposit.internal_reference,
-                `${paymentStr} via KoraPay`
-            );
+        if (profile?.email && typeof emailService.sendDepositConfirmation === 'function') {
+            await emailService.sendDepositConfirmation({
+                email: profile.email,
+                username: profile.username || 'User',
+                internalReference: deposit.internal_reference,
+                sourceCurrency: deposit.payment_currency || deposit.source_currency || 'NGN',
+                sourceAmount: num(deposit.payment_amount || deposit.source_amount),
+                targetCurrency: walletCurrency,
+                creditedAmount: walletCredit,
+                fxRate: deposit.customer_rate != null ? num(deposit.customer_rate) : 1,
+                fxSource: deposit.fx_rate_source || 'NONE',
+                completedAt: completedAtIso
+            });
         }
-    } catch (notifyErr) {
-        console.warn('[DEPOSIT] post-credit notification error:', notifyErr.message);
+    } catch (emailErr) {
+        console.warn('[DEPOSIT] email error:', emailErr.message);
     }
-
-    return {
-        completed: true,
-        transaction_id: ledgerResult?.transaction_id || null,
-        wallet_currency: walletCurrency,
-        wallet_amount: walletCredit
-    };
 }
 
 // ─── MARK STATES ────────────────────────────────────────────
+// Only `pending` and `processing` can be moved to failed or manual.
+// `processing_credit` is owned by the credit-in-progress path, and
+// `completed` is terminal.
 async function markManualReview(depositId, reason) {
     const { data: deposit } = await supabaseAdmin
         .from('deposit_requests')
@@ -585,6 +800,7 @@ async function markManualReview(depositId, reason) {
             updated_at: new Date().toISOString()
         })
         .eq('id', depositId)
+        .in('status', ['pending', 'processing'])
         .select('*')
         .maybeSingle();
 
@@ -603,7 +819,7 @@ async function markDepositFailed(depositId, reason) {
             updated_at: new Date().toISOString()
         })
         .eq('id', depositId)
-        .neq('status', 'completed')
+        .in('status', ['pending', 'processing'])
         .select('*')
         .maybeSingle();
 
@@ -622,5 +838,6 @@ module.exports = {
     upsertPendingTransaction,
     finalizeTransactionCompleted,
     finalizeTransactionNonSuccess,
-    bookFeeRevenue
+    bookFeeRevenue,
+    computeVerifiedDigest
 };

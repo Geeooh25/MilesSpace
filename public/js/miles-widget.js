@@ -1,31 +1,6 @@
 /*!
- * MilesSpace Support Widget — v16.3
- * ----------------------------------
- * v16.3 changes:
- *   • AUTH FIX. The widget now uses the real session API exposed by
- *     public/js/session.js:
- *         window.getUser()
- *         window.getAccessToken()
- *         window.checkUserSession()
- *         window.userFetch(url, opts)
- *     Previously it looked for legacy localStorage keys ('mx_sess',
- *     'mx_token', ...) that session.js deliberately scrubs on every
- *     page load. That made an authenticated user look like a guest.
- *   • getToken() now delegates to window.getAccessToken() first, and
- *     only falls back to legacy storage for older pages that still
- *     use it. It never trusts a token whose JWT payload is expired.
- *   • isAuthenticated is now resolved asynchronously: if the access
- *     token is not in memory yet, the widget awaits
- *     window.checkUserSession() once, then re-reads user data.
- *   • aria-hidden / inert. When the panel is closed, focus inside
- *     the panel is released and the panel is marked inert. When it
- *     is open, inert is removed. This resolves the browser warning:
- *     "Blocked aria-hidden on an element because its descendant
- *     retained focus."
- *   • CONFIG.MESSAGE_MAX_LEN_SAFE is now defined (was referenced in
- *     renderGuestTicket but never set, producing maxlength="undefined").
- *   • No API contract changes. Same endpoints, same request bodies,
- *     same response shapes. Backend routes are untouched.
+ * MilesSpace Support Widget — v18.1 (Production-Ready Guest-to-Live-Chat)
+ * Fixes: Desktop UI layout, instant messaging, 400 error handling.
  */
 
 (function () {
@@ -35,7 +10,7 @@
     window.__MILES_WIDGET_BOOTED__ = true;
 
     // ═════════════════════════════════════════════════════════
-    //  Page detection
+    //  Page detection & Guards
     // ═════════════════════════════════════════════════════════
     var _pathname = String(window.location.pathname || '').toLowerCase();
 
@@ -64,17 +39,6 @@
     var IS_DISABLED_BY_GLOBAL = window.MILES_WIDGET_DISABLE === true;
 
     if (IS_ADMIN_PAGE || IS_FRAMED || IS_DISABLED_BY_MARKUP || IS_DISABLED_BY_GLOBAL) {
-        try {
-            var toRemove = [];
-            for (var i = 0; i < sessionStorage.length; i++) {
-                var k = sessionStorage.key(i);
-                if (k && k.indexOf('miles_guest_ticket_') === 0) toRemove.push(k);
-            }
-            for (var j = 0; j < toRemove.length; j++) {
-                sessionStorage.removeItem(toRemove[j]);
-            }
-        } catch (e) { /* ignore */ }
-
         window.MilesWidget = null;
         return;
     }
@@ -95,10 +59,8 @@
     var CONFIG = {
         API_URL: '/api/support',
         MOBILE_BREAKPOINT: 520,
-        POLL_INTERVAL: 25000,
+        POLL_INTERVAL: 15000, // Faster polling
         MAX_MESSAGE_LENGTH: 5000,
-        // Alias used inside renderGuestTicket; was referenced but never
-        // defined in v16.2, so the textarea got maxlength="undefined".
         MESSAGE_MAX_LEN_SAFE: 5000,
         MAX_SUBJECT_LENGTH: 150,
         MAX_FILE_SIZE: 10 * 1024 * 1024,
@@ -188,12 +150,7 @@
             if (typeof a === 'string') {
                 var url = safeUrl(a);
                 if (!url) return;
-                out.push({
-                    url: url,
-                    name: guessNameFromUrl(url),
-                    mime: guessMimeFromUrl(url),
-                    size: null
-                });
+                out.push({ url: url, name: guessNameFromUrl(url), mime: guessMimeFromUrl(url), size: null });
                 return;
             }
             if (typeof a !== 'object') return;
@@ -208,21 +165,6 @@
         }
         if (Array.isArray(msg.attachments)) msg.attachments.forEach(push);
         else if (msg.attachments && typeof msg.attachments === 'object') push(msg.attachments);
-        else if (typeof msg.attachments === 'string' && msg.attachments.trim()) {
-            var raw = msg.attachments.trim();
-            if (raw.charAt(0) === '[' || raw.charAt(0) === '{') {
-                try {
-                    var parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed)) parsed.forEach(push);
-                    else push(parsed);
-                } catch (e) {
-                    push(raw);
-                }
-            } else push(raw);
-        }
-        if (!out.length && msg.attachment_url) {
-            push({ url: msg.attachment_url, type: msg.attachment_type, name: msg.attachment_name });
-        }
         return out;
     }
 
@@ -238,9 +180,7 @@
 
     function isSameDay(a, b) {
         var da = new Date(a), db = new Date(b);
-        return da.getFullYear() === db.getFullYear() &&
-               da.getMonth() === db.getMonth() &&
-               da.getDate() === db.getDate();
+        return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
     }
 
     function dateSeparator(dateStr) {
@@ -250,39 +190,26 @@
         y.setDate(today.getDate() - 1);
         if (isSameDay(d, today)) return 'Today';
         if (isSameDay(d, y)) return 'Yesterday';
-        return d.toLocaleDateString([], {
-            month: 'short', day: 'numeric',
-            year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-        });
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
     }
 
     function newRequestId() {
         try {
-            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-                return window.crypto.randomUUID();
-            }
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
         } catch (e) {}
         return 'req_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
     }
 
-    function safeStorageGet(storage, key) {
-        try { return storage.getItem(key); } catch (e) { return null; }
-    }
-    function safeStorageSet(storage, key, value) {
-        try { storage.setItem(key, value); return true; } catch (e) { return false; }
-    }
-    function safeStorageRemove(storage, key) {
-        try { storage.removeItem(key); return true; } catch (e) { return false; }
-    }
+    function safeStorageGet(storage, key) { try { return storage.getItem(key); } catch (e) { return null; } }
+    function safeStorageSet(storage, key, value) { try { storage.setItem(key, value); return true; } catch (e) { return false; } }
+    function safeStorageRemove(storage, key) { try { storage.removeItem(key); return true; } catch (e) { return false; } }
 
     function isAdminMessage(m) {
         if (!m) return false;
         var t = String(m.sender_type || '').toLowerCase();
         return t === 'admin' || t === 'support' || t === 'agent' || t === 'staff';
     }
-    function isPublicMessage(m) {
-        return !!m && m.is_internal !== true;
-    }
+    function isPublicMessage(m) { return !!m && m.is_internal !== true; }
     function hasAgentReply(messages) {
         if (!Array.isArray(messages)) return false;
         for (var i = 0; i < messages.length; i++) {
@@ -297,11 +224,7 @@
             if (parts.length !== 3) return null;
             var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
             while (b64.length % 4) b64 += '=';
-            var json = decodeURIComponent(
-                atob(b64).split('').map(function (c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join('')
-            );
+            var json = decodeURIComponent(atob(b64).split('').map(function (c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
             return JSON.parse(json);
         } catch (e) { return null; }
     }
@@ -315,26 +238,12 @@
     //  Icons
     // ═════════════════════════════════════════════════════════
     var ICONS = {
-        wallet:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14" r="1.1" fill="currentColor" stroke="none"/></svg>',
-        deposit:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>',
-        airtime:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20l4-4 4 4 4-6 4 2 2-6"/><circle cx="7" cy="16" r="1.4" fill="currentColor" stroke="none"/></svg>',
-        data:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4"/></svg>',
-        bills:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
-        giftcard:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18"/><path d="M12 8v12"/><path d="M8.5 8a2 2 0 110-4c1.5 0 3.5 2 3.5 4z"/><path d="M15.5 8a2 2 0 100-4c-1.5 0-3.5 2-3.5 4z"/></svg>',
-        esim:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8" y="6" width="8" height="6" rx="1"/><path d="M8 15h8M8 18h5"/></svg>',
-        marketplace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l1.5-3h15L21 7"/><rect x="4" y="7" width="16" height="13" rx="1"/><path d="M9 11a3 3 0 006 0"/></svg>',
-        virtual:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
-        boost:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19l6-6 4 4 6-8"/><path d="M15 8h5v5"/></svg>',
-        account:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.5-4 4.2-6 7.5-6s6 2 7.5 6"/></svg>',
-        other:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-        support:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 13a8 8 0 0116 0"/><rect x="2" y="13" width="5" height="6" rx="1.5"/><rect x="17" y="13" width="5" height="6" rx="1.5"/><path d="M20 19a4 4 0 01-4 4h-2"/></svg>',
         chat:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 01-11.6 7.2L4 20l1.1-4.3A8 8 0 1121 12z"/></svg>',
         close:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>',
         minimize:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>',
         send:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
         search:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
         bell:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 004 0"/></svg>',
-        bellOff:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M6 8a6 6 0 0110.9-3.4M18 14c0-1 .2-2 0-3"/><path d="M4 14s2-1 2-6"/><path d="M10 21a2 2 0 004 0"/></svg>',
         info:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="8" r="0.6" fill="currentColor"/></svg>',
         image:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-5 5-4-4-4 4"/></svg>',
         pdf:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>',
@@ -342,59 +251,45 @@
         back:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 19l-7-7 7-7"/></svg>',
         plus:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
         clock:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
-        star:        '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>',
-        starOutline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>'
+        check:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+        error:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+        support:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 13a8 8 0 0116 0"/><rect x="2" y="13" width="5" height="6" rx="1.5"/><rect x="17" y="13" width="5" height="6" rx="1.5"/><path d="M20 19a4 4 0 01-4 4h-2"/></svg>',
+        bellOff:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M6 8a6 6 0 0110.9-3.4M18 14c0-1 .2-2 0-3"/><path d="M4 14s2-1 2-6"/><path d="M10 21a2 2 0 004 0"/></svg>'
     };
 
     function iconMarkup(name, cls) {
-        var svg = ICONS[name] || ICONS.other;
+        var svg = ICONS[name] || ICONS.other || '';
         return '<span class="miles-icon ' + (cls || '') + '" aria-hidden="true">' + svg + '</span>';
     }
 
     var STATUS_LABELS = {
-        open: 'Open',
-        assigned: 'Assigned',
-        in_progress: 'In progress',
-        waiting_user: 'Waiting on you',
-        waiting_support: 'Waiting on support',
-        resolved: 'Resolved',
-        closed: 'Closed'
+        open: 'Open', assigned: 'Assigned', in_progress: 'In progress',
+        waiting_user: 'Waiting on you', waiting_support: 'Waiting on support',
+        resolved: 'Resolved', closed: 'Closed'
     };
-
-    var DEFAULT_CATEGORIES = [];
 
     var HELP_ARTICLES = [
         { id: 'fund-wallet',     categoryKey: 'funding',          title: 'How do I fund my wallet?',                summary: 'Add money to your MilesSpace wallet.',           readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Open the <strong>Fund Wallet</strong> page and choose a payment method. Your balance updates once the provider confirms the payment.</p>' },
-        { id: 'deposit-pending', categoryKey: 'funding',          title: 'My deposit is still pending',             summary: 'Deposits usually confirm within minutes.',        readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Most deposits confirm within minutes. If yours has been pending over 30 minutes, contact support with the reference.</p>' },
         { id: 'airtime',         categoryKey: 'airtime',          title: 'How do I buy airtime?',                   summary: 'Send airtime to any supported number.',           readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Open <strong>Airtime</strong>, pick the country and operator, enter the number and amount, and confirm.</p>' },
-        { id: 'airtime-failed',  categoryKey: 'airtime',          title: 'I was charged but airtime did not arrive', summary: 'What to do if a purchase is stuck.',             readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Wait 15 minutes first. If still missing, contact support with the order reference.</p>' },
-        { id: 'data',            categoryKey: 'data',             title: 'How do I buy mobile data?',               summary: 'Choose a plan and send data.',                    readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Open <strong>Data</strong>, pick the operator and a plan, then confirm.</p>' },
-        { id: 'bills',           categoryKey: 'bills',            title: 'How do I pay a bill?',                    summary: 'Electricity, TV, and other billers.',             readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Open <strong>Bills &amp; Utilities</strong>, choose the biller, enter your customer number, and confirm.</p>' },
         { id: 'esim',            categoryKey: 'esim',             title: 'How do I install my eSIM?',               summary: 'Install your eSIM in a few steps.',               readTime: '3 min read', updatedAt: '2026-10-01', content: '<p>Open the QR code we sent you after purchase. On your phone: <strong>Settings → Mobile Data → Add eSIM</strong>.</p>' },
-        { id: 'gift',            categoryKey: 'gift_cards',       title: 'How do I buy a gift card?',               summary: 'Purchase and receive gift cards.',                readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Open <strong>Gift Cards</strong>, choose a card, select the value, and pay from your wallet.</p>' },
-        { id: 'virtual',         categoryKey: 'virtual_sms',      title: 'What is a virtual number?',               summary: 'Temporary numbers for SMS and OTP.',              readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Virtual numbers are temporary phone numbers that receive SMS messages.</p>' },
-        { id: 'boost',           categoryKey: 'social_boosting',  title: 'How does social boosting work?',          summary: 'Increase engagement on your posts.',              readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Open <strong>Boost</strong>, choose the platform and service, then paste your link.</p>' },
-        { id: 'market',          categoryKey: 'marketplace',      title: 'How do I order from the marketplace?',    summary: 'Buy from MilesSpace Marketplace.',                readTime: '2 min read', updatedAt: '2026-10-01', content: '<p>Browse the Marketplace, choose an item, and complete checkout from your wallet.</p>' },
         { id: 'secure',          categoryKey: 'account_security', title: 'How do I secure my account?',             summary: 'Turn on 2FA and use a strong password.',          readTime: '3 min read', updatedAt: '2026-10-01', content: '<p>Enable <strong>Two-Factor Authentication</strong> from Settings. Use a strong password and never share it.</p>' }
     ];
 
     // ═════════════════════════════════════════════════════════
-    //  Styles
+    //  Styles (Fixed Desktop Layout)
     // ═════════════════════════════════════════════════════════
     var WIDGET_STYLES = [
-        '#miles-widget-root{--miles-primary:#0c3d4a;--miles-primary-light:#12556a;--miles-primary-dark:#082a33;--miles-accent:#f59e0b;--miles-bg:#f4f7fb;--miles-white:#ffffff;--miles-text:#0c1f26;--miles-text-dim:#5b7480;--miles-text-faint:#8fa3ab;--miles-border:rgba(12,61,74,0.10);--miles-success:#16a34a;--miles-danger:#dc2626;--miles-shadow:0 12px 40px rgba(8,42,51,0.18);--miles-radius:18px;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;position:fixed;inset:auto 0 0 0;width:0;height:0;z-index:2147483000;pointer-events:none}',
+        '#miles-widget-root{--miles-primary:#0c3d4a;--miles-primary-light:#12556a;--miles-accent:#f59e0b;--miles-bg:#f4f7fb;--miles-white:#ffffff;--miles-text:#0c1f26;--miles-text-dim:#5b7480;--miles-text-faint:#8fa3ab;--miles-border:rgba(12,61,74,0.10);--miles-success:#16a34a;--miles-danger:#dc2626;font-family:Inter,-apple-system,sans-serif;position:fixed;inset:auto 0 0 0;width:0;height:0;z-index:2147483000;pointer-events:none}',
         '#miles-widget-root,#miles-widget-root *{box-sizing:border-box}',
         '#miles-widget-root .miles-icon{display:inline-flex;width:18px;height:18px;flex-shrink:0}',
         '#miles-widget-root .miles-icon svg{width:100%;height:100%}',
 
-        '#miles-launcher{position:fixed;bottom:24px;right:24px;width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--miles-primary),var(--miles-primary-light));color:#fff;border:none;cursor:pointer;box-shadow:0 6px 24px rgba(12,61,74,0.35);display:flex;align-items:center;justify-content:center;z-index:2147483001;padding:0;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:box-shadow .2s,background .2s;pointer-events:auto;will-change:transform}',
+        '#miles-launcher{position:fixed;bottom:24px;right:24px;width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--miles-primary),var(--miles-primary-light));color:#fff;border:none;cursor:pointer;box-shadow:0 6px 24px rgba(12,61,74,0.35);display:flex;align-items:center;justify-content:center;z-index:2147483001;padding:0;touch-action:none;transition:box-shadow .2s;pointer-events:auto}',
         '#miles-launcher .miles-icon{width:28px;height:28px;pointer-events:none}',
-        '#miles-launcher:focus-visible{outline:3px solid var(--miles-accent);outline-offset:3px}',
-        '#miles-launcher.dragging{cursor:grabbing;box-shadow:0 8px 40px rgba(12,61,74,0.6)}',
         '#miles-launcher .badge{position:absolute;top:-4px;right:-4px;background:var(--miles-danger);color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:99px;display:none;align-items:center;justify-content:center;padding:0 5px;border:2px solid #fff;pointer-events:none}',
         '#miles-launcher .badge.show{display:flex}',
 
-        '#miles-panel{position:fixed;bottom:102px;right:24px;width:460px;height:min(720px,calc(100vh - 140px));min-height:460px;background:var(--miles-white);border-radius:var(--miles-radius);box-shadow:0 20px 60px rgba(8,42,51,0.28);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--miles-border);pointer-events:auto;z-index:2147483001}',
+        '#miles-panel{position:fixed;bottom:102px;right:24px;width:460px;height:min(720px,calc(100vh - 140px));min-height:460px;background:var(--miles-white);border-radius:18px;box-shadow:0 20px 60px rgba(8,42,51,0.28);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--miles-border);pointer-events:auto;z-index:2147483001}',
         '#miles-panel.open{display:flex;animation:milesSlideUp .22s cubic-bezier(.4,0,.2,1)}',
         '@keyframes milesSlideUp{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}',
 
@@ -414,9 +309,9 @@
         '.miles-tabs .tab .tab-badge{background:var(--miles-danger);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;display:none}',
         '.miles-tabs .tab .tab-badge.show{display:inline-block}',
 
-        '.miles-content{flex:1;overflow:hidden;position:relative;background:var(--miles-bg)}',
-        '.miles-tab-content{display:none;height:100%;overflow-y:auto;padding:18px;-webkit-overflow-scrolling:touch}',
-        '.miles-tab-content.active{display:block}',
+        '.miles-content{flex:1;overflow:hidden;position:relative;background:var(--miles-bg);display:flex;flex-direction:column}',
+        '.miles-tab-content{display:none;flex:1;overflow-y:auto;padding:18px;-webkit-overflow-scrolling:touch;flex-direction:column}',
+        '.miles-tab-content.active{display:flex}',
 
         '.miles-welcome{padding:6px 0 14px}',
         '.miles-welcome .greeting{font-size:20px;font-weight:700;color:var(--miles-text)}',
@@ -430,8 +325,10 @@
         '.miles-contact-btn{width:100%;margin-top:16px;padding:14px;border-radius:12px;background:var(--miles-primary);color:#fff;border:none;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}',
         '.miles-contact-btn:hover{background:var(--miles-primary-light)}',
 
-        '#tab-chats{position:relative;overflow:hidden;padding:0!important}',
-        '#tab-chats > .miles-conv-list,#tab-chats > .miles-message-view{position:absolute;inset:0;width:100%;height:100%}',
+        /* CHATS TAB LAYOUT FIX */
+        '#tab-chats{position:relative;overflow:hidden;padding:0!important;display:none;flex-direction:column;height:100%}',
+        '#tab-chats.active{display:flex}',
+        '#tab-chats > .miles-conv-list, #tab-chats > .miles-message-view { position:absolute; inset:0; width:100%; height:100%; }',
         '#tab-chats > .miles-conv-list{display:flex;flex-direction:column;background:var(--miles-white);z-index:1}',
         '#tab-chats > .miles-message-view{display:none;flex-direction:column;background:var(--miles-bg);z-index:2}',
         '#tab-chats > .miles-message-view.open{display:flex}',
@@ -466,6 +363,7 @@
         '.miles-conv-empty p{font-size:13px;margin:0;line-height:1.5}',
         '.miles-conv-empty .btn-primary{margin-top:14px;padding:10px 22px;background:var(--miles-primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit}',
 
+        /* MESSAGE VIEW LAYOUT FIX */
         '.miles-msg-header{padding:12px 16px;border-bottom:1px solid var(--miles-border);background:var(--miles-white);display:flex;align-items:center;gap:10px;flex-shrink:0}',
         '.miles-msg-header .back-btn{background:none;border:none;cursor:pointer;font-size:18px;color:var(--miles-primary);padding:4px;display:flex;align-items:center;justify-content:center}',
         '.miles-msg-header .info{flex:1;min-width:0}',
@@ -483,8 +381,15 @@
         '.miles-msg.user{align-self:flex-end;background:var(--miles-primary);color:#fff;border-bottom-right-radius:4px}',
         '.miles-msg.support{align-self:flex-start;background:var(--miles-white);color:var(--miles-text);border:1px solid var(--miles-border);border-bottom-left-radius:4px}',
         '.miles-msg.system{align-self:center;background:#eef2f5;color:var(--miles-text-dim);font-size:12px;max-width:92%;border-radius:20px;padding:5px 16px}',
-        '.miles-msg .time{font-size:10.5px;opacity:.65;margin-top:4px;text-align:right}',
+        '.miles-msg .time{font-size:10.5px;opacity:.65;margin-top:4px;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:4px}',
         '.miles-msg.failed{border:1px solid var(--miles-danger)}',
+        
+        '.msg-status{display:inline-flex;width:12px;height:12px;flex-shrink:0;}',
+        '.msg-status svg{width:100%;height:100%;}',
+        '.msg-status.sending{animation:spin 1s linear infinite;opacity:0.6;}',
+        '.msg-status.failed{color:var(--miles-danger);cursor:pointer;}',
+        '@keyframes spin{100%{transform:rotate(360deg);}}',
+
         '.miles-date-sep{align-self:center;font-size:11px;color:var(--miles-text-faint);padding:4px 12px;margin:6px 0}',
 
         '.miles-waiting-panel{margin:16px;padding:18px;border-radius:14px;background:#fff;border:1px solid var(--miles-border);text-align:center}',
@@ -509,14 +414,14 @@
         '.miles-file-preview .file-item .file-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
         '.miles-file-preview .file-item .remove-file{cursor:pointer;color:var(--miles-danger);background:none;border:none;padding:4px;font-size:13px;line-height:1;font-weight:700;min-width:22px;min-height:22px}',
 
-        '.miles-input-area{padding:12px 16px;border-top:1px solid var(--miles-border);background:var(--miles-white);display:flex;flex-direction:column;gap:6px;flex-shrink:0}',
-        '.miles-input-row{display:flex;gap:10px;align-items:flex-end}',
-        '.miles-input-area textarea{flex:1;padding:10px 14px;border:1px solid var(--miles-border);border-radius:12px;resize:none;font-family:inherit;font-size:13.5px;outline:none;min-height:46px;max-height:140px;background:var(--miles-bg)}',
-        '.miles-input-area textarea:focus{border-color:var(--miles-primary);background:var(--miles-white)}',
-        '.miles-input-area .send-btn{width:44px;height:44px;border-radius:50%;background:var(--miles-primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}',
+        '.miles-input-area{padding:10px 14px;background:var(--miles-white);border-top:1px solid var(--miles-border);display:flex;flex-direction:column;gap:6px;flex-shrink:0}',
+        '.miles-input-row{display:flex;gap:8px;align-items:flex-end;background:var(--miles-bg);border-radius:24px;padding:4px 6px 4px 12px;border:1px solid var(--miles-border)}',
+        '.miles-input-area textarea{flex:1;padding:10px 0;border:none;resize:none;font-family:inherit;font-size:14px;outline:none;min-height:24px;max-height:120px;background:transparent;line-height:1.4}',
+        '.miles-input-area textarea:focus{outline:none}',
+        '.miles-input-area .send-btn{width:36px;height:36px;border-radius:50%;background:var(--miles-primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-bottom:2px;transition:background 0.2s}',
         '.miles-input-area .send-btn:disabled{opacity:.5;cursor:not-allowed}',
-        '.miles-input-area .attach-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--miles-border);background:var(--miles-bg);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--miles-text-dim);flex-shrink:0}',
-        '.miles-input-area .attach-btn:hover{border-color:var(--miles-primary);color:var(--miles-primary)}',
+        '.miles-input-area .attach-btn{width:36px;height:36px;border-radius:50%;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--miles-text-dim);flex-shrink:0;margin-bottom:2px}',
+        '.miles-input-area .attach-btn:hover{color:var(--miles-primary)}',
         '.miles-input-area .attach-input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}',
         '.miles-send-status{font-size:11px;color:var(--miles-text-faint);padding:0 2px;min-height:14px}',
         '.miles-send-status.error{color:var(--miles-danger)}',
@@ -525,16 +430,6 @@
         '.miles-msg-empty .miles-icon{width:44px;height:44px;opacity:.35;margin-bottom:14px}',
         '.miles-msg-empty h4{font-size:15px;font-weight:700;color:var(--miles-text);margin-bottom:4px}',
         '.miles-msg-empty p{font-size:12.5px;margin:0;line-height:1.5}',
-
-        '.miles-rating-box{margin:12px 16px;padding:14px;background:var(--miles-white);border:1px solid var(--miles-border);border-radius:12px;text-align:center}',
-        '.miles-rating-box h5{font-size:13px;font-weight:700;color:var(--miles-text);margin-bottom:8px}',
-        '.miles-rating-stars{display:flex;justify-content:center;gap:4px;margin-bottom:10px}',
-        '.miles-rating-stars button{background:none;border:none;cursor:pointer;color:var(--miles-text-faint);padding:2px}',
-        '.miles-rating-stars button .miles-icon{width:24px;height:24px}',
-        '.miles-rating-stars button.active{color:var(--miles-accent)}',
-        '.miles-rating-box textarea{width:100%;padding:8px 10px;border:1px solid var(--miles-border);border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;min-height:50px;margin-bottom:8px}',
-        '.miles-rating-box .submit-rating{padding:8px 18px;background:var(--miles-primary);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12.5px}',
-        '.miles-rating-done{font-size:12px;color:var(--miles-success);font-weight:600}',
 
         '.miles-help-search{margin-bottom:14px;position:relative}',
         '.miles-help-search input{width:100%;padding:10px 12px 10px 40px;border:1px solid var(--miles-border);border-radius:10px;font-size:13px;outline:none;background:var(--miles-white);font-family:inherit}',
@@ -546,20 +441,6 @@
         '.miles-help-item .text{flex:1;font-size:13px;font-weight:600;color:var(--miles-text)}',
         '.miles-help-item .text .sub{font-size:11.5px;font-weight:400;color:var(--miles-text-dim);display:block;margin-top:2px}',
 
-        '.miles-article-view{display:none;flex-direction:column;height:100%;background:var(--miles-white)}',
-        '.miles-article-view.open{display:flex}',
-        '.miles-article-header{padding:12px 16px;border-bottom:1px solid var(--miles-border);background:var(--miles-white);display:flex;align-items:center;gap:10px;flex-shrink:0}',
-        '.miles-article-header .back-btn{background:none;border:none;cursor:pointer;font-size:18px;color:var(--miles-primary);padding:4px}',
-        '.miles-article-body{flex:1;overflow-y:auto;padding:18px 20px}',
-        '.miles-article-body h2{font-size:19px;font-weight:700;margin-bottom:6px}',
-        '.miles-article-body .meta{font-size:11.5px;color:var(--miles-text-dim);margin-bottom:14px}',
-        '.miles-article-body .content{font-size:13.5px;line-height:1.7}',
-        '.miles-article-body .content p{margin-bottom:10px}',
-        '.miles-article-body .content strong{color:var(--miles-primary)}',
-        '.miles-article-body .article-actions{margin-top:18px;padding-top:18px;border-top:1px solid var(--miles-border);display:flex;flex-direction:column;gap:8px}',
-        '.miles-article-body .btn-support{padding:12px;border-radius:10px;background:var(--miles-primary);color:#fff;border:none;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit}',
-        '.miles-article-body .btn-back-help{padding:10px;border-radius:10px;background:var(--miles-bg);color:var(--miles-text);border:none;font-weight:600;cursor:pointer;font-size:12.5px;font-family:inherit}',
-
         '.miles-guest-form{display:flex;flex-direction:column;gap:12px;padding:6px 2px}',
         '.miles-guest-form label{font-size:12px;font-weight:700;color:var(--miles-text-dim);text-transform:uppercase;letter-spacing:.04em}',
         '.miles-guest-form input,.miles-guest-form select,.miles-guest-form textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:13.5px;outline:none;background:var(--miles-white);font-family:inherit}',
@@ -569,36 +450,11 @@
         '.miles-form-error{font-size:12.5px;color:var(--miles-danger);min-height:16px;font-weight:500}',
         '.miles-form-note{font-size:12px;color:var(--miles-text-faint);line-height:1.5}',
 
-        '.miles-modal-overlay{position:fixed;inset:0;background:rgba(8,20,25,.55);z-index:2147483003;display:none;align-items:center;justify-content:center;padding:16px;pointer-events:auto}',
-        '.miles-modal-overlay.open{display:flex}',
-        '.miles-modal-box{width:440px;max-width:100%;max-height:88vh;background:var(--miles-white);border-radius:16px;box-shadow:var(--miles-shadow);display:flex;flex-direction:column;overflow:hidden}',
-        '.miles-modal-head{padding:16px 18px;border-bottom:1px solid var(--miles-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}',
-        '.miles-modal-head h4{font-size:16px;font-weight:700}',
-        '.miles-modal-head button{background:none;border:none;cursor:pointer;color:var(--miles-text-dim);padding:4px}',
-        '.miles-modal-body{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}',
-        '.miles-modal-body label{font-size:12px;font-weight:700;color:var(--miles-text-dim);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px}',
-        '.miles-modal-body input,.miles-modal-body select,.miles-modal-body textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:13.5px;outline:none;background:var(--miles-bg);font-family:inherit}',
-        '.miles-modal-body textarea{min-height:110px;resize:vertical}',
-        '.miles-modal-foot{padding:14px 18px;border-top:1px solid var(--miles-border)}',
-        '.miles-modal-foot .submit-ticket-btn{width:100%;padding:13px;border-radius:10px;background:var(--miles-primary);color:#fff;border:none;font-weight:700;cursor:pointer;font-size:13.5px}',
-        '.miles-modal-error{font-size:12.5px;color:var(--miles-danger);text-align:center}',
-        '.miles-modal-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 8px;gap:8px}',
-
-        '.miles-lightbox{position:fixed;inset:0;background:rgba(8,20,25,.92);z-index:2147483005;display:none;align-items:center;justify-content:center;padding:24px;pointer-events:auto}',
-        '.miles-lightbox.open{display:flex}',
-        '.miles-lightbox img{max-width:100%;max-height:100%;border-radius:8px;object-fit:contain}',
-        '.miles-lightbox .lb-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}',
-        '.miles-lightbox .lb-open-original{position:absolute;bottom:16px;right:16px;padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;font-weight:700;text-decoration:none}',
-
-        '@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}',
-
         '@media (max-width:520px){',
         '#miles-launcher{bottom:16px;right:16px;width:56px;height:56px}',
-        '#miles-launcher .miles-icon{width:26px;height:26px}',
         '#miles-panel{inset:0!important;left:0!important;top:0!important;width:100%!important;height:100%!important;max-height:100dvh!important;min-height:0!important;border-radius:0!important;bottom:auto!important;right:auto!important}',
         '.miles-tabs .tab{padding:12px 8px;font-size:12.5px}',
         '.miles-input-area textarea{font-size:16px!important}',
-        '.miles-modal-box{width:100%!important;height:100%!important;max-height:100dvh!important;border-radius:0!important}',
         '}'
     ].join('');
 
@@ -712,12 +568,12 @@
     }
 
     // ═════════════════════════════════════════════════════════
-    //  Widget
+    //  Widget Class
     // ═════════════════════════════════════════════════════════
     function MilesWidget(cfg) {
         this.apiUrl = (cfg && cfg.apiUrl) || CONFIG.API_URL;
         this.root = null;
-        this.categories = DEFAULT_CATEGORIES.slice();
+        this.categories = [];
         this.categoryMap = new Map();
 
         this.userId = null;
@@ -779,8 +635,6 @@
 
     MilesWidget.prototype.init = function () {
         var self = this;
-        // Synchronous read of any cached identity so the greeting is
-        // correct on the first paint.
         this.getUserData();
         this.injectStyles();
         this.injectMarkup();
@@ -796,18 +650,6 @@
         catch (e) { return false; }
     };
 
-    // ─── AUTH RESOLUTION ─────────────────────────────────────
-    // Preferred path: the page already loaded public/js/session.js,
-    // which exposes:
-    //   window.getUser()             -> user object | null
-    //   window.getAccessToken()      -> access token | null
-    //   window.checkUserSession()    -> Promise<boolean>
-    //   window.userFetch(url, opts)  -> Promise<Response>
-    //
-    // Legacy path (only used if none of those exist): read 'mx_sess'
-    // from storage. That key was used by an older session.js but is
-    // now scrubbed on every page load, so this path is a fallback,
-    // not the primary.
     MilesWidget.prototype.getUserData = function () {
         if (this.isAuthPage) {
             this.userId = null; this.token = null; this.username = 'there';
@@ -815,7 +657,6 @@
             return;
         }
 
-        // ── Preferred: session.js API ──
         var hasUserFn = (typeof window.getUser === 'function');
         var hasTokenFn = (typeof window.getAccessToken === 'function');
 
@@ -827,49 +668,17 @@
             this.token = t || null;
             this.username = u.username || 'there';
 
-            // A user with a valid, unexpired access token is
-            // authenticated. If the token is absent, we are not —
-            // yet. The async resolveAuth() call below will try to
-            // refresh once, and re-run getUserData.
             var tokenUsable = !!(t && !isJwtExpired(t));
             this.isAuthenticated = !!(this.userId && tokenUsable);
             return;
         }
-
-        // ── Legacy fallback: read 'mx_sess' from storage ──
-        // Kept only for pages that still ship the old session.js.
-        try {
-            var stored = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
-            if (stored) {
-                var d = JSON.parse(stored);
-                this.userId = (d.user && d.user.id) || null;
-                this.token = d.token || null;
-                this.username = (d.user && d.user.username) || 'there';
-                this.isAuthenticated = !!(this.userId && this.token && !isJwtExpired(this.token));
-            } else {
-                this.userId = null;
-                this.token = null;
-                this.username = 'there';
-                this.isAuthenticated = false;
-            }
-        } catch (e) {
-            this.userId = null;
-            this.token = null;
-            this.username = 'there';
-            this.isAuthenticated = false;
-        }
     };
 
-    // Attempts to resolve the session asynchronously. Called once
-    // during setupWidget(). If the access token is not in memory yet,
-    // this invokes window.checkUserSession(), which refreshes from
-    // the HttpOnly cookie and populates the in-memory token.
     MilesWidget.prototype.resolveAuthAsync = function () {
         var self = this;
         if (this.isAuthPage) return Promise.resolve();
         if (this.isAuthenticated) return Promise.resolve();
 
-        // session.js not present — nothing more to try.
         if (typeof window.checkUserSession !== 'function') {
             return Promise.resolve();
         }
@@ -879,14 +688,13 @@
                 if (ok === false) return;
                 self.getUserData();
                 if (self.isAuthenticated) {
-                    // Re-render the greeting and refresh the lists.
                     self.setGreeting();
                     self.loadConversations().catch(function () {});
                     self.refreshUnreadMap().catch(function () {});
                     if (self.convItems) self.renderConversationList();
                 }
             })
-            .catch(function () { /* keep guest view */ });
+            .catch(function () {});
     };
 
     MilesWidget.prototype.injectStyles = function () {
@@ -1003,7 +811,6 @@
 
         if (!this.launcher || !this.panel) return;
 
-        // Panel starts closed and inert. Remove inert before opening.
         this._setPanelInert(true);
 
         this.setGreeting();
@@ -1024,8 +831,6 @@
             self.fetchStatus();
             self.attachSocket();
 
-            // Resolve auth BEFORE deciding whether to load
-            // conversations or fall back to the guest flow.
             self.resolveAuthAsync().then(function () {
                 if (self.isAuthenticated && !self.isAuthPage) {
                     self.loadConversations();
@@ -1041,17 +846,10 @@
         Promise.resolve(this.loadCategories()).then(afterCats, afterCats);
     };
 
-    // ─── Panel inert / focus management ─────────────────────
-    // When the panel is closed we set aria-hidden="true" AND inert.
-    // inert removes the subtree from the tab order and from assistive
-    // tech, which is what the browser warning asks for. Before we
-    // mark the panel inert, we move focus out (to the launcher) so
-    // that no descendant is left focused inside a hidden ancestor.
     MilesWidget.prototype._setPanelInert = function (inertOn) {
         if (!this.panel) return;
         try {
             if (inertOn) {
-                // Release focus if it is currently inside the panel.
                 var active = document.activeElement;
                 if (active && this.panel.contains(active)) {
                     if (this.launcher && typeof this.launcher.focus === 'function') {
@@ -1067,7 +865,6 @@
                 this.panel.setAttribute('aria-hidden', 'false');
             }
         } catch (e) {
-            // Older browsers ignore inert; fall back to aria-hidden only.
             this.panel.setAttribute('aria-hidden', inertOn ? 'true' : 'false');
         }
     };
@@ -1387,7 +1184,7 @@
             });
             this.input.addEventListener('input', function () {
                 this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
             });
         }
 
@@ -1465,11 +1262,6 @@
         if (this.isOpen) this.close();
     };
 
-    // ─── AUTH-AWARE FETCH ─────────────────────────────────────
-    // If session.js exposes window.userFetch, use it. It attaches
-    // the bearer token, refreshes on 401, redirects on hard
-    // failures, and coordinates across tabs. Otherwise, fall back
-    // to a direct fetch with a manually attached token.
     MilesWidget.prototype._authFetch = function (path, opts) {
         opts = opts || {};
         var url = this.apiUrl + path;
@@ -1483,13 +1275,10 @@
         }
         if (!headers['X-Request-Id']) headers['X-Request-Id'] = newRequestId();
 
-        // Preferred path: session.js owns auth. It will fetch with
-        // the current access token and retry once on 401.
         if (typeof window.userFetch === 'function' && this.isAuthenticated && !this.isAuthPage) {
             return window.userFetch(url, { method: method, body: body, headers: headers });
         }
 
-        // Fallback: attach whatever token we have.
         var token = this.getToken();
         if (token) headers['Authorization'] = 'Bearer ' + token;
         return fetch(url, { method: method, body: body, headers: headers, credentials: 'same-origin' });
@@ -1513,14 +1302,9 @@
         });
     };
 
-    // getToken() must agree with getUserData(). It prefers the
-    // in-memory access token from session.js; it only touches
-    // legacy storage if session.js is not present.
     MilesWidget.prototype.getToken = function () {
-        // If we already cached a usable token, return it.
         if (this.token && !isJwtExpired(this.token)) return this.token;
 
-        // Preferred: session.js.
         if (typeof window.getAccessToken === 'function') {
             var t = window.getAccessToken();
             if (t) {
@@ -1534,7 +1318,6 @@
             }
         }
 
-        // Legacy fallback. This is almost never used today.
         try {
             var stored = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
             if (stored) {
@@ -1627,7 +1410,6 @@
         });
     };
 
-    // ─── Guest ticket storage ─────────────────────────────
     MilesWidget.prototype._guestStorageKey = function (ticketNumber) {
         return CONFIG.GUEST_TICKET_PREFIX + ticketNumber;
     };
@@ -1835,9 +1617,6 @@
         if (b) b.addEventListener('click', function () { self.restoreGuestTicket(); });
     };
 
-    // ═════════════════════════════════════════════════════════
-    //  Guest ticket rendering (with agent-reply gating)
-    // ═════════════════════════════════════════════════════════
     MilesWidget.prototype.renderGuestTicket = function (ticket) {
         if (!this.messageList || !this.messageView) return;
         var self = this;
@@ -1845,6 +1624,7 @@
 
         var messages = Array.isArray(ticket.messages) ? ticket.messages.filter(isPublicMessage) : [];
         var agentReplied = hasAgentReply(messages);
+        this.messages = messages;
 
         var header =
             '<div class="miles-msg-header">' +
@@ -1973,7 +1753,7 @@
             });
             input.addEventListener('input', function () {
                 this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
             });
         }
         if (send) send.addEventListener('click', function (e) { e.preventDefault(); self.sendGuestMessage(); });
@@ -1988,9 +1768,7 @@
 
     MilesWidget.prototype.sendGuestMessage = function () {
         var self = this;
-        if (!this._guestCanReply) {
-            return Promise.resolve();
-        }
+        if (!this._guestCanReply) return Promise.resolve();
         var ticketNumber = this.currentGuestTicketNumber;
         if (!ticketNumber) return Promise.resolve();
         var stored = this._loadGuestTicket(ticketNumber);
@@ -2367,6 +2145,7 @@
             .catch(function () {})
             .then(function () { self._isLoadingMessages = false; });
     };
+
     MilesWidget.prototype.renderMessages = function () {
         if (!this.messageList) return;
         var self = this;
@@ -2400,10 +2179,23 @@
                     '</div>';
                 }).join('');
             }
+            
+            // Status icon for user messages
+            var statusIcon = '';
+            if (cls === 'user') {
+                if (m._status === 'sending') {
+                    statusIcon = `<span class="msg-status sending">${iconMarkup('clock')}</span>`;
+                } else if (m._status === 'failed') {
+                    statusIcon = `<span class="msg-status failed" onclick="window.MilesWidget.retryMessage('${m.id}')">${iconMarkup('error')}</span>`;
+                } else {
+                    statusIcon = `<span class="msg-status">${iconMarkup('check')}</span>`;
+                }
+            }
+
             parts.push('<div class="miles-msg ' + cls + (m._failed ? ' failed' : '') + '">' +
                 self._formatMessage(m.message) +
                 attachmentHtml +
-                '<div class="time">' + escapeHtml(time) + (m._failed ? ' · Failed' : '') + '</div>' +
+                '<div class="time">' + escapeHtml(time) + ' ' + statusIcon + '</div>' +
             '</div>');
         });
         this.messageList.innerHTML = parts.join('');
@@ -2532,31 +2324,38 @@
 
     MilesWidget.prototype.sendMessage = function () {
         var self = this;
-        if (!this.isAuthenticated || !this.getToken()) {
-            this.openGuestForm();
-            return Promise.resolve();
-        }
-        if (!this.currentConversationId) {
-            var draft2 = this.input ? this.input.value.trim() : '';
-            this.openNewTicketModal(draft2 ? { message: draft2 } : {});
-            return Promise.resolve();
-        }
-        var message = this.input.value.trim();
-        if (!message && !this.pendingFiles.length) return Promise.resolve();
         if (this.isProcessing) return Promise.resolve();
 
+        // 1. Guest flow check
+        if (!this.isAuthenticated || !this.getToken()) {
+            return this.sendGuestMessage();
+        }
+
+        // 2. Authenticated flow check
+        if (!this.currentConversationId) {
+            var draft = this.input ? this.input.value.trim() : '';
+            this.openNewTicketModal(draft ? { message: draft } : {});
+            return Promise.resolve();
+        }
+
+        var message = this.input.value.trim();
+        if (!message && !this.pendingFiles.length) return Promise.resolve();
+
         var ticketId = this.currentConversationId;
+        var localId = 'local-' + Date.now();
+        
         this.isProcessing = true;
         this.input.disabled = true;
         if (this.sendBtn) this.sendBtn.disabled = true;
         this.setSendStatus('Sending…');
 
-        var localId = 'local-' + Date.now();
+        // Optimistic UI
         var localMsg = {
             id: localId,
             sender_type: 'user',
             message: message || '📎 Attachment',
             created_at: new Date().toISOString(),
+            _status: 'sending',
             attachments: this.pendingFiles.map(function (f) { return { name: f.name, size: f.size, mime: f.type }; })
         };
         this.messages.push(localMsg);
@@ -2572,33 +2371,163 @@
         form.append('message', message || '');
         filesToSend.forEach(function (f) { form.append('attachments', f); });
 
-        return this._authFetch('/tickets/' + ticketId + '/messages', { method: 'POST', body: form })
-            .then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { return { res: res, data: data }; }); })
-            .then(function (r) {
-                if (!r.res.ok) {
-                    var e = new Error(r.data.error || 'Failed');
-                    e.code = r.data.code;
-                    throw e;
+        return this._authFetch('/tickets/' + ticketId + '/messages', { 
+            method: 'POST', 
+            body: form,
+            headers: { 'X-Request-Id': localId } // Idempotency
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data.success) throw new Error(data.error || 'Failed');
+            
+            // Reconcile
+            for (var i = 0; i < self.messages.length; i++) {
+                if (self.messages[i].id === localId) {
+                    self.messages[i]._status = 'sent';
+                    self.messages[i].id = data.data.id;
+                    self.messages[i].created_at = data.data.created_at;
+                    break;
                 }
-                self.setSendStatus('✅ Sent');
-                self.messages = self.messages.filter(function (m) { return m.id !== localId; });
-                self.knownMessageIds.delete(localId);
-                return self.loadMessages(ticketId, { force: true }).then(function () { return self.loadConversations(); });
-            })
-            .then(function () { setTimeout(function () { self.setSendStatus(''); }, 1500); })
-            .catch(function (e) {
-                for (var i = 0; i < self.messages.length; i++) {
-                    if (self.messages[i].id === localId) { self.messages[i]._failed = true; break; }
+            }
+            self.setSendStatus('✅ Sent');
+            self.renderMessages();
+            return self.loadConversations();
+        })
+        .catch(function (e) {
+            // Mark failed
+            for (var i = 0; i < self.messages.length; i++) {
+                if (self.messages[i].id === localId) {
+                    self.messages[i]._status = 'failed';
+                    break;
                 }
-                self.renderMessages();
-                self.setSendStatus('❌ ' + (e.message || 'Failed'), true);
-            })
-            .then(function () {
-                self.isProcessing = false;
-                self.input.disabled = false;
-                if (self.sendBtn) self.sendBtn.disabled = false;
-                self.input.focus();
-            });
+            }
+            self.renderMessages();
+            self.setSendStatus('❌ ' + (e.message || 'Failed'), true);
+        })
+        .then(function () {
+            self.isProcessing = false;
+            self.input.disabled = false;
+            if (self.sendBtn) self.sendBtn.disabled = false;
+            self.input.focus();
+            setTimeout(function () { self.setSendStatus(''); }, 1500);
+        });
+    };
+
+    MilesWidget.prototype.retryMessage = function (localId) {
+        var self = this;
+        var msg = null;
+        for (var i = 0; i < this.messages.length; i++) {
+            if (this.messages[i].id === localId) { msg = this.messages[i]; break; }
+        }
+        if (!msg || msg._status !== 'failed') return;
+
+        msg._status = 'sending';
+        this.renderMessages();
+
+        var form = new FormData();
+        form.append('message', msg.message);
+        
+        this._authFetch('/tickets/' + this.currentConversationId + '/messages', { 
+            method: 'POST', 
+            body: form,
+            headers: { 'X-Request-Id': localId }
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data.success) {
+                msg._status = 'sent';
+                msg.id = data.data.id;
+                msg.created_at = data.data.created_at;
+            } else {
+                msg._status = 'failed';
+            }
+            self.renderMessages();
+        })
+        .catch(function () {
+            msg._status = 'failed';
+            self.renderMessages();
+        });
+    };
+
+    MilesWidget.prototype.sendGuestMessage = function () {
+        var self = this;
+        var message = this.input ? this.input.value.trim() : '';
+        if (!message && !this.pendingFiles.length) return Promise.resolve();
+
+        var ticketNumber = this.currentGuestTicketNumber;
+        if (!ticketNumber) return Promise.resolve();
+        var stored = this._loadGuestTicket(ticketNumber);
+        if (!stored || !stored.token) return Promise.resolve();
+
+        var localId = 'local-' + Date.now();
+        this.isProcessing = true;
+        this.input.disabled = true;
+        if (this.sendBtn) this.sendBtn.disabled = true;
+
+        var localMsg = {
+            id: localId,
+            sender_type: 'user',
+            message: message || '📎 Attachment',
+            created_at: new Date().toISOString(),
+            _status: 'sending',
+            attachments: this.pendingFiles.map(function (f) { return { name: f.name, size: f.size, mime: f.type }; })
+        };
+        this.messages.push(localMsg);
+        this.renderMessages();
+
+        var filesToSend = this.pendingFiles.slice();
+        this.input.value = '';
+        this.pendingFiles = [];
+        this.renderFilePreview();
+
+        var form = new FormData();
+        form.append('message', message || '');
+        filesToSend.forEach(function (f) { form.append('attachments', f); });
+
+        fetch(this.apiUrl + '/public/tickets/' + encodeURIComponent(ticketNumber) + '/messages', {
+            method: 'POST',
+            headers: { 
+                'X-Guest-Token': stored.token,
+                'X-Request-Id': localId 
+            },
+            body: form
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data.success) {
+                if (data.code === 'SESSION_EXPIRED') throw new Error('SESSION_EXPIRED');
+                throw new Error(data.error || 'Failed');
+            }
+            for (var i = 0; i < self.messages.length; i++) {
+                if (self.messages[i].id === localId) {
+                    self.messages[i]._status = 'sent';
+                    self.messages[i].id = data.data.id;
+                    self.messages[i].created_at = data.data.created_at;
+                    break;
+                }
+            }
+            self.renderMessages();
+        })
+        .catch(function (e) {
+            for (var i = 0; i < self.messages.length; i++) {
+                if (self.messages[i].id === localId) {
+                    self.messages[i]._status = 'failed';
+                    break;
+                }
+            }
+            self.renderMessages();
+            if (e.message === 'SESSION_EXPIRED') {
+                self._clearGuestTicket(ticketNumber);
+                self.currentGuestTicketNumber = null;
+                alert('Your guest session expired. Please start a new ticket.');
+            }
+        })
+        .then(function () {
+            self.isProcessing = false;
+            self.input.disabled = false;
+            if (self.sendBtn) self.sendBtn.disabled = false;
+            self.input.focus();
+        });
     };
 
     MilesWidget.prototype.openNewTicketModal = function (prefill) {
@@ -2797,7 +2726,6 @@
     };
     MilesWidget.prototype.close = function () {
         this.isOpen = false;
-        // Release focus from any descendant BEFORE hiding.
         this._setPanelInert(true);
         this.panel.classList.remove('open');
         this.launcher.setAttribute('aria-expanded', 'false');

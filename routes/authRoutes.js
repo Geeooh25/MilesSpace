@@ -8,6 +8,7 @@
 //   • OTP attempt counter is atomic via RPC when available.
 //   • Session is created only after re-verifying account state.
 //   • Refresh rotates the token atomically and rejects revoked accounts.
+//   • Password reset verifies the Supabase Auth update before proceeding.
 //   • No in-memory session or OTP stores.
 //
 // NOTE on OTP_SECRET: exits in production if unset.
@@ -18,7 +19,7 @@
 const express = require('express');
 const crypto  = require('crypto');
 const jwt     = require('jsonwebtoken');
-
+const bcrypt = require('bcrypt');
 const { supabase, supabaseAdmin, withRetry } = require('../db/supabase');
 const { authMiddleware, AUTH_CODES, evaluateAccountAccess } = require('../middleware/auth');
 const emailService = require('../services/emailService');
@@ -43,7 +44,7 @@ const JWT_ISSUER   = process.env.JWT_ISSUER   || 'milesspace';
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE || 'milesspace-client';
 
 const ACCESS_TOKEN_TTL_SECONDS  = 15 * 60;           // 15 min
-const REFRESH_TOKEN_TTL_SECONDS = 15 * 60;           // 15 min — see H-1
+const REFRESH_TOKEN_TTL_SECONDS = 15 * 60;           // 15 min
 const OTP_EXPIRY_MINUTES        = 10;
 const MAX_OTP_ATTEMPTS          = 5;
 const IS_DEVELOPMENT            = process.env.NODE_ENV === 'development';
@@ -198,25 +199,7 @@ async function loadOtpChallenge(challengeId, purpose) {
 }
 
 // ─── ATOMIC OTP attempt increment ────────────────────────────────
-// Uses the `increment_otp_attempts` RPC when present.
-// Falls back to read-then-write so the route keeps working on an
-// older database, but logs a warning — the fallback is NOT atomic.
-//
-// Required migration (run once):
-//   CREATE OR REPLACE FUNCTION public.increment_otp_attempts(
-//       p_challenge_id text
-//   ) RETURNS TABLE(attempts integer, max_attempts integer)
-//   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-//   BEGIN
-//       RETURN QUERY
-//       UPDATE public.otp_challenges
-//          SET attempts = otp_challenges.attempts + 1
-//        WHERE challenge_id = p_challenge_id
-//        RETURNING otp_challenges.attempts, otp_challenges.max_attempts;
-//   END;
-//   $$;
 async function incrementOtpAttempts(challengeId) {
-    // Preferred: atomic RPC
     try {
         const { data, error } = await supabaseAdmin.rpc('increment_otp_attempts', {
             p_challenge_id: challengeId
@@ -227,18 +210,15 @@ async function incrementOtpAttempts(challengeId) {
                 return { attempts: row.attempts, max_attempts: row.max_attempts };
             }
         }
-        // If the RPC exists but returned nothing, fall through.
         if (error && !/function|does not exist|schema cache/i.test(String(error.message))) {
             throw error;
         }
     } catch (rpcErr) {
-        // Only log the fallback when it's a real error, not a missing function.
         if (!/function|does not exist|schema cache/i.test(String(rpcErr.message))) {
             console.warn('[OTP] RPC increment failed, using fallback:', rpcErr.message);
         }
     }
 
-    // Fallback: read-then-write. NOT atomic across replicas.
     console.warn('[OTP] Using non-atomic attempt counter — run increment_otp_attempts migration.');
     const { data: current, error: readErr } = await supabaseAdmin
         .from('otp_challenges')
@@ -279,10 +259,6 @@ async function supersedeOldChallenges(email, purpose) {
     if (error) console.error('[OTP] supersede failed:', error);
 }
 
-// ─── User settings read (NO INSERT ON READ) ─────────────────────
-// Registration creates the row. If it's missing here, we simply
-// return the safe default rather than performing a write on a GET
-// path — writing on read caused a 23505 race under load.
 async function getUserSettings(userId) {
     try {
         const { data, error } = await supabaseAdmin
@@ -391,7 +367,6 @@ router.post('/register', registerLimiter, async (req, res) => {
             });
         }
 
-        // Create user_settings here — the ONE place this row is created.
         const { error: settingsError } = await supabaseAdmin.from('user_settings').insert({
             user_id:           userId,
             email_2fa_enabled: false,
@@ -441,6 +416,78 @@ router.post('/register', registerLimiter, async (req, res) => {
     }
 });
 
+
+router.post('/create-pin', authMiddleware, async (req, res) => {
+    try {
+        const { pin } = req.body || {};
+        
+        if (!pin || !/^\d{4}$/.test(String(pin))) {
+            return res.status(400).json({
+                success: false,
+                code: 'INVALID_PIN_FORMAT',
+                message: 'PIN must be exactly 4 digits.'
+            });
+        }
+
+        const weakPins = ['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321'];
+        if (weakPins.includes(String(pin))) {
+            return res.status(400).json({
+                success: false,
+                code: 'WEAK_PIN',
+                message: 'That PIN is too easy to guess. Choose a different one.'
+            });
+        }
+
+        const { data: profile, error: readErr } = await supabaseAdmin
+            .from('profiles')
+            .select('transaction_pin_hash')
+            .eq('id', req.user.id)
+            .maybeSingle();
+
+        if (readErr) throw readErr;
+        if (profile?.transaction_pin_hash) {
+            return res.status(400).json({
+                success: false,
+                code: 'PIN_ALREADY_SET',
+                message: 'A PIN is already set for this account.'
+            });
+        }
+
+        const hash = await bcrypt.hash(String(pin), 12);
+        
+        const { error: updErr } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                transaction_pin_hash: hash,
+                transaction_pin_attempts: 0,
+                transaction_pin_locked_until: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', req.user.id);
+
+        if (updErr) throw updErr;
+
+        await supabaseAdmin.from('account_activity').insert({
+            user_id: req.user.id,
+            activity_type: 'transaction_pin_changed',
+            description: 'Transaction PIN set via dashboard onboarding',
+            created_at: new Date().toISOString()
+        });
+
+        return res.json({
+            success: true,
+            message: 'Transaction PIN created successfully.',
+            data: { has_transaction_pin: true }
+        });
+    } catch (error) {
+        console.error('❌ [CREATE PIN] Error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Could not save PIN. Please try again.'
+        });
+    }
+});
 // ═════════════════════════════════════════════════════════════════
 // REGISTER VERIFY
 // ═════════════════════════════════════════════════════════════════
@@ -531,6 +578,40 @@ router.post('/register/verify', otpLimiter, async (req, res) => {
     }
 });
 
+router.post('/register/resend', resendOtpLimiter, async (req, res) => {
+    try {
+        const { challenge_id } = req.body || {};
+        if (!challenge_id) return res.status(400).json({ success: false, message: 'Challenge ID required.' });
+
+        const challenge = await loadOtpChallenge(challenge_id, 'registration');
+        if (!challenge) return res.status(400).json({ success: false, message: 'Session expired.' });
+
+        const newOtp = generateSecureOtp();
+        const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+        const { error: updErr } = await supabaseAdmin.from('otp_challenges').update({
+            otp_hash: hashOtp(newOtp),
+            expires_at: expiresAt.toISOString(),
+            attempts: 0
+        }).eq('challenge_id', challenge_id);
+
+        if (updErr) {
+            console.error('[REGISTER RESEND] update failed:', updErr);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+
+        const emailResult = await emailService.sendVerificationEmail(
+            challenge.email, 'User', newOtp
+        );
+
+        if (!emailResult?.success) return res.status(503).json({ success: false, message: 'Could not send code.' });
+
+        return res.json({ success: true, message: 'New code sent.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error.' });
+    }
+});
+
 // ═════════════════════════════════════════════════════════════════
 // LOGIN
 // ═════════════════════════════════════════════════════════════════
@@ -585,7 +666,6 @@ router.post('/login', loginLimiter, async (req, res) => {
             });
         }
 
-        // ─── Central account-state policy (deleted/deactivated/suspended)
         const denied = evaluateAccountAccess(profile);
         if (denied) {
             return res.status(denied.status).json({
@@ -643,7 +723,6 @@ router.post('/login', loginLimiter, async (req, res) => {
             });
         }
 
-        // ─── No 2FA — establish session directly ────────────────
         const session = await sessionService.createSessionAtomic({
             userId: profile.id, deviceInfo, ipAddress: ip
         });
@@ -692,7 +771,6 @@ router.post('/login', loginLimiter, async (req, res) => {
                 expires_in:         ACCESS_TOKEN_TTL_SECONDS,
                 refresh_expires_in: REFRESH_TOKEN_TTL_SECONDS,
                 session_id:         session.sessionId
-                // refresh_token lives in the HttpOnly cookie, not the body.
             }
         });
     } catch (error) {
@@ -760,7 +838,6 @@ router.post('/login/verify-2fa', otpLimiter, async (req, res) => {
 
         await consumeOtpChallenge(challenge_id, true);
 
-        // ─── Re-verify account state immediately before session creation
         const { data: pre } = await supabaseAdmin
             .from('profiles')
             .select('id, status, deleted_at')
@@ -901,7 +978,7 @@ router.post('/login/resend-otp', resendOtpLimiter, async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════
-// REFRESH — cookie-only, atomic rotation
+// REFRESH
 // ═════════════════════════════════════════════════════════════════
 router.post('/refresh', refreshLimiter, async (req, res) => {
     try {
@@ -931,7 +1008,6 @@ router.post('/refresh', refreshLimiter, async (req, res) => {
             .eq('id', session.user_id)
             .single();
 
-        // ─── Central account-state policy (deleted/deactivated/suspended)
         const denied = evaluateAccountAccess(profile);
         if (denied) {
             await sessionService.revokeSessionAtomic(session.session_id);
@@ -1106,7 +1182,6 @@ router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
 
         if (!profile) return res.json(genericResponse);
 
-        // Refuse to send reset codes for accounts that cannot sign in.
         if (profile.status === 'suspended' ||
             profile.status === 'deactivated' ||
             profile.status === 'deleted') {
@@ -1220,9 +1295,13 @@ router.post('/verify-reset-code', otpLimiter, async (req, res) => {
 // ═════════════════════════════════════════════════════════════════
 // RESET PASSWORD
 // ═════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════
+// RESET PASSWORD
+// ═════════════════════════════════════════════════════════════════
 router.post('/reset-password', async (req, res) => {
     try {
         const { reset_id, new_password } = req.body || {};
+        
         if (!reset_id || !new_password) {
             return res.status(400).json({
                 success: false, code: 'RESET_REQUIRED',
@@ -1246,12 +1325,12 @@ router.post('/reset-password', async (req, res) => {
             });
         }
 
-        // Refuse to reset the password of a deleted/suspended/deactivated account.
         const { data: preProfile } = await supabaseAdmin
             .from('profiles')
-            .select('id, status, deleted_at')
+            .select('id, status, deleted_at, email')
             .eq('id', challenge.user_id)
             .single();
+            
         const denied = evaluateAccountAccess(preProfile);
         if (denied) {
             await consumeOtpChallenge(reset_id);
@@ -1268,34 +1347,63 @@ router.post('/reset-password', async (req, res) => {
             });
         }
 
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-            challenge.user_id, { password: new_password }
+        // ─── CRITICAL FIX: Update password AND force email_confirm: true ───
+        // If the user was created with email_confirm: false, Supabase might
+        // reject the login even with the correct password.
+        const { data: updated, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            challenge.user_id, 
+            { 
+                password: new_password,
+                email_confirm: true 
+            }
         );
-        if (updateError) {
+
+        if (updateError || !updated?.user?.id) {
+            console.error('[RESET PASSWORD] Supabase Auth update failed:', {
+                code: updateError?.code,
+                message: updateError?.message,
+                status: updateError?.status
+            });
             return res.status(500).json({
                 success: false, code: 'PASSWORD_UPDATE_FAILED',
-                message: 'Could not update your password.'
+                message: 'We could not update your password. Please try again.'
             });
         }
 
+        // ─── CRITICAL FIX: Ensure the profiles table is_verified = true ───
+        await supabaseAdmin
+            .from('profiles')
+            .update({ is_verified: true, updated_at: new Date().toISOString() })
+            .eq('id', challenge.user_id);
+
+        // Invalidate the reset challenge
         await consumeOtpChallenge(reset_id, true);
 
-        await supabaseAdmin.from('user_sessions')
-            .update({
-                is_active:  false,
-                is_current: false,
-                revoked_at: new Date().toISOString()
-            })
-            .eq('user_id', challenge.user_id)
-            .eq('is_active', true);
+        // Revoke all active sessions for this user using the service
+        try {
+            const { data: activeSessions } = await supabaseAdmin
+                .from('user_sessions')
+                .select('session_id')
+                .eq('user_id', challenge.user_id)
+                .eq('is_active', true);
 
-        await supabaseAdmin.from('profiles')
-            .update({
-                current_session_id: null,
-                session_created_at: null,
-                session_expires_at: null
-            })
-            .eq('id', challenge.user_id);
+            if (activeSessions && activeSessions.length > 0) {
+                for (const session of activeSessions) {
+                    await sessionService.revokeSessionAtomic(session.session_id);
+                }
+            }
+            
+            await supabaseAdmin.from('profiles')
+                .update({
+                    current_session_id: null,
+                    session_created_at: null,
+                    session_expires_at: null
+                })
+                .eq('id', challenge.user_id);
+
+        } catch (sessionErr) {
+            console.error('[RESET PASSWORD] Session revocation failed:', sessionErr);
+        }
 
         await logSecurityActivity({
             userId: challenge.user_id,
@@ -1305,8 +1413,10 @@ router.post('/reset-password', async (req, res) => {
 
         return res.json({
             success: true,
-            message: 'Password reset successful. Please sign in.'
+            code: 'PASSWORD_RESET_SUCCESS',
+            message: 'Password reset successful. You can now sign in with your new password.'
         });
+        
     } catch (error) {
         console.error('Reset password error:', error);
         res.status(500).json({ success: false, code: 'SERVER_ERROR' });

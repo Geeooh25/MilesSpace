@@ -90,7 +90,17 @@
     .toast.info { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
     .toast.warning { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
     @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-    @media (max-width: 640px) { .nav { padding: 0.8rem 1.25rem; } .auth-card { padding: 1.5rem; } .panel-title { font-size: 1.5rem; } .main { padding: 1rem; } .toast-container { right: 12px; left: 12px; bottom: 12px; max-width: 100%; } }
+    
+    @media (max-width: 640px) { 
+      .nav { padding: 0.8rem 1.25rem; } 
+      .nav-logo span { display: none; } 
+      .auth-card { padding: 1.5rem; border-radius: 0; border: none; background: transparent; box-shadow: none; } 
+      .panel-title { font-size: 1.4rem; } 
+      .main { padding: 1rem; align-items: flex-start; } 
+      .toast-container { right: 12px; left: 12px; bottom: 12px; max-width: 100%; } 
+      .features-strip { display: none; } 
+      .page-foot { border: none; background: transparent; padding-bottom: 2rem; }
+    }
   </style>
   <script>window.MILES_WIDGET_DISABLE = true;</script>
   <script src="/js/session.js" defer></script>
@@ -100,7 +110,7 @@
 <nav class="nav">
   <a href="index.html" class="nav-logo">
     <img src="/images/miles.png" alt="MilesSpace" onerror="this.textContent='MS'" />
-    MilesSpace
+    <span>MilesSpace</span>
   </a>
   <a href="index.html" class="nav-back"><i class="fas fa-arrow-left"></i> Back to Home</a>
 </nav>
@@ -230,13 +240,14 @@
 <script>
 'use strict';
 
-const API_BASE = '/api';
-const SESSION_KEY = 'mx_sess';
+// Detect local vs production for API base
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE = isLocalhost ? 'http://localhost:5000/api' : '/api';
 const DASHBOARD_URL = '/dashboard.html';
 
 // ─── State ────────────────────────────────────────────────────────
 let currentRegChallengeId = null;
-let pendingPassword = null;      // kept in memory during OTP entry
+let pendingPassword = null;      
 let pendingEmail = null;
 let resendTimer = null;
 let resendCountdown = 60;
@@ -305,7 +316,7 @@ function toggleEye(id, btn) {
   btn.innerHTML = show ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
 }
 
-// ─── Password strength (matches backend: 8-128 chars) ─────────────
+// ─── Password strength ────────────────────────────────────────────
 function checkPasswordStrength() {
   const v = DOM.password.value;
   const fill = DOM.pwdFill, txt = DOM.pwdTxt;
@@ -429,7 +440,6 @@ document.getElementById('signupForm').addEventListener('submit', async function(
       return;
     }
 
-    // Handle specific error codes
     if (data.code === 'EMAIL_TAKEN') {
       setInputState(DOM.email, 'err');
       setFieldError('emailErr', data.message || 'Email already registered.');
@@ -439,14 +449,6 @@ document.getElementById('signupForm').addEventListener('submit', async function(
     } else if (data.code === 'PASSWORD_WEAK') {
       setInputState(DOM.password, 'err');
       setFieldError('passwordErr', data.message || 'Password too weak.');
-    } else if (data.code === 'INVALID_EMAIL') {
-      setInputState(DOM.email, 'err');
-      setFieldError('emailErr', data.message || 'Invalid email.');
-    } else if (data.code === 'INVALID_USERNAME') {
-      setInputState(DOM.username, 'err');
-      setFieldError('usernameErr', data.message || 'Invalid username.');
-    } else if (data.code === 'TOO_MANY_ATTEMPTS') {
-      showAlert('signupAlert', data.message || 'Too many attempts. Please wait.', 'err');
     } else {
       showAlert('signupAlert', data.message || data.error || 'Registration failed.', 'err');
     }
@@ -470,7 +472,7 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
     DOM.verifyCode.focus();
     return;
   }
-  if (!currentRegChallengeId || !pendingPassword) {
+  if (!currentRegChallengeId) {
     toast('Registration session expired. Please start over.', 'error');
     goBackToSignup();
     return;
@@ -481,46 +483,38 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
   hideAlert('verifyAlert');
 
   try {
-    const res = await fetch(API_BASE + '/auth/verify-registration', {
+    const res = await fetch(API_BASE + '/auth/register/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         challenge_id: currentRegChallengeId,
-        code: code,
-        password: pendingPassword
+        code: code
       })
     });
     const data = await res.json();
 
     if (res.ok && data.success) {
-      const token = data.data && data.data.access_token;
-      const refreshToken = data.data && data.data.refresh_token;
-      const user = data.data && data.data.user;
-
-      if (typeof window.saveUserSession === 'function') {
-        window.saveUserSession(token, user, false, refreshToken);
-      } else {
-        // Fallback — session.js not loaded
-        try {
-          sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-            token: token,
-            refreshToken: refreshToken,
-            user: user,
-            loggedAt: Date.now()
-          }));
-        } catch (e) {}
-      }
-
-      showAlert('verifyAlert', '✅ Account created! Redirecting…', 'ok');
+      showAlert('verifyAlert', '✅ Account created! Logging you in…', 'ok');
       toast('Welcome to MilesSpace! 🎉', 'success');
-      setTimeout(() => { window.location.replace(DASHBOARD_URL); }, 900);
+      
+      // ─── THE FIX: Automatically log them in and go to dashboard ───
+      // The backend sets the HttpOnly refresh cookie during verification.
+      // We call session.js's refresh function to swap that cookie for an in-memory access token.
+      try {
+        if (typeof window.refreshUserToken === 'function') {
+          await window.refreshUserToken();
+        }
+        setTimeout(() => { window.location.replace(DASHBOARD_URL); }, 800);
+      } catch (e) {
+        // If auto-login fails, fallback to login page safely
+        console.warn('[verify] Auto-login failed, redirecting to login', e);
+        setTimeout(() => { window.location.replace('/login.html'); }, 800);
+      }
       return;
     }
 
     if (data.code === 'INVALID_CODE' || data.code === 'CODE_EXPIRED' || data.code === 'TOO_MANY_ATTEMPTS') {
       setFieldError('verifyCodeErr', data.message || 'Invalid code.');
-    } else if (data.code === 'PASSWORD_MISMATCH') {
-      showAlert('verifyAlert', 'Password does not match. Please start over.', 'err');
     } else {
       showAlert('verifyAlert', data.message || data.error || 'Verification failed.', 'err');
     }
@@ -595,12 +589,10 @@ DOM.verifyCode.addEventListener('input', function() {
 
 // ─── Redirect if already logged in ────────────────────────────────
 (function redirectIfLoggedIn() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return;
-    const s = JSON.parse(raw);
-    if (s && s.token) window.location.replace(DASHBOARD_URL);
-  } catch (e) {}
+  const user = typeof window.getUser === 'function' ? window.getUser() : null;
+  if (user) {
+    window.location.replace(DASHBOARD_URL);
+  }
 })();
 
 console.log('✅ MilesSpace signup page ready');
