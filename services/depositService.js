@@ -156,131 +156,6 @@ async function upsertPendingTransaction(deposit) {
     return data.id;
 }
 
-// ─── FINALIZE COMPLETED (DUAL-WRITE FIXED) ─────────────────
-async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit, walletCurrency, feeAmount }) {
-    const now = new Date().toISOString();
-    const pendingRef = pendingRefFor(deposit.internal_reference);
-    const finalRef = finalRefFor(providerRef);
-    const isNGN = walletCurrency === 'NGN';
-    const fee   = num(feeAmount || 0);
-
-    const meta = {
-        provider: 'korapay',
-        deposit_id: deposit.id,
-        internal_reference: deposit.internal_reference,
-        merchant_reference: deposit.merchant_reference,
-        payment_currency: deposit.payment_currency || deposit.source_currency,
-        payment_amount: num(deposit.payment_amount || deposit.source_amount),
-        wallet_currency: walletCurrency,
-        credited_amount: walletCredit,
-        customer_rate: deposit.customer_rate != null ? num(deposit.customer_rate) : null,
-        fee_amount: fee,
-        fee_currency: deposit.fee_currency || null,
-        provider_reference: providerRef
-    };
-
-    // 1. Find the existing pending row
-    const { data: pendingRow, error: prErr } = await supabaseAdmin
-        .from('transactions')
-        .select('id')
-        .eq('reference', pendingRef)
-        .maybeSingle();
-    if (prErr) throw new Error(`finalizeTransactionCompleted: read pending failed — ${prErr.message}`);
-
-    // 2. Update it to completed (prevents duplicates)
-    if (pendingRow) {
-        const { error: updErr } = await supabaseAdmin
-            .from('transactions')
-            .update({
-                status: 'completed',
-                ref: finalRef,
-                reference: finalRef,
-                amount: walletCredit,
-                amount_ngn: isNGN ? walletCredit : 0,
-                amount_usd: !isNGN ? walletCredit : 0,
-                fee: isNGN ? fee : 0,
-                revenue_ngn: isNGN ? fee : 0,
-                revenue_usd: 0,
-                wallet_used: walletCurrency,
-                meta,
-                metadata: meta,
-                completed_at: now,
-                updated_at: now
-            })
-            .eq('id', pendingRow.id);
-
-        if (!updErr) return pendingRow.id;
-        if (updErr.code !== '23505') {
-            throw new Error(`finalizeTransactionCompleted: update failed — ${updErr.message}`);
-        }
-    }
-
-    // 3. Fallback: If no pending row exists, check for existing final row
-    const { data: existingFinal, error: efErr } = await supabaseAdmin
-        .from('transactions')
-        .select('id, user_id, amount, currency, source_id')
-        .eq('reference', finalRef)
-        .maybeSingle();
-    if (efErr) throw new Error(`finalizeTransactionCompleted: read final failed — ${efErr.message}`);
-
-    if (existingFinal) {
-        const matches =
-            String(existingFinal.user_id) === String(deposit.user_id) &&
-            Math.abs(num(existingFinal.amount) - walletCredit) < 0.005 &&
-            String(existingFinal.currency).toUpperCase() === String(walletCurrency).toUpperCase() &&
-            String(existingFinal.source_id || '') === String(deposit.id);
-
-        if (!matches) {
-            throw new Error(
-                `finalizeTransactionCompleted: reference ${finalRef} exists but does not match the intended deposit`
-            );
-        }
-        return existingFinal.id;
-    }
-
-    // 4. Insert as a last resort
-    const { data: inserted, error: insErr } = await supabaseAdmin
-        .from('transactions')
-        .insert({
-            user_id: deposit.user_id,
-            type: 'deposit',
-            category: 'credit',
-            description: `Deposit — ${(deposit.payment_currency || deposit.source_currency || 'NGN')} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`,
-            currency: walletCurrency,
-            status: 'completed',
-            ref: finalRef,
-            reference: finalRef,
-            wallet_used: walletCurrency,
-            amount: walletCredit,
-            amount_ngn: isNGN ? walletCredit : 0,
-            amount_usd: !isNGN ? walletCredit : 0,
-            fee: isNGN ? fee : 0,
-            revenue_ngn: isNGN ? fee : 0,
-            revenue_usd: 0,
-            meta,
-            metadata: meta,
-            created_at: now,
-            completed_at: now,
-            updated_at: now
-        })
-        .select('id')
-        .single();
-
-    if (insErr) {
-        if (insErr.code === '23505') {
-            const { data: dupe, error: dupErr } = await supabaseAdmin
-                .from('transactions')
-                .select('id')
-                .eq('reference', finalRef)
-                .maybeSingle();
-            if (dupErr) throw new Error(`finalizeTransactionCompleted: reread failed — ${dupErr.message}`);
-            if (dupe) return dupe.id;
-        }
-        throw new Error(`finalizeTransactionCompleted: insert failed — ${insErr.message}`);
-    }
-    return inserted.id;
-}
-
 // ─── FEE REVENUE ───────────────────────────────────────────
 async function bookFeeRevenue(deposit, { providerRef, feeAmount }) {
     const fee = num(feeAmount || 0);
@@ -805,7 +680,6 @@ module.exports = {
     markManualReview,
     markDepositFailed,
     upsertPendingTransaction,
-    finalizeTransactionCompleted,
     finalizeTransactionNonSuccess,
     bookFeeRevenue,
     computeVerifiedDigest

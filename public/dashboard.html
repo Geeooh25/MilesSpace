@@ -807,7 +807,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       TICKER  (iOS-safe animation)
+       TICKER (iOS Optimized)
        ═══════════════════════════════════════════════════════════ */
     .ticker-section { margin-bottom: 20px; }
     .ticker-lbl {
@@ -855,15 +855,19 @@
       width: max-content;
       padding: 4px 0;
       will-change: transform;
-      -webkit-animation: ticker 40s linear infinite;
-      animation: ticker 40s linear infinite;
-      -webkit-transform: translate3d(0,0,0);
-      transform: translate3d(0,0,0);
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
+      -webkit-perspective: 1000px;
+      perspective: 1000px;
+      /* Fallback CSS Animation */
+      -webkit-animation: ticker-css 40s linear infinite;
+      animation: ticker-css 40s linear infinite;
     }
-    /* No :hover pause — on iOS, :hover fires after a tap and freezes the ticker.
-       We intentionally do NOT pause on hover anywhere. */
+    
+    /* No :hover pause — on iOS, :hover fires after a tap and freezes the ticker. */
+    
     .ticker-item {
       display: flex;
       align-items: center;
@@ -895,16 +899,17 @@
       background: var(--acc);
       color: #fff;
     }
-    @-webkit-keyframes ticker {
+
+    @-webkit-keyframes ticker-css {
       from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
-      to   { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
+      to   { -webkit-transform: translate3d(calc(-50% - 6px), 0, 0); transform: translate3d(calc(-50% - 6px), 0, 0); }
     }
-    @keyframes ticker {
+    @keyframes ticker-css {
       from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
-      to   { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
+      to   { -webkit-transform: translate3d(calc(-50% - 6px), 0, 0); transform: translate3d(calc(-50% - 6px), 0, 0); }
     }
 
-    /* iOS: never pause the ticker, even during momentum scroll or tab refocus */
+    /* iOS: never pause the ticker via CSS */
     .ticker-track,
     .ticker-track:hover,
     .ticker-track:active,
@@ -2628,7 +2633,12 @@ function populateUser(u) {
   });
 }
 
-/* ─── Ticker ──────────────────────────────────────────────── */
+/* ─── Ticker (JS Fallback for iOS) ────────────────────────── */
+let tickerAnimationId = null;
+let tickerOffset = 0;
+let tickerSpeed = 1.2; // px per frame
+let tickerMax = 0;
+
 async function loadTicker() {
   if (!DOM.tickerTrack) return;
   try {
@@ -2655,9 +2665,20 @@ async function loadTicker() {
   }
 }
 
-/* iOS-safe seamless loop: CSS shifts -50%, so render EXACTLY two copies. */
 function renderTicker(items) {
   if (!DOM.tickerTrack) return;
+
+  // Pause CSS animation to prevent clashes
+  DOM.tickerTrack.style.animation = 'none';
+  DOM.tickerTrack.style.webkitAnimation = 'none';
+  
+  // Clear any existing JS animation
+  if (tickerAnimationId) {
+    cancelAnimationFrame(tickerAnimationId);
+    tickerAnimationId = null;
+  }
+
+  // We need exactly TWO copies of the list for a seamless loop
   const doubled = [...items, ...items];
   DOM.tickerTrack.innerHTML = doubled.map(item => `
     <div class="ticker-item">
@@ -2666,7 +2687,90 @@ function renderTicker(items) {
       ${item.badge ? `<span class="ticker-badge">${item.badge}</span>` : ''}
     </div>
   `).join('');
+
+  // Wait for DOM to paint so we can calculate widths correctly
+  setTimeout(initTickerAnimation, 100);
 }
+
+function initTickerAnimation() {
+  if (!DOM.tickerTrack) return;
+
+  // Reset position
+  tickerOffset = 0;
+  DOM.tickerTrack.style.transform = `translate3d(0, 0, 0)`;
+  
+  // Calculate width of exactly ONE copy of the list
+  // We measure the first half of the children
+  const children = DOM.tickerTrack.children;
+  const halfCount = children.length / 2;
+  if (halfCount < 1) return;
+  
+  let widthOfOneSet = 0;
+  for (let i = 0; i < halfCount; i++) {
+    // Get width including margins/gaps. Since it's flexbox, we use offsetWidth + the gap
+    widthOfOneSet += children[i].offsetWidth + 12; // 12px is the gap defined in CSS
+  }
+  tickerMax = widthOfOneSet;
+
+  // Try to start the CSS animation. We use a specific class to trigger it.
+  DOM.tickerTrack.style.animation = '';
+  DOM.tickerTrack.style.webkitAnimation = '';
+  
+  // Start the JS fallback loop
+  let lastTime = performance.now();
+  
+  function animate(time) {
+    const delta = time - lastTime;
+    
+    // Only update if roughly 16ms passed (60fps) to avoid burning CPU
+    if (delta > 10) {
+      tickerOffset -= tickerSpeed;
+      
+      // Loop reset
+      if (Math.abs(tickerOffset) >= tickerMax) {
+        tickerOffset = 0;
+      }
+      
+      // Apply translation
+      if (DOM.tickerTrack) {
+        DOM.tickerTrack.style.transform = `translate3d(${tickerOffset}px, 0, 0)`;
+      }
+      
+      lastTime = time;
+    }
+    tickerAnimationId = requestAnimationFrame(animate);
+  }
+  
+  // Only run the JS loop on touch devices (where iOS Safari drops CSS animations)
+  // But to be safe, we run it everywhere, ensuring it *always* moves.
+  tickerAnimationId = requestAnimationFrame(animate);
+}
+
+// Handle tab visibility so we don't animate when hidden
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (tickerAnimationId) {
+      cancelAnimationFrame(tickerAnimationId);
+      tickerAnimationId = null;
+    }
+  } else {
+    if (!tickerAnimationId && DOM.tickerTrack) {
+      // Re-sync
+      let lastTime = performance.now();
+      function animate(time) {
+        const delta = time - lastTime;
+        if (delta > 10) {
+          tickerOffset -= tickerSpeed;
+          if (Math.abs(tickerOffset) >= tickerMax) tickerOffset = 0;
+          if (DOM.tickerTrack) DOM.tickerTrack.style.transform = `translate3d(${tickerOffset}px, 0, 0)`;
+          lastTime = time;
+        }
+        tickerAnimationId = requestAnimationFrame(animate);
+      }
+      tickerAnimationId = requestAnimationFrame(animate);
+    }
+  }
+});
 
 /* ─── Transactions ────────────────────────────────────────── */
 let transactionsLoaded = false;
