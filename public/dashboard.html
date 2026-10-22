@@ -28,7 +28,7 @@
   <meta name="twitter:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more." />
   <meta name="twitter:image" content="https://www.milesspaceedigital.com/images/social-preview.png" />
 
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>MilesSpace | Dashboard</title>
 
   <!-- Preconnects -->
@@ -150,7 +150,7 @@
 
     input, select {
       font-family: inherit;
-      font-size: inherit;
+      font-size: 16px;
       color: inherit;
     }
 
@@ -199,6 +199,7 @@
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: var(--bdr) transparent;
+      padding-bottom: calc(16px + var(--safe-b));
     }
     .sidebar.open {
       transform: none;
@@ -369,6 +370,7 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      width: 100%;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -482,6 +484,7 @@
       flex: 1;
       min-width: 0;
       padding-bottom: calc(90px + var(--safe-b));
+      overflow: visible;
     }
     @media (min-width: 768px) {
       .content {
@@ -697,7 +700,6 @@
       flex-wrap: wrap;
       margin-bottom: 4px;
     }
-   
     .bh-currency-sym {
       font-family: var(--fd);
       font-size: 1.3rem;
@@ -711,7 +713,7 @@
       font-family: 'Courier New', monospace;
       font-size: 1.5rem;
       font-weight: 800;
-      color: var(--t5);
+      color: var(--t1);
       letter-spacing: -1px;
       line-height: 1.5;
       transition: all .25s;
@@ -805,7 +807,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       TICKER
+       TICKER  (iOS-safe animation)
        ═══════════════════════════════════════════════════════════ */
     .ticker-section { margin-bottom: 20px; }
     .ticker-lbl {
@@ -850,11 +852,18 @@
     .ticker-track {
       display: flex;
       gap: 12px;
-      animation: ticker 30s linear infinite;
       width: max-content;
       padding: 4px 0;
+      will-change: transform;
+      -webkit-animation: ticker 40s linear infinite;
+      animation: ticker 40s linear infinite;
+      -webkit-transform: translate3d(0,0,0);
+      transform: translate3d(0,0,0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
-    .ticker-track:hover { animation-play-state: paused; }
+    /* No :hover pause — on iOS, :hover fires after a tap and freezes the ticker.
+       We intentionally do NOT pause on hover anywhere. */
     .ticker-item {
       display: flex;
       align-items: center;
@@ -866,11 +875,10 @@
       white-space: nowrap;
       flex-shrink: 0;
       cursor: pointer;
-      transition: all .2s;
+      transition: border-color .2s, box-shadow .2s;
     }
     .ticker-item:hover {
       border-color: var(--p);
-      transform: translateY(-1px);
       box-shadow: var(--s0);
     }
     .ticker-icon { font-size: .9rem; flex-shrink: 0; }
@@ -887,9 +895,30 @@
       background: var(--acc);
       color: #fff;
     }
+    @-webkit-keyframes ticker {
+      from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
+      to   { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
+    }
     @keyframes ticker {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
+      from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
+      to   { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
+    }
+
+    /* iOS: never pause the ticker, even during momentum scroll or tab refocus */
+    .ticker-track,
+    .ticker-track:hover,
+    .ticker-track:active,
+    .ticker-track:focus,
+    .ticker-track:focus-within {
+      -webkit-animation-play-state: running !important;
+      animation-play-state: running !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-track {
+        -webkit-animation: none !important;
+        animation: none !important;
+      }
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -1616,6 +1645,7 @@
       overflow-y: auto;
       margin: 0;
       border-radius: 0;
+      -webkit-overflow-scrolling: touch;
     }
     .pin-ov.on .pin-panel { transform: translateX(0); }
     @media (max-width: 640px) {
@@ -1792,6 +1822,57 @@
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE KEYBOARD / VIEWPORT FIXES (iPhone Safari)
+       ═══════════════════════════════════════════════════════════ */
+    html {
+      width: 100%;
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-width: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-wrap: anywhere;
+    }
+
+    .main {
+      width: 100%;
+      min-width: 0;
+    }
+
+    /* All text inputs must be >= 16px to stop iOS auto-zoom */
+    input,
+    select,
+    textarea,
+    .pin-box {
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
+    }
+    .pin-box {
+      /* restore compact visual size after the 16px base */
+      font-size: 1.35rem;
+    }
+
+    .content {
+      overflow: visible;
+    }
+
+    .tx-scroll,
+    .announce-row,
+    .bh-actions,
+    .prod-grid,
+    .pin-panel,
+    .tx-sheet-body,
+    .curr-dropdown {
+      -webkit-overflow-scrolling: touch;
     }
   </style>
 
@@ -2574,9 +2655,10 @@ async function loadTicker() {
   }
 }
 
+/* iOS-safe seamless loop: CSS shifts -50%, so render EXACTLY two copies. */
 function renderTicker(items) {
   if (!DOM.tickerTrack) return;
-  const doubled = [...items, ...items, ...items];
+  const doubled = [...items, ...items];
   DOM.tickerTrack.innerHTML = doubled.map(item => `
     <div class="ticker-item">
       <span class="ticker-icon">${item.icon || '📌'}</span>

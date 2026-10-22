@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more." />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#fbfaf7" />
@@ -47,35 +47,35 @@
     :root {
       --fd: 'Inter', 'General Sans', sans-serif;
       --fb: 'Inter', 'Clash Display', sans-serif;
-      
+
       --bg:    #F5F6FB;
       --srf:   #FFFFFF;
       --srf2:  #FAFBFD;
       --bdr:   #E4E7F1;
-      
+
       --t1:    #121629;
       --t2:    #565D78;
       --t3:    #9298AC;
-      
+
       --p:     #32407A;
       --pm:    #28335f;
       --pl:    #EBEEFC;
-      
+
       --acc:   #F5A623;
       --acd:   #d98c12;
       --accl:  #FFF6E6;
-      
+
       --succ:  #1C8F63;
       --sul:   #E5F6EE;
-      
+
       --err:   #D34848;
       --erl:   #FBEAEA;
-      
+
       --r:     12px;
       --rl:    16px;
       --tr:    .2s cubic-bezier(.4, 0, .2, 1);
       --sw:    250px;
-      
+
       --safe-b: env(safe-area-inset-bottom, 0px);
       --safe-t: env(safe-area-inset-top, 0px);
     }
@@ -97,9 +97,15 @@
     body.sb-open { overflow: hidden; }
     a { color: inherit; text-decoration: none; }
     button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; font-size: inherit; }
-    input, select { font-family: inherit; font-size: 16px; color: inherit; }
+
+    /* Prevent iOS auto-zoom: inputs must be >= 16px */
+    input, select, textarea {
+      font-family: inherit;
+      font-size: 16px;
+      color: inherit;
+    }
     ::selection { background: var(--pl); }
-    
+
     button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible {
       outline: 2px solid var(--p);
       outline-offset: 2px;
@@ -153,6 +159,7 @@
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: var(--bdr) transparent;
+      padding-bottom: calc(16px + var(--safe-b));
     }
     .sidebar.open {
       transform: none;
@@ -263,7 +270,7 @@
     /* ═══════════════════════════════════════════════════════════
        TOPBAR & MAIN LAYOUT
        ═══════════════════════════════════════════════════════════ */
-    .main { flex: 1; min-height: 100vh; min-width: 0; }
+    .main { flex: 1; min-height: 100vh; min-width: 0; width: 100%; }
     .topbar {
       position: sticky;
       top: 0;
@@ -443,9 +450,10 @@
       border-radius: 10px;
       background: var(--bg);
       color: var(--t1);
-      font-size: .88rem;
+      font-size: 16px; /* prevents iOS zoom */
       transition: var(--tr);
       min-height: 44px;
+      scroll-margin-block: 16px;
     }
     .search-input:focus {
       border-color: var(--p);
@@ -475,6 +483,7 @@
       overflow-y: auto;
       z-index: 100;
       display: none;
+      -webkit-overflow-scrolling: touch;
     }
     .search-dropdown.show { display: block; }
     .search-item {
@@ -754,6 +763,7 @@
       max-width: none;
       font-weight: 500;
       border-left: 3px solid var(--acc);
+      pointer-events: none;
     }
     @media (min-width: 641px) { .toast { left: auto; right: 22px; max-width: 340px; } }
     .toast.show { transform: translateY(0); opacity: 1; }
@@ -805,6 +815,7 @@
       font-weight: 700;
       transition: var(--tr);
       min-height: 52px;
+      scroll-margin-block: 16px;
     }
     .pin-input:focus { border-color: var(--acc); background: var(--srf); outline: none; box-shadow: 0 0 0 3px rgba(245, 166, 35, .18); }
     .pin-input.error { border-color: var(--err); background: var(--erl); animation: shake .35s; }
@@ -872,6 +883,7 @@
       overflow-y: auto;
       padding: 22px;
       padding-bottom: calc(22px + var(--safe-b));
+      -webkit-overflow-scrolling: touch;
     }
     .hist-drawer.open { transform: translateX(0); }
     .hist-drawer h3 { font-family: var(--fd); font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
@@ -946,6 +958,55 @@
       .card { padding: 20px; }
       .topbar { padding: calc(12px + var(--safe-t)) 16px 12px; }
     }
+
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE KEYBOARD / VIEWPORT FIXES (iPhone Safari)
+       ═══════════════════════════════════════════════════════════ */
+    html {
+      width: 100%;
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-width: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-wrap: anywhere;
+    }
+
+    .main {
+      width: 100%;
+      min-width: 0;
+    }
+
+    /* All text inputs must be >= 16px to stop iOS auto-zoom */
+    .search-input,
+    .pin-input {
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
+    }
+
+    /* Let the page scroll when the keyboard opens */
+    .wrap {
+      overflow: visible;
+    }
+
+    /* Ensure lists and drawers scroll naturally with touch */
+    .search-dropdown,
+    .hist-drawer,
+    .plan-grid {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Keep layout calm when keyboard reduces visible viewport */
+    @media (max-height: 600px) {
+      .search-dropdown { max-height: 220px; }
+      .hero { padding: 30px 20px; }
+    }
   </style>
 </head>
 
@@ -959,7 +1020,7 @@
     <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
     MilesSpace
   </div>
-  
+
   <p class="sb-sec">Menu</p>
   <nav class="sb-nav">
     <a href="dashboard.html"  class="sb-lnk"><i class="fas fa-home"></i> Dashboard</a>
@@ -972,13 +1033,13 @@
     <a href="history.html"    class="sb-lnk"><i class="fas fa-history"></i> History</a>
     <a href="fund.html"       class="sb-lnk"><i class="fas fa-wallet"></i> Fund Account</a>
   </nav>
-  
+
   <p class="sb-sec">Account</p>
   <nav class="sb-nav">
     <a href="usersettings.html"  class="sb-lnk"><i class="fas fa-user-cog"></i> Settings</a>
     <a href="notifications.html" class="sb-lnk"><i class="fas fa-bell"></i> Notifications</a>
   </nav>
-  
+
   <div class="sb-foot">
     <div class="sb-prof">
       <a href="usersettings.html" class="sb-prof-link">
@@ -997,11 +1058,9 @@
 <div class="main">
   <header class="topbar">
     <button class="tb-hbg" id="hbgBtn" aria-label="Open menu"><i class="fas fa-bars"></i></button>
-    <span class="tb-brand">
-MilesSpace</span>
+    <span class="tb-brand">MilesSpace</span>
     <div class="tb-spacer"></div>
     <div class="tb-right">
-      <!-- REMOVED the transaction history icon -->
       <button class="tb-icon-btn" id="histBtn" title="My eSIMs" aria-label="My eSIMs"><i class="fas fa-history"></i></button>
       <a href="notifications.html" class="tb-icon-btn" aria-label="Notifications"><i class="fas fa-bell"></i></a>
       <a href="usersettings.html" class="tb-av" id="tbAv" aria-label="Account">U</a>
@@ -1028,7 +1087,7 @@ MilesSpace</span>
           <div class="hero-badge"><i class="fas fa-star"></i> NEW · TRAVEL DATA</div>
           <h2>Stay connected the moment you land.</h2>
           <p>Skip the airport SIM kiosk. Pick a country, region, or global plan, and your eSIM is ready to scan before you land.</p>
-          
+
           <div style="margin:28px auto;width:100%;max-width:280px;height:180px;position:relative;">
             <div style="position:absolute;inset:0;display:grid;place-items:center;">
               <div style="position:absolute;width:60%;height:60%;border-radius:50%;border:1.5px dashed var(--bdr);animation:spin 20s linear infinite;"></div>
@@ -1098,7 +1157,7 @@ MilesSpace</span>
           <i class="fas fa-circle-info" style="margin-top:2px;flex-shrink:0;color:var(--acd);"></i>
           <span>Your eSIM only works on devices that support eSIM. Check your phone's settings before buying.</span>
         </div>
-        
+
         <button class="btn-primary" id="toConfirmBtn" disabled>Continue <i class="fas fa-arrow-right"></i></button>
         <button class="btn-ghost" id="backToHeroBtn">Back</button>
       </div>
@@ -1170,12 +1229,12 @@ MilesSpace</span>
           <div class="status-icon processing" id="statusIcon"><i class="fas fa-circle-notch spin"></i></div>
           <h3 id="statusTitle">Setting up your eSIM…</h3>
           <p id="statusText">This usually takes a few seconds. Don't close this page.</p>
-          
+
           <div id="refSummary"></div>
           <div id="manualDetails"></div>
-          
+
           <div class="qr-box" id="qrBox" hidden><img id="qrImg" alt="eSIM QR code" /></div>
-          
+
           <button class="btn-primary" id="statusPrimaryBtn" hidden>Done</button>
           <button class="btn-ghost" id="statusRetryBtn" hidden>Try again</button>
         </div>
@@ -1369,11 +1428,11 @@ function initSidebar() {
   });
   ov.addEventListener('click', close);
   sb.querySelectorAll('.sb-lnk').forEach(l => l.addEventListener('click', () => close()));
-  
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && sb.classList.contains('open')) close();
   });
-  
+
   window.addEventListener('resize', () => {
     if (!sb.classList.contains('open')) {
       ov.classList.remove('on');
@@ -1678,14 +1737,14 @@ function initCountrySearch() {
     const items = filterDestinations(input.value);
     renderDropdown(items);
   });
-  
+
   input.addEventListener('focus', openDropdown);
   input.addEventListener('click', openDropdown);
-  
+
   input.addEventListener('keydown', (e) => {
     const items = dd.querySelectorAll('.search-item');
     if (!items.length) return;
-    
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       State.highlightedIndex = Math.min(State.highlightedIndex + 1, items.length - 1);
@@ -1843,13 +1902,13 @@ function requestPin() {
       input.removeEventListener('keydown', onKey);
       input.removeEventListener('input', onInput);
     };
-    
+
     const onInput = () => {
       input.value = input.value.replace(/\D/g, '').slice(0, 4);
       input.classList.remove('error');
       errEl.textContent = '';
     };
-    
+
     const onOk = () => {
       const v = input.value.trim();
       if (!/^\d{4}$/.test(v)) {
@@ -1860,12 +1919,12 @@ function requestPin() {
       cleanup();
       resolve(v);
     };
-    
+
     const onCancel = () => {
       cleanup();
       resolve(null);
     };
-    
+
     const onKey = (e) => {
       if (e.key === 'Enter') onOk();
       if (e.key === 'Escape') onCancel();
@@ -2044,7 +2103,7 @@ async function pollStatus() {
       $('#statusIcon').innerHTML = '<i class="fas fa-check"></i>';
       $('#statusTitle').textContent = 'Your eSIM is ready';
       $('#statusText').textContent = "Scan the QR code below in your phone's eSIM settings, or check your email — we sent it there too.";
-      
+
       if (data.qrCodeUrl) {
         $('#qrImg').src = data.qrCodeUrl;
         $('#qrBox').hidden = false;
@@ -2053,7 +2112,7 @@ async function pollStatus() {
         $('#qrBox').hidden = true;
         $('#manualDetails').innerHTML = renderManualDelivery(data);
       }
-      
+
       $('#statusPrimaryBtn').hidden = false;
       $('#statusPrimaryBtn').textContent = 'Done';
       $('#statusPrimaryBtn').onclick = () => window.location.reload();
@@ -2104,7 +2163,7 @@ async function openHistory() {
   try {
     const { data } = await apiGet(CONFIG.api.history);
     const items = Array.isArray(data) ? data : [];
-    
+
     if (!items.length) {
       list.innerHTML = '<div class="hist-empty">You haven\'t purchased any eSIMs yet.</div>';
       $('#histSub').textContent = 'No purchases yet';
@@ -2112,13 +2171,13 @@ async function openHistory() {
     }
 
     $('#histSub').textContent = `${items.length} purchase${items.length === 1 ? '' : 's'}`;
-    
+
     list.innerHTML = items.map(t => {
       const flag = t.countryFlag ? `<img src="${t.countryFlag}" alt="">` : '';
       let pillStatus = t.status || 'processing';
       if (t.status === 'completed' && t.deliveryStatus !== 'ready') pillStatus = 'delivery_pending';
       const st = pillStatus.replace('_', ' ');
-      
+
       return `<div class="hist-item">
         <div class="row1"><div class="flag">${flag}</div><div class="title">${escapeHtml(t.countryName || 'eSIM')}</div><span class="pill ${pillStatus}">${escapeHtml(st)}</span></div>
         <div class="meta">${escapeHtml(t.planName || '')} ${t.dataAmount ? '· ' + escapeHtml(t.dataAmount) : ''} ${t.validityDays ? '· ' + t.validityDays + ' days' : ''}</div>
@@ -2142,7 +2201,7 @@ document.addEventListener('click', (e) => {
   if (!url) return;
   closeHistory();
   goToStep(4);
-  
+
   $('#statusIcon').className = 'status-icon completed';
   $('#statusIcon').innerHTML = '<i class="fas fa-check"></i>';
   $('#statusTitle').textContent = 'Your eSIM QR code';
@@ -2151,7 +2210,7 @@ document.addEventListener('click', (e) => {
   $('#qrBox').hidden = false;
   $('#refSummary').innerHTML = '';
   $('#manualDetails').innerHTML = '';
-  
+
   $('#statusPrimaryBtn').hidden = false;
   $('#statusPrimaryBtn').textContent = 'Done';
   $('#statusPrimaryBtn').onclick = () => window.location.reload();
@@ -2176,7 +2235,7 @@ function init() {
 
   $('#histBtn')?.addEventListener('click', openHistory);
   $('#histClose')?.addEventListener('click', closeHistory);
-  
+
   $('#heroCta')?.addEventListener('click', () => {
     goToStep(2);
     if (!State.allCountries.length) loadCountries();

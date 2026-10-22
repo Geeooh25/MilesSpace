@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more." />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#fbfaf7" />
@@ -142,7 +142,8 @@
       font-size: inherit;
     }
 
-    input, select {
+    /* Prevent iOS auto-zoom: inputs must be >= 16px */
+    input, select, textarea {
       font-family: inherit;
       font-size: 16px;
       color: inherit;
@@ -953,12 +954,13 @@
       padding: 10px 32px;
       border: 1.5px solid var(--bdr);
       border-radius: var(--r);
-      font-size: .82rem;
+      font-size: 16px; /* prevents iOS zoom */
       color: var(--t1);
       background: var(--srf2);
       outline: none;
       transition: all .18s;
       min-height: 44px;
+      scroll-margin-block: 16px;
     }
     .search-inp::placeholder { color: var(--t3); }
     .search-inp:focus {
@@ -1732,6 +1734,63 @@
       from { opacity: 0; transform: translateY(12px); }
       to   { opacity: 1; transform: none; }
     }
+
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE KEYBOARD / VIEWPORT FIXES
+       ═══════════════════════════════════════════════════════════ */
+    html {
+      width: 100%;
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-width: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-wrap: anywhere;
+    }
+
+    .main {
+      width: 100%;
+      min-width: 0;
+      flex: 1 0 auto;
+    }
+
+    /* Prevent input zoom + avoid layout jump when keyboard opens */
+    .search-inp {
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
+    }
+
+    /* Toast container: safe area aware */
+    .toasts {
+      width: auto;
+      max-width: calc(100% - 24px);
+      right: 12px;
+      bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    /* Ensure the whole page can scroll when the keyboard is open */
+    .content {
+      overflow: visible;
+    }
+
+    /* Prevent the country/service lists from trapping focus on iOS */
+    .country-grid,
+    .svc-list {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Keep layout calm when keyboard reduces visible viewport */
+    @media (max-height: 600px) {
+      .country-grid { max-height: 260px; }
+      .svc-list     { max-height: 280px; }
+      .order-card   { position: static; }
+    }
   </style>
 
   <script src="/js/session.js"></script>
@@ -2216,7 +2275,7 @@ function friendlyError(error) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TOAST
+   TOAST (safe DOM, no innerHTML for message text)
    ═══════════════════════════════════════════════════════════════ */
 function toast(msg, type = 'info') {
   const container = document.getElementById('toastWrap');
@@ -2231,8 +2290,15 @@ function toast(msg, type = 'info') {
 
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span></span>`;
-  el.querySelector('span').textContent = msg;
+
+  const icon = document.createElement('i');
+  icon.className = `fas ${icons[type] || icons.info}`;
+
+  const span = document.createElement('span');
+  span.textContent = msg;
+
+  el.appendChild(icon);
+  el.appendChild(span);
   container.appendChild(el);
 
   setTimeout(() => {
@@ -2485,7 +2551,7 @@ function initLogout() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SIDEBAR — behaves exactly like history.html
+   SIDEBAR
    ═══════════════════════════════════════════════════════════════ */
 function initSidebar() {
   const sb  = document.getElementById('sb');
@@ -2531,7 +2597,7 @@ function initSidebar() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   USER — initials only (matches history.html)
+   USER
    ═══════════════════════════════════════════════════════════════ */
 function loadUser() {
   try {
@@ -2557,7 +2623,7 @@ function loadUser() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   COUNTRIES
+   COUNTRIES (fast load with cache)
    ═══════════════════════════════════════════════════════════════ */
 async function loadCountries() {
   const grid = document.getElementById('cGrid');
@@ -2727,8 +2793,7 @@ const filterServices = debounce(() => {
   const q = document.getElementById('sSearch').value.toLowerCase().trim();
   const clr = document.getElementById('sClr');
   if (clr) clr.classList.toggle('show', !!q);
-  const filtered = q    ? State.services.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
-    : State.services;
+  const filtered = q ? State.services.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)) : State.services;
   renderServices(filtered);
 }, 300);
 
@@ -3033,9 +3098,7 @@ function timeAgo(date) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HISTORY BUTTON — opens the Virtual Numbers "Recent Rentals" mini history
-   (scrolls it into view & flashes it), so the user only sees virtual-number
-   history from this page — not the general site history.
+   HISTORY BUTTON
    ═══════════════════════════════════════════════════════════════ */
 function initHistoryButton() {
   const histBtn = document.getElementById('histBtn');
@@ -3045,14 +3108,12 @@ function initHistoryButton() {
     e.preventDefault();
     e.stopPropagation();
 
-    // Refresh the data first, then scroll + flash
     loadOrders().finally(() => {
       const target = document.querySelector('.mini-hist');
       if (!target) return;
 
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Brief highlight
       const orig = target.style.transition;
       target.style.transition = 'background .25s ease';
       target.style.background = 'var(--pl)';

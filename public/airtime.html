@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more." />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#fbfaf7" />
@@ -88,7 +88,7 @@
       /* Fonts */
       --fd: 'Inter', 'General Sans', sans-serif;
       --fb: 'Inter', 'Clash Display', sans-serif;
-    
+
       /* Motion */
       --tr: all .2s cubic-bezier(.25,.8,.25,1);
 
@@ -145,7 +145,7 @@
 
     input, select {
       font-family: inherit;
-      font-size: 16px;
+      font-size: 16px; /* prevents iOS auto-zoom */
       color: inherit;
     }
 
@@ -390,6 +390,7 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      width: 100%;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -587,12 +588,13 @@
       flex: 1;
       padding: 12px;
       border: none;
-      font-size: .9rem;
+      font-size: 16px; /* prevents iOS auto-zoom */
       outline: none;
       background: transparent;
       min-width: 0;
       color: var(--t1);
       min-height: 44px;
+      scroll-margin-block: 16px;
     }
     .phone-input::placeholder { color: var(--t3); }
     .phone-field.err { border-color: var(--err); }
@@ -647,15 +649,17 @@
       padding: 10px 10px 10px 30px;
       border: 1px solid var(--bdr);
       border-radius: var(--r);
-      font-size: .8rem;
+      font-size: 16px; /* prevents iOS auto-zoom */
       outline: none;
       transition: var(--tr);
       min-height: 40px;
+      scroll-margin-block: 16px;
     }
     .country-dropdown .search-wrap input:focus { border-color: var(--p); }
     #countryListInner {
       overflow-y: auto;
       flex: 1;
+      -webkit-overflow-scrolling: touch;
     }
     .country-item {
       display: flex;
@@ -889,13 +893,14 @@
       flex: 1;
       border: none;
       padding: 10px 4px;
-      font-size: .95rem;
+      font-size: 16px; /* prevents iOS auto-zoom */
       font-weight: 700;
       outline: none;
       min-width: 0;
       background: transparent;
       color: var(--t1);
       min-height: 40px;
+      scroll-margin-block: 16px;
     }
     .amt-divider {
       width: 1px;
@@ -1913,6 +1918,7 @@
       color: var(--t1);
       outline: none;
       transition: var(--tr);
+      scroll-margin-block: 16px;
     }
     .pm-input:focus {
       border-color: var(--p);
@@ -2055,7 +2061,7 @@
         padding: 7px 12px;
         font-size: .7rem;
       }
-      .amt-custom { font-size: .84rem; }
+      .amt-custom { font-size: 16px; } /* keep 16px to prevent iOS zoom */
       .operator-grid,
       .operator-loading-grid { grid-template-columns: repeat(2, 1fr); }
       .operator-card {
@@ -2093,6 +2099,59 @@
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
       }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE KEYBOARD / VIEWPORT FIXES (iPhone Safari)
+       ═══════════════════════════════════════════════════════════ */
+    html {
+      width: 100%;
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-width: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-wrap: anywhere;
+    }
+
+    .main {
+      width: 100%;
+      min-width: 0;
+      flex: 1 0 auto;
+    }
+
+    /* All text inputs must be >= 16px to stop iOS auto-zoom */
+    .phone-input,
+    .amt-custom,
+    .country-dropdown .search-wrap input,
+    .pm-input {
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
+    }
+
+    /* Let the page scroll when the keyboard opens */
+    .content {
+      overflow: visible;
+    }
+
+    /* Ensure lists scroll naturally with touch */
+    #countryListInner,
+    .operator-grid,
+    .operator-loading-grid {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Keep the layout calm when the visible viewport shrinks */
+    @media (max-height: 600px) {
+      .country-dropdown { max-height: 220px; }
+      .operator-card    { min-height: 88px; }
+      .operator-card .op-logo-wrap { width: 40px; height: 40px; }
     }
   </style>
 
@@ -2519,7 +2578,13 @@ const showToast = throttle((msg, type = 'info') => {
     err:  'fa-times-circle',
     warn: 'fa-exclamation-circle'
   };
-  el.innerHTML = `<i class="fas ${icons[type] || 'fa-info-circle'}"></i> ${escapeHtml(msg)}`;
+  const icon = document.createElement('i');
+  icon.className = `fas ${icons[type] || 'fa-info-circle'}`;
+  const span = document.createElement('span');
+  span.textContent = msg;
+
+  el.appendChild(icon);
+  el.appendChild(span);
   container.appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }, CONFIG.TOAST_THROTTLE_MS);
@@ -3037,7 +3102,6 @@ function showBreakdown() {
   cta.className = 'btn-pay';
   cta.innerHTML = '<i class="fas fa-arrow-right"></i> Continue to Wallet';
   cta.onclick = null;
-  cta.onclick = async () => { await showWalletStep(); };
   cta.onclick = showWalletStep;
 
   showStep('breakdown');
