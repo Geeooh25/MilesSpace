@@ -37,29 +37,9 @@ const EMAIL_PASS      = process.env.EMAIL_PASS || '';
 const EMAIL_FROM      = process.env.EMAIL_FROM || EMAIL_USER;
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'MilesSpace';
 const SITE_URL        = (process.env.SITE_URL || 'https://milesspace-public.vercel.app').replace(/\/+$/, '');
+const LOGO_URL        = process.env.LOGO_URL || `${SITE_URL}/images/miles.png`;
 const SUPPORT_EMAIL   = process.env.SUPPORT_EMAIL || 'support@milesspace.com';
 const IS_DEVELOPMENT  = process.env.NODE_ENV === 'development';
-
-// ═══ CLOUDINARY LOGO CONFIG ═══
-// We construct the Cloudinary URL here. If the environment variable
-// is missing, it falls back to the hardcoded production URL.
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
-
-function getCloudinaryEmailLogo() {
-    // If a specific LOGO_URL is set in .env, use it.
-    if (process.env.LOGO_URL) return process.env.LOGO_URL;
-    
-    // If Cloudinary is configured, build the URL dynamically.
-    if (CLOUDINARY_CLOUD_NAME) {
-        // f_auto (format) and q_auto (quality) make it load instantly in email clients
-        return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_150/v1/milesspace-logo.png`;
-    }
-    
-    // Ultimate fallback
-    return `${SITE_URL}/images/miles.png`;
-}
-
-const LOGO_URL = getCloudinaryEmailLogo();
 
 // ═══ STATE ═══
 let transporter    = null;
@@ -307,7 +287,6 @@ function generateFallbackTemplate(type, data) {
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f6f8;padding:40px 20px;margin:0;">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:40px 32px;">
-    <img src="${LOGO_URL}" alt="MilesSpace" style="height:40px;margin-bottom:20px;display:block;" />
     <h2 style="color:#0c3d4a;margin:0 0 12px;font-size:20px;font-weight:700;">${safeTitle}</h2>
     <p style="color:#4a6070;font-size:15px;line-height:1.6;margin:0 0 20px;">${safeBody}</p>
     ${data.otp ? `
@@ -686,7 +665,6 @@ function getStatus() {
         from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
         provider: 'Gmail SSL (port 465)',
         isDevelopment: IS_DEVELOPMENT,
-        logoUrl: LOGO_URL, // Helpful for debugging
         credentials: {
             user: EMAIL_USER ? '✅ Set' : '❌ Missing',
             pass: EMAIL_PASS ? '✅ Set' : '❌ Missing'
