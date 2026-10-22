@@ -60,9 +60,10 @@ app.set('trust proxy', 1);
 
 // ─── SECURITY HEADERS ────────────────────────────────────────────
 // CSP kept functionally identical to what the existing frontend
-// requires. We do NOT remove unsafe-eval / unsafe-inline — the
-// admin pages rely on them. We only add connectSrc entries needed
-// for credentialed refresh calls from the same origin.
+// requires. connectSrc now includes the Render origin so that
+// pages served by Render (admin, fallback index) can open Socket.IO
+// to the same origin, and the Vercel frontend's API calls are
+// allowed to reach Render from any Render-served page.
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -91,6 +92,11 @@ app.use(helmet({
                 "'self'",
                 "https://*.supabase.co",
                 "wss://*.supabase.co",
+                "https://milesspace.onrender.com",
+                "wss://milesspace.onrender.com",
+                "https://milesspace-public.vercel.app",
+                "https://milesspace.com",
+                "https://www.milesspace.com",
                 "ws://localhost:*",
                 "http://localhost:*",
                 "https://cdn.jsdelivr.net"
@@ -145,17 +151,36 @@ app.use(cors({
 
 console.log('✅ CORS configured');
 
-// ─── BODY PARSING ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+//  KORA WEBHOOK — MOUNTED BEFORE THE GLOBAL JSON PARSER
+// ───────────────────────────────────────────────────────────────────
+// The Kora webhook route declares its own express.json({verify})
+// so it can capture the raw body bytes for signature verification.
+// If the global express.json() below runs first, the body is
+// already consumed by the time the webhook handler executes and
+// req.rawBody is undefined — the signature then has to be verified
+// against a re-serialized body, which occasionally fails on
+// non-ASCII payloads or unusual numeric formatting.
+//
+// By mounting the router BEFORE the global parser, the webhook
+// path gets its own parser and the raw body. Every other route in
+// that router uses Express's default JSON parsing (which the
+// router's own express.json({verify}) still provides), so their
+// behaviour is unchanged.
+//
+// IMPORTANT: This router must NOT be mounted again below. See
+// the user-routes section where the duplicate was removed.
+// ═══════════════════════════════════════════════════════════════════
+const koraDepositsRoutes = require('./routes/wallet/koraDeposits');
+app.use('/api/wallet', koraDepositsRoutes);
+console.log('✅ Kora deposit routes mounted before global JSON parser');
+
+// ─── BODY PARSING (ALL OTHER ROUTES) ─────────────────────────────
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // ─── RATE LIMITING ───────────────────────────────────────────────
 // ── General auth bucket ──────────────────────────────────────────
-// Applies to /api/auth/* EXCEPT:
-//   • /api/auth/refresh  → high-frequency by design (15-min rotation)
-//   • /api/auth/session  → polling every 60s from the dashboard
-//   • /api/auth/heartbeat→ presence beacon
-// These endpoints have their own limiter inside the auth routes.
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -166,8 +191,6 @@ const authLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // Skip the high-frequency endpoints that have their own limiter.
-    // If skip() returns true, the request bypasses this limiter.
     skip: (req) => {
         const p = req.path || '';
         return (
@@ -192,8 +215,6 @@ const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
 // ─── ADMIN AUTH ROUTES ───────────────────────────────────────────
-// Owns POST /api/admin/login, GET /api/admin/session, /me, /verify,
-// POST /api/admin/logout, /refresh.
 const adminAuthRoutes = require('./routes/admin');
 app.use('/api/admin', adminAuthRoutes);
 console.log('✅ Admin auth routes loaded at /api/admin');
@@ -261,7 +282,6 @@ const userSettingsRoutes   = safeRequire('./routes/userSettingsRoutes');
 const virtualRoutes        = require('./routes/virtual-router');
 const esimRoutes           = require('./routes/esimRoutes');
 const ratesRoutes          = require('./routes/ratesRoutes');
-const koraDepositsRoutes   = require('./routes/wallet/koraDeposits');
 const airtimeRoutes        = require('./routes/airtime');
 const billsRoutes          = require('./routes/billsRoutes');
 const reconciliationRoutes = require('./routes/reconciliationRoutes');
@@ -270,7 +290,6 @@ console.log('\n📦 Mounting user routes:');
 
 safeMount(app, '/api/support', supportRoutes);
 safeMount(app, '/api/transactions', transactionRoutes);
-
 
 safeMount(app, '/api/boost', boostRoutes);
 safeMount(app, '/api/sms', smsRoutes);
@@ -285,7 +304,8 @@ safeMount(app, '/api/wallet/beneficiaries', beneficiaryRoutes);
 safeMount(app, '/api/wallet/nowpayments', nowPaymentsRoutes);
 safeMount(app, '/api/user', userSettingsRoutes);
 safeMount(app, '/api/ticker', tickerRoutes);
-safeMount(app, '/api/wallet', koraDepositsRoutes);
+// NOTE: koraDepositsRoutes was already mounted ABOVE the global
+// express.json() so it gets the raw body. Do NOT mount it here.
 
 app.use('/api/virtual', virtualRoutes);
 console.log('  ✅ /api/virtual → loaded');
@@ -307,35 +327,6 @@ console.log('  ✅ /api/reconciliation → loaded');
 
 // ═══════════════════════════════════════════════════════════════════
 //  ADMIN API ROUTES
-// ───────────────────────────────────────────────────────────────────
-//  Mount order is deliberate:
-//
-//    1. transactionAdminRoutes   — the new comprehensive transaction API
-//                                  owns /transactions, /transactions/summary,
-//                                  /transactions/export, /transactions/:id,
-//                                  and /transactions/:id/* sub-routes.
-//
-//    2. moneyAdminRoutes         — owns /ledger*, /deposits/recent,
-//                                  /deposits/today-summary, /webhooks/recent,
-//                                  /logins/today, /needs-attention,
-//                                  /orders/failed/recent,
-//                                  /providers/health,
-//                                  /reconciliation/exceptions/count,
-//                                  /withdrawals/* (disabled).
-//
-//    3. adminDashboardRoutes     — owns /stats, /charts, /health,
-//                                  /recent-activity, /users/recent,
-//                                  /transactions/recent, /notifications/recent,
-//                                  /services/performance, /me.
-//
-//    4. presenceAdminRoutes      — owns /api/admin/presence/*.
-//
-//    5. Everything else          — admin user routes, audit routes,
-//                                  settings, gift, crypto, marketplace.
-//
-//  Path overlaps between (1) and (3) are limited to /transactions/recent.
-//  transactionAdminRoutes does NOT declare /transactions/recent, so
-//  the dashboard's version wins. Nothing is shadowed.
 // ═══════════════════════════════════════════════════════════════════
 
 console.log('\n📦 Mounting admin API routes:');
@@ -350,7 +341,7 @@ const adminDashboardRoutes     = require('./routes/admin/dashboardRoutes');
 const adminPresenceRoutes      = require('./routes/admin/presenceAdminRoutes');
 const adminIntelligenceRoutes  = require('./routes/admin/intelligenceRoutes');
 const adminSettingsRoutes      = require('./routes/admin/adminSettings');
-const auditLogRoutes =require('./routes/admin/auditLogRoutes')
+const auditLogRoutes = require('./routes/admin/auditLogRoutes');
 
 safeMount(app, '/api/admin', adminDashboardRoutes);
 safeMount(app, '/api/admin/presence', adminPresenceRoutes);
@@ -363,14 +354,13 @@ const marketplaceRoutes      = safeRequire('./routes/admin/marketplaceRoutes');
 
 const giftcardAdminRoutes    = safeRequire('./routes/admin/giftcardAdminRoutes');
 const adminUserRoutes        = safeRequire('./routes/admin/userRoutes');
-// ─── Admin support (separate from customer messaging) ────────
+
 app.use('/api/admin/support', require('./routes/admin/supportRoutes'));
 app.use('/api/admin', require('./routes/admin/boostAdminRoutes'));
 const orderAdminRoutes        = require('./routes/admin/orderRoutes');
 
 app.use('/api/admin', orderAdminRoutes);
 app.use('/api/webhooks', require('./routes/webhooks'));
-
 
 // ─── Admin webhook operations ────────────────────────────────────
 app.use('/api/admin', require('./routes/admin/webhookAdminRoutes'));
@@ -397,7 +387,7 @@ if (marketplaceRoutes)   safeMount(app, '/api/admin', marketplaceRoutes);
 
 if (giftcardAdminRoutes) app.use('/api/admin', giftcardAdminRoutes);
 if (adminUserRoutes)     app.use('/api/admin', adminUserRoutes);
-if (auditLogRoutes)    app.use('/api/admin', auditLogRoutes);
+if (auditLogRoutes)      app.use('/api/admin', auditLogRoutes);
 if (messageRoutes)       app.use('/api/messages', messageRoutes);
 
 console.log('\n✅ All API routes mounted');
@@ -452,9 +442,13 @@ setTimeout(async () => {
 }, 10000);
 
 // ─── Deposit reconciliation: every 5 minutes ────────────────────
+// Uses the trusted-verification digest (the same one the webhook
+// route builds) so completeKoraDeposit accepts the payload without
+// re-verifying with Kora a second time. Every non-completion and
+// every failure is logged so silent stalls are visible.
 setInterval(async () => {
     try {
-        const { data: stuck } = await supabaseAdmin
+        const { data: stuck, error: stuckErr } = await supabaseAdmin
             .from('deposit_requests')
             .select('id, provider_reference, merchant_reference')
             .eq('provider', 'korapay')
@@ -462,22 +456,50 @@ setInterval(async () => {
             .lt('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
             .limit(50);
 
+        if (stuckErr) {
+            console.warn('[RECONCILE] query failed:', stuckErr.message);
+            return;
+        }
+
         for (const dep of stuck || []) {
             const ref = dep.provider_reference || dep.merchant_reference;
+            if (!ref) {
+                console.warn(`[RECONCILE] deposit ${dep.id} has no provider reference — skipping`);
+                continue;
+            }
             try {
                 const verified = await korapayService.verifyTransaction(ref);
-                verified._verified = true;
-                await depositService.completeKoraDeposit({
+
+                // Build the same trusted payload the webhook route builds.
+                const verifiedData = {
+                    provider_status: verified.provider_status,
+                    amount: verified.amount,
+                    currency: verified.currency,
+                    reference: verified.reference || verified.payment_reference
+                };
+                const digest = depositService.computeVerifiedDigest(verifiedData);
+
+                const result = await depositService.completeKoraDeposit({
                     depositId: dep.id,
-                    providerTransaction: verified,
+                    providerTransaction: {
+                        ...verifiedData,
+                        _trustedVerified: true,
+                        _verifiedDigest: digest
+                    },
                     source: 'reconciliation'
                 });
+
+                if (result.completed) {
+                    console.log(`[RECONCILE] deposit ${dep.id} recovered successfully`);
+                } else {
+                    console.log(`[RECONCILE] deposit ${dep.id} still pending — ${result.reason || 'unknown'}`);
+                }
             } catch (e) {
-                // Non-fatal — next sweep will retry.
+                console.warn(`[RECONCILE] deposit ${dep.id} failed: ${e.message}`);
             }
         }
     } catch (e) {
-        console.error('[RECONCILE] error:', e.message);
+        console.error('[RECONCILE] outer error:', e.message);
     }
 }, 5 * 60 * 1000);
 
@@ -537,14 +559,12 @@ app.get('/usersettings', (req, res) => {
 // ─── ADMIN FRONTEND ─────────────────────────────────────────────
 app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
 
-// Admin login
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
 app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
 app.get('/admin/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
 app.get('/admin/airtime-data', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/admin/airtime-data.html'));
 });
-// Admin dashboard + money area
 app.get('/admin/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
 app.get('/admin/dashboard.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'dashboard.html')));
 app.get('/admin/transactions', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'transactions.html')));
@@ -568,13 +588,11 @@ app.get('/admin/revenue', (req, res) => {
 app.get('/admin/providers', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/admin/providers.html'));
 });
-// Admin customers
 app.get('/admin/users', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'users.html')));
 app.get('/admin/users.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'users.html')));
 app.get('/admin/support', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'support.html')));
 app.get('/admin/messages', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'messages.html')));
 
-// Admin services
 app.get('/admin/sellgift', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'sellgift.html')));
 app.get('/admin/airtime-data', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'airtime-data.html')));
 app.get('/admin/bills', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'bills.html')));
@@ -584,27 +602,34 @@ app.get('/admin/boost', (req, res) => res.sendFile(path.join(__dirname, 'public'
 app.get('/admin/marketplace-products', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'marketplace-products.html')));
 app.get('/admin/crypto', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'crypto.html')));
 
-// Admin operations
 app.get('/admin/orders', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'orders.html')));
 app.get('/admin/providers', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'providers.html')));
 app.get('/admin/webhooks', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'webhooks.html')));
 
-// Admin analytics
 app.get('/admin/revenue', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'revenue.html')));
 app.get('/admin/reports', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'reports.html')));
 app.get('/admin/service-performance', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'service-performance.html')));
 
-// Admin system
 app.get('/admin/notifications', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'notifications.html')));
 app.get('/admin/settings', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'settings.html')));
 app.get('/admin/ticker-manager', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'ticker-manager.html')));
 
-// Generic admin fallback
+// Generic admin fallback.
+// Path traversal is now blocked: a request for "/admin/../server.js"
+// resolves inside public/admin/ only, never above it.
+const ADMIN_PUBLIC_DIR = path.join(__dirname, 'public', 'admin');
 app.get(/^\/admin\/(.+)$/, (req, res) => {
     const requestedPath = req.params[0] || '';
+
+    // Reject any traversal attempt outright.
+    if (requestedPath.includes('..')) {
+        return res.redirect('/admin/dashboard.html');
+    }
+
     if (requestedPath && requestedPath.includes('.')) {
-        const fullPath = path.join(__dirname, 'public', 'admin', requestedPath);
-        if (fs.existsSync(fullPath)) {
+        const fullPath = path.join(ADMIN_PUBLIC_DIR, requestedPath);
+        // Confirm the resolved path is still inside public/admin.
+        if (fullPath.startsWith(ADMIN_PUBLIC_DIR) && fs.existsSync(fullPath)) {
             return res.sendFile(fullPath);
         }
     }
@@ -661,7 +686,6 @@ global.io = io;
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// ─── Built-in Presence Manager ──────────────────────────────────
 const presenceManager = {
     users: new Map(),
     admins: new Map(),
@@ -784,7 +808,6 @@ const presenceManager = {
     }
 };
 
-// ─── Socket.IO authentication ────────────────────────────────────
 io.use(async (socket, next) => {
     try {
         const token = socket.handshake.auth?.token;
@@ -827,7 +850,6 @@ io.use(async (socket, next) => {
     }
 });
 
-// ─── Socket.IO connection handler ────────────────────────────────
 io.on('connection', (socket) => {
     const userId = socket.userId;
     const userName = socket.userName;

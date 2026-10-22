@@ -1,5 +1,8 @@
 // routes/wallet/koraDeposits.js
-// NGN → NGN (₦50 fee). Foreign → USD at admin rate.
+//
+// Kora deposit lifecycle.
+//   NGN → NGN wallet (flat fee).
+//   Foreign currency → USD wallet at admin rate snapshot.
 
 'use strict';
 
@@ -10,12 +13,11 @@ const router = express.Router();
 const { supabaseAdmin } = require('../../db/supabase');
 const { authMiddleware } = require('../../middleware/auth');
 const IdempotencyService = require('../../services/idempotencyService');
-const korapayService  = require('../../services/korapayService');
-const fxService       = require('../../services/fxRateService');
-const depositService  = require('../../services/depositService');
+const korapayService     = require('../../services/korapayService');
+const fxService          = require('../../services/fxRateService');
+const depositService     = require('../../services/depositService');
 
 // ─── GET /api/wallet/deposit-currencies ────────────────────
-// Auth required — config is not public.
 router.get('/deposit-currencies', authMiddleware, async (req, res) => {
     try {
         const { data, error } = await supabaseAdmin
@@ -111,16 +113,23 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, error: 'idempotency_key required', code: 'IDEMPOTENCY_KEY_REQUIRED' });
         }
 
-        const fingerprint = crypto.createHash('sha256')
-            .update(JSON.stringify({ currency, amount: Number(amount) }))
-            .digest('hex');
+        const fingerprint = IdempotencyService.fingerprint
+            ? IdempotencyService.fingerprint({ currency: String(currency).toUpperCase(), amount: Number(amount) })
+            : crypto.createHash('sha256')
+                .update(JSON.stringify({ currency: String(currency).toUpperCase(), amount: Number(amount) }))
+                .digest('hex');
 
-        const existing = await IdempotencyService.check(userId, idempotency_key, 'kora_deposit_initialize');
-        if (existing) {
-            if (existing.request_fingerprint && existing.request_fingerprint !== fingerprint) {
-                return res.status(409).json({ success: false, error: 'Idempotency key reused with different parameters', code: 'IDEMPOTENCY_KEY_REUSED' });
-            }
-            return res.json(existing);
+        try {
+            const existing = await IdempotencyService.check(
+                userId, idempotency_key, 'kora_deposit_initialize', fingerprint
+            );
+            if (existing && !existing.__in_flight) return res.json(existing);
+        } catch (idemErr) {
+            return res.status(409).json({
+                success: false,
+                error: idemErr.message,
+                code: 'IDEMPOTENCY_KEY_REUSED'
+            });
         }
 
         const cfg = await fxService.getCurrencyConfig(currency);
@@ -170,7 +179,8 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
                     status: 'failed',
                     failure_reason: 'KORA_INITIALIZATION_FAILED',
                     provider_payload: koraErr.provider || { error: koraErr.message },
-                    failed_at: new Date().toISOString()
+                    failed_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', deposit.id);
             return res.status(502).json({ success: false, error: 'Payment provider initialization failed', code: 'KORA_INITIALIZATION_FAILED' });
@@ -203,10 +213,7 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
             checkout_url: koraResult.checkout_url
         };
 
-        await IdempotencyService.save(userId, idempotency_key, 'kora_deposit_initialize', {
-            ...responsePayload,
-            request_fingerprint: fingerprint
-        });
+        await IdempotencyService.save(userId, idempotency_key, 'kora_deposit_initialize', responsePayload);
 
         return res.json(responsePayload);
     } catch (e) {
@@ -218,17 +225,22 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
 });
 
 // ─── GET /api/wallet/deposits/kora/callback ────────────────
+// Kora redirects here after checkout. ALWAYS verify with Kora.
 router.get('/deposits/kora/callback', async (req, res) => {
     try {
         const ref = req.query.reference || req.query.merchant_reference;
         if (!ref) return res.redirect('/fund?deposit=missing_reference');
 
-        const { data: deposit } = await supabaseAdmin
+        const { data: deposit, error: findErr } = await supabaseAdmin
             .from('deposit_requests')
             .select('*')
             .or(`merchant_reference.eq.${ref},provider_reference.eq.${ref},internal_reference.eq.${ref}`)
             .maybeSingle();
 
+        if (findErr) {
+            console.error('[DEPOSIT CALLBACK] lookup failed:', findErr.message);
+            return res.redirect('/fund?deposit=error');
+        }
         if (!deposit) return res.redirect('/fund?deposit=not_found');
 
         if (deposit.status === 'completed') {
@@ -236,99 +248,147 @@ router.get('/deposits/kora/callback', async (req, res) => {
         }
 
         try {
-            const verified = await korapayService.verifyTransaction(deposit.provider_reference || ref);
-            verified._verified = true;
             const result = await depositService.completeKoraDeposit({
                 depositId: deposit.id,
-                providerTransaction: verified,
+                providerTransaction: {
+                    reference: deposit.provider_reference || ref
+                },
                 source: 'callback'
             });
+
             if (result.completed) {
                 return res.redirect('/fund?deposit=success&ref=' + encodeURIComponent(deposit.internal_reference));
             }
             return res.redirect('/fund?deposit=pending&ref=' + encodeURIComponent(deposit.internal_reference));
         } catch (e) {
+            console.error('[DEPOSIT CALLBACK] completeKoraDeposit threw:', e.message);
             return res.redirect('/fund?deposit=pending&ref=' + encodeURIComponent(deposit.internal_reference));
         }
     } catch (e) {
+        console.error('[DEPOSIT CALLBACK] outer error:', e.message);
         return res.redirect('/fund?deposit=error');
     }
 });
 
 // ─── POST /api/wallet/deposits/kora/webhook ────────────────
-// `express` is now imported at the top of this file, so
-// express.json({verify}) works. Raw body is captured for
-// signature verification.
+// The route MUST capture the raw body BEFORE express.json() parses
+// it. That is what `verify` does. The webhook handler then builds
+// two candidate canonical strings and passes both to the verifier.
 router.post(
     '/deposits/kora/webhook',
     express.json({
-        verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); }
+        verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); }
     }),
     async (req, res) => {
-        // Ack immediately so retries don't pile up.
+        // Ack immediately — Kora expects a fast 200.
         res.status(200).json({ received: true });
 
+        let eventRowId = null;
         try {
             const signature = req.headers['x-korapay-signature'];
-            const rawBody   = req.rawBody || JSON.stringify(req.body || {});
+            const rawBody   = req.rawBody || '';
+            const body      = req.body || {};
 
-            const valid = korapayService.verifyWebhookSignature(req.body?.data || req.body || {}, signature);
-            const parsed = korapayService.parseWebhook(req.body || {});
+            const candidates = korapayService.extractCanonicalDataStrings({
+                parsedBody: body,
+                rawBody
+            });
 
-            const { error: insertErr } = await supabaseAdmin
-                .from('kora_webhook_events')
-                .insert({
-                    provider: 'korapay',
-                    event_type: parsed.event_type,
-                    provider_reference: parsed.provider_reference,
-                    provider_event_ref: parsed.provider_event_ref,
-                    payload: parsed.raw,
-                    signature: signature || null,
-                    signature_valid: valid,
-                    processing_status: 'received'
-                });
+            const valid = korapayService.verifyWebhookSignature(candidates, signature);
 
-            // Duplicate event — already handled.
-            if (insertErr && insertErr.code === '23505') return;
+            console.log('[KORA WEBHOOK] received', {
+                event: body?.event || body?.type || null,
+                reference: body?.data?.reference || body?.data?.payment_reference || null,
+                signature_present: !!signature,
+                candidates: candidates.length,
+                valid
+            });
 
-            if (!valid) {
-                console.warn('[KORA WEBHOOK] invalid signature — ignoring');
+            if (!candidates.length) {
+                console.warn('[KORA WEBHOOK] no canonical candidate — body might not have arrived');
+            }
+
+            const parsed = korapayService.parseWebhook(body);
+            const providerRef = parsed.provider_reference;
+            if (!providerRef) {
+                console.warn('[KORA WEBHOOK] no provider reference — ignoring');
                 return;
             }
 
-            const providerRef = parsed.provider_reference;
-            if (!providerRef) return;
+            const persisted = await persistKoraEvent({
+                parsed,
+                rawBody,
+                signature,
+                valid
+            });
 
-            const { data: deposit } = await supabaseAdmin
+            if (persisted.duplicate && persisted.previousStatus === 'processed') {
+                console.log('[KORA WEBHOOK] duplicate of a processed event — ignoring');
+                return;
+            }
+
+            eventRowId = persisted.id || null;
+
+            if (!valid) {
+                console.warn('[KORA WEBHOOK] invalid signature — ignoring');
+                await markKoraEvent(eventRowId, {
+                    status: 'failed',
+                    error: 'INVALID_SIGNATURE'
+                });
+                return;
+            }
+
+            const { data: deposit, error: findErr } = await supabaseAdmin
                 .from('deposit_requests')
                 .select('*')
                 .or(`provider_reference.eq.${providerRef},merchant_reference.eq.${providerRef}`)
                 .maybeSingle();
 
-            if (!deposit) return;
+            if (findErr) {
+                await markKoraEvent(eventRowId, {
+                    status: 'failed',
+                    error: `DEPOSIT_LOOKUP_FAILED: ${findErr.message}`.slice(0, 500)
+                });
+                return;
+            }
+            if (!deposit) {
+                await markKoraEvent(eventRowId, {
+                    status: 'failed',
+                    error: 'DEPOSIT_NOT_FOUND'
+                });
+                return;
+            }
+
+            const verifiedData = {
+                provider_status: parsed.status,
+                amount: parsed.amount,
+                currency: parsed.currency,
+                reference: parsed.provider_reference
+            };
+            const digest = depositService.computeVerifiedDigest(verifiedData);
 
             const result = await depositService.completeKoraDeposit({
                 depositId: deposit.id,
                 providerTransaction: {
-                    provider_status: parsed.status,
-                    amount:          parsed.amount,
-                    currency:        parsed.currency,
-                    reference:       providerRef,
-                    _verified:       false
+                    ...verifiedData,
+                    _trustedVerified: true,
+                    _verifiedDigest: digest
                 },
                 source: 'webhook'
             });
 
-            await supabaseAdmin
-                .from('kora_webhook_events')
-                .update({
-                    processing_status: result.completed ? 'processed' : 'failed',
-                    processing_error:  result.completed ? null : (result.reason || null),
-                    processed_at:      new Date().toISOString()
-                })
-                .eq('provider_reference', providerRef);
+            await markKoraEvent(eventRowId, {
+                status: result.completed ? 'processed' : 'failed',
+                error: result.completed ? null : (result.reason || 'UNKNOWN')
+            });
         } catch (e) {
-            console.error('[KORA WEBHOOK] error:', e.message);
+            console.error('[KORA WEBHOOK] handler error:', e.message);
+            try {
+                await markKoraEvent(eventRowId, {
+                    status: 'failed',
+                    error: e.message.slice(0, 500)
+                });
+            } catch { /* ignore */ }
         }
     }
 );
@@ -372,5 +432,67 @@ router.get('/deposits/:reference', authMiddleware, async (req, res) => {
         return res.status(500).json({ success: false, error: 'Failed to fetch deposit' });
     }
 });
+
+// ─── HELPERS ──────────────────────────────────────────────
+async function persistKoraEvent({ parsed, rawBody, signature, valid }) {
+    const eventHash = crypto
+        .createHash('sha256')
+        .update(rawBody || JSON.stringify(parsed.raw || {}))
+        .digest('hex');
+
+    const row = {
+        provider:          'korapay',
+        event_type:        parsed.event_type || null,
+        provider_reference: parsed.provider_reference,
+        provider_event_ref: parsed.provider_event_ref || eventHash,
+        payload:           parsed.raw || {},
+        signature:         signature || null,
+        signature_valid:   !!valid,
+        processing_status: 'received'
+    };
+
+    const { data, error } = await supabaseAdmin
+        .from('kora_webhook_events')
+        .insert(row)
+        .select('id')
+        .single();
+
+    if (!error) return { id: data.id, duplicate: false };
+
+    if (error.code === '23505') {
+        const { data: existing } = await supabaseAdmin
+            .from('kora_webhook_events')
+            .select('id, processing_status')
+            .eq('provider', 'korapay')
+            .eq('provider_reference', parsed.provider_reference)
+            .eq('provider_event_ref', row.provider_event_ref)
+            .maybeSingle();
+
+        return {
+            id: existing?.id || null,
+            duplicate: true,
+            previousStatus: existing?.processing_status || null
+        };
+    }
+
+    console.warn('[KORA WEBHOOK] persist failed:', error.message);
+    return { id: null, duplicate: false };
+}
+
+async function markKoraEvent(id, { status, error }) {
+    if (!id) return;
+    try {
+        await supabaseAdmin
+            .from('kora_webhook_events')
+            .update({
+                processing_status: status,
+                processing_error:  error || null,
+                processed_at:      new Date().toISOString()
+            })
+            .eq('id', id);
+    } catch (e) {
+        console.warn('[KORA WEBHOOK] markKoraEvent failed:', e.message);
+    }
+}
 
 module.exports = router;
