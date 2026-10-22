@@ -2550,13 +2550,21 @@ function initFiatMode(fundMode) {
       renderFiatPresets();
     });
   } else {
-    DOM.depCurrencyGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--t3);padding:6px;"><span class="spinner"></span> Loading…</div>`;
+    // ── INSTANT NGN LOAD: Set fallback NGN immediately ──
+    DOM.depCurrencyGrid.innerHTML = renderFiatCurrencyCard({ code: 'NGN', display_name: 'Nigeria Naira', enabled: true }, true);
+    State.depSelectedCurrency = { code: 'NGN', min_amount: 500, max_amount: 1000000, deposit_fee: 50 };
+    updateAmountBlockForMode();
+    renderFiatPresets();
+    bindFiatCurrencyCardHandlers();
+
+    // Background refresh of the actual currency config
     loadDepositCurrencies().then(() => {
       const ngn = State.depCurrencies.find(c => c.code === 'NGN');
-      State.depSelectedCurrency = ngn || null;
-      renderFiatCurrencies();
-      updateAmountBlockForMode();
-      renderFiatPresets();
+      if (ngn) {
+        State.depSelectedCurrency = ngn;
+        updateAmountBlockForMode();
+        renderFiatPresets();
+      }
     });
   }
 }
@@ -2907,8 +2915,14 @@ async function submitFiatDeposit() {
   if (!cfg) { showToast('Select a currency', 'error'); return; }
   if (State.depSubmitting) return;
 
-  const typed = parseFloat(String(DOM.fundAmount.value).replace(/,/g, '')) || 0;
-  if (!typed || typed <= 0) { showToast('Enter an amount to continue', 'error'); return; }
+  // ── Fix: Sanitize the input string into a valid JS Number ──
+  const rawValue = String(DOM.fundAmount.value || '').replace(/,/g, '').trim();
+  const typed = Number(rawValue);
+
+  if (!rawValue || isNaN(typed) || typed <= 0) {
+    showToast('Enter a valid amount to continue', 'error');
+    return;
+  }
   if (typed < Number(cfg.min_amount)) { showToast(`Minimum is ${formatMoney(cfg.min_amount, cfg.code)}`, 'error'); return; }
   if (typed > Number(cfg.max_amount)) { showToast(`Maximum is ${formatMoney(cfg.max_amount, cfg.code)}`, 'error'); return; }
 
@@ -2920,11 +2934,12 @@ async function submitFiatDeposit() {
 
   let redirecting = false;
   try {
+    console.log("🚀 SENDING TO KORA:", { currency: cfg?.code, amount: typed, idempotency_key: State.depIdempotencyKey });
     const resp = await apiRequest('/wallet/deposits/kora/initialize', {
       method: 'POST',
       body: JSON.stringify({
-        currency: cfg.code,
-        amount: typed,
+        currency: cfg.code, // Always defined because of fallback
+        amount: typed,      // Valid Number
         idempotency_key: State.depIdempotencyKey
       })
     });

@@ -1,8 +1,4 @@
 // routes/wallet/koraDeposits.js
-//
-// Kora deposit lifecycle.
-//   NGN → NGN wallet (flat fee).
-//   Foreign currency → USD wallet at admin rate snapshot.
 
 'use strict';
 
@@ -56,15 +52,19 @@ router.get('/deposit-currencies', authMiddleware, async (req, res) => {
 });
 
 // ─── POST /api/wallet/deposits/quote ───────────────────────
-router.post('/deposits/quote', authMiddleware, async (req, res) => {
+router.post('/deposits/quote', express.json(), authMiddleware, async (req, res) => {
     try {
         const { currency, amount } = req.body || {};
-        if (!currency || amount == null) {
-            return res.status(400).json({ success: false, error: 'currency and amount required', code: 'MISSING_FIELDS' });
+        
+        let cleanAmount = amount;
+        if (typeof cleanAmount === 'string') cleanAmount = Number(cleanAmount.replace(/,/g, '').trim());
+
+        if (!currency || cleanAmount == null || isNaN(cleanAmount)) {
+            return res.status(400).json({ success: false, error: 'currency and a valid amount required', code: 'MISSING_FIELDS' });
         }
 
         const cfg = await fxService.getCurrencyConfig(currency);
-        const amtNum = Number(amount);
+        const amtNum = Number(cleanAmount);
 
         if (!Number.isFinite(amtNum) || amtNum <= 0) {
             return res.status(400).json({ success: false, error: 'Invalid amount', code: 'INVALID_AMOUNT' });
@@ -101,22 +101,26 @@ router.post('/deposits/quote', authMiddleware, async (req, res) => {
 });
 
 // ─── POST /api/wallet/deposits/kora/initialize ─────────────
-router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
+router.post('/deposits/kora/initialize', express.json(), authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
         const { currency, amount, idempotency_key } = req.body || {};
 
-        if (!currency || amount == null) {
-            return res.status(400).json({ success: false, error: 'currency and amount required', code: 'MISSING_FIELDS' });
+        // Strict Number Parsing
+        let cleanAmount = amount;
+        if (typeof cleanAmount === 'string') cleanAmount = Number(cleanAmount.replace(/,/g, '').trim());
+
+        if (!currency || cleanAmount == null || isNaN(cleanAmount) || cleanAmount <= 0) {
+            return res.status(400).json({ success: false, error: 'Currency and a valid amount are required', code: 'MISSING_FIELDS' });
         }
         if (!idempotency_key) {
             return res.status(400).json({ success: false, error: 'idempotency_key required', code: 'IDEMPOTENCY_KEY_REQUIRED' });
         }
 
         const fingerprint = IdempotencyService.fingerprint
-            ? IdempotencyService.fingerprint({ currency: String(currency).toUpperCase(), amount: Number(amount) })
+            ? IdempotencyService.fingerprint({ currency: String(currency).toUpperCase(), amount: Number(cleanAmount) })
             : crypto.createHash('sha256')
-                .update(JSON.stringify({ currency: String(currency).toUpperCase(), amount: Number(amount) }))
+                .update(JSON.stringify({ currency: String(currency).toUpperCase(), amount: Number(cleanAmount) }))
                 .digest('hex');
 
         try {
@@ -133,11 +137,8 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
         }
 
         const cfg = await fxService.getCurrencyConfig(currency);
-        const amtNum = Number(amount);
+        const amtNum = Number(cleanAmount);
 
-        if (!Number.isFinite(amtNum) || amtNum <= 0) {
-            return res.status(400).json({ success: false, error: 'Invalid amount', code: 'INVALID_AMOUNT' });
-        }
         if (amtNum < Number(cfg.min_amount)) {
             return res.status(400).json({ success: false, error: `Minimum deposit for ${currency} is ${cfg.min_amount}`, code: 'AMOUNT_TOO_LOW' });
         }
@@ -156,12 +157,19 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
 
         let koraResult;
         try {
+            console.log('[KORA INIT] Payload:', {
+                amount: amtNum,
+                currency: cfg.code,
+                reference: deposit.merchant_reference,
+                customerEmail: profile.email
+            });
+
             koraResult = await korapayService.initializeCheckout({
                 amount: amtNum,
                 currency: cfg.code,
                 reference: deposit.merchant_reference,
                 customerName:  profile.username || 'MilesSpace Customer',
-                customerEmail: profile.email,
+                customerEmail: (profile.email && profile.email.includes('@')) ? profile.email : 'customer@milesspace.com',
                 narration:     `MilesSpace deposit — ${cfg.code} ${amtNum}`,
                 metadata: {
                     milespace_deposit_id: deposit.id,
@@ -172,7 +180,8 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
                 }
             });
         } catch (koraErr) {
-            console.error('[DEPOSIT] Kora init failed:', koraErr.message);
+            console.error('[KORA INIT] Kora rejected payload:', koraErr.provider || koraErr.message);
+            
             await supabaseAdmin
                 .from('deposit_requests')
                 .update({
@@ -183,6 +192,7 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', deposit.id);
+                
             return res.status(502).json({ success: false, error: 'Payment provider initialization failed', code: 'KORA_INITIALIZATION_FAILED' });
         }
 
@@ -210,7 +220,8 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
                 fee_currency:           breakdown.fee_currency,
                 status:                 'pending'
             },
-            checkout_url: koraResult.checkout_url
+            checkout_url: koraResult.checkout_url,
+            public_key: process.env.KORA_PUBLIC_KEY 
         };
 
         await IdempotencyService.save(userId, idempotency_key, 'kora_deposit_initialize', responsePayload);
@@ -225,7 +236,6 @@ router.post('/deposits/kora/initialize', authMiddleware, async (req, res) => {
 });
 
 // ─── GET /api/wallet/deposits/kora/callback ────────────────
-// Kora redirects here after checkout. ALWAYS verify with Kora.
 router.get('/deposits/kora/callback', async (req, res) => {
     try {
         const ref = req.query.reference || req.query.merchant_reference;
@@ -271,16 +281,12 @@ router.get('/deposits/kora/callback', async (req, res) => {
 });
 
 // ─── POST /api/wallet/deposits/kora/webhook ────────────────
-// The route MUST capture the raw body BEFORE express.json() parses
-// it. That is what `verify` does. The webhook handler then builds
-// two candidate canonical strings and passes both to the verifier.
 router.post(
     '/deposits/kora/webhook',
     express.json({
         verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); }
     }),
     async (req, res) => {
-        // Ack immediately — Kora expects a fast 200.
         res.status(200).json({ received: true });
 
         let eventRowId = null;

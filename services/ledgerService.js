@@ -3,11 +3,6 @@
 // services/ledgerService.js
 //
 // The ledger is the ONLY authority that changes wallet balances.
-// Every balance change goes through process_transaction_v2.
-//
-// Cashback is NO LONGER SUPPORTED as an active transaction type.
-// Historical `cashback_redeem` rows remain readable in `transactions`
-// but any attempt to CREATE one is rejected here.
 
 const { supabaseAdmin } = require('../db/supabase');
 const crypto = require('crypto');
@@ -17,9 +12,6 @@ const DEFAULT_CURRENCY = 'NGN';
 const SUPPORTED_CURRENCIES = new Set(['NGN', 'USD']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// ─── TYPE → DIRECTION ────────────────────────────────────
-// Only ACTIVE transaction types are listed. Retired types
-// (cashback_redeem) are rejected before reaching this map.
 const TYPE_DIRECTION = {
     deposit:       'credit',
     wallet_credit: 'credit',
@@ -30,29 +22,12 @@ const TYPE_DIRECTION = {
     fee_revenue:   'credit'
 };
 
-// Historical-only types: readable in history, but cannot be
-// created. Kept here so verification of an existing row works.
 const HISTORICAL_TYPES = new Set(['cashback_redeem', 'cashback']);
 
-const ACCOUNT_COLUMNS = [
-    'id', 'user_id', 'currency', 'available_balance', 'held_balance', 'created_at', 'updated_at'
-].join(', ');
-
-const ENTRY_COLUMNS = [
-    'id', 'account_id', 'transaction_id', 'entry_type', 'amount', 'currency',
-    'balance_before', 'balance_after', 'description', 'created_at'
-].join(', ');
-
-const TX_COLUMNS_MIN = [
-    'id', 'user_id', 'type', 'status', 'currency', 'amount', 'reference',
-    'source_type', 'source_id', 'created_at', 'completed_at'
-].join(', ');
-
-const TX_COLUMNS_VERIFY = [
-    'id', 'user_id', 'type', 'status', 'currency', 'amount', 'reference',
-    'source_type', 'source_id', 'provider', 'provider_reference',
-    'created_at', 'completed_at'
-].join(', ');
+const ACCOUNT_COLUMNS = 'id, user_id, currency, available_balance, held_balance, created_at, updated_at';
+const ENTRY_COLUMNS = 'id, account_id, transaction_id, entry_type, amount, currency, balance_before, balance_after, description, created_at';
+const TX_COLUMNS_MIN = 'id, user_id, type, status, currency, amount, reference, source_type, source_id, created_at, completed_at';
+const TX_COLUMNS_VERIFY = 'id, user_id, type, status, currency, amount, reference, source_type, source_id, provider, provider_reference, created_at, completed_at';
 
 function round2(n) {
     return Math.round(Number(n) * 100) / 100;
@@ -140,7 +115,6 @@ class LedgerService {
         provider = null, providerReference = null,
         metadata = {}, idempotencyKey = null
     }) {
-        // ── Input validation ──────────────────────────────────
         if (!UUID_RE.test(String(userId || ''))) {
             throw new Error('createTransaction: userId must be a UUID');
         }
@@ -149,12 +123,8 @@ class LedgerService {
             throw new Error(`createTransaction: unsupported currency ${ccy}`);
         }
 
-        // ── Cashback guard ───────────────────────────────────
-        // Historical types cannot be created via this method.
-        // Legitimate retries of already-completed rows go through
-        // the 23505 recovery path below, which is fine.
         if (HISTORICAL_TYPES.has(String(type))) {
-            throw new Error(`createTransaction: "${type}" is retired and cannot be created for new transactions`);
+            throw new Error(`createTransaction: "${type}" is retired and cannot be created`);
         }
 
         const rawAmount = parseFloat(amount);
@@ -179,7 +149,7 @@ class LedgerService {
             reference = `${prefix}-${ts}-${rnd}`;
         }
 
-        // ── Idempotency bookkeeping ──────────────────────────
+        // ── Idempotency ──────────────────────────────────────
         if (idempotencyKey) {
             const existing = await IdempotencyService.check(userId, idempotencyKey, 'transaction');
             if (existing && !existing.__in_flight) return existing;
@@ -220,16 +190,13 @@ class LedgerService {
             source_id: sourceId,
             provider,
             provider_reference: providerReference,
-            metadata: {
-                ...metadata,
-                direction,
-                currency_type: ccy
-            },
+            metadata: { ...metadata, direction, currency_type: ccy },
             created_at: nowIso,
             updated_at: nowIso,
             completed_at: nowIso
         };
 
+        // ── RPC ──────────────────────────────────────────────
         const { data: result, error } = await supabaseAdmin.rpc('process_transaction_v2', {
             p_user_id:          userId,
             p_account_id:       account.id,
@@ -239,7 +206,6 @@ class LedgerService {
             p_currency:         ccy
         });
 
-        // ── RPC error handling ───────────────────────────────
         if (error) {
             if (idempotencyKey) {
                 await IdempotencyService.release(userId, idempotencyKey, 'transaction').catch(() => {});
@@ -261,8 +227,7 @@ class LedgerService {
                 if (!sameUser || !sameType || !sameCurrency || !sameAmount ||
                     !sameSourceType || !sameSourceId || !sameProviderRef) {
                     throw new Error(
-                        `Transaction failed: reference ${reference} exists but does not match the intended operation. ` +
-                        `This is a conflict and must be investigated.`
+                        `Transaction failed: reference ${reference} exists but does not match the intended operation.`
                     );
                 }
                 return {
@@ -278,7 +243,7 @@ class LedgerService {
             throw new Error(`Transaction failed: ${error.message}`);
         }
 
-        // ── RPC success ──────────────────────────────────────
+        // ── Success ──────────────────────────────────────────
         const payload = Array.isArray(result) ? result[0] : result;
         let transactionId = payload?.transaction_id || payload?.id || null;
 
@@ -289,7 +254,7 @@ class LedgerService {
                 if (idempotencyKey) {
                     await IdempotencyService.release(userId, idempotencyKey, 'transaction').catch(() => {});
                 }
-                throw new Error(`Transaction failed: RPC returned no transaction_id and no row exists for ${reference}`);
+                throw new Error(`Transaction failed: RPC returned no transaction_id for ${reference}`);
             }
         }
 
@@ -321,17 +286,10 @@ class LedgerService {
     static async creditWallet(...args) {
         const o = this._normalizeWalletArgs(args, 'credit');
         return await this.createTransaction({
-            userId: o.userId,
-            type: o.type || 'wallet_credit',
-            amount: Math.abs(o.amount),
-            currency: o.currency,
-            description: o.description,
-            reference: o.reference,
-            sourceType: o.sourceType,
-            sourceId: o.sourceId,
-            provider: o.provider || null,
-            providerReference: o.providerReference || null,
-            metadata: o.metadata,
+            userId: o.userId, type: o.type || 'wallet_credit', amount: Math.abs(o.amount),
+            currency: o.currency, description: o.description, reference: o.reference,
+            sourceType: o.sourceType, sourceId: o.sourceId, provider: o.provider || null,
+            providerReference: o.providerReference || null, metadata: o.metadata,
             idempotencyKey: o.idempotencyKey || null
         });
     }
@@ -339,17 +297,10 @@ class LedgerService {
     static async debitWallet(...args) {
         const o = this._normalizeWalletArgs(args, 'debit');
         return await this.createTransaction({
-            userId: o.userId,
-            type: o.type || 'wallet_debit',
-            amount: -Math.abs(o.amount),
-            currency: o.currency,
-            description: o.description,
-            reference: o.reference,
-            sourceType: o.sourceType,
-            sourceId: o.sourceId,
-            provider: o.provider || null,
-            providerReference: o.providerReference || null,
-            metadata: o.metadata,
+            userId: o.userId, type: o.type || 'wallet_debit', amount: -Math.abs(o.amount),
+            currency: o.currency, description: o.description, reference: o.reference,
+            sourceType: o.sourceType, sourceId: o.sourceId, provider: o.provider || null,
+            providerReference: o.providerReference || null, metadata: o.metadata,
             idempotencyKey: o.idempotencyKey || null
         });
     }
@@ -410,30 +361,21 @@ class LedgerService {
 
     static async getTransactionByReference(reference) {
         const { data, error } = await supabaseAdmin
-            .from('transactions')
-            .select(TX_COLUMNS_MIN)
-            .eq('reference', reference)
-            .maybeSingle();
+            .from('transactions').select(TX_COLUMNS_MIN).eq('reference', reference).maybeSingle();
         if (error) throw new Error(`getTransactionByReference failed: ${error.message}`);
         return data || null;
     }
 
     static async getTransactionByReferenceForVerification(reference) {
         const { data, error } = await supabaseAdmin
-            .from('transactions')
-            .select(TX_COLUMNS_VERIFY)
-            .eq('reference', reference)
-            .maybeSingle();
+            .from('transactions').select(TX_COLUMNS_VERIFY).eq('reference', reference).maybeSingle();
         if (error) throw new Error(`getTransactionByReferenceForVerification failed: ${error.message}`);
         return data || null;
     }
 
     static async getTransactionById(id) {
         const { data, error } = await supabaseAdmin
-            .from('transactions')
-            .select(TX_COLUMNS_MIN)
-            .eq('id', id)
-            .maybeSingle();
+            .from('transactions').select(TX_COLUMNS_MIN).eq('id', id).maybeSingle();
         if (error) throw new Error(`getTransactionById failed: ${error.message}`);
         return data || null;
     }
@@ -441,27 +383,21 @@ class LedgerService {
     static async getLedgerEntriesByTransaction(transactionId) {
         if (!UUID_RE.test(String(transactionId || ''))) return [];
         const { data, error } = await supabaseAdmin
-            .from('ledger_entries')
-            .select(ENTRY_COLUMNS)
-            .eq('transaction_id', transactionId)
-            .order('created_at', { ascending: true });
+            .from('ledger_entries').select(ENTRY_COLUMNS)
+            .eq('transaction_id', transactionId).order('created_at', { ascending: true });
         if (error) throw new Error(error.message);
         return data || [];
     }
 }
 
-// ─── AdminConfigService ────────────────────────────────────
 class AdminConfigService {
-
     static ALLOWED_KEYS = new Set([
         'usd_to_ngn', 'boost_markup', 'gift_card_markup',
         'virtual_sms_markup', 'marketplace_markup', 'airtime_markup'
     ]);
 
     static async getSettingsOrNull() {
-        const { data, error } = await supabaseAdmin
-            .from('app_config')
-            .select('key, value');
+        const { data, error } = await supabaseAdmin.from('app_config').select('key, value');
         if (error) return null;
         const settings = {};
         (data || []).forEach(item => { settings[item.key] = item.value; });
@@ -471,7 +407,7 @@ class AdminConfigService {
     static async getSettings() {
         const s = await this.getSettingsOrNull();
         if (s === null) {
-            console.error('[ADMIN CONFIG] database read failed — refusing to guess financial settings');
+            console.error('[ADMIN CONFIG] database read failed');
             throw new Error('Configuration unavailable');
         }
         return s;
@@ -494,10 +430,7 @@ class AdminConfigService {
         }
         const { error } = await supabaseAdmin
             .from('app_config')
-            .upsert(
-                { key, value: String(n), updated_at: new Date().toISOString() },
-                { onConflict: 'key' }
-            );
+            .upsert({ key, value: String(n), updated_at: new Date().toISOString() }, { onConflict: 'key' });
         if (error) throw new Error(`Failed to update ${key}: ${error.message}`);
         return { success: true, key, value: n };
     }
@@ -505,9 +438,7 @@ class AdminConfigService {
     static async getExchangeRate() {
         const s = await this.getSettings();
         const n = parseFloat(s.usd_to_ngn);
-        if (!Number.isFinite(n) || n <= 0) {
-            throw new Error('getExchangeRate: usd_to_ngn is not configured');
-        }
+        if (!Number.isFinite(n) || n <= 0) throw new Error('getExchangeRate: usd_to_ngn is not configured');
         return n;
     }
 
@@ -515,9 +446,7 @@ class AdminConfigService {
         const s = await this.getSettings();
         const raw = s[`${service}_markup`];
         const n = parseFloat(raw);
-        if (!Number.isFinite(n) || n < 0) {
-            throw new Error(`getMarkup: "${service}_markup" is not configured`);
-        }
+        if (!Number.isFinite(n) || n < 0) throw new Error(`getMarkup: "${service}_markup" is not configured`);
         return n;
     }
 }

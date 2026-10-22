@@ -1,29 +1,5 @@
 // services/cryptoDepositService.js
-//
 // Crypto deposits via NowPayments.
-//
-// Business rule (gross-up):
-//   Customer requests $5.00 USD wallet credit.
-//   Provider fee = 1%.
-//   Provider receives: 5.00 / (1 - 0.01) = $5.05050505
-//   Wallet gets $5.00 on successful payment.
-//
-// The fee is an INTERNAL concept. Never surfaced to the frontend.
-//
-// Partial / underpaid / wrong-asset → manual_review.
-// Overpayment → credit the customer's LOCKED requested amount.
-//
-// IDEMPOTENCY:
-//   • crypto_deposits has ONE row per NowPayments payment.
-//   • The claim RPC flips `pending → processing_credit` atomically.
-//   • transactions.reference = NP-<paymentId> is unique.
-//   • A second webhook cannot reach the ledger because the first
-//     one already holds the claim; if it somehow does, the unique
-//     reference makes the second ledger call return already_exists.
-//
-// NOTIFICATION:
-//   deposit_notified flag ensures exactly one notification + one
-//   email, even across retries.
 
 const crypto = require('crypto');
 const axios = require('axios');
@@ -33,7 +9,7 @@ const { createNotification } = require('./notificationService');
 const emailService = require('./emailService');
 
 const NOWPAYMENTS_API_KEY    = process.env.NOWPAYMENTS_API_KEY;
-const NOWPAYMENTS_API_BASE   = 'https://api.nowpayments.io/v1';
+const NOWPAYMENTS_API_BASE   = process.env.NOWPAYMENTS_API_BASE || 'https://api-sandbox.nowpayments.io/v1';
 const NOWPAYMENTS_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET;
 
 const FEE_RATE_SINGLE   = Number(process.env.NOWPAYMENTS_DEPOSIT_FEE_RATE || 0.01);
@@ -204,7 +180,6 @@ async function createCryptoDeposit({
         throw Object.assign(new Error('User not found'), { code: 'USER_NOT_FOUND' });
     }
 
-    // ── Reserve: status='awaiting_payment_id', payment_id=NULL.
     const orderId = `MSCR-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
     const { data: reserved, error: reserveErr } = await supabaseAdmin
@@ -244,7 +219,6 @@ async function createCryptoDeposit({
         throw Object.assign(new Error('Could not save deposit'), { code: 'DB_ERROR' });
     }
 
-    // ── Call provider.
     const npPayload = {
         price_amount: requiredUsd,
         price_currency: 'USD',
@@ -344,8 +318,6 @@ async function createCryptoDeposit({
         .single();
 
     if (updErr) {
-        // Row still exists with order_id + idempotency_key.
-        // A reconciler can find it by order_id and complete the update.
         console.error('[CRYPTO] post-provider save failed:', updErr.message);
         return publicPayload;
     }
@@ -369,7 +341,8 @@ async function insertPendingTransactionRow(deposit, _expectedCrypto) {
         idempotency_key: deposit.idempotency_key
     };
 
-    const { error } = await supabaseAdmin.from('transactions').insert({
+    // FIX: Use upsert to prevent duplicates
+    const { error } = await supabaseAdmin.from('transactions').upsert({
         user_id: deposit.user_id,
         type: 'deposit',
         category: 'credit',
@@ -388,7 +361,8 @@ async function insertPendingTransactionRow(deposit, _expectedCrypto) {
         meta,
         metadata: meta,
         created_at: new Date().toISOString()
-    });
+    }, { onConflict: 'reference' });
+    
     if (error && error.code !== '23505') {
         console.warn('[CRYPTO] pending row insert failed:', error.message);
     }
@@ -468,8 +442,6 @@ function decideCredit(deposit, parsed) {
 async function verifyAndComplete(paymentId, source = 'status') {
     if (!paymentId) return { completed: false, reason: 'MISSING_PAYMENT_ID' };
 
-    // 1. Verify with NowPayments FIRST. Never trust a webhook's
-    //    claimed status or amount.
     let provider;
     try {
         const { data } = await axios.get(`${NOWPAYMENTS_API_BASE}/payment/${paymentId}`, {
@@ -488,7 +460,6 @@ async function verifyAndComplete(paymentId, source = 'status') {
 
     const parsed = parseProviderPayment(provider);
 
-    // 2. Load the local deposit row.
     const { data: deposit, error } = await supabaseAdmin
         .from('crypto_deposits')
         .select('*')
@@ -502,7 +473,6 @@ async function verifyAndComplete(paymentId, source = 'status') {
         return { completed: true, already_completed: true, reason: 'ALREADY_COMPLETED' };
     }
 
-    // 3. Route non-terminal states.
     const nonSuccessStatuses = {
         failed: 'failed',
         refunded: 'failed',
@@ -544,7 +514,6 @@ async function verifyAndComplete(paymentId, source = 'status') {
         return { completed: false, reason: `PROVIDER_${parsed.status.toUpperCase()}` };
     }
 
-    // 4. Decide credit.
     const decision = decideCredit(deposit, parsed);
 
     if (decision.action === 'hold') {
@@ -574,10 +543,6 @@ async function verifyAndComplete(paymentId, source = 'status') {
 
     const reference = `NP-${paymentId}`;
 
-    // 5. Ledger credit. Idempotent at the DB layer via unique
-    //    transactions.reference. A second call with the same
-    //    reference gets 23505 → returns existing row → we treat
-    //    it as success.
     let ledgerResult;
     try {
         ledgerResult = await LedgerService.createTransaction({
@@ -586,7 +551,7 @@ async function verifyAndComplete(paymentId, source = 'status') {
             amount: creditUsd,
             currency: 'USD',
             description: `Crypto deposit — ${deposit.pay_currency}`,
-            reference,
+            // FIX: Removed `reference` to let LedgerService generate its own internal reference, preventing a duplicate row
             sourceType: 'crypto_deposit',
             sourceId: deposit.id,
             provider: 'nowpayments',
@@ -635,7 +600,6 @@ async function verifyAndComplete(paymentId, source = 'status') {
 
     const nowIso = new Date().toISOString();
 
-    // 6. Mark the deposit completed. Idempotent via neq('status','completed').
     await supabaseAdmin
         .from('crypto_deposits')
         .update({
@@ -652,28 +616,19 @@ async function verifyAndComplete(paymentId, source = 'status') {
         .eq('id', deposit.id)
         .neq('status', 'completed');
 
-    // 7. Flip the pending history row. If the ledger already wrote
-    //    a final row (23505 on update), that's fine — history is
-    //    done.
     await syncUserFacingTransaction(deposit, 'completed', parsed, {
         creditedUsd: creditUsd,
         ledgerTransactionId: ledgerResult.transaction_id || null,
         finalReference: reference
     });
 
-    // 8. Notification + email, ONCE per deposit.
     await _notifyCryptoDepositOnce(deposit, creditUsd, nowIso);
 
     return { completed: true, creditedUsd: creditUsd, reason: decision.reason };
 }
 
 // ─── NOTIFY ONCE ───────────────────────────────────────
-// Atomic claim on a `deposit_notified` boolean added to
-// crypto_deposits. If the column doesn't exist yet, we fall back
-// to sending once per call (email will dedupe at the transport
-// layer if you configure an outbox — not required for v1).
 async function _notifyCryptoDepositOnce(deposit, creditUsd, completedAtIso) {
-    // Try to claim the notification slot.
     let claimed = false;
     try {
         const { data: updated, error } = await supabaseAdmin
@@ -684,8 +639,6 @@ async function _notifyCryptoDepositOnce(deposit, creditUsd, completedAtIso) {
             .select('id');
 
         if (error) {
-            // Column may not exist on older deployments. Fall back
-            // to sending once (this call).
             if (error.code === '42703' || /deposit_notified/.test(error.message)) {
                 claimed = true;
             } else {
@@ -741,9 +694,6 @@ async function _notifyCryptoDepositOnce(deposit, creditUsd, completedAtIso) {
 }
 
 // ─── HISTORY SYNC ──────────────────────────────────────
-// Reads the pending row by reference, updates it, or inserts a
-// final row if none exists. Treats 23505 as success (ledger
-// already wrote the final row).
 async function syncUserFacingTransaction(deposit, status, parsed, extra = {}) {
     try {
         const paymentId = String(deposit.nowpayments_payment_id || '');
@@ -809,7 +759,7 @@ async function syncUserFacingTransaction(deposit, status, parsed, extra = {}) {
         }
 
         const insertRef = status === 'completed' ? finalRef : pendingRef;
-        const { error: insErr } = await supabaseAdmin.from('transactions').insert({
+        const { error: insErr } = await supabaseAdmin.from('transactions').upsert({
             user_id: deposit.user_id,
             type: 'deposit',
             category: 'credit',
@@ -830,7 +780,8 @@ async function syncUserFacingTransaction(deposit, status, parsed, extra = {}) {
             created_at: nowIso,
             completed_at: status === 'completed' ? nowIso : null,
             failed_at: status === 'failed' ? nowIso : null
-        });
+        }, { onConflict: 'reference' });
+        
         if (insErr && insErr.code !== '23505') {
             console.warn('[CRYPTO] syncUserFacingTransaction insert failed:', insErr.message);
         }
