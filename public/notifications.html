@@ -263,9 +263,6 @@ function showToast(message, type = 'info') {
 }
 
 // ── API CALL — uses window.userFetch ──
-// The access token is attached automatically, and a 401 triggers
-// one silent refresh + retry inside session.js. If the session is
-// truly dead, session.js will redirect and we'll throw.
 async function apiCall(path, options = {}) {
   const fetcher = (typeof window.userFetch === 'function')
     ? window.userFetch
@@ -284,8 +281,6 @@ async function apiCall(path, options = {}) {
     throw err;
   }
 
-  // userFetch handles the redirect on real auth failure. If we still
-  // see 401 here, the session is gone.
   if (res.status === 401) {
     if (typeof window.redirectToUserLogin === 'function') {
       window.redirectToUserLogin();
@@ -322,7 +317,12 @@ async function loadNotifications() {
   try {
     const result = await apiCall('/notifications');
     const notifications = result.data || [];
-    const unreadCount = notifications.filter(n => !n.read).length;
+    
+    // Safely handle both `is_read` and `read` fields
+    const unreadCount = notifications.filter(n => {
+      const isRead = (n.is_read === true || n.read === true);
+      return !isRead;
+    }).length;
 
     document.getElementById('unreadCount').textContent = unreadCount;
 
@@ -344,8 +344,12 @@ async function loadNotifications() {
         n.type === 'boost'    ? 'fa-chart-line' :
         n.type === 'giftcard' ? 'fa-gift' :
         'fa-bell';
+        
+      // Standardize read status
+      const isRead = (n.is_read === true || n.read === true);
+
       return `
-        <div class="notification-item ${!n.read ? 'unread' : ''}" data-id="${escapeHtml(n.id)}">
+        <div class="notification-item ${!isRead ? 'unread' : ''}" data-id="${escapeHtml(n.id)}">
           <div class="notif-icon">
             <i class="fas ${iconName}"></i>
           </div>
@@ -357,7 +361,7 @@ async function loadNotifications() {
             </div>
           </div>
           <div class="notif-actions">
-            ${!n.read
+            ${!isRead
               ? `<button class="mark-read-btn" onclick="markRead('${escapeHtml(n.id)}')" title="Mark as read" aria-label="Mark as read"><i class="fas fa-check"></i></button>`
               : ''}
             <button class="delete-btn" onclick="deleteNotif('${escapeHtml(n.id)}')" title="Delete" aria-label="Delete notification"><i class="fas fa-trash"></i></button>

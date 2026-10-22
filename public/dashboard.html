@@ -91,8 +91,8 @@
       --s2: 0 8px 28px rgba(0,0,0,.1);
 
       /* Fonts */
-      --fd: 'Inter', general-sans-serif, sans-serif, ;
-      --fb: 'Inter' , clash display, sans-serif, ;
+      --fd: 'Inter', system-ui, sans-serif;
+      --fb: 'Inter', system-ui, sans-serif;
 
       /* Motion */
       --ease: cubic-bezier(.25,.8,.25,1);
@@ -696,7 +696,6 @@
       gap: 4px;
       flex-wrap: wrap;
       margin-bottom: 4px;
-    
     }
    
     .bh-currency-sym {
@@ -1973,7 +1972,7 @@
       </div>
 
       <!-- ── Ticker ───────────────────────────────────────── -->
-     <!-- <div class="ticker-section fu d2">
+      <div class="ticker-section fu d2">
         <div class="ticker-lbl">
           <i class="fas fa-bullhorn" id="tickerIcon"></i>
           <span id="tickerTitle">Live Updates</span>
@@ -1985,7 +1984,7 @@
             </div>
           </div>
         </div>
-      </div>-->
+      </div>
 
       <!-- ── Announcement Cards ───────────────────────────── -->
       <div class="announce-row fu d2">
@@ -2436,7 +2435,9 @@ function renderBalance() {
     DOM.mainBal.classList.add('hidden');
     DOM.mainBal.classList.remove('loading');
   } else {
-    const parts = bal.toFixed(2).split('.');
+    // Format with commas using Intl.NumberFormat
+    const formatted = bal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const parts = formatted.split('.');
     DOM.mainBal.innerHTML = parts[0] + '<span class="cents">.' + parts[1] + '</span>';
     DOM.mainBal.classList.remove('hidden');
     DOM.mainBal.classList.remove('loading');
@@ -2449,12 +2450,31 @@ function renderBalance() {
 /* ─── Load user ───────────────────────────────────────────── */
 async function loadUser() {
   try {
+    // Fetch the LEDGER balance (source of truth) plus the profile
+    // (for username/avatar/pin status).
+    let ledgerData = null;
+    try {
+      const walletRes = await api('/wallet/me', {}, true);
+      ledgerData = walletRes?.data || null;
+    } catch (e) { /* non-fatal */ }
+
     const result = await api('/auth/me', {}, true);
     if (!result) return;
     const data = result.data;
     if (!data) return;
 
     populateUser(data);
+
+    // Apply the LEDGER balance if available, else fall back to profile.
+    if (ledgerData) {
+      State.balNGN = Number(ledgerData.wallet_ngn) || 0;
+      State.balUSD = Number(ledgerData.wallet_usd) || 0;
+    } else {
+      State.balNGN = parseFloat(data.wallet_ngn) || 0;
+      State.balUSD = parseFloat(data.wallet_usd) || 0;
+    }
+    State.balanceLoaded = true;
+    renderBalance();
 
     const pinAlreadySet = data.has_transaction_pin === true;
     const hasHash = data.transaction_pin_hash !== null &&
@@ -2489,7 +2509,6 @@ async function loadUser() {
     }
   } catch (e) {
     console.warn('loadUser error:', e.message);
-    // If the balance never loads, show a placeholder that isn't a lie.
     if (!State.balanceLoaded && DOM.mainBal) {
       DOM.mainBal.classList.remove('loading');
       DOM.mainBal.textContent = 'Unavailable';
@@ -2526,11 +2545,6 @@ function populateUser(u) {
       el.textContent = init;
     }
   });
-
-  State.balNGN = parseFloat(u.wallet_ngn) || 0;
-  State.balUSD = parseFloat(u.wallet_usd) || 0;
-  State.balanceLoaded = true;
-  renderBalance();
 }
 
 /* ─── Ticker ──────────────────────────────────────────────── */
@@ -3089,8 +3103,7 @@ async function initDashboard() {
   setInterval(() => {
     const tickerVisible = DOM.tickerTrack && DOM.tickerTrack.offsetParent !== null;
     if (tickerVisible) loadTicker();
-    // Refresh user only while the tab is visible. Avoids wasted
-    // requests and stale session warnings on background tabs.
+    // Refresh user only while the tab is visible.
     if (!document.hidden) loadUser();
   }, 60000);
 }

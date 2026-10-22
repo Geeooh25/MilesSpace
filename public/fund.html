@@ -477,6 +477,7 @@
       color: var(--t1);
       margin-bottom: 32px;
       word-break: break-all;
+      font-variant-numeric: tabular-nums;
     }
     @media (max-width: 640px) {
       .balance-amount { font-size: 32px; }
@@ -493,6 +494,7 @@
       top: 8px;
       margin-right: 2px;
     }
+    .balance-amount.loading { color: var(--t3); opacity: .55; }
 
     /* ═══════════════════════════════════════════════════════════
        ACTION ROW
@@ -541,6 +543,83 @@
       font-weight: 700;
       color: var(--t1);
       text-align: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       TICKER
+       ═══════════════════════════════════════════════════════════ */
+    .ticker-section { margin: 24px 0; max-width: 900px; }
+    .ticker-lbl {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--t3);
+      margin-bottom: 8px;
+      padding: 0 2px;
+    }
+    .ticker-lbl i { color: var(--p); }
+    .ticker-wrap {
+      overflow: hidden;
+      position: relative;
+      background: var(--srf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--r);
+      padding: 4px 0;
+    }
+    .ticker-wrap::before,
+    .ticker-wrap::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 30px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .ticker-wrap::before {
+      left: 0;
+      background: linear-gradient(to right, var(--srf), transparent);
+    }
+    .ticker-wrap::after {
+      right: 0;
+      background: linear-gradient(to left, var(--srf), transparent);
+    }
+    .ticker-track {
+      display: flex;
+      gap: 12px;
+      animation: ticker 30s linear infinite;
+      width: max-content;
+      padding: 4px 0;
+    }
+    .ticker-track:hover { animation-play-state: paused; }
+    .ticker-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--srf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rp);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .ticker-icon { font-size: .9rem; flex-shrink: 0; }
+    .ticker-text { font-size: .72rem; font-weight: 500; color: var(--t1); }
+    .ticker-badge {
+      font-size: .6rem;
+      font-weight: 700;
+      padding: 1px 8px;
+      border-radius: 4px;
+      background: var(--acc);
+      color: #fff;
+    }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -1633,14 +1712,14 @@
         <div class="wallet-card active" id="cardNGN" onclick="selectWallet('NGN')">
           <div>
             <div class="wname">🇳🇬 Naira Wallet</div>
-            <div class="wbalance" id="balanceNGN">₦0.00</div>
+            <div class="wbalance" id="balanceNGN">₦ —</div>
           </div>
           <div class="wicon ngn">₦</div>
         </div>
         <div class="wallet-card" id="cardUSD" onclick="selectWallet('USD')">
           <div>
             <div class="wname">🇺🇸 USD Wallet</div>
-            <div class="wbalance" id="balanceUSD">$0.00</div>
+            <div class="wbalance" id="balanceUSD">$ —</div>
           </div>
           <div class="wicon usd">$</div>
         </div>
@@ -1649,8 +1728,8 @@
       <!-- Balance panel -->
       <div class="balance-panel">
         <div class="balance-label" id="balanceLabel">Naira Wallet</div>
-        <div class="balance-amount" id="balanceAmount">
-          <span class="symbol">₦</span>0<span class="cents">.00</span>
+        <div class="balance-amount loading" id="balanceAmount">
+          <span class="symbol">₦</span>—<span class="cents"></span>
         </div>
         
         <div class="action-row">
@@ -1672,6 +1751,27 @@
           <a onclick="openBreakdownPanel()">📊 View Breakdown</a>
           <span class="sep">|</span>
           <a onclick="openStatementPanel()">⬇️ Download Statement</a>
+        </div>
+      </div>
+
+      <!-- Ticker -->
+      <div class="ticker-section">
+        <div class="ticker-lbl">
+          <i class="fas fa-bullhorn"></i>
+          <span>Live Updates</span>
+        </div>
+        <div class="ticker-wrap">
+          <div class="ticker-track" id="tickerTrack">
+            <div class="ticker-item"><span class="ticker-icon">📢</span><span class="ticker-text">Welcome to MilesSpace!</span><span class="ticker-badge">NEW</span></div>
+            <div class="ticker-item"><span class="ticker-icon">💰</span><span class="ticker-text">USD wallet now available</span></div>
+            <div class="ticker-item"><span class="ticker-icon">⚡</span><span class="ticker-text">Instant NGN deposits</span></div>
+            <div class="ticker-item"><span class="ticker-icon">🔒</span><span class="ticker-text">Secure payments by KoraPay</span></div>
+            <!-- Duplicate for loop -->
+            <div class="ticker-item"><span class="ticker-icon">📢</span><span class="ticker-text">Welcome to MilesSpace!</span><span class="ticker-badge">NEW</span></div>
+            <div class="ticker-item"><span class="ticker-icon">💰</span><span class="ticker-text">USD wallet now available</span></div>
+            <div class="ticker-item"><span class="ticker-icon">⚡</span><span class="ticker-text">Instant NGN deposits</span></div>
+            <div class="ticker-item"><span class="ticker-icon">🔒</span><span class="ticker-text">Secure payments by KoraPay</span></div>
+          </div>
         </div>
       </div>
 
@@ -1884,7 +1984,9 @@ const State = {
   cryptoIdempotencyKey: null,
   paymentInterval: null,
   timerInterval: null,
-  previousFocus: null
+  previousFocus: null,
+  balanceLoaded: false,
+  historyLoaded: false
 };
 
 const CRYPTO_MIN_USD_FALLBACK = 5;
@@ -2156,7 +2258,7 @@ function updateUserUI() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BALANCES
+   BALANCES — Loads independently of history
    ═══════════════════════════════════════════════════════════════ */
 async function loadWalletBalance() {
   try {
@@ -2168,6 +2270,7 @@ async function loadWalletBalance() {
     State.wallets.USD.balance = usd;
     State.wallets.NGN.source = payload.source || 'ledger';
     State.wallets.USD.source = payload.source || 'ledger';
+    State.balanceLoaded = true;
     updateWalletUI();
   } catch (e) {
     console.error('[WALLET] Balance error:', e);
@@ -2177,15 +2280,26 @@ async function loadWalletBalance() {
 function updateWalletUI() {
   const ngn = State.wallets.NGN.balance;
   const usd = State.wallets.USD.balance;
-  DOM.balanceNGN.textContent = formatNGN(ngn);
-  DOM.balanceUSD.textContent = `$${formatUSD(usd)}`;
   const isNGN = State.currentWallet === 'NGN';
   const bal = isNGN ? ngn : usd;
   const sym = isNGN ? '₦' : '$';
-  const parts = Number(bal).toFixed(2).split('.');
-  const whole = Number(parts[0]).toLocaleString('en-US');
+
+  // Always commas
+  const formatter = isNGN
+    ? new Intl.NumberFormat('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const formatted = formatter.format(bal);
+  const parts = formatted.split('.');
+
+  // Update wallet cards
+  DOM.balanceNGN.textContent = '₦' + new Intl.NumberFormat('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ngn);
+  DOM.balanceUSD.textContent = '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usd);
+
+  // Update big panel
   DOM.balanceLabel.textContent = isNGN ? 'Naira Wallet' : 'USD Wallet';
-  DOM.balanceAmount.innerHTML = `<span class="symbol">${sym}</span>${whole}<span class="cents">.${parts[1]}</span>`;
+  DOM.balanceAmount.classList.remove('loading');
+  DOM.balanceAmount.innerHTML = `<span class="symbol">${sym}</span>${parts[0]}<span class="cents">.${parts[1]}</span>`;
 }
 
 function selectWallet(cur) {
@@ -2196,7 +2310,7 @@ function selectWallet(cur) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TX TYPE MAP — financial types only
+   TX TYPE MAP
    ═══════════════════════════════════════════════════════════════ */
 const TX_TYPE_MAP = {
   deposit:         { label: 'Wallet deposit',       icon: 'fa-arrow-down',    bg: 'var(--okl)',  cl: '#065f46' },
@@ -2230,14 +2344,16 @@ function txStatusInfo(status) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   WALLET ACTIVITY — funds only
+   WALLET ACTIVITY — Lazy loaded
    ═══════════════════════════════════════════════════════════════ */
 async function loadWalletActivity() {
+  if (State.historyLoaded) return;
   try {
     const resp = await apiRequest('/wallet/transactions?limit=50');
     const raw = Array.isArray(resp?.data) ? resp.data : [];
     const safeRows = raw.filter(t => FINANCIAL_TYPES.has(String(t.type || '').toLowerCase()));
     State.txCache = safeRows;
+    State.historyLoaded = true;
     renderWalletActivity(safeRows);
   } catch (e) {
     console.error('[WALLET] activity error:', e);
@@ -2915,7 +3031,7 @@ async function submitFiatDeposit() {
   if (!cfg) { showToast('Select a currency', 'error'); return; }
   if (State.depSubmitting) return;
 
-  // ── Fix: Sanitize the input string into a valid JS Number ──
+  // ── Sanitize the input string into a valid JS Number ──
   const rawValue = String(DOM.fundAmount.value || '').replace(/,/g, '').trim();
   const typed = Number(rawValue);
 
@@ -2934,12 +3050,11 @@ async function submitFiatDeposit() {
 
   let redirecting = false;
   try {
-    console.log("🚀 SENDING TO KORA:", { currency: cfg?.code, amount: typed, idempotency_key: State.depIdempotencyKey });
     const resp = await apiRequest('/wallet/deposits/kora/initialize', {
       method: 'POST',
       body: JSON.stringify({
-        currency: cfg.code, // Always defined because of fallback
-        amount: typed,      // Valid Number
+        currency: cfg.code,
+        amount: typed,
         idempotency_key: State.depIdempotencyKey
       })
     });
@@ -3297,7 +3412,7 @@ function handleReturnQuery() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   INIT
+   INIT — Balance loads FIRST, history lazy loads
    ═══════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async function() {
   await new Promise(r => setTimeout(r, 0));
@@ -3312,10 +3427,24 @@ document.addEventListener('DOMContentLoaded', async function() {
   initTxRowsDelegation();
   initBreakdownDelegation();
 
-  await Promise.all([
-    loadWalletBalance(),
-    loadWalletActivity()
-  ]);
+  // Load balance IMMEDIATELY (not waiting for history)
+  loadWalletBalance();
+
+  // Lazy-load history: use IntersectionObserver if available, or fallback
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !State.historyLoaded) {
+          loadWalletActivity();
+        }
+      });
+    }, { threshold: 0.1 });
+
+    const txBody = document.getElementById('txRows');
+    if (txBody) observer.observe(txBody);
+  } else {
+    setTimeout(loadWalletActivity, 500);
+  }
 
   handleReturnQuery();
   loadDepositCurrencies().catch(() => {});
@@ -3324,7 +3453,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   setInterval(() => {
     if (!document.hidden) {
       loadWalletBalance();
-      loadWalletActivity();
+      if (State.historyLoaded) loadWalletActivity();
     }
   }, 20000);
 
