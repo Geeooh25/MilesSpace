@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Wallet — MilesSpace</title>
 
   <!-- Fonts -->
@@ -57,7 +57,7 @@
 
       --s0: 0 1px 4px rgba(0,0,0,.05);
       --s1: 0 4px 14px rgba(0,0,0,.07);
-      --s2: 0 8px 28px rgba(0,0,0,.1);
+      --s2: 0 8px 28px rgba(0,0,0,.12);
 
       --ease: cubic-bezier(.25,.8,.25,1);
       --safe-b: env(safe-area-inset-bottom, 0px);
@@ -78,6 +78,8 @@
       scroll-behavior: smooth;
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
+      width: 100%;
+      min-height: 100%;
     }
     html, body {
       max-width: 100vw;
@@ -90,6 +92,7 @@
       min-height: 100vh;
       min-height: 100dvh;
       -webkit-font-smoothing: antialiased;
+      overflow-wrap: anywhere;
     }
     a { text-decoration: none; color: inherit; }
     button {
@@ -100,10 +103,15 @@
       color: inherit;
       font-size: inherit;
     }
+    
+    /* Prevent iOS auto-zoom */
     input, select, textarea {
       font-family: inherit;
-      font-size: inherit;
+      font-size: 16px;
       color: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
     }
     img { max-width: 100%; display: block; }
 
@@ -114,11 +122,13 @@
       display: flex;
       min-height: 100vh;
       min-height: 100dvh;
+      width: 100%;
     }
     .main-content {
       margin-left: var(--sw);
       flex: 1;
       min-width: 0;
+      width: 100%;
     }
     @media (max-width: 1024px) {
       .main-content { margin-left: 0; }
@@ -379,6 +389,7 @@
       max-width: 1100px;
       margin: 0 auto;
       width: 100%;
+      overflow: visible;
     }
     @media (max-width: 768px) {
       .content { padding: 14px 13px calc(96px + var(--safe-b)); }
@@ -625,6 +636,7 @@
       max-height: 92vh;
       max-height: 92dvh;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       animation: slideUp 0.3s ease;
     }
     @media (min-width: 641px) {
@@ -696,7 +708,7 @@
       padding: 12px;
       border: 1px solid var(--bdr);
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 16px;
       font-family: inherit;
       background: var(--srf2);
       transition: border 0.2s;
@@ -886,7 +898,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       TRANSACTIONS PANEL
+       TRANSACTIONS PANEL & FILTERS
        ═══════════════════════════════════════════════════════════ */
     .tx-panel {
       background: var(--srf);
@@ -954,10 +966,12 @@
       color: var(--p);
       border-color: var(--p);
     }
+    
+    /* ── The Fixed Filter Menu ── */
     .tx-filter-wrap { position: relative; }
     .tx-filter-btn {
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
       border-radius: 10px;
       background: var(--srf2);
       border: 1px solid var(--bdr);
@@ -966,38 +980,66 @@
       color: var(--t2);
       cursor: pointer;
       font-size: 13px;
+      transition: all 0.2s;
     }
-    .tx-filter-btn:hover { background: var(--pl); color: var(--p); }
+    .tx-filter-btn:hover, .tx-filter-btn.active {
+      background: var(--pl); 
+      color: var(--p); 
+      border-color: var(--p);
+    }
     .tx-filter-menu {
       display: none;
       position: absolute;
-      top: 50px;
+      top: calc(100% + 8px);
       right: 0;
       background: var(--srf);
       border: 1px solid var(--bdr);
-      border-radius: 10px;
-      box-shadow: var(--s2);
-      width: 200px;
-      z-index: 50;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.12);
+      width: 180px;
+      z-index: 100;
       overflow: hidden;
+      animation: fadeIn 0.15s ease;
     }
     .tx-filter-menu.show { display: block; }
     .tx-filter-menu button {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       width: 100%;
       text-align: left;
-      padding: 14px 16px;
-      font-size: 14px;
+      padding: 12px 16px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--t1);
       background: none;
       border: none;
       border-bottom: 1px solid var(--bdr);
       cursor: pointer;
+      transition: background 0.15s;
       min-height: 44px;
     }
+    .tx-filter-menu button i {
+      color: var(--t3);
+      font-size: 12px;
+      width: 14px;
+      text-align: center;
+    }
+    .tx-filter-menu button:hover {
+      background: var(--srf2);
+      color: var(--p);
+    }
+    .tx-filter-menu button:hover i {
+      color: var(--p);
+    }
+    .tx-filter-menu button.active {
+      background: var(--pl);
+      color: var(--p);
+    }
+    .tx-filter-menu button.active i {
+      color: var(--p);
+    }
     .tx-filter-menu button:last-child { border-bottom: none; }
-    .tx-filter-menu button:hover { background: var(--pl); color: var(--p); }
 
     /* ── Desktop row ── */
     .tx-row {
@@ -1171,6 +1213,7 @@
       z-index: 901;
       transition: right .3s var(--ease);
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       box-shadow: var(--s2);
       padding-bottom: var(--safe-b);
     }
@@ -1685,16 +1728,28 @@
             <button class="tx-all-btn" onclick="openFinancialHistory()" type="button">
               <i class="fas fa-list-ul"></i> View All
             </button>
+            
+            <!-- Fixed Filter Menu -->
             <div class="tx-filter-wrap">
-              <button class="tx-filter-btn" id="txFilterBtn" onclick="toggleTxFilter()" aria-label="Filter transactions"><i class="fas fa-sliders-h"></i></button>
+              <button class="tx-filter-btn" id="txFilterBtn" onclick="toggleTxFilter(event)" aria-label="Filter transactions">
+                <i class="fas fa-sliders-h"></i>
+              </button>
               <div class="tx-filter-menu" id="txFilterMenu">
-                <button onclick="filterTx('all')">All</button>
-                <button onclick="filterTx('deposit')">Deposits</button>
-                <button onclick="filterTx('debit')">Debits</button>
-                <button onclick="filterTx('credit')">Credits</button>
-                <button onclick="filterTx('refund')">Refunds</button>
+                <button onclick="filterTx('all', this)" class="active">
+                  <i class="fas fa-list"></i> All
+                </button>
+                <button onclick="filterTx('deposit', this)">
+                  <i class="fas fa-arrow-down"></i> Deposits
+                </button>
+                <button onclick="filterTx('credit', this)">
+                  <i class="fas fa-plus"></i> Credits
+                </button>
+                <button onclick="filterTx('debit', this)">
+                  <i class="fas fa-minus"></i> Debits
+                </button>
               </div>
             </div>
+
           </div>
         </div>
         
@@ -1897,20 +1952,16 @@ const FINANCIAL_TYPES = new Set([
   'deposit',
   'wallet_debit',
   'wallet_credit',
-  'withdrawal',
   'refund',
-  'adjustment',
-  'cashback_redeem'
+  'adjustment'
 ]);
 
 const SAFE_DESCRIPTIONS = new Set([
   'Wallet deposit',
   'Wallet debit',
   'Wallet credit',
-  'Withdrawal',
   'Refund',
   'Balance adjustment',
-  'Cashback redeemed',
   'Transaction'
 ]);
 
@@ -1947,7 +1998,7 @@ const DOM = {
   cryptoMinimum: $('cryptoMinimum'),
   cryptoPresetContainer: $('cryptoPresetContainer'),
   depNoteText: $('depNoteText'),
-  txRows: $('txRows'), txFilterMenu: $('txFilterMenu'),
+  txRows: $('txRows'), txFilterMenu: $('txFilterMenu'), txFilterBtn: $('txFilterBtn'),
   bdList: $('bdList'), bdFilterLabel: $('bdFilterLabel'), bdSecTitle: $('bdSecTitle'),
   drawerTitle: $('drawerTitle'),
   stmtAccount: $('stmtAccount'), stmtFrom: $('stmtFrom'), stmtTo: $('stmtTo'),
@@ -2160,7 +2211,7 @@ function updateUserUI() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BALANCES — Loads independently of history
+   BALANCES
    ═══════════════════════════════════════════════════════════════ */
 async function loadWalletBalance() {
   try {
@@ -2186,7 +2237,6 @@ function updateWalletUI() {
   const bal = isNGN ? ngn : usd;
   const sym = isNGN ? '₦' : '$';
 
-  // Always commas
   const formatter = isNGN
     ? new Intl.NumberFormat('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2194,11 +2244,9 @@ function updateWalletUI() {
   const formatted = formatter.format(bal);
   const parts = formatted.split('.');
 
-  // Update wallet cards
   DOM.balanceNGN.textContent = '₦' + new Intl.NumberFormat('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ngn);
   DOM.balanceUSD.textContent = '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usd);
 
-  // Update big panel
   DOM.balanceLabel.textContent = isNGN ? 'Naira Wallet' : 'USD Wallet';
   DOM.balanceAmount.classList.remove('loading');
   DOM.balanceAmount.innerHTML = `<span class="symbol">${sym}</span>${parts[0]}<span class="cents">.${parts[1]}</span>`;
@@ -2218,11 +2266,8 @@ const TX_TYPE_MAP = {
   deposit:         { label: 'Wallet deposit',       icon: 'fa-arrow-down',    bg: 'var(--okl)',  cl: '#065f46' },
   wallet_credit:   { label: 'Wallet credit',        icon: 'fa-plus-circle',   bg: 'var(--okl)',  cl: '#065f46' },
   wallet_debit:    { label: 'Wallet debit',         icon: 'fa-minus-circle',  bg: 'var(--erl)',  cl: 'var(--err)' },
-  withdrawal:      { label: 'Withdrawal',           icon: 'fa-arrow-up',      bg: 'var(--erl)',  cl: 'var(--err)' },
   refund:          { label: 'Refund',               icon: 'fa-rotate-left',   bg: 'var(--okl)',  cl: '#065f46' },
-  adjustment:      { label: 'Balance adjustment',   icon: 'fa-sliders',       bg: 'var(--pl)',   cl: 'var(--p)' },
-  cashback_redeem: { label: 'Cashback redeemed',    icon: 'fa-coins',         bg: 'var(--acl)',  cl: 'var(--acd)' },
-  fee_revenue:     { label: 'Fee',                  icon: 'fa-percent',       bg: 'var(--pl)',   cl: 'var(--p)' }
+  adjustment:      { label: 'Balance adjustment',   icon: 'fa-sliders',       bg: 'var(--pl)',   cl: 'var(--p)' }
 };
 
 function getTxType(type) {
@@ -2246,7 +2291,7 @@ function txStatusInfo(status) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   WALLET ACTIVITY — Lazy loaded
+   WALLET ACTIVITY
    ═══════════════════════════════════════════════════════════════ */
 async function loadWalletActivity() {
   if (State.historyLoaded) return;
@@ -2254,9 +2299,28 @@ async function loadWalletActivity() {
     const resp = await apiRequest('/wallet/transactions?limit=50');
     const raw = Array.isArray(resp?.data) ? resp.data : [];
     const safeRows = raw.filter(t => FINANCIAL_TYPES.has(String(t.type || '').toLowerCase()));
-    State.txCache = safeRows;
+
+    // --- DEDUPLICATION FIX ---
+    // The backend creates two rows for some deposits (e.g., a "PENDING-MSDEP..." and a "KORA-...").
+    // We group by the actual reference or internal metadata to prevent double-rendering.
+    const uniqueMap = new Map();
+    safeRows.forEach(row => {
+      // Prioritize completed rows so the pending one gets overwritten in the map
+      const key = row.reference ? row.reference.replace(/^(KORA|PENDING)-/, '') : row.id;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, row);
+      } else {
+        const existing = uniqueMap.get(key);
+        if (existing.status !== 'completed' && row.status === 'completed') {
+          uniqueMap.set(key, row);
+        }
+      }
+    });
+
+    const deduplicatedRows = Array.from(uniqueMap.values());
+    State.txCache = deduplicatedRows;
     State.historyLoaded = true;
-    renderWalletActivity(safeRows);
+    renderWalletActivity(deduplicatedRows);
   } catch (e) {
     console.error('[WALLET] activity error:', e);
     DOM.txRows.innerHTML =
@@ -2280,23 +2344,21 @@ function renderWalletActivity(rows) {
 }
 
 function applyTxFilter(rows, filter) {
-  const ALLOWED = new Set(['all', 'deposit', 'debit', 'credit', 'refund']);
-  const f = ALLOWED.has(filter) ? filter : 'all';
-  if (f === 'all') return rows;
+  if (filter === 'all') return rows;
 
   return rows.filter(t => {
     const type = String(t.type || '').toLowerCase();
     const dir  = String(t.direction || '').toLowerCase();
-    if (f === 'deposit') return type === 'deposit';
-    if (f === 'debit')   return dir === 'debit' || type === 'wallet_debit' || type === 'withdrawal';
-    if (f === 'credit')  return dir === 'credit' && type !== 'deposit';
-    if (f === 'refund')  return type === 'refund';
+    
+    if (filter === 'deposit') return type === 'deposit';
+    if (filter === 'debit')   return dir === 'debit' || type === 'wallet_debit';
+    if (filter === 'credit')  return dir === 'credit' && type !== 'deposit'; // Groups wallet_credit, refund, adjustment
     return true;
   });
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ROW MARKUP — DESKTOP
+   ROW MARKUP
    ═══════════════════════════════════════════════════════════════ */
 function renderTxRow(t, idx) {
   const { amount, currency } = resolveTxAmount(t);
@@ -2332,9 +2394,6 @@ function renderTxRow(t, idx) {
   </div>`;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ROW MARKUP — MOBILE
-   ═══════════════════════════════════════════════════════════════ */
 function renderTxMobileCard(t, idx) {
   const { amount, currency } = resolveTxAmount(t);
   const absAmt = Math.abs(amount);
@@ -2367,7 +2426,7 @@ function renderTxMobileCard(t, idx) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CLICK DELEGATION
+   CLICK DELEGATION & FILTER UI
    ═══════════════════════════════════════════════════════════════ */
 function initTxRowsDelegation() {
   if (!DOM.txRows) return;
@@ -2389,15 +2448,33 @@ function initTxRowsDelegation() {
   });
 }
 
-function filterTx(type) {
+function toggleTxFilter(e) {
+  if (e) e.stopPropagation();
+  const isShowing = DOM.txFilterMenu.classList.contains('show');
+  DOM.txFilterMenu.classList.toggle('show');
+  DOM.txFilterBtn.classList.toggle('active', !isShowing);
+}
+
+function filterTx(type, btnEl) {
   State.txFilter = type;
+  
+  // Update active classes
+  DOM.txFilterMenu.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  
   DOM.txFilterMenu.classList.remove('show');
+  DOM.txFilterBtn.classList.remove('active');
+  
   renderWalletActivity(State.txCache);
 }
 
-function toggleTxFilter() {
-  DOM.txFilterMenu.classList.toggle('show');
-}
+// Close filter menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.tx-filter-wrap')) {
+    DOM.txFilterMenu.classList.remove('show');
+    DOM.txFilterBtn.classList.remove('active');
+  }
+});
 
 /* ═══════════════════════════════════════════════════════════════
    TX DETAIL
@@ -2933,7 +3010,6 @@ async function submitFiatDeposit() {
   if (!cfg) { showToast('Select a currency', 'error'); return; }
   if (State.depSubmitting) return;
 
-  // ── Sanitize the input string into a valid JS Number ──
   const rawValue = String(DOM.fundAmount.value || '').replace(/,/g, '').trim();
   const typed = Number(rawValue);
 
@@ -3124,6 +3200,7 @@ async function checkPaymentStatus() {
       setTimeout(() => {
         closeModal('paymentModal');
         apiCache.clear();
+        State.historyLoaded = false; // Force refresh so they see the new tx
         loadWalletBalance();
         loadWalletActivity();
       }, 1800);
@@ -3302,6 +3379,7 @@ function handleReturnQuery() {
   if (dep === 'success') {
     showToast('Deposit confirmed. Your wallet has been credited.', 'success');
     apiCache.clear();
+    State.historyLoaded = false;
     loadWalletBalance();
     loadWalletActivity();
   }
@@ -3314,7 +3392,7 @@ function handleReturnQuery() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   INIT — Balance loads FIRST, history lazy loads
+   INIT
    ═══════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async function() {
   await new Promise(r => setTimeout(r, 0));
@@ -3329,10 +3407,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   initTxRowsDelegation();
   initBreakdownDelegation();
 
-  // Load balance IMMEDIATELY (not waiting for history)
+  // Load balance IMMEDIATELY
   loadWalletBalance();
 
-  // Lazy-load history: use IntersectionObserver if available, or fallback
+  // Lazy-load history
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -3358,8 +3436,6 @@ document.addEventListener('DOMContentLoaded', async function() {
       if (State.historyLoaded) loadWalletActivity();
     }
   }, 20000);
-
-  console.log('💳 Wallet page ready — tap any row to see details');
 });
 
 /* ═══════════════════════════════════════════════════════════════

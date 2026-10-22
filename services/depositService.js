@@ -3,7 +3,6 @@
 
 const crypto = require('crypto');
 const { supabaseAdmin } = require('../db/supabase');
-const { LedgerService } = require('./ledgerService');
 const { createNotification } = require('./notificationService');
 const korapayService = require('./korapayService');
 const emailService = require('./emailService');
@@ -157,7 +156,7 @@ async function upsertPendingTransaction(deposit) {
     return data.id;
 }
 
-// ─── FINALIZE COMPLETED ────────────────────────────────────
+// ─── FINALIZE COMPLETED (DUAL-WRITE FIXED) ─────────────────
 async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit, walletCurrency, feeAmount }) {
     const now = new Date().toISOString();
     const pendingRef = pendingRefFor(deposit.internal_reference);
@@ -180,6 +179,7 @@ async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit
         provider_reference: providerRef
     };
 
+    // 1. Find the existing pending row
     const { data: pendingRow, error: prErr } = await supabaseAdmin
         .from('transactions')
         .select('id')
@@ -187,6 +187,7 @@ async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit
         .maybeSingle();
     if (prErr) throw new Error(`finalizeTransactionCompleted: read pending failed — ${prErr.message}`);
 
+    // 2. Update it to completed (prevents duplicates)
     if (pendingRow) {
         const { error: updErr } = await supabaseAdmin
             .from('transactions')
@@ -214,6 +215,7 @@ async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit
         }
     }
 
+    // 3. Fallback: If no pending row exists, check for existing final row
     const { data: existingFinal, error: efErr } = await supabaseAdmin
         .from('transactions')
         .select('id, user_id, amount, currency, source_id')
@@ -236,6 +238,7 @@ async function finalizeTransactionCompleted(deposit, { providerRef, walletCredit
         return existingFinal.id;
     }
 
+    // 4. Insert as a last resort
     const { data: inserted, error: insErr } = await supabaseAdmin
         .from('transactions')
         .insert({
@@ -556,19 +559,52 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         return { completed: false, reason: 'INVALID_WALLET_AMOUNT' };
     }
 
-    let ledgerResult;
-    try {
-        ledgerResult = await LedgerService.createTransaction({
-            userId: deposit.user_id,
+    // ─── CRITICAL FIX: ATOMIC LEDGER UPDATE VIA RPC ───
+    // We update the existing PENDING row directly instead of inserting a new one via LedgerService.
+    // This prevents the duplicate history.
+    const pendingRef = pendingRefFor(deposit.internal_reference);
+    const { data: pendingTx, error: pendingTxErr } = await supabaseAdmin
+        .from('transactions')
+        .select('id')
+        .eq('reference', pendingRef)
+        .maybeSingle();
+
+    if (pendingTxErr || !pendingTx) {
+        console.error('[DEPOSIT] Missing pending tx row:', pendingTxErr?.message);
+        await _releaseAndMark(claim.deposit_id, 'manual_review', 'PENDING_TX_MISSING');
+        return { completed: false, reason: 'PENDING_TX_MISSING' };
+    }
+
+    // Get the user's ledger account
+    const { data: account, error: acctErr } = await supabaseAdmin
+        .from('ledger_accounts')
+        .select('id')
+        .eq('user_id', deposit.user_id)
+        .eq('currency', walletCurrency)
+        .maybeSingle();
+
+    if (acctErr || !account) {
+         await _releaseAndMark(claim.deposit_id, 'manual_review', 'LEDGER_ACCOUNT_MISSING');
+         return { completed: false, reason: 'LEDGER_ACCOUNT_MISSING' };
+    }
+
+    // Execute the atomic RPC to update the existing pending row AND credit the balance simultaneously
+    const { data: rpcResult, error: rpcErr } = await supabaseAdmin.rpc('process_transaction_v2', {
+        p_user_id: deposit.user_id,
+        p_account_id: account.id,
+        p_transaction_data: {
+            id: pendingTx.id, // Existing row ID
+            user_id: deposit.user_id,
             type: 'deposit',
-            amount: walletCredit,
+            status: 'completed',
             currency: walletCurrency,
+            amount: walletCredit,
             description: `Deposit — ${deposit.payment_currency || deposit.source_currency} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`,
-            // FIX: Removed `reference` to let LedgerService generate its own internal reference, preventing a duplicate row
-            sourceType: 'kora_deposit',
-            sourceId: deposit.id,
+            reference: finalRefFor(providerRef),
+            source_type: 'kora_deposit',
+            source_id: deposit.id,
             provider: 'korapay',
-            providerReference: String(providerRef),
+            provider_reference: String(providerRef),
             metadata: {
                 payment_currency: deposit.payment_currency || deposit.source_currency,
                 payment_amount:   num(deposit.payment_amount || deposit.source_amount),
@@ -582,26 +618,25 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
                 deposit_reference:  deposit.internal_reference,
                 source
             },
-            idempotencyKey: `kora-deposit-${providerRef}`
-        });
-    } catch (ledgerErr) {
-        console.error('[DEPOSIT] LEDGER CREDIT FAILED:', ledgerErr.message);
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            completed_at: new Date().toISOString()
+        },
+        p_entry_type: 'CREDIT',
+        p_amount: walletCredit,
+        p_currency: walletCurrency
+    });
+
+    if (rpcErr) {
+        console.error('[DEPOSIT] LEDGER CREDIT FAILED:', rpcErr.message);
         await supabaseAdmin.rpc('release_kora_deposit_claim', {
             p_deposit_id: claim.deposit_id,
-            p_reason: `LEDGER_CREDIT_FAILED: ${ledgerErr.message}`.slice(0, 500)
+            p_reason: `LEDGER_CREDIT_FAILED: ${rpcErr.message}`.slice(0, 500)
         });
         return { completed: false, reason: 'LEDGER_CREDIT_FAILED' };
     }
 
-    if (!ledgerResult || (!ledgerResult.transaction_id && !ledgerResult.already_exists)) {
-        await supabaseAdmin.rpc('release_kora_deposit_claim', {
-            p_deposit_id: claim.deposit_id,
-            p_reason: 'LEDGER_NO_TRANSACTION_ID'
-        });
-        return { completed: false, reason: 'LEDGER_NO_TRANSACTION_ID' };
-    }
-
-    const txId = ledgerResult.transaction_id || null;
+    const txId = pendingTx.id; // Since we updated the pending row, the ID remains the same
     const now  = new Date().toISOString();
 
     const { data: finalizeResult, error: finalizeErr } = await supabaseAdmin
@@ -630,17 +665,7 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
     }
 
     try {
-        await finalizeTransactionCompleted(deposit, {
-            providerRef,
-            walletCredit,
-            walletCurrency,
-            feeAmount: num(deposit.fee_amount || 0)
-        });
-    } catch (histErr) {
-        console.error('[DEPOSIT] history finalize failed:', histErr.message);
-    }
-
-    try {
+        // Book Fee Revenue (separate table/row)
         await bookFeeRevenue(deposit, {
             providerRef,
             feeAmount: num(deposit.fee_amount || 0)
@@ -656,7 +681,7 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         transaction_id: txId,
         wallet_currency: walletCurrency,
         wallet_amount: walletCredit,
-        already_exists: !!ledgerResult.already_exists
+        already_exists: false
     };
 }
 
