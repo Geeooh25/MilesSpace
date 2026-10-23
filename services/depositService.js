@@ -94,8 +94,8 @@ async function upsertPendingTransaction(deposit) {
         fee_currency: deposit.fee_currency || null
     };
 
-    // First, look up by immutable identity so we cannot miss the
-    // row if it was ever touched by other code.
+    // Look up by immutable identity so we cannot miss the row if
+    // it was ever touched by other code.
     const { data: existing, error: readErr } = await supabaseAdmin
         .from('transactions')
         .select('id, status, reference')
@@ -140,6 +140,15 @@ async function upsertPendingTransaction(deposit) {
             ref,
             reference: ref,
             wallet_used: walletCcy,
+
+            // ─── IMMUTABLE IDENTITY ───
+            // completeKoraDeposit finds the pending row by these two
+            // columns. Both must be written at insert time. If they
+            // are missing, the webhook logs PENDING_TX_MISSING and
+            // the deposit stays in pending forever.
+            source_type: 'kora_deposit',
+            source_id: deposit.id,
+
             amount: pendingAmount,
             amount_ngn: isNGNWallet ? pendingAmount : 0,
             amount_usd: isNGNWallet ? 0 : pendingAmount,
@@ -379,10 +388,6 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
     }
 
     // ─── AMBIGUITY GUARD ───
-    // If more than one deposit matches the provider reference, we cannot
-    // trust claim_kora_deposit_for_credit to pick the right row. Route
-    // every ambiguous match to manual_review instead of risking a wrong
-    // completion.
     const { data: matches } = await supabaseAdmin
         .from('deposit_requests')
         .select('id, status')
@@ -479,9 +484,6 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
     }
 
     // ─── ATOMIC LEDGER UPDATE VIA RPC ───
-    // Look up the pending row by IMMUTABLE identity (source_type + source_id).
-    // We never rely on its `reference` being what it was yesterday. This is
-    // the fix for the "PENDING_TX_MISSING" loop.
     const { data: pendingTx, error: pendingTxErr } = await supabaseAdmin
         .from('transactions')
         .select('id, reference')
@@ -512,19 +514,17 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         p_user_id: deposit.user_id,
         p_account_id: account.id,
         p_transaction_data: {
-            id: pendingTx.id, // CRITICAL: pass existing row ID so the RPC updates it
+            id: pendingTx.id,
             user_id: deposit.user_id,
             type: 'deposit',
             status: 'completed',
             currency: walletCurrency,
             amount: walletCredit,
             description: `Deposit — ${deposit.payment_currency || deposit.source_currency} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`,
-            // Keep the pending row's reference stable — do not rename it.
             reference: pendingTx.reference,
             source_type: 'kora_deposit',
             source_id: deposit.id,
             provider: 'korapay',
-            // Provider reference lives only here, not in `reference`.
             provider_reference: String(providerRef),
             metadata: {
                 payment_currency: deposit.payment_currency || deposit.source_currency,

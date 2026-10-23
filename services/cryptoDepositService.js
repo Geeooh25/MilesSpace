@@ -10,11 +10,8 @@ const emailService = require('./emailService');
 const NOWPAYMENTS_API_KEY    = process.env.NOWPAYMENTS_API_KEY;
 const NOWPAYMENTS_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET;
 
-// ─── PRODUCTION-SAFE URL ───
-// The old default was always the sandbox URL, which meant every
-// verifyAndComplete in production returned 404 and crypto deposits
-// never left 'pending'. This picks the right base per environment,
-// while still letting NOWPAYMENTS_API_BASE override.
+// Sandbox URL as requested. Switch to the live URL only when the live
+// API key is in place.
 const NOWPAYMENTS_API_BASE = 'https://api-sandbox.nowpayments.io/v1';
 
 const FEE_RATE_SINGLE   = Number(process.env.NOWPAYMENTS_DEPOSIT_FEE_RATE || 0.01);
@@ -348,6 +345,11 @@ async function insertPendingTransactionRow(deposit, _expectedCrypto) {
 
     // Insert / upsert by reference. `NP-PENDING-...` remains the row's
     // stable internal reference for its whole life. We never rename it.
+    //
+    // CRITICAL: source_type and source_id must be written at insert time.
+    // verifyAndComplete finds this row by (source_type='crypto_deposit',
+    // source_id=deposit.id). Without them the lookup returns null and the
+    // deposit stays in pending forever with MISSING_LEDGER_OR_TX.
     const { error } = await supabaseAdmin.from('transactions').upsert({
         user_id: deposit.user_id,
         type: 'deposit',
@@ -358,6 +360,10 @@ async function insertPendingTransactionRow(deposit, _expectedCrypto) {
         ref: `NP-PENDING-${paymentId}`,
         reference: `NP-PENDING-${paymentId}`,
         wallet_used: 'USD',
+
+        source_type: 'crypto_deposit',
+        source_id: deposit.id,
+
         amount: requested,
         amount_usd: requested,
         amount_ngn: 0,
@@ -650,8 +656,8 @@ async function verifyAndComplete(paymentId, source = 'status') {
         .neq('status', 'completed');
 
     // syncUserFacingTransaction no longer renames the reference. It only
-    // updates status and metadata. If the pending row is already there,
-    // it updates it; it does not create a second row.
+    // updates status and metadata on the existing row. It never creates a
+    // second row.
     await syncUserFacingTransaction(deposit, 'completed', parsed, {
         creditedUsd: creditUsd,
         ledgerTransactionId: pendingTx.id
@@ -729,8 +735,8 @@ async function _notifyCryptoDepositOnce(deposit, creditUsd, completedAtIso) {
 }
 
 // ─── HISTORY SYNC ──────────────────────────────────────
-// This function NEVER creates a second transaction row. It updates
-// the existing row found by (source_type, source_id).
+// This function NEVER creates a second transaction row. It updates the
+// existing row found by (source_type, source_id).
 async function syncUserFacingTransaction(deposit, status, parsed, extra = {}) {
     try {
         const requested = num(deposit.requested_usd || deposit.requested_amount);
