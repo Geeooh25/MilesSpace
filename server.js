@@ -73,7 +73,8 @@ app.use(helmet({
                 "'unsafe-inline'",
                 "'unsafe-eval'",
                 "https://cdn.jsdelivr.net",
-                "https://cdnjs.cloudflare.com"
+                "https://cdnjs.cloudflare.com",
+                "https://korablobstorage.blob.core.windows.net"
             ],
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: [
@@ -85,7 +86,8 @@ app.use(helmet({
             fontSrc: [
                 "'self'",
                 "https://fonts.gstatic.com",
-                "https://cdnjs.cloudflare.com"
+                "https://cdnjs.cloudflare.com",
+                "https://korablobstorage.blob.core.windows.net" 
             ],
             imgSrc: ["'self'", "data:", "https:"],
             connectSrc: [
@@ -97,11 +99,16 @@ app.use(helmet({
                 "https://milesspace-public.vercel.app",
                 "https://milesspace.com",
                 "https://www.milesspace.com",
+                 "https://www.milesspace.com",
+                "https://api.korapay.com",            // <-- ADD THIS (Korapay API calls)
+                "https://*.korapay.com", 
                 "ws://localhost:*",
                 "http://localhost:*",
-                "https://cdn.jsdelivr.net"
+                "https://cdn.jsdelivr.net",
+                
             ],
             frameAncestors: ["'none'"],
+            frameSrc: ["'self'", "https://*.korapay.com"], 
             workerSrc: ["'self'", "blob:"]
         }
     }

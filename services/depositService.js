@@ -434,9 +434,7 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         return { completed: false, reason: 'INVALID_WALLET_AMOUNT' };
     }
 
-    // ─── CRITICAL FIX: ATOMIC LEDGER UPDATE VIA RPC ───
-    // We update the existing PENDING row directly instead of inserting a new one via LedgerService.
-    // This prevents the duplicate history.
+    // ─── ATOMIC LEDGER UPDATE VIA RPC ───
     const pendingRef = pendingRefFor(deposit.internal_reference);
     const { data: pendingTx, error: pendingTxErr } = await supabaseAdmin
         .from('transactions')
@@ -450,7 +448,6 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         return { completed: false, reason: 'PENDING_TX_MISSING' };
     }
 
-    // Get the user's ledger account
     const { data: account, error: acctErr } = await supabaseAdmin
         .from('ledger_accounts')
         .select('id')
@@ -463,12 +460,11 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
          return { completed: false, reason: 'LEDGER_ACCOUNT_MISSING' };
     }
 
-    // Execute the atomic RPC to update the existing pending row AND credit the balance simultaneously
     const { data: rpcResult, error: rpcErr } = await supabaseAdmin.rpc('process_transaction_v2', {
         p_user_id: deposit.user_id,
         p_account_id: account.id,
         p_transaction_data: {
-            id: pendingTx.id, // Existing row ID
+            id: pendingTx.id, // CRITICAL: Pass existing row ID to update it
             user_id: deposit.user_id,
             type: 'deposit',
             status: 'completed',
@@ -511,7 +507,7 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         return { completed: false, reason: 'LEDGER_CREDIT_FAILED' };
     }
 
-    const txId = pendingTx.id; // Since we updated the pending row, the ID remains the same
+    const txId = pendingTx.id;
     const now  = new Date().toISOString();
 
     const { data: finalizeResult, error: finalizeErr } = await supabaseAdmin
@@ -540,7 +536,6 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
     }
 
     try {
-        // Book Fee Revenue (separate table/row)
         await bookFeeRevenue(deposit, {
             providerRef,
             feeAmount: num(deposit.fee_amount || 0)

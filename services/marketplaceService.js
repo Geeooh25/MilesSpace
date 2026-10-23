@@ -34,7 +34,7 @@ async function computePrice(product, walletType) {
 }
 
 // ─── SANITIZERS ────────────────────────────────────────────────────
-// Products: EVERYTHING the frontend needs — INCLUDING long_description.
+// Products: EVERYTHING the frontend needs — INCLUDING all detail fields.
 function sanitizeProduct(p) {
     if (!p) return null;
     return {
@@ -43,10 +43,15 @@ function sanitizeProduct(p) {
         category: p.category_id || 'other',
         categoryName: p.category_name || p.category_id || 'Other',
         description: p.description || '',
-        // ─── The fields the frontend modal needs ───
+
+        // ─── Detail fields rendered in the modal ───
         longDescription: p.long_description || '',
         howToUse: p.how_to_use || '',
         features: p.features || '',
+        mailAccess: p.mail_access || '',
+        loginTutorial: p.login_tutorial || '',
+        loginFormat: p.login_format || '',
+
         // ─── Everything else ───
         country: p.country || 'Global',
         price: parseFloat(p.price_usd) || 0,
@@ -104,14 +109,14 @@ function generateDownloadToken() {
 // ─── DELIVERY FORMATTER ────────────────────────────────────────────
 function buildDeliveryPayload(inventoryRow, order, product) {
     let parsedContent = inventoryRow.content;
-    let loginFormat = 'N/A';
+    let loginFormat = inventoryRow.login_format || 'N/A';
     let loginInstructions = '';
 
     try {
         const j = JSON.parse(inventoryRow.content);
         if (j && typeof j === 'object') {
             parsedContent = j;
-            loginFormat = j.format || j.login_format || 'N/A';
+            loginFormat = j.format || j.login_format || loginFormat;
             loginInstructions = j.instructions || j.login_instructions || '';
         }
     } catch {

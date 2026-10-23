@@ -11,7 +11,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
+
+  
+  <!-- QR Code for Crypto -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
+  
   <script src="/js/session.js"></script>
   <script src="/js/presence.js" defer></script>
 
@@ -1943,7 +1947,8 @@ const State = {
   timerInterval: null,
   previousFocus: null,
   balanceLoaded: false,
-  historyLoaded: false
+  historyLoaded: false,
+  korapayPublicKey: null
 };
 
 const CRYPTO_MIN_USD_FALLBACK = 5;
@@ -3004,7 +3009,6 @@ async function submitFund() {
   if (State.fundMode === 'crypto') await submitCryptoDeposit();
   else await submitFiatDeposit();
 }
-
 async function submitFiatDeposit() {
   const cfg = State.depSelectedCurrency;
   if (!cfg) { showToast('Select a currency', 'error'); return; }
@@ -3026,7 +3030,6 @@ async function submitFiatDeposit() {
   DOM.fundBtn.disabled = true;
   DOM.fundBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing…';
 
-  let redirecting = false;
   try {
     const resp = await apiRequest('/wallet/deposits/kora/initialize', {
       method: 'POST',
@@ -3044,16 +3047,15 @@ async function submitFiatDeposit() {
     const url = resp.checkout_url;
     if (!url) { showToast('Payment provider did not return a checkout link', 'error'); return; }
 
-    redirecting = true;
-    setTimeout(() => { window.location.href = url; }, 150);
+    // Redirect to Korapay hosted checkout
+    window.location.href = url;
   } catch (e) {
     console.error('[DEPOSIT] submit error:', e);
     showToast('Something went wrong. Please try again.', 'error');
   } finally {
     State.depSubmitting = false;
-    DOM.fundBtn.innerHTML = '<i class="fas fa-arrow-right"></i> <span id="fundBtnText">Continue to payment</span>';
-    DOM.fundBtnText = $('fundBtnText');
-    DOM.fundBtn.disabled = redirecting;
+    DOM.fundBtn.disabled = false;
+    DOM.fundBtn.innerHTML = '<i class="fas fa-arrow-right"></i> <span>Continue to payment</span>';
   }
 }
 

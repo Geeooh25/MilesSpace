@@ -4,7 +4,6 @@
 const crypto = require('crypto');
 const axios = require('axios');
 const { supabaseAdmin } = require('../db/supabase');
-const { LedgerService } = require('./ledgerService');
 const { createNotification } = require('./notificationService');
 const emailService = require('./emailService');
 
@@ -341,7 +340,6 @@ async function insertPendingTransactionRow(deposit, _expectedCrypto) {
         idempotency_key: deposit.idempotency_key
     };
 
-    // FIX: Use upsert to prevent duplicates
     const { error } = await supabaseAdmin.from('transactions').upsert({
         user_id: deposit.user_id,
         type: 'deposit',
@@ -542,35 +540,67 @@ async function verifyAndComplete(paymentId, source = 'status') {
     }
 
     const reference = `NP-${paymentId}`;
+    const pendingRef = `NP-PENDING-${paymentId}`;
 
-    let ledgerResult;
+    const { data: pendingTx } = await supabaseAdmin
+        .from('transactions')
+        .select('id')
+        .eq('reference', pendingRef)
+        .maybeSingle();
+
+    const { data: account } = await supabaseAdmin
+        .from('ledger_accounts')
+        .select('id')
+        .eq('user_id', deposit.user_id)
+        .eq('currency', 'USD')
+        .maybeSingle();
+
+    if (!account || !pendingTx) {
+        console.error('[CRYPTO] Missing ledger account or pending tx', { paymentId });
+        return { completed: false, reason: 'MISSING_LEDGER_OR_TX' };
+    }
+
+    let rpcResult;
     try {
-        ledgerResult = await LedgerService.createTransaction({
-            userId: deposit.user_id,
-            type: 'deposit',
-            amount: creditUsd,
-            currency: 'USD',
-            description: `Crypto deposit — ${deposit.pay_currency}`,
-            // FIX: Removed `reference` to let LedgerService generate its own internal reference, preventing a duplicate row
-            sourceType: 'crypto_deposit',
-            sourceId: deposit.id,
-            provider: 'nowpayments',
-            providerReference: String(paymentId),
-            metadata: {
-                pay_currency: deposit.pay_currency,
-                pay_network: deposit.pay_network,
-                requested_usd: num(deposit.requested_usd || deposit.requested_amount),
-                fee_percent: num(deposit.fee_percent || FEE_RATE_SINGLE),
-                fee_usd: num(deposit.fee_usd || 0),
-                required_usd: num(deposit.required_usd),
-                credited_usd: creditUsd,
-                decision_reason: decision.reason,
-                actually_paid_crypto: parsed.actuallyPaid,
-                outcome_usd: parsed.outcomeAmount,
-                source
+        const { data, error } = await supabaseAdmin.rpc('process_transaction_v2', {
+            p_user_id: deposit.user_id,
+            p_account_id: account.id,
+            p_transaction_data: {
+                id: pendingTx.id, // CRITICAL: Update existing row
+                user_id: deposit.user_id,
+                type: 'deposit',
+                status: 'completed',
+                currency: 'USD',
+                amount: creditUsd,
+                description: `Crypto deposit — ${deposit.pay_currency}`,
+                reference: reference,
+                source_type: 'crypto_deposit',
+                source_id: deposit.id,
+                provider: 'nowpayments',
+                provider_reference: String(paymentId),
+                metadata: {
+                    pay_currency: deposit.pay_currency,
+                    pay_network: deposit.pay_network,
+                    requested_usd: num(deposit.requested_usd || deposit.requested_amount),
+                    fee_percent: num(deposit.fee_percent || FEE_RATE_SINGLE),
+                    fee_usd: num(deposit.fee_usd || 0),
+                    required_usd: num(deposit.required_usd),
+                    credited_usd: creditUsd,
+                    decision_reason: decision.reason,
+                    actually_paid_crypto: parsed.actuallyPaid,
+                    outcome_usd: parsed.outcomeAmount,
+                    source
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                completed_at: new Date().toISOString()
             },
-            idempotencyKey: `crypto-deposit-${paymentId}`
+            p_entry_type: 'CREDIT',
+            p_amount: creditUsd,
+            p_currency: 'USD'
         });
+        if (error) throw error;
+        rpcResult = data;
     } catch (ledgerErr) {
         console.error('[CRYPTO] LEDGER CREDIT FAILED:', { paymentId, creditUsd, error: ledgerErr.message });
         await supabaseAdmin
@@ -585,19 +615,6 @@ async function verifyAndComplete(paymentId, source = 'status') {
         return { completed: false, reason: 'LEDGER_CREDIT_FAILED' };
     }
 
-    if (!ledgerResult || (!ledgerResult.transaction_id && !ledgerResult.already_exists)) {
-        await supabaseAdmin
-            .from('crypto_deposits')
-            .update({
-                status: 'pending',
-                failure_reason: 'LEDGER_NO_TRANSACTION_ID',
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', deposit.id)
-            .neq('status', 'completed');
-        return { completed: false, reason: 'LEDGER_NO_TRANSACTION_ID' };
-    }
-
     const nowIso = new Date().toISOString();
 
     await supabaseAdmin
@@ -605,7 +622,7 @@ async function verifyAndComplete(paymentId, source = 'status') {
         .update({
             status: 'completed',
             credited_amount: creditUsd,
-            ledger_transaction_id: ledgerResult.transaction_id || null,
+            ledger_transaction_id: pendingTx.id,
             completed_at: nowIso,
             provider_payload: provider,
             actually_paid_crypto: parsed.actuallyPaid,
@@ -618,7 +635,7 @@ async function verifyAndComplete(paymentId, source = 'status') {
 
     await syncUserFacingTransaction(deposit, 'completed', parsed, {
         creditedUsd: creditUsd,
-        ledgerTransactionId: ledgerResult.transaction_id || null,
+        ledgerTransactionId: pendingTx.id,
         finalReference: reference
     });
 

@@ -48,7 +48,7 @@
     });
   }
 
-  /* ── Inject the badge styles (once) ─────────────────────── */
+  /* ── Inject the badge styles (once) ──────\───────────────── */
   function injectStyles() {
     if (document.getElementById('notif-badge-styles')) return;
     const style = document.createElement('style');
