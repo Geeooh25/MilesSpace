@@ -57,7 +57,7 @@ function refreshCookieOptions() {
     return {
         httpOnly: true,
         secure:   process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'none',
         path:     REFRESH_COOKIE_PATH,
         maxAge:   REFRESH_TOKEN_TTL_SECONDS * 1000
     };

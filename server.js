@@ -74,7 +74,7 @@ app.use(helmet({
                 "'unsafe-eval'",
                 "https://cdn.jsdelivr.net",
                 "https://cdnjs.cloudflare.com",
-                "https://korablobstorage.blob.core.windows.net"
+                  "https://korablobstorage.blob.core.windows.net"
             ],
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: [
@@ -86,8 +86,7 @@ app.use(helmet({
             fontSrc: [
                 "'self'",
                 "https://fonts.gstatic.com",
-                "https://cdnjs.cloudflare.com",
-                "https://korablobstorage.blob.core.windows.net" 
+                "https://cdnjs.cloudflare.com"
             ],
             imgSrc: ["'self'", "data:", "https:"],
             connectSrc: [
