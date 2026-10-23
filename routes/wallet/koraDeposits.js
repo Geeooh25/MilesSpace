@@ -283,86 +283,52 @@ router.get('/deposits/kora/callback', async (req, res) => {
 // ─── POST /api/wallet/deposits/kora/webhook ────────────────
 router.post(
     '/deposits/kora/webhook',
-    express.json({
-        verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); }
-    }),
+    express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }),
     async (req, res) => {
-        res.status(200).json({ received: true });
-
         let eventRowId = null;
         try {
             const signature = req.headers['x-korapay-signature'];
             const rawBody   = req.rawBody || '';
             const body      = req.body || {};
 
-            const candidates = korapayService.extractCanonicalDataStrings({
-                parsedBody: body,
-                rawBody
-            });
-
+            const candidates = korapayService.extractCanonicalDataStrings({ parsedBody: body, rawBody });
             const valid = korapayService.verifyWebhookSignature(candidates, signature);
-
-            console.log('[KORA WEBHOOK] received', {
-                event: body?.event || body?.type || null,
-                reference: body?.data?.reference || body?.data?.payment_reference || null,
-                signature_present: !!signature,
-                candidates: candidates.length,
-                valid
-            });
-
-            if (!candidates.length) {
-                console.warn('[KORA WEBHOOK] no canonical candidate — body might not have arrived');
-            }
 
             const parsed = korapayService.parseWebhook(body);
             const providerRef = parsed.provider_reference;
             if (!providerRef) {
-                console.warn('[KORA WEBHOOK] no provider reference — ignoring');
-                return;
+                console.warn('[KORA WEBHOOK] no provider reference');
+                return res.status(200).json({ received: true });
             }
 
-            const persisted = await persistKoraEvent({
-                parsed,
-                rawBody,
-                signature,
-                valid
-            });
-
+            const persisted = await persistKoraEvent({ parsed, rawBody, signature, valid });
             if (persisted.duplicate && persisted.previousStatus === 'processed') {
-                console.log('[KORA WEBHOOK] duplicate of a processed event — ignoring');
-                return;
+                console.log('[KORA WEBHOOK] duplicate — already processed');
+                return res.status(200).json({ received: true });
             }
-
             eventRowId = persisted.id || null;
 
             if (!valid) {
-                console.warn('[KORA WEBHOOK] invalid signature — ignoring');
-                await markKoraEvent(eventRowId, {
-                    status: 'failed',
-                    error: 'INVALID_SIGNATURE'
-                });
-                return;
+                await markKoraEvent(eventRowId, { status: 'failed', error: 'INVALID_SIGNATURE' });
+                // Return 200 so Korapay stops retrying an invalid payload,
+                // but the failure is now recorded and visible.
+                return res.status(200).json({ received: true });
             }
 
-            const { data: deposit, error: findErr } = await supabaseAdmin
+            const { data: deposit } = await supabaseAdmin
                 .from('deposit_requests')
                 .select('*')
                 .or(`provider_reference.eq.${providerRef},merchant_reference.eq.${providerRef}`)
                 .maybeSingle();
 
-            if (findErr) {
-                await markKoraEvent(eventRowId, {
-                    status: 'failed',
-                    error: `DEPOSIT_LOOKUP_FAILED: ${findErr.message}`.slice(0, 500)
-                });
-                return;
-            }
             if (!deposit) {
-                await markKoraEvent(eventRowId, {
-                    status: 'failed',
-                    error: 'DEPOSIT_NOT_FOUND'
-                });
-                return;
+                await markKoraEvent(eventRowId, { status: 'failed', error: 'DEPOSIT_NOT_FOUND' });
+                return res.status(200).json({ received: true });
+            }
+
+            if (deposit.status === 'completed') {
+                await markKoraEvent(eventRowId, { status: 'processed', error: null });
+                return res.status(200).json({ received: true, already_completed: true });
             }
 
             const verifiedData = {
@@ -383,18 +349,31 @@ router.post(
                 source: 'webhook'
             });
 
+            if (result.completed) {
+                await markKoraEvent(eventRowId, { status: 'processed', error: null });
+                return res.status(200).json({ received: true, completed: true });
+            }
+
+            // ─── DO NOT return 200 here ───
+            // If the deposit did not complete, we want to know why and we want
+            // Korapay to retry. Log the reason and return 500 so the retry
+            // will re-enter this function and surface the same failure again.
+            console.error('[KORA WEBHOOK] completeKoraDeposit failed:', result.reason, result);
             await markKoraEvent(eventRowId, {
-                status: result.completed ? 'processed' : 'failed',
-                error: result.completed ? null : (result.reason || 'UNKNOWN')
+                status: 'failed',
+                error: (result.reason || 'UNKNOWN').slice(0, 500)
             });
+            return res.status(500).json({ received: true, error: result.reason || 'PROCESSING_FAILED' });
+
         } catch (e) {
-            console.error('[KORA WEBHOOK] handler error:', e.message);
+            console.error('[KORA WEBHOOK] handler threw:', e.message, e.stack);
             try {
                 await markKoraEvent(eventRowId, {
                     status: 'failed',
-                    error: e.message.slice(0, 500)
+                    error: (e.message || '').slice(0, 500)
                 });
-            } catch { /* ignore */ }
+            } catch {}
+            return res.status(500).json({ received: true, error: 'PROCESSING_FAILED' });
         }
     }
 );

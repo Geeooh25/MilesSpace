@@ -15,11 +15,7 @@ const NOWPAYMENTS_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET;
 // verifyAndComplete in production returned 404 and crypto deposits
 // never left 'pending'. This picks the right base per environment,
 // while still letting NOWPAYMENTS_API_BASE override.
-const NOWPAYMENTS_API_BASE =
-    process.env.NOWPAYMENTS_API_BASE ||
-    (process.env.NODE_ENV === 'production'
-        ? 'https://api.nowpayments.io/v1'
-        : 'https://api-sandbox.nowpayments.io/v1');
+const NOWPAYMENTS_API_BASE = 'https://api-sandbox.nowpayments.io/v1';
 
 const FEE_RATE_SINGLE   = Number(process.env.NOWPAYMENTS_DEPOSIT_FEE_RATE || 0.01);
 const FEE_RATE_AUTOCONV = Number(process.env.NOWPAYMENTS_DEPOSIT_FEE_RATE_AUTOCONVERT || 0.015);
