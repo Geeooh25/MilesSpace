@@ -52,7 +52,7 @@ function _isTrustedVerified(providerTransaction) {
     if (!providerTransaction || providerTransaction._trustedVerified !== true) return false;
     const expected = computeVerifiedDigest(providerTransaction);
     if (!expected) return false;
-    
+
     const providedDigest = String(providerTransaction._verifiedDigest || '');
     if (providedDigest.length !== expected.length) return false;
     if (!/^[0-9a-f]+$/i.test(providedDigest)) return false;
@@ -64,6 +64,15 @@ function _isTrustedVerified(providerTransaction) {
 }
 
 // ─── PENDING TRANSACTION ROW ────────────────────────────────
+// The pending row is created once, up-front, and identified for
+// the rest of its life by:
+//   source_type = 'kora_deposit'
+//   source_id   = deposit_requests.id
+//   type        = 'deposit'
+// Its `reference` (PENDING-...) is stable and is never rewritten.
+// This is what prevents the "duplicate history" bug — the pending
+// row and the final row are the same physical row, updated in
+// place, not two separate rows.
 async function upsertPendingTransaction(deposit) {
     const walletCcy     = String(deposit.wallet_currency || deposit.target_currency || 'NGN').toUpperCase();
     const isNGNWallet   = walletCcy === 'NGN';
@@ -85,10 +94,14 @@ async function upsertPendingTransaction(deposit) {
         fee_currency: deposit.fee_currency || null
     };
 
+    // First, look up by immutable identity so we cannot miss the
+    // row if it was ever touched by other code.
     const { data: existing, error: readErr } = await supabaseAdmin
         .from('transactions')
-        .select('id, status')
-        .eq('reference', ref)
+        .select('id, status, reference')
+        .eq('source_type', 'kora_deposit')
+        .eq('source_id', deposit.id)
+        .eq('type', 'deposit')
         .maybeSingle();
 
     if (readErr) {
@@ -234,8 +247,8 @@ async function bookFeeRevenue(deposit, { providerRef, feeAmount }) {
 // ─── FINALIZE NON-SUCCESS ──────────────────────────────────
 async function finalizeTransactionNonSuccess(deposit, { status, reason }) {
     const now = new Date().toISOString();
-    const pendingRef = pendingRefFor(deposit.internal_reference);
 
+    // Update by immutable identity, not by reference.
     const { error } = await supabaseAdmin
         .from('transactions')
         .update({
@@ -258,7 +271,9 @@ async function finalizeTransactionNonSuccess(deposit, { status, reason }) {
                 updated_at: now
             }
         })
-        .eq('reference', pendingRef)
+        .eq('source_type', 'kora_deposit')
+        .eq('source_id', deposit.id)
+        .eq('type', 'deposit')
         .neq('status', 'completed');
 
     if (error) {
@@ -363,6 +378,35 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         return { completed: false, reason: `PROVIDER_STATUS_${pStatus || 'UNKNOWN'}` };
     }
 
+    // ─── AMBIGUITY GUARD ───
+    // If more than one deposit matches the provider reference, we cannot
+    // trust claim_kora_deposit_for_credit to pick the right row. Route
+    // every ambiguous match to manual_review instead of risking a wrong
+    // completion.
+    const { data: matches } = await supabaseAdmin
+        .from('deposit_requests')
+        .select('id, status')
+        .or(`provider_reference.eq.${providerRef},merchant_reference.eq.${providerRef}`);
+
+    if (!matches || matches.length === 0) {
+        return { completed: false, reason: 'DEPOSIT_NOT_FOUND' };
+    }
+    if (matches.length > 1) {
+        for (const m of matches) {
+            if (m.status === 'completed') continue;
+            await supabaseAdmin
+                .from('deposit_requests')
+                .update({
+                    status: 'manual_review',
+                    failure_reason: 'AMBIGUOUS_REFERENCE',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', m.id)
+                .neq('status', 'completed');
+        }
+        return { completed: false, reason: 'AMBIGUOUS_REFERENCE' };
+    }
+
     const { data: claimResult, error: claimErr } = await supabaseAdmin
         .rpc('claim_kora_deposit_for_credit', { p_provider_ref: providerRef });
 
@@ -435,15 +479,19 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
     }
 
     // ─── ATOMIC LEDGER UPDATE VIA RPC ───
-    const pendingRef = pendingRefFor(deposit.internal_reference);
+    // Look up the pending row by IMMUTABLE identity (source_type + source_id).
+    // We never rely on its `reference` being what it was yesterday. This is
+    // the fix for the "PENDING_TX_MISSING" loop.
     const { data: pendingTx, error: pendingTxErr } = await supabaseAdmin
         .from('transactions')
-        .select('id')
-        .eq('reference', pendingRef)
+        .select('id, reference')
+        .eq('source_type', 'kora_deposit')
+        .eq('source_id', deposit.id)
+        .eq('type', 'deposit')
         .maybeSingle();
 
     if (pendingTxErr || !pendingTx) {
-        console.error('[DEPOSIT] Missing pending tx row:', pendingTxErr?.message);
+        console.error('[DEPOSIT] Missing pending tx row:', pendingTxErr?.message || 'no row');
         await _releaseAndMark(claim.deposit_id, 'manual_review', 'PENDING_TX_MISSING');
         return { completed: false, reason: 'PENDING_TX_MISSING' };
     }
@@ -456,25 +504,27 @@ async function completeKoraDeposit({ depositId, providerTransaction, source }) {
         .maybeSingle();
 
     if (acctErr || !account) {
-         await _releaseAndMark(claim.deposit_id, 'manual_review', 'LEDGER_ACCOUNT_MISSING');
-         return { completed: false, reason: 'LEDGER_ACCOUNT_MISSING' };
+        await _releaseAndMark(claim.deposit_id, 'manual_review', 'LEDGER_ACCOUNT_MISSING');
+        return { completed: false, reason: 'LEDGER_ACCOUNT_MISSING' };
     }
 
     const { data: rpcResult, error: rpcErr } = await supabaseAdmin.rpc('process_transaction_v2', {
         p_user_id: deposit.user_id,
         p_account_id: account.id,
         p_transaction_data: {
-            id: pendingTx.id, // CRITICAL: Pass existing row ID to update it
+            id: pendingTx.id, // CRITICAL: pass existing row ID so the RPC updates it
             user_id: deposit.user_id,
             type: 'deposit',
             status: 'completed',
             currency: walletCurrency,
             amount: walletCredit,
             description: `Deposit — ${deposit.payment_currency || deposit.source_currency} ${num(deposit.payment_amount || deposit.source_amount).toFixed(2)}`,
-            reference: finalRefFor(providerRef),
+            // Keep the pending row's reference stable — do not rename it.
+            reference: pendingTx.reference,
             source_type: 'kora_deposit',
             source_id: deposit.id,
             provider: 'korapay',
+            // Provider reference lives only here, not in `reference`.
             provider_reference: String(providerRef),
             metadata: {
                 payment_currency: deposit.payment_currency || deposit.source_currency,
@@ -583,9 +633,7 @@ async function _notifyDepositOnce(deposit, walletCredit, walletCurrency, complet
         console.warn('[DEPOSIT] notification claim failed:', error.message);
         return;
     }
-    if (!updated || updated.length === 0) {
-        return;
-    }
+    if (!updated || updated.length === 0) return;
 
     const walletStr = walletCurrency === 'USD'
         ? `$${walletCredit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

@@ -218,31 +218,6 @@ function closeModal(id) {
     }
 }
 
-// ─── THEME ────────────────────────────────────────────────────────
-function initTheme() {
-    let saved = null;
-    try { saved = localStorage.getItem('mx_theme'); } catch {}
-    if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-    updateThemeIcon();
-}
-function updateThemeIcon() {
-    const btn = document.getElementById('darkToggle');
-    if (!btn) return;
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    btn.textContent = isDark ? '☀️' : '🌙';
-}
-function toggleTheme() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    if (isDark) {
-        document.documentElement.removeAttribute('data-theme');
-        try { localStorage.setItem('mx_theme', 'light'); } catch {}
-    } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        try { localStorage.setItem('mx_theme', 'dark'); } catch {}
-    }
-    updateThemeIcon();
-}
-
 // ─── SECTION TOGGLE ───────────────────────────────────────────────
 function toggleSection(header) {
     const body = header.nextElementSibling;
@@ -1244,7 +1219,7 @@ async function deleteStepResendCode() {
 
 // ─── EVENT BINDING ────────────────────────────────────────────────
 function bindEvents() {
-    document.getElementById('darkToggle')?.addEventListener('click', toggleTheme);
+    // Removed darkToggle binding
     document.getElementById('refreshBtn')?.addEventListener('click', (e) => {
         const btn = e.currentTarget;
         const icon = btn.querySelector('i') || btn;
@@ -1328,7 +1303,6 @@ function bindEvents() {
 
 // ─── BOOT ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-    initTheme();
     bindEvents();
 
     await new Promise((r) => setTimeout(r, 0));

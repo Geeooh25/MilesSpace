@@ -8,8 +8,18 @@ const { createNotification } = require('./notificationService');
 const emailService = require('./emailService');
 
 const NOWPAYMENTS_API_KEY    = process.env.NOWPAYMENTS_API_KEY;
-const NOWPAYMENTS_API_BASE   = process.env.NOWPAYMENTS_API_BASE || 'https://api-sandbox.nowpayments.io/v1';
 const NOWPAYMENTS_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET;
+
+// ─── PRODUCTION-SAFE URL ───
+// The old default was always the sandbox URL, which meant every
+// verifyAndComplete in production returned 404 and crypto deposits
+// never left 'pending'. This picks the right base per environment,
+// while still letting NOWPAYMENTS_API_BASE override.
+const NOWPAYMENTS_API_BASE =
+    process.env.NOWPAYMENTS_API_BASE ||
+    (process.env.NODE_ENV === 'production'
+        ? 'https://api.nowpayments.io/v1'
+        : 'https://api-sandbox.nowpayments.io/v1');
 
 const FEE_RATE_SINGLE   = Number(process.env.NOWPAYMENTS_DEPOSIT_FEE_RATE || 0.01);
 const FEE_RATE_AUTOCONV = Number(process.env.NOWPAYMENTS_DEPOSIT_FEE_RATE_AUTOCONVERT || 0.015);
@@ -340,6 +350,8 @@ async function insertPendingTransactionRow(deposit, _expectedCrypto) {
         idempotency_key: deposit.idempotency_key
     };
 
+    // Insert / upsert by reference. `NP-PENDING-...` remains the row's
+    // stable internal reference for its whole life. We never rename it.
     const { error } = await supabaseAdmin.from('transactions').upsert({
         user_id: deposit.user_id,
         type: 'deposit',
@@ -360,7 +372,7 @@ async function insertPendingTransactionRow(deposit, _expectedCrypto) {
         metadata: meta,
         created_at: new Date().toISOString()
     }, { onConflict: 'reference' });
-    
+
     if (error && error.code !== '23505') {
         console.warn('[CRYPTO] pending row insert failed:', error.message);
     }
@@ -539,14 +551,21 @@ async function verifyAndComplete(paymentId, source = 'status') {
         return { completed: false, reason: 'INVALID_CREDIT_AMOUNT' };
     }
 
-    const reference = `NP-${paymentId}`;
-    const pendingRef = `NP-PENDING-${paymentId}`;
-
-    const { data: pendingTx } = await supabaseAdmin
+    // ─── IMMUTABLE LOOKUP ───
+    // We find the pending row by source_type + source_id, not by reference.
+    // This survives every code path that might rename reference.
+    const { data: pendingTx, error: pendingTxErr } = await supabaseAdmin
         .from('transactions')
-        .select('id')
-        .eq('reference', pendingRef)
+        .select('id, reference')
+        .eq('source_type', 'crypto_deposit')
+        .eq('source_id', deposit.id)
+        .eq('type', 'deposit')
         .maybeSingle();
+
+    if (pendingTxErr || !pendingTx) {
+        console.error('[CRYPTO] Missing pending tx row', { paymentId, reason: pendingTxErr?.message });
+        return { completed: false, reason: 'MISSING_LEDGER_OR_TX' };
+    }
 
     const { data: account } = await supabaseAdmin
         .from('ledger_accounts')
@@ -555,8 +574,8 @@ async function verifyAndComplete(paymentId, source = 'status') {
         .eq('currency', 'USD')
         .maybeSingle();
 
-    if (!account || !pendingTx) {
-        console.error('[CRYPTO] Missing ledger account or pending tx', { paymentId });
+    if (!account) {
+        console.error('[CRYPTO] Missing ledger account', { paymentId });
         return { completed: false, reason: 'MISSING_LEDGER_OR_TX' };
     }
 
@@ -566,14 +585,15 @@ async function verifyAndComplete(paymentId, source = 'status') {
             p_user_id: deposit.user_id,
             p_account_id: account.id,
             p_transaction_data: {
-                id: pendingTx.id, // CRITICAL: Update existing row
+                id: pendingTx.id, // Update existing row
                 user_id: deposit.user_id,
                 type: 'deposit',
                 status: 'completed',
                 currency: 'USD',
                 amount: creditUsd,
                 description: `Crypto deposit — ${deposit.pay_currency}`,
-                reference: reference,
+                // Keep the pending row's reference stable.
+                reference: pendingTx.reference,
                 source_type: 'crypto_deposit',
                 source_id: deposit.id,
                 provider: 'nowpayments',
@@ -633,10 +653,12 @@ async function verifyAndComplete(paymentId, source = 'status') {
         .eq('id', deposit.id)
         .neq('status', 'completed');
 
+    // syncUserFacingTransaction no longer renames the reference. It only
+    // updates status and metadata. If the pending row is already there,
+    // it updates it; it does not create a second row.
     await syncUserFacingTransaction(deposit, 'completed', parsed, {
         creditedUsd: creditUsd,
-        ledgerTransactionId: pendingTx.id,
-        finalReference: reference
+        ledgerTransactionId: pendingTx.id
     });
 
     await _notifyCryptoDepositOnce(deposit, creditUsd, nowIso);
@@ -711,11 +733,10 @@ async function _notifyCryptoDepositOnce(deposit, creditUsd, completedAtIso) {
 }
 
 // ─── HISTORY SYNC ──────────────────────────────────────
+// This function NEVER creates a second transaction row. It updates
+// the existing row found by (source_type, source_id).
 async function syncUserFacingTransaction(deposit, status, parsed, extra = {}) {
     try {
-        const paymentId = String(deposit.nowpayments_payment_id || '');
-        if (!paymentId) return;
-
         const requested = num(deposit.requested_usd || deposit.requested_amount);
         const credited  = num(extra.creditedUsd || deposit.credited_amount || 0);
         const amount    = credited > 0 ? credited : requested;
@@ -733,74 +754,34 @@ async function syncUserFacingTransaction(deposit, status, parsed, extra = {}) {
             status_updated_at: nowIso
         };
 
-        const pendingRef = `NP-PENDING-${paymentId}`;
-        const finalRef = extra.finalReference || `NP-${paymentId}`;
-
-        const { data: pendingRow, error: readErr } = await supabaseAdmin
+        const { data: row } = await supabaseAdmin
             .from('transactions')
-            .select('id')
-            .eq('reference', pendingRef)
+            .select('id, reference')
+            .eq('source_type', 'crypto_deposit')
+            .eq('source_id', deposit.id)
+            .eq('type', 'deposit')
             .maybeSingle();
 
-        if (readErr) {
-            console.warn('[CRYPTO] pending row read failed:', readErr.message);
-            return;
-        }
+        if (!row) return;
 
-        if (pendingRow) {
-            const updateData = {
-                status,
-                amount,
-                amount_usd: amount,
-                meta,
-                metadata: meta,
-                updated_at: nowIso
-            };
-            if (status === 'completed') {
-                updateData.ref = finalRef;
-                updateData.reference = finalRef;
-                updateData.completed_at = nowIso;
-            } else if (status === 'failed') {
-                updateData.failed_at = nowIso;
-            }
-
-            const { error: updErr } = await supabaseAdmin
-                .from('transactions')
-                .update(updateData)
-                .eq('id', pendingRow.id);
-
-            if (updErr && updErr.code !== '23505') {
-                console.warn('[CRYPTO] syncUserFacingTransaction update failed:', updErr.message);
-            }
-            return;
-        }
-
-        const insertRef = status === 'completed' ? finalRef : pendingRef;
-        const { error: insErr } = await supabaseAdmin.from('transactions').upsert({
-            user_id: deposit.user_id,
-            type: 'deposit',
-            category: 'credit',
-            description: `Crypto deposit — ${deposit.pay_currency}`,
-            currency: 'USD',
+        const patch = {
             status,
-            ref: insertRef,
-            reference: insertRef,
-            wallet_used: 'USD',
             amount,
             amount_usd: amount,
-            amount_ngn: 0,
-            fee: 0,
-            revenue_usd: 0,
-            revenue_ngn: 0,
             meta,
             metadata: meta,
-            created_at: nowIso,
-            completed_at: status === 'completed' ? nowIso : null,
-            failed_at: status === 'failed' ? nowIso : null
-        }, { onConflict: 'reference' });
-        
-        if (insErr && insErr.code !== '23505') {
-            console.warn('[CRYPTO] syncUserFacingTransaction insert failed:', insErr.message);
+            updated_at: nowIso
+        };
+        if (status === 'completed') patch.completed_at = nowIso;
+        if (status === 'failed')    patch.failed_at = nowIso;
+
+        const { error: updErr } = await supabaseAdmin
+            .from('transactions')
+            .update(patch)
+            .eq('id', row.id);
+
+        if (updErr && updErr.code !== '23505') {
+            console.warn('[CRYPTO] syncUserFacingTransaction update failed:', updErr.message);
         }
     } catch (e) {
         console.warn('[CRYPTO] syncUserFacingTransaction failed:', e.message);
