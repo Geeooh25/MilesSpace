@@ -13,15 +13,22 @@ const SUPPORTED_CURRENCIES = new Set(['NGN', 'USD']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const TYPE_DIRECTION = {
-    deposit:       'credit',
-    wallet_credit: 'credit',
-    refund:        'credit',
-    adjustment:    'both',
-    wallet_debit:  'debit',
-    withdrawal:    'debit',
-    fee_revenue:   'credit'
+    deposit:              'credit',
+    wallet_credit:        'credit',
+    refund:               'credit',
+    adjustment:           'both',
+    wallet_debit:         'debit',
+    withdrawal:           'debit',
+    fee_revenue:          'credit',
+    marketplace_purchase: 'debit',
+    // future service purchases:
+    airtime_purchase:     'debit',
+    data_purchase:        'debit',
+    giftcard_purchase:    'debit',
+    esim_purchase:        'debit',
+    boost_purchase:       'debit',
+    virtual_number_purchase: 'debit',
 };
-
 const HISTORICAL_TYPES = new Set(['cashback_redeem', 'cashback']);
 
 const ACCOUNT_COLUMNS = 'id, user_id, currency, available_balance, held_balance, created_at, updated_at';
@@ -184,7 +191,7 @@ class LedgerService {
             type,
             status: 'completed',
             currency: ccy,
-            amount: amountNum,
+            amount: rawAmount > 0 ? amountNum : -amountNum,
             description: description || type,
             source_type: sourceType,
             source_id: sourceId,
@@ -372,6 +379,105 @@ class LedgerService {
         if (error) throw new Error(`getTransactionByReferenceForVerification failed: ${error.message}`);
         return data || null;
     }
+
+        // ═══════════════════════════════════════════════════════════════
+    //  REFUND — reverse a prior debit and credit the user back.
+    //
+    //  Caller contract (see routes/billsRoutes.js):
+    //      LedgerService.refundTransaction({
+    //          userId,
+    //          transactionId: <transactions.id of the original DEBIT>,
+    //          reason: 'Provider failed' | ...
+    //      })
+    //
+    //  Idempotent: deterministic reference "REFUND-{original.reference}"
+    //  means a retry after a partial success cannot double-credit.
+    // ═══════════════════════════════════════════════════════════════
+    static async refundTransaction({
+        userId,
+        transactionId,
+        reason = 'Refund',
+        reference = null,
+        idempotencyKey = null
+    }) {
+        if (!UUID_RE.test(String(userId || ''))) {
+            throw new Error('refundTransaction: userId must be a UUID');
+        }
+        if (!UUID_RE.test(String(transactionId || ''))) {
+            throw new Error('refundTransaction: transactionId must be a UUID');
+        }
+
+        // 1. Load the original transaction so we can validate and inherit context.
+        const original = await this.getTransactionById(transactionId);
+        if (!original) {
+            throw new Error(`refundTransaction: transaction ${transactionId} not found`);
+        }
+        if (String(original.user_id) !== String(userId)) {
+            throw new Error('refundTransaction: transaction does not belong to this user');
+        }
+
+        // 2. Must be a debit. Refunding a credit would be nonsense.
+        // 2. Must be a debit.
+//    Historically, `transactions.amount` was written unsigned (positive) even for
+//    debits (see process_transaction_v2 sign bug). `metadata.direction` is the
+//    authoritative source of direction for such legacy rows. Balance movement
+//    lives in `ledger_entries` and was correct all along.
+const rawAmount = parseFloat(original.amount) || 0;
+const metaDirection = String(original.metadata?.direction || '').toLowerCase();
+const isDebit =
+    rawAmount < 0 ||
+    metaDirection === 'debit' ||
+    String(original.type || '').endsWith('_purchase') ||
+    String(original.type || '') === 'wallet_debit' ||
+    String(original.type || '') === 'withdrawal';
+
+if (!isDebit) {
+    throw new Error(
+        `refundTransaction: transaction ${transactionId} is not a debit ` +
+        `(amount=${original.amount}, direction=${metaDirection || 'unknown'}, type=${original.type})`
+    );
+}
+        // 3. Deterministic reference — retries short-circuit on the unique constraint.
+        const refundRef = reference || `REFUND-${original.reference}`;
+
+        // 4. Idempotency: if we already refunded, return the existing credit row.
+        const already = await this.getTransactionByReference(refundRef);
+        if (already) {
+            return {
+                success: true,
+                already_exists: true,
+                transaction_id: already.id,
+                reference: refundRef,
+                amount: Math.abs(parseFloat(already.amount) || 0),
+                currency: already.currency
+            };
+        }
+
+        // 5. Credit the user back. Metadata keeps the audit trail intact.
+        // 5. Credit the user back. Metadata keeps the audit trail intact.
+const refundAmount = Math.abs(rawAmount);
+
+        return await this.createTransaction({
+            userId,
+            type: 'refund',
+            amount: +refundAmount,                 // positive = credit
+            currency: original.currency || DEFAULT_CURRENCY,
+            description: reason,
+            reference: refundRef,
+            sourceType: original.source_type || 'refund',
+            sourceId: original.source_id || original.id,
+            provider: original.provider || null,
+            providerReference: original.provider_reference || null,
+            metadata: {
+                refunded_transaction_id: original.id,
+                refunded_reference: original.reference,
+                refunded_type: original.type,
+                reason
+            },
+            idempotencyKey: idempotencyKey || null
+        });
+    }
+    
 
     static async getTransactionById(id) {
         const { data, error } = await supabaseAdmin
