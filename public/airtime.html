@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="MilesSpace brings your wallet and everyday digital services together. Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more." />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#fbfaf7" />
@@ -145,7 +145,7 @@
 
     input, select {
       font-family: inherit;
-      font-size: 16px;
+      font-size: 16px; /* prevents iOS auto-zoom */
       color: inherit;
     }
 
@@ -390,6 +390,7 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      width: 100%;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -587,12 +588,13 @@
       flex: 1;
       padding: 12px;
       border: none;
-      font-size: .9rem;
+      font-size: 16px; /* prevents iOS auto-zoom */
       outline: none;
       background: transparent;
       min-width: 0;
       color: var(--t1);
       min-height: 44px;
+      scroll-margin-block: 16px;
     }
     .phone-input::placeholder { color: var(--t3); }
     .phone-field.err { border-color: var(--err); }
@@ -647,15 +649,17 @@
       padding: 10px 10px 10px 30px;
       border: 1px solid var(--bdr);
       border-radius: var(--r);
-      font-size: .8rem;
+      font-size: 16px; /* prevents iOS auto-zoom */
       outline: none;
       transition: var(--tr);
       min-height: 40px;
+      scroll-margin-block: 16px;
     }
     .country-dropdown .search-wrap input:focus { border-color: var(--p); }
     #countryListInner {
       overflow-y: auto;
       flex: 1;
+      -webkit-overflow-scrolling: touch;
     }
     .country-item {
       display: flex;
@@ -835,6 +839,57 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
+       [NEW] NETWORK AVAILABILITY CHIP
+       ═══════════════════════════════════════════════════════════ */
+    .network-avail {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: var(--r);
+      font-size: .76rem;
+      font-weight: 600;
+      margin-top: 10px;
+      border: 1px solid var(--bdr);
+      background: var(--srf2);
+      color: var(--t2);
+    }
+    .network-avail.checking { color: var(--t3); }
+    .network-avail.checking .na-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--bdr);
+      border-top-color: var(--p);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .network-avail.available {
+      background: var(--okl); color: #065f46; border-color: transparent;
+    }
+    .network-avail.unavailable {
+      background: var(--erl); color: #991b1b; border-color: transparent;
+    }
+    .network-avail .na-range {
+      font-family: var(--fd);
+      font-weight: 800;
+      margin-left: auto;
+    }
+    .network-avail button.na-retry {
+      margin-left: 4px;
+      padding: 4px 10px;
+      border-radius: var(--rp);
+      background: var(--p); color: #fff;
+      font-size: .68rem; font-weight: 700;
+      min-height: 28px;
+      border: none;
+    }
+    /* When the network is unavailable, mute the amount + disable Proceed */
+    .form-section.network-unavailable .fs-amount-block { opacity: .5; pointer-events: none; }
+
+    /* ═══════════════════════════════════════════════════════════
        AMOUNT
        ═══════════════════════════════════════════════════════════ */
     .amt-presets {
@@ -889,13 +944,14 @@
       flex: 1;
       border: none;
       padding: 10px 4px;
-      font-size: .95rem;
+      font-size: 16px; /* prevents iOS auto-zoom */
       font-weight: 700;
       outline: none;
       min-width: 0;
       background: transparent;
       color: var(--t1);
       min-height: 40px;
+      scroll-margin-block: 16px;
     }
     .amt-divider {
       width: 1px;
@@ -955,9 +1011,6 @@
       border-top-color: var(--p);
       border-radius: 50%;
       animation: spin .6s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
     }
     .quote-error {
       display: none;
@@ -1444,7 +1497,6 @@
     /* ═══════════════════════════════════════════════════════════
        MODALS (shared base)
        ═══════════════════════════════════════════════════════════ */
-    .atm-modal-lazy,
     .receipt-modal,
     .airtime-detail-modal,
     .pin-modal {
@@ -1461,9 +1513,9 @@
     .receipt-modal.on,
     .pin-modal.on { display: flex; }
 
-    .atm-bg,
     .rm-bg-rec,
-    .pm-bg {
+    .pm-bg,
+    .atm-bg {
       position: absolute;
       inset: 0;
       background: rgba(10,37,48,.58);
@@ -1913,6 +1965,7 @@
       color: var(--t1);
       outline: none;
       transition: var(--tr);
+      scroll-margin-block: 16px;
     }
     .pm-input:focus {
       border-color: var(--p);
@@ -2055,7 +2108,7 @@
         padding: 7px 12px;
         font-size: .7rem;
       }
-      .amt-custom { font-size: .84rem; }
+      .amt-custom { font-size: 16px; } /* keep 16px to prevent iOS zoom */
       .operator-grid,
       .operator-loading-grid { grid-template-columns: repeat(2, 1fr); }
       .operator-card {
@@ -2093,6 +2146,59 @@
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
       }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE KEYBOARD / VIEWPORT FIXES (iPhone Safari)
+       ═══════════════════════════════════════════════════════════ */
+    html {
+      width: 100%;
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-width: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-wrap: anywhere;
+    }
+
+    .main {
+      width: 100%;
+      min-width: 0;
+      flex: 1 0 auto;
+    }
+
+    /* All text inputs must be >= 16px to stop iOS auto-zoom */
+    .phone-input,
+    .amt-custom,
+    .country-dropdown .search-wrap input,
+    .pm-input {
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
+    }
+
+    /* Let the page scroll when the keyboard opens */
+    .content {
+      overflow: visible;
+    }
+
+    /* Ensure lists scroll naturally with touch */
+    #countryListInner,
+    .operator-grid,
+    .operator-loading-grid {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Keep the layout calm when the visible viewport shrinks */
+    @media (max-height: 600px) {
+      .country-dropdown { max-height: 220px; }
+      .operator-card    { min-height: 88px; }
+      .operator-card .op-logo-wrap { width: 40px; height: 40px; }
     }
   </style>
 
@@ -2213,9 +2319,12 @@
               <i class="fas fa-sim-card"></i> Select a country to see available networks
             </div>
           </div>
+          <!-- [NEW] Network availability chip -->
+          <div class="network-avail" id="networkAvail" style="display:none" role="status" aria-live="polite"></div>
         </div>
 
-        <div class="fs-block">
+        <!-- [NEW] class fs-amount-block so it can be muted when network is unavailable -->
+        <div class="fs-block fs-amount-block">
           <p class="fs-label">Amount (USD) — any amount $1 to $500</p>
 
           <div class="amt-presets" id="amtPresets">
@@ -2321,14 +2430,20 @@
 /* ══════════════════════════════════════════════════════════════════════
    MILESSPACE AIRTIME — THREE-STEP FLOW
    ──────────────────────────────────────────────────────────────────────
-   Step 1  Proceed        → 2% breakdown shown locally. ZERO backend calls.
+   Step 1  Proceed        → server preflight → wallet step.
    Step 2  Proceed again  → GET /airtime/me → NGN + USD wallet cards.
    Step 3  Continue → Pay → PIN → POST /airtime/purchase (DT One here).
+
+   [NEW] When a network is selected, the form runs POST /airtime/preflight
+   immediately. If the network is unavailable or the amount is out of
+   range, the user sees that BEFORE they type an amount or touch their
+   wallet — no debit, no failed receipt.
    ══════════════════════════════════════════════════════════════════════ */
 
 /* ─── Config ──────────────────────────────────────────────── */
 const CONFIG = Object.freeze({
   API: '/api',
+  // [NEW] Server-provided rate. Kept as fallback only.
   FEE_PERCENT: 0.02,
   USD_TO_NGN: 1600,
   MIN_AMOUNT: 1,
@@ -2503,6 +2618,7 @@ async function api(path, opts = {}) {
     const err = new Error(data.error || `HTTP ${response.status}`);
     err.code = data.code;
     err.data = data.data;
+    err.status = response.status;
     throw err;
   }
   return data;
@@ -2519,7 +2635,13 @@ const showToast = throttle((msg, type = 'info') => {
     err:  'fa-times-circle',
     warn: 'fa-exclamation-circle'
   };
-  el.innerHTML = `<i class="fas ${icons[type] || 'fa-info-circle'}"></i> ${escapeHtml(msg)}`;
+  const icon = document.createElement('i');
+  icon.className = `fas ${icons[type] || 'fa-info-circle'}`;
+  const span = document.createElement('span');
+  span.textContent = msg;
+
+  el.appendChild(icon);
+  el.appendChild(span);
   container.appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }, CONFIG.TOAST_THROTTLE_MS);
@@ -2540,6 +2662,9 @@ const state = {
   totalUSD: 0,
   totalNGN: 0,
   balances: { ngn: 0, usd: 0 },
+  // [NEW] Filled by /airtime/me. Fallback to CONFIG if the server omits them.
+  serverUsdToNgn: CONFIG.USD_TO_NGN,
+  serverFeePercent: CONFIG.FEE_PERCENT,
   selectedWallet: null,
   transaction: null,
   idempotencyKey: null,
@@ -2550,7 +2675,11 @@ const state = {
   operatorsByCountry: new Map(),
   operatorAbort: null,
   operatorRequestId: 0,
-  step: 'form'   // 'form' | 'breakdown' | 'wallet' | 'review' | 'result'
+  step: 'form',   // 'form' | 'breakdown' | 'wallet' | 'review' | 'result'
+  // [NEW] Preflight + network availability
+  preflight: null,
+  preflightAbort: null,
+  networkAvailability: 'idle'  // 'idle' | 'checking' | 'available' | 'unavailable'
 };
 
 function updateState(patch) {
@@ -2742,7 +2871,13 @@ on($('countryListInner'), 'keydown', (e) => {
 });
 
 async function selectCountry(code, iso2, name, flag, dial) {
-  updateState({ country: { code, iso2, name, flag, dial }, operator: null, phoneNumber: '' });
+  updateState({
+    country: { code, iso2, name, flag, dial },
+    operator: null,
+    phoneNumber: '',
+    networkAvailability: 'idle',
+    preflight: null
+  });
   localCache.setLastCountry(code);
 
   $('countryFlag').textContent = flag || '🌐';
@@ -2752,6 +2887,7 @@ async function selectCountry(code, iso2, name, flag, dial) {
   $('phoneInput').value = '';
   $('phoneField').classList.remove('err');
   invalidateBreakdown();
+  renderNetworkAvail();       // [NEW] clear chip when country changes
   updateProceedState();
   await loadOperators(code);
   $('phoneInput')?.focus();
@@ -2861,15 +2997,132 @@ function renderOperators(operators) {
   container.replaceChildren(grid);
 }
 
-function selectOperator(id, name, logo) {
-  updateState({ operator: { id, name, logo } });
+async function selectOperator(id, name, logo) {
+  updateState({
+    operator: { id, name, logo },
+    networkAvailability: 'checking',
+    preflight: null
+  });
   $$('.operator-card').forEach(el => {
     const isSel = el.dataset.operatorId === String(id);
     el.classList.toggle('selected', isSel);
     el.setAttribute('aria-pressed', String(isSel));
   });
+  renderNetworkAvail();
   invalidateBreakdown();
   updateProceedState();
+  await checkNetworkAvailability(id);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   [NEW] NETWORK AVAILABILITY CHECK
+   Runs /airtime/preflight with a nominal probe amount to answer the
+   question "can this operator be bought from at all?" — WITHOUT
+   debiting or writing to the DB. If it can't, the user sees that
+   BEFORE they type an amount.
+   ══════════════════════════════════════════════════════════════════════ */
+async function checkNetworkAvailability(operatorId) {
+  if (!state.country || !operatorId) return;
+
+  // Abort any previous check.
+  if (state.preflightAbort) state.preflightAbort.abort();
+  state.preflightAbort = new AbortController();
+
+  // Probe with the minimum amount + whatever phone the user has typed.
+  // If no phone yet, use a plausible dummy for the country so preflight
+  // can still answer "does this operator have any product range at all?".
+  const probeAmount = CONFIG.MIN_AMOUNT;
+  const probePhone = state.phoneNumber || '8000000000';
+
+  try {
+    const res = await api('/airtime/preflight', {
+      method: 'POST',
+      signal: state.preflightAbort.signal,
+      body: JSON.stringify({
+        country: state.country.code,
+        phone: probePhone,
+        operator_id: operatorId,
+        source_amount_usd: probeAmount,
+        wallet_type: 'USD'
+      })
+    });
+
+    if (res?.success && res.quote) {
+      updateState({
+        networkAvailability: 'available',
+        preflight: res.quote
+      });
+    } else {
+      updateState({ networkAvailability: 'unavailable', preflight: null });
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+
+    // If phone hasn't been entered yet, "INVALID_PHONE" just means we
+    // can't preflight yet — that's not a network problem.
+    if (err.code === 'INVALID_PHONE' && !state.phoneNumber) {
+      updateState({ networkAvailability: 'idle', preflight: null });
+    }
+    // If the network genuinely doesn't support the probe amount, that's
+    // a range issue, not availability — treat it as "available, range
+    // needed". We'll re-check with the user's real amount on Proceed.
+    else if (err.code === 'AMOUNT_BELOW_MIN' || err.code === 'AMOUNT_ABOVE_MAX') {
+      updateState({
+        networkAvailability: 'available',
+        preflight: {
+          min_usd: err.data?.min_amount_usd ?? null,
+          max_usd: err.data?.max_amount_usd ?? null
+        }
+      });
+    } else {
+      updateState({ networkAvailability: 'unavailable', preflight: null });
+    }
+  } finally {
+    state.preflightAbort = null;
+    renderNetworkAvail();
+    updateProceedState();
+  }
+}
+
+function renderNetworkAvail() {
+  const box = $('networkAvail');
+  const form = $('formStep');
+  if (!box) return;
+
+  const st = state.networkAvailability;
+  if (st === 'idle' || !state.operator) {
+    box.style.display = 'none';
+    form.classList.remove('network-unavailable');
+    return;
+  }
+
+  box.style.display = 'flex';
+  form.classList.toggle('network-unavailable', st === 'unavailable');
+
+  if (st === 'checking') {
+    box.className = 'network-avail checking';
+    box.innerHTML = '<span class="na-spinner"></span> Checking availability for this network…';
+    return;
+  }
+
+  if (st === 'available') {
+    const min = state.preflight?.min_usd;
+    const max = state.preflight?.max_usd;
+    const range = (min && max)
+      ? `$${min}–$${max}`
+      : 'Variable amounts';
+    box.className = 'network-avail available';
+    box.innerHTML = `<i class="fas fa-check-circle"></i> Network available <span class="na-range">${range}</span>`;
+    return;
+  }
+
+  // unavailable
+  box.className = 'network-avail unavailable';
+  box.innerHTML = `<i class="fas fa-exclamation-circle"></i> This network is not available right now. <button type="button" class="na-retry" id="naRetryBtn">Try Again</button>`;
+  const retry = $('naRetryBtn');
+  if (retry) {
+    retry.onclick = () => checkNetworkAvailability(state.operator.id);
+  }
 }
 
 function prefetchOperators(countryCode) {
@@ -2893,9 +3146,15 @@ function prefetchCommonOperators() {
 /* ══════════════════════════════════════════════════════════════════════
    PHONE + AMOUNT
    ══════════════════════════════════════════════════════════════════════ */
-const onPhoneChangeDebounced = debounce((value) => {
+const onPhoneChangeDebounced = debounce(async (value) => {
   updateState({ phoneNumber: value });
   invalidateBreakdown();
+
+  // Re-run network availability with a real phone if we don't have one
+  // confirmed yet, or if the previous check didn't fire (idle).
+  if (value.length >= 7 && state.operator && state.networkAvailability !== 'available') {
+    await checkNetworkAvailability(state.operator.id);
+  }
   updateProceedState();
 }, CONFIG.PHONE_DEBOUNCE_MS);
 
@@ -2961,7 +3220,7 @@ function setRecipientDisplay(amount, currency) {
 }
 
 function invalidateBreakdown() {
-  updateState({ feeUSD: 0, totalUSD: 0, totalNGN: 0, selectedWallet: null, idempotencyKey: null });
+  updateState({ feeUSD: 0, totalUSD: 0, totalNGN: 0, selectedWallet: null, idempotencyKey: null, preflight: null });
   showStep('form');
   setRecipientDisplay(null, null);
   $('quoteError').classList.remove('visible');
@@ -2975,6 +3234,7 @@ function updateProceedState() {
   const valid =
     state.country &&
     state.operator &&
+    state.networkAvailability === 'available' &&   // [NEW] require preflight
     state.phoneNumber.length >= 7 &&
     state.sendAmount >= CONFIG.MIN_AMOUNT &&
     state.sendAmount <= CONFIG.MAX_AMOUNT;
@@ -2985,7 +3245,7 @@ on($('btnProceed'), 'click', onProceedClick);
 
 async function onProceedClick() {
   if (state.step === 'form') {
-    showBreakdown();
+    await showBreakdown();
     return;
   }
   if (state.step === 'breakdown') {
@@ -2995,9 +3255,11 @@ async function onProceedClick() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   STEP 1 → STEP 2 : local breakdown (NO backend call)
+   STEP 1 → STEP 2 : server preflight + local breakdown
+   The server preflight is what guarantees availability + min/max for
+   the actual amount. Only if it succeeds do we render the review.
    ══════════════════════════════════════════════════════════════════════ */
-function showBreakdown() {
+async function showBreakdown() {
   if (!state.country || !state.operator || state.sendAmount <= 0) {
     toast('Fill in the form first', 'warn');
     return;
@@ -3007,12 +3269,65 @@ function showBreakdown() {
     toast('Enter a valid phone number', 'warn');
     return;
   }
+  if (state.networkAvailability !== 'available') {
+    toast('This network is not available right now.', 'warn');
+    return;
+  }
 
-  const fee   = Number((state.sendAmount * CONFIG.FEE_PERCENT).toFixed(2));
-  const total = Number((state.sendAmount + fee).toFixed(2));
-  const ngn   = Number((total * CONFIG.USD_TO_NGN).toFixed(2));
+  // Re-run preflight with the ACTUAL amount before showing the review.
+  // This is where "amount below min", "above max", or "network went down
+  // since the initial check" get caught — before the wallet step.
+  $('quoteLoading').classList.add('visible');
+  $('quoteError').classList.remove('visible');
 
-  updateState({ feeUSD: fee, totalUSD: total, totalNGN: ngn });
+  let quote;
+  try {
+    const res = await api('/airtime/preflight', {
+      method: 'POST',
+      body: JSON.stringify({
+        country: state.country.code,
+        phone: state.phoneNumber,
+        operator_id: state.operator.id,
+        source_amount_usd: state.sendAmount,
+        wallet_type: 'USD'
+      })
+    });
+    if (!res?.success || !res.quote) {
+      const msg = res?.error || 'This network is unavailable for this amount';
+      $('quoteErrorMsg').textContent = msg;
+      $('quoteError').classList.add('visible');
+      updateState({ networkAvailability: 'unavailable' });
+      renderNetworkAvail();
+      updateProceedState();
+      return;
+    }
+    quote = res.quote;
+  } catch (err) {
+    if (err.code === 'AMOUNT_BELOW_MIN') {
+      $('quoteErrorMsg').textContent = err.message || 'Amount below minimum';
+    } else if (err.code === 'AMOUNT_ABOVE_MAX') {
+      $('quoteErrorMsg').textContent = err.message || 'Amount above maximum';
+    } else {
+      $('quoteErrorMsg').textContent = err.message || 'Could not confirm availability';
+    }
+    $('quoteError').classList.add('visible');
+    if (err.code !== 'AMOUNT_BELOW_MIN' && err.code !== 'AMOUNT_ABOVE_MAX') {
+      updateState({ networkAvailability: 'unavailable' });
+    }
+    renderNetworkAvail();
+    updateProceedState();
+    return;
+  } finally {
+    $('quoteLoading').classList.remove('visible');
+  }
+
+  // Use the server's numbers — they're what /purchase will charge.
+  updateState({
+    preflight: quote,
+    feeUSD: quote.fee_usd,
+    totalUSD: quote.total_usd,
+    totalNGN: quote.total_ngn
+  });
 
   setRecipientDisplay(state.sendAmount, 'USD');
 
@@ -3020,11 +3335,11 @@ function showBreakdown() {
   $('pvCountry').textContent  = state.country?.name || '—';
   $('pvOperator').textContent = state.operator?.name || '—';
   $('pvAmount').textContent   = formatMoneyWithSymbol(state.sendAmount, 'USD');
-  $('pvFee').textContent      = formatMoneyWithSymbol(fee, 'USD');
+  $('pvFee').textContent      = formatMoneyWithSymbol(quote.fee_usd, 'USD');
   $('pvWallet').textContent   = 'Choose in next step';
-  $('pvTotal').textContent    = formatMoneyWithSymbol(total, 'USD');
+  $('pvTotal').textContent    = formatMoneyWithSymbol(quote.total_usd, 'USD');
   $('balanceLabel').textContent = 'NGN equivalent';
-  $('balanceValue').textContent = formatMoneyWithSymbol(ngn, 'NGN');
+  $('balanceValue').textContent = formatMoneyWithSymbol(quote.total_ngn, 'NGN');
   $('balanceValue').className = 'pv-val';
 
   $('btnPay').style.display = 'none';
@@ -3037,7 +3352,6 @@ function showBreakdown() {
   cta.className = 'btn-pay';
   cta.innerHTML = '<i class="fas fa-arrow-right"></i> Continue to Wallet';
   cta.onclick = null;
-  cta.onclick = async () => { await showWalletStep(); };
   cta.onclick = showWalletStep;
 
   showStep('breakdown');
@@ -3059,7 +3373,10 @@ async function showWalletStep() {
         balances: {
           ngn: parseFloat(response.data.wallet_ngn) || 0,
           usd: parseFloat(response.data.wallet_usd) || 0
-        }
+        },
+        // [NEW] Pull server rate + fee; ignore if absent.
+        serverUsdToNgn: parseFloat(response.data.usd_to_ngn) || CONFIG.USD_TO_NGN,
+        serverFeePercent: parseFloat(response.data.fee_percent) || CONFIG.FEE_PERCENT
       });
     } else {
       toast('Could not load wallet balances', 'err');
@@ -3168,14 +3485,16 @@ function showFinalReview() {
   const walletBalance = isUSD ? state.balances.usd : state.balances.ngn;
   const remaining = walletBalance - requiredAmount;
 
+  // Fee shown in the selected wallet's currency.
+  const feeInCurrency = isUSD
+    ? state.feeUSD
+    : Number((state.feeUSD * state.serverUsdToNgn).toFixed(2));
+
   $('pvPhone').textContent    = (state.country?.dial || '') + ' ' + state.phoneNumber;
   $('pvCountry').textContent  = state.country?.name || '—';
   $('pvOperator').textContent = state.operator?.name || '—';
   $('pvAmount').textContent   = formatMoneyWithSymbol(state.sendAmount, 'USD');
-  $('pvFee').textContent      = formatMoneyWithSymbol(
-    isUSD ? state.feeUSD : Number((state.feeUSD * CONFIG.USD_TO_NGN).toFixed(2)),
-    currency
-  );
+  $('pvFee').textContent      = formatMoneyWithSymbol(feeInCurrency, currency);
   $('pvTotal').textContent    = formatMoneyWithSymbol(requiredAmount, currency);
   $('pvWallet').textContent   = currency + ' Wallet';
   $('balanceLabel').textContent = currency + ' balance after';
@@ -3531,6 +3850,7 @@ on($('btnBuyAgain'), 'click', resetAll);
 function resetAll() {
   stopPolling();
   if (state.operatorAbort) state.operatorAbort.abort();
+  if (state.preflightAbort) state.preflightAbort.abort();
 
   updateState({
     country: null,
@@ -3545,7 +3865,9 @@ function resetAll() {
     transaction: null,
     idempotencyKey: null,
     isProcessing: false,
-    pollAttempts: 0
+    pollAttempts: 0,
+    networkAvailability: 'idle',
+    preflight: null
   });
 
   $('countryFlag').textContent = '🌐';
@@ -3559,6 +3881,7 @@ function resetAll() {
   $('btnBackWallet').style.display = '';
   $('btnProceed').style.display = '';
 
+  renderNetworkAvail();
   invalidateBreakdown();
   updateProceedState();
   showStep('form');
@@ -3656,6 +3979,7 @@ on($('historyList'), 'keydown', (e) => {
    ══════════════════════════════════════════════════════════════════════ */
 let detailReference = null;
 let detailPollTimer = null;
+let detailPollAttempts = 0;
 
 function ensureAirtimeDetailModal() {
   if ($('airtimeDetailModal')) return;
@@ -3709,6 +4033,7 @@ function ensureAirtimeDetailModal() {
 async function openAirtimeDetails(reference) {
   ensureAirtimeDetailModal();
   detailReference = reference;
+  detailPollAttempts = 0;
   $('atmReference').textContent = reference;
   $('atmContent').innerHTML = `<div class="atm-loading"><span class="spinner-sm"></span>Loading transaction...</div>`;
   $('airtimeDetailModal').classList.add('on');
@@ -3737,7 +4062,13 @@ async function fetchAirtimeDetails(reference) {
     const status = String(response.data.status || '').toLowerCase();
     if (['processing', 'pending'].includes(status) && detailReference === reference) {
       if (detailPollTimer) clearTimeout(detailPollTimer);
-      detailPollTimer = setTimeout(() => fetchAirtimeDetails(reference), 5000);
+      detailPollAttempts++;
+      if (detailPollAttempts < 12) {
+        // [NEW] Backoff: 5s, 10s, 15s, ... up to 30s, then stop.
+        const delay = Math.min(5000 * detailPollAttempts, 30000);
+        detailPollTimer = setTimeout(() => fetchAirtimeDetails(reference), delay);
+      }
+      // After 12 attempts, stop auto-polling. The user can hit Refresh.
     }
     loadHistory();
   } catch (error) {
@@ -3936,6 +4267,15 @@ document.addEventListener('click', (e) => {
 on($('logoutBtn'), 'click', () => {
   if (typeof window.doUserLogout === 'function') window.doUserLogout();
   else window.location.replace('/login.html');
+});
+
+// [NEW] "Try Again" on the inline quote error box retries the preflight
+on($('quoteRetryBtn'), 'click', () => {
+  if (state.operator && state.country && state.sendAmount > 0) {
+    showBreakdown();
+  } else if (state.operator) {
+    checkNetworkAvailability(state.operator.id);
+  }
 });
 
 /* ══════════════════════════════════════════════════════════════════════

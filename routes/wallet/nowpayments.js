@@ -9,7 +9,7 @@ const { authMiddleware } = require('../../middleware/auth');
 const cryptoDepositService = require('../../services/cryptoDepositService');
 
 const NOWPAYMENTS_API_KEY  = process.env.NOWPAYMENTS_API_KEY;
-const NOWPAYMENTS_API_BASE = 'https://api.nowpayments.io/v1';
+const NOWPAYMENTS_API_BASE = 'https://api-sandbox.nowpayments.io/v1';
 
 // ────────────────────────────────────────────────────────────
 // POST /api/wallet/nowpayments/deposit

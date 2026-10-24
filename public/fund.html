@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Wallet — MilesSpace</title>
 
   <!-- Fonts -->
@@ -11,7 +11,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
+
+  
+  <!-- QR Code for Crypto -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
+  
   <script src="/js/session.js"></script>
   <script src="/js/presence.js" defer></script>
 
@@ -59,7 +63,7 @@
 
       --s0: 0 1px 4px rgba(0,0,0,.05);
       --s1: 0 4px 14px rgba(0,0,0,.07);
-      --s2: 0 8px 28px rgba(0,0,0,.1);
+      --s2: 0 8px 28px rgba(0,0,0,.12);
 
       --ease: cubic-bezier(.25,.8,.25,1);
       --safe-b: env(safe-area-inset-bottom, 0px);
@@ -80,6 +84,8 @@
       scroll-behavior: smooth;
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
+      width: 100%;
+      min-height: 100%;
     }
     html, body {
       max-width: 100vw;
@@ -92,6 +98,7 @@
       min-height: 100vh;
       min-height: 100dvh;
       -webkit-font-smoothing: antialiased;
+      overflow-wrap: anywhere;
     }
     a { text-decoration: none; color: inherit; }
     button {
@@ -102,10 +109,15 @@
       color: inherit;
       font-size: inherit;
     }
+    
+    /* Prevent iOS auto-zoom */
     input, select, textarea {
       font-family: inherit;
-      font-size: inherit;
+      font-size: 16px;
       color: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
     }
     img { max-width: 100%; display: block; }
 
@@ -116,11 +128,13 @@
       display: flex;
       min-height: 100vh;
       min-height: 100dvh;
+      width: 100%;
     }
     .main-content {
       margin-left: var(--sw);
       flex: 1;
       min-width: 0;
+      width: 100%;
     }
     @media (max-width: 1024px) {
       .main-content { margin-left: 0; }
@@ -381,6 +395,7 @@
       max-width: 1100px;
       margin: 0 auto;
       width: 100%;
+      overflow: visible;
     }
     @media (max-width: 768px) {
       .content { padding: 14px 13px calc(96px + var(--safe-b)); }
@@ -479,6 +494,7 @@
       color: var(--t1);
       margin-bottom: 32px;
       word-break: break-all;
+      font-variant-numeric: tabular-nums;
     }
     @media (max-width: 640px) {
       .balance-amount { font-size: 32px; }
@@ -495,6 +511,7 @@
       top: 8px;
       margin-right: 2px;
     }
+    .balance-amount.loading { color: var(--t3); opacity: .55; }
 
     /* ═══════════════════════════════════════════════════════════
        ACTION ROW
@@ -625,6 +642,7 @@
       max-height: 92vh;
       max-height: 92dvh;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       animation: slideUp 0.3s ease;
     }
     @media (min-width: 641px) {
@@ -696,7 +714,7 @@
       padding: 12px;
       border: 1px solid var(--bdr);
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 16px;
       font-family: inherit;
       background: var(--srf2);
       transition: border 0.2s;
@@ -886,7 +904,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       TRANSACTIONS PANEL
+       TRANSACTIONS PANEL & FILTERS
        ═══════════════════════════════════════════════════════════ */
     .tx-panel {
       background: var(--srf);
@@ -954,10 +972,12 @@
       color: var(--p);
       border-color: var(--p);
     }
+    
+    /* ── The Fixed Filter Menu ── */
     .tx-filter-wrap { position: relative; }
     .tx-filter-btn {
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
       border-radius: 10px;
       background: var(--srf2);
       border: 1px solid var(--bdr);
@@ -966,38 +986,66 @@
       color: var(--t2);
       cursor: pointer;
       font-size: 13px;
+      transition: all 0.2s;
     }
-    .tx-filter-btn:hover { background: var(--pl); color: var(--p); }
+    .tx-filter-btn:hover, .tx-filter-btn.active {
+      background: var(--pl); 
+      color: var(--p); 
+      border-color: var(--p);
+    }
     .tx-filter-menu {
       display: none;
       position: absolute;
-      top: 50px;
+      top: calc(100% + 8px);
       right: 0;
       background: var(--srf);
       border: 1px solid var(--bdr);
-      border-radius: 10px;
-      box-shadow: var(--s2);
-      width: 200px;
-      z-index: 50;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.12);
+      width: 180px;
+      z-index: 100;
       overflow: hidden;
+      animation: fadeIn 0.15s ease;
     }
     .tx-filter-menu.show { display: block; }
     .tx-filter-menu button {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       width: 100%;
       text-align: left;
-      padding: 14px 16px;
-      font-size: 14px;
+      padding: 12px 16px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--t1);
       background: none;
       border: none;
       border-bottom: 1px solid var(--bdr);
       cursor: pointer;
+      transition: background 0.15s;
       min-height: 44px;
     }
+    .tx-filter-menu button i {
+      color: var(--t3);
+      font-size: 12px;
+      width: 14px;
+      text-align: center;
+    }
+    .tx-filter-menu button:hover {
+      background: var(--srf2);
+      color: var(--p);
+    }
+    .tx-filter-menu button:hover i {
+      color: var(--p);
+    }
+    .tx-filter-menu button.active {
+      background: var(--pl);
+      color: var(--p);
+    }
+    .tx-filter-menu button.active i {
+      color: var(--p);
+    }
     .tx-filter-menu button:last-child { border-bottom: none; }
-    .tx-filter-menu button:hover { background: var(--pl); color: var(--p); }
 
     /* ── Desktop row ── */
     .tx-row {
@@ -1171,6 +1219,7 @@
       z-index: 901;
       transition: right .3s var(--ease);
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       box-shadow: var(--s2);
       padding-bottom: var(--safe-b);
     }
@@ -1735,14 +1784,14 @@
         <div class="wallet-card active" id="cardNGN" onclick="selectWallet('NGN')">
           <div>
             <div class="wname">🇳🇬 Naira Wallet</div>
-            <div class="wbalance" id="balanceNGN">₦0.00</div>
+            <div class="wbalance" id="balanceNGN">₦ —</div>
           </div>
           <div class="wicon ngn">₦</div>
         </div>
         <div class="wallet-card" id="cardUSD" onclick="selectWallet('USD')">
           <div>
             <div class="wname">🇺🇸 USD Wallet</div>
-            <div class="wbalance" id="balanceUSD">$0.00</div>
+            <div class="wbalance" id="balanceUSD">$ —</div>
           </div>
           <div class="wicon usd">$</div>
         </div>
@@ -1751,8 +1800,8 @@
       <!-- Balance panel -->
       <div class="balance-panel">
         <div class="balance-label" id="balanceLabel">Naira Wallet</div>
-        <div class="balance-amount" id="balanceAmount">
-          <span class="symbol">₦</span>0<span class="cents">.00</span>
+        <div class="balance-amount loading" id="balanceAmount">
+          <span class="symbol">₦</span>—<span class="cents"></span>
         </div>
         
         <div class="action-row">
@@ -1777,7 +1826,7 @@
         </div>
       </div>
 
-      <!-- Transactions panel -->
+      <!-- Transactions panel (Lazy loaded) -->
       <div class="tx-panel">
         <div class="tx-panel-head">
           <h3>Wallet Activity <span class="badge">Funds only</span></h3>
@@ -1785,16 +1834,28 @@
             <button class="tx-all-btn" onclick="openFinancialHistory()" type="button">
               <i class="fas fa-list-ul"></i> View All
             </button>
+            
+            <!-- Fixed Filter Menu -->
             <div class="tx-filter-wrap">
-              <button class="tx-filter-btn" id="txFilterBtn" onclick="toggleTxFilter()" aria-label="Filter transactions"><i class="fas fa-sliders-h"></i></button>
+              <button class="tx-filter-btn" id="txFilterBtn" onclick="toggleTxFilter(event)" aria-label="Filter transactions">
+                <i class="fas fa-sliders-h"></i>
+              </button>
               <div class="tx-filter-menu" id="txFilterMenu">
-                <button onclick="filterTx('all')">All</button>
-                <button onclick="filterTx('deposit')">Deposits</button>
-                <button onclick="filterTx('debit')">Debits</button>
-                <button onclick="filterTx('credit')">Credits</button>
-                <button onclick="filterTx('refund')">Refunds</button>
+                <button onclick="filterTx('all', this)" class="active">
+                  <i class="fas fa-list"></i> All
+                </button>
+                <button onclick="filterTx('deposit', this)">
+                  <i class="fas fa-arrow-down"></i> Deposits
+                </button>
+                <button onclick="filterTx('credit', this)">
+                  <i class="fas fa-plus"></i> Credits
+                </button>
+                <button onclick="filterTx('debit', this)">
+                  <i class="fas fa-minus"></i> Debits
+                </button>
               </div>
             </div>
+
           </div>
         </div>
         
@@ -1986,7 +2047,10 @@ const State = {
   cryptoIdempotencyKey: null,
   paymentInterval: null,
   timerInterval: null,
-  previousFocus: null
+  previousFocus: null,
+  balanceLoaded: false,
+  historyLoaded: false,
+  korapayPublicKey: null
 };
 
 const CRYPTO_MIN_USD_FALLBACK = 5;
@@ -1995,20 +2059,16 @@ const FINANCIAL_TYPES = new Set([
   'deposit',
   'wallet_debit',
   'wallet_credit',
-  'withdrawal',
   'refund',
-  'adjustment',
-  'cashback_redeem'
+  'adjustment'
 ]);
 
 const SAFE_DESCRIPTIONS = new Set([
   'Wallet deposit',
   'Wallet debit',
   'Wallet credit',
-  'Withdrawal',
   'Refund',
   'Balance adjustment',
-  'Cashback redeemed',
   'Transaction'
 ]);
 
@@ -2045,7 +2105,7 @@ const DOM = {
   cryptoMinimum: $('cryptoMinimum'),
   cryptoPresetContainer: $('cryptoPresetContainer'),
   depNoteText: $('depNoteText'),
-  txRows: $('txRows'), txFilterMenu: $('txFilterMenu'),
+  txRows: $('txRows'), txFilterMenu: $('txFilterMenu'), txFilterBtn: $('txFilterBtn'),
   bdList: $('bdList'), bdFilterLabel: $('bdFilterLabel'), bdSecTitle: $('bdSecTitle'),
   drawerTitle: $('drawerTitle'),
   stmtAccount: $('stmtAccount'), stmtFrom: $('stmtFrom'), stmtTo: $('stmtTo'),
@@ -2270,6 +2330,7 @@ async function loadWalletBalance() {
     State.wallets.USD.balance = usd;
     State.wallets.NGN.source = payload.source || 'ledger';
     State.wallets.USD.source = payload.source || 'ledger';
+    State.balanceLoaded = true;
     updateWalletUI();
   } catch (e) {
     console.error('[WALLET] Balance error:', e);
@@ -2279,15 +2340,23 @@ async function loadWalletBalance() {
 function updateWalletUI() {
   const ngn = State.wallets.NGN.balance;
   const usd = State.wallets.USD.balance;
-  DOM.balanceNGN.textContent = formatNGN(ngn);
-  DOM.balanceUSD.textContent = `$${formatUSD(usd)}`;
   const isNGN = State.currentWallet === 'NGN';
   const bal = isNGN ? ngn : usd;
   const sym = isNGN ? '₦' : '$';
-  const parts = Number(bal).toFixed(2).split('.');
-  const whole = Number(parts[0]).toLocaleString('en-US');
+
+  const formatter = isNGN
+    ? new Intl.NumberFormat('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const formatted = formatter.format(bal);
+  const parts = formatted.split('.');
+
+  DOM.balanceNGN.textContent = '₦' + new Intl.NumberFormat('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ngn);
+  DOM.balanceUSD.textContent = '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usd);
+
   DOM.balanceLabel.textContent = isNGN ? 'Naira Wallet' : 'USD Wallet';
-  DOM.balanceAmount.innerHTML = `<span class="symbol">${sym}</span>${whole}<span class="cents">.${parts[1]}</span>`;
+  DOM.balanceAmount.classList.remove('loading');
+  DOM.balanceAmount.innerHTML = `<span class="symbol">${sym}</span>${parts[0]}<span class="cents">.${parts[1]}</span>`;
 }
 
 function selectWallet(cur) {
@@ -2298,17 +2367,14 @@ function selectWallet(cur) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TX TYPE MAP — financial types only
+   TX TYPE MAP
    ═══════════════════════════════════════════════════════════════ */
 const TX_TYPE_MAP = {
   deposit:         { label: 'Wallet deposit',       icon: 'fa-arrow-down',    bg: 'var(--okl)',  cl: '#065f46' },
   wallet_credit:   { label: 'Wallet credit',        icon: 'fa-plus-circle',   bg: 'var(--okl)',  cl: '#065f46' },
   wallet_debit:    { label: 'Wallet debit',         icon: 'fa-minus-circle',  bg: 'var(--erl)',  cl: 'var(--err)' },
-  withdrawal:      { label: 'Withdrawal',           icon: 'fa-arrow-up',      bg: 'var(--erl)',  cl: 'var(--err)' },
   refund:          { label: 'Refund',               icon: 'fa-rotate-left',   bg: 'var(--okl)',  cl: '#065f46' },
-  adjustment:      { label: 'Balance adjustment',   icon: 'fa-sliders',       bg: 'var(--pl)',   cl: 'var(--p)' },
-  cashback_redeem: { label: 'Cashback redeemed',    icon: 'fa-coins',         bg: 'var(--acl)',  cl: 'var(--acd)' },
-  fee_revenue:     { label: 'Fee',                  icon: 'fa-percent',       bg: 'var(--pl)',   cl: 'var(--p)' }
+  adjustment:      { label: 'Balance adjustment',   icon: 'fa-sliders',       bg: 'var(--pl)',   cl: 'var(--p)' }
 };
 
 function getTxType(type) {
@@ -2332,15 +2398,36 @@ function txStatusInfo(status) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   WALLET ACTIVITY — funds only
+   WALLET ACTIVITY
    ═══════════════════════════════════════════════════════════════ */
 async function loadWalletActivity() {
+  if (State.historyLoaded) return;
   try {
     const resp = await apiRequest('/wallet/transactions?limit=50');
     const raw = Array.isArray(resp?.data) ? resp.data : [];
     const safeRows = raw.filter(t => FINANCIAL_TYPES.has(String(t.type || '').toLowerCase()));
-    State.txCache = safeRows;
-    renderWalletActivity(safeRows);
+
+    // --- DEDUPLICATION FIX ---
+    // The backend creates two rows for some deposits (e.g., a "PENDING-MSDEP..." and a "KORA-...").
+    // We group by the actual reference or internal metadata to prevent double-rendering.
+    const uniqueMap = new Map();
+    safeRows.forEach(row => {
+      // Prioritize completed rows so the pending one gets overwritten in the map
+      const key = row.reference ? row.reference.replace(/^(KORA|PENDING)-/, '') : row.id;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, row);
+      } else {
+        const existing = uniqueMap.get(key);
+        if (existing.status !== 'completed' && row.status === 'completed') {
+          uniqueMap.set(key, row);
+        }
+      }
+    });
+
+    const deduplicatedRows = Array.from(uniqueMap.values());
+    State.txCache = deduplicatedRows;
+    State.historyLoaded = true;
+    renderWalletActivity(deduplicatedRows);
   } catch (e) {
     console.error('[WALLET] activity error:', e);
     DOM.txRows.innerHTML =
@@ -2364,23 +2451,21 @@ function renderWalletActivity(rows) {
 }
 
 function applyTxFilter(rows, filter) {
-  const ALLOWED = new Set(['all', 'deposit', 'debit', 'credit', 'refund']);
-  const f = ALLOWED.has(filter) ? filter : 'all';
-  if (f === 'all') return rows;
+  if (filter === 'all') return rows;
 
   return rows.filter(t => {
     const type = String(t.type || '').toLowerCase();
     const dir  = String(t.direction || '').toLowerCase();
-    if (f === 'deposit') return type === 'deposit';
-    if (f === 'debit')   return dir === 'debit' || type === 'wallet_debit' || type === 'withdrawal';
-    if (f === 'credit')  return dir === 'credit' && type !== 'deposit';
-    if (f === 'refund')  return type === 'refund';
+    
+    if (filter === 'deposit') return type === 'deposit';
+    if (filter === 'debit')   return dir === 'debit' || type === 'wallet_debit';
+    if (filter === 'credit')  return dir === 'credit' && type !== 'deposit'; // Groups wallet_credit, refund, adjustment
     return true;
   });
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ROW MARKUP — DESKTOP
+   ROW MARKUP
    ═══════════════════════════════════════════════════════════════ */
 function renderTxRow(t, idx) {
   const { amount, currency } = resolveTxAmount(t);
@@ -2415,6 +2500,7 @@ function renderTxRow(t, idx) {
 /* ═══════════════════════════════════════════════════════════════
    ROW MARKUP — MOBILE
    ═══════════════════════════════════════════════════════════════ */
+
 function renderTxMobileCard(t, idx) {
   const { amount, currency } = resolveTxAmount(t);
   const absAmt = Math.abs(amount);
@@ -2445,7 +2531,7 @@ function renderTxMobileCard(t, idx) {
   </button>`;
 }
 /* ═══════════════════════════════════════════════════════════════
-   CLICK DELEGATION
+   CLICK DELEGATION & FILTER UI
    ═══════════════════════════════════════════════════════════════ */
 function initTxRowsDelegation() {
   if (!DOM.txRows) return;
@@ -2467,15 +2553,33 @@ function initTxRowsDelegation() {
   });
 }
 
-function filterTx(type) {
+function toggleTxFilter(e) {
+  if (e) e.stopPropagation();
+  const isShowing = DOM.txFilterMenu.classList.contains('show');
+  DOM.txFilterMenu.classList.toggle('show');
+  DOM.txFilterBtn.classList.toggle('active', !isShowing);
+}
+
+function filterTx(type, btnEl) {
   State.txFilter = type;
+  
+  // Update active classes
+  DOM.txFilterMenu.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  
   DOM.txFilterMenu.classList.remove('show');
+  DOM.txFilterBtn.classList.remove('active');
+  
   renderWalletActivity(State.txCache);
 }
 
-function toggleTxFilter() {
-  DOM.txFilterMenu.classList.toggle('show');
-}
+// Close filter menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.tx-filter-wrap')) {
+    DOM.txFilterMenu.classList.remove('show');
+    DOM.txFilterBtn.classList.remove('active');
+  }
+});
 
 /* ═══════════════════════════════════════════════════════════════
    TX DETAIL
@@ -2660,13 +2764,21 @@ function initFiatMode(fundMode) {
       renderFiatPresets();
     });
   } else {
-    DOM.depCurrencyGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--t3);padding:6px;"><span class="spinner"></span> Loading…</div>`;
+    // ── INSTANT NGN LOAD: Set fallback NGN immediately ──
+    DOM.depCurrencyGrid.innerHTML = renderFiatCurrencyCard({ code: 'NGN', display_name: 'Nigeria Naira', enabled: true }, true);
+    State.depSelectedCurrency = { code: 'NGN', min_amount: 500, max_amount: 1000000, deposit_fee: 50 };
+    updateAmountBlockForMode();
+    renderFiatPresets();
+    bindFiatCurrencyCardHandlers();
+
+    // Background refresh of the actual currency config
     loadDepositCurrencies().then(() => {
       const ngn = State.depCurrencies.find(c => c.code === 'NGN');
-      State.depSelectedCurrency = ngn || null;
-      renderFiatCurrencies();
-      updateAmountBlockForMode();
-      renderFiatPresets();
+      if (ngn) {
+        State.depSelectedCurrency = ngn;
+        updateAmountBlockForMode();
+        renderFiatPresets();
+      }
     });
   }
 }
@@ -3011,14 +3123,18 @@ async function submitFund() {
   if (State.fundMode === 'crypto') await submitCryptoDeposit();
   else await submitFiatDeposit();
 }
-
 async function submitFiatDeposit() {
   const cfg = State.depSelectedCurrency;
   if (!cfg) { showToast('Select a currency', 'error'); return; }
   if (State.depSubmitting) return;
 
-  const typed = parseFloat(String(DOM.fundAmount.value).replace(/,/g, '')) || 0;
-  if (!typed || typed <= 0) { showToast('Enter an amount to continue', 'error'); return; }
+  const rawValue = String(DOM.fundAmount.value || '').replace(/,/g, '').trim();
+  const typed = Number(rawValue);
+
+  if (!rawValue || isNaN(typed) || typed <= 0) {
+    showToast('Enter a valid amount to continue', 'error');
+    return;
+  }
   if (typed < Number(cfg.min_amount)) { showToast(`Minimum is ${formatMoney(cfg.min_amount, cfg.code)}`, 'error'); return; }
   if (typed > Number(cfg.max_amount)) { showToast(`Maximum is ${formatMoney(cfg.max_amount, cfg.code)}`, 'error'); return; }
 
@@ -3028,7 +3144,6 @@ async function submitFiatDeposit() {
   DOM.fundBtn.disabled = true;
   DOM.fundBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing…';
 
-  let redirecting = false;
   try {
     const resp = await apiRequest('/wallet/deposits/kora/initialize', {
       method: 'POST',
@@ -3046,16 +3161,15 @@ async function submitFiatDeposit() {
     const url = resp.checkout_url;
     if (!url) { showToast('Payment provider did not return a checkout link', 'error'); return; }
 
-    redirecting = true;
-    setTimeout(() => { window.location.href = url; }, 150);
+    // Redirect to Korapay hosted checkout
+    window.location.href = url;
   } catch (e) {
     console.error('[DEPOSIT] submit error:', e);
     showToast('Something went wrong. Please try again.', 'error');
   } finally {
     State.depSubmitting = false;
-    DOM.fundBtn.innerHTML = '<i class="fas fa-arrow-right"></i> <span id="fundBtnText">Continue to payment</span>';
-    DOM.fundBtnText = $('fundBtnText');
-    DOM.fundBtn.disabled = redirecting;
+    DOM.fundBtn.disabled = false;
+    DOM.fundBtn.innerHTML = '<i class="fas fa-arrow-right"></i> <span>Continue to payment</span>';
   }
 }
 
@@ -3202,6 +3316,7 @@ async function checkPaymentStatus() {
       setTimeout(() => {
         closeModal('paymentModal');
         apiCache.clear();
+        State.historyLoaded = false; // Force refresh so they see the new tx
         loadWalletBalance();
         loadWalletActivity();
       }, 1800);
@@ -3381,6 +3496,7 @@ function handleReturnQuery() {
   if (dep === 'success') {
     showToast('Deposit confirmed. Your wallet has been credited.', 'success');
     apiCache.clear();
+    State.historyLoaded = false;
     loadWalletBalance();
     loadWalletActivity();
   }
@@ -3408,10 +3524,24 @@ document.addEventListener('DOMContentLoaded', async function() {
   initTxRowsDelegation();
   initBreakdownDelegation();
 
-  await Promise.all([
-    loadWalletBalance(),
-    loadWalletActivity()
-  ]);
+  // Load balance IMMEDIATELY
+  loadWalletBalance();
+
+  // Lazy-load history
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !State.historyLoaded) {
+          loadWalletActivity();
+        }
+      });
+    }, { threshold: 0.1 });
+
+    const txBody = document.getElementById('txRows');
+    if (txBody) observer.observe(txBody);
+  } else {
+    setTimeout(loadWalletActivity, 500);
+  }
 
   handleReturnQuery();
   loadDepositCurrencies().catch(() => {});
@@ -3420,11 +3550,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   setInterval(() => {
     if (!document.hidden) {
       loadWalletBalance();
-      loadWalletActivity();
+      if (State.historyLoaded) loadWalletActivity();
     }
   }, 20000);
-
-  console.log('💳 Wallet page ready — tap any row to see details');
 });
 
 /* ═══════════════════════════════════════════════════════════════

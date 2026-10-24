@@ -457,11 +457,12 @@ async function buildAdminContext(req, requiredPermission) {
     }
 
     // 3. Session must be active in user_sessions.
+        // 3. Session must be active in admin_sessions.
     try {
         const { data: sess, error: sessErr } = await supabaseAdmin
-            .from('user_sessions')
-            .select('is_active, revoked_at, expires_at')
-            .eq('session_id', decoded.sid)
+            .from('admin_sessions')
+            .select('expires_at')
+            .eq('token', decoded.sid)          // ← admin_sessions stores the sid in `token`
             .eq('user_id', profile.id)
             .maybeSingle();
 
@@ -473,11 +474,6 @@ async function buildAdminContext(req, requiredPermission) {
         if (!sess) {
             const e = new Error('Your session could not be found. Please sign in again.');
             e.status = 401; e.code = 'SESSION_NOT_FOUND';
-            throw e;
-        }
-        if (sess.revoked_at || sess.is_active !== true) {
-            const e = new Error('Your session has been revoked. Please sign in again.');
-            e.status = 401; e.code = 'SESSION_REVOKED';
             throw e;
         }
         if (sess.expires_at && new Date(sess.expires_at) <= new Date()) {

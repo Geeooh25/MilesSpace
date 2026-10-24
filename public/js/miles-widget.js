@@ -1,31 +1,12 @@
 /*!
- * MilesSpace Support Widget — v16.3
- * ----------------------------------
- * v16.3 changes:
- *   • AUTH FIX. The widget now uses the real session API exposed by
- *     public/js/session.js:
- *         window.getUser()
- *         window.getAccessToken()
- *         window.checkUserSession()
- *         window.userFetch(url, opts)
- *     Previously it looked for legacy localStorage keys ('mx_sess',
- *     'mx_token', ...) that session.js deliberately scrubs on every
- *     page load. That made an authenticated user look like a guest.
- *   • getToken() now delegates to window.getAccessToken() first, and
- *     only falls back to legacy storage for older pages that still
- *     use it. It never trusts a token whose JWT payload is expired.
- *   • isAuthenticated is now resolved asynchronously: if the access
- *     token is not in memory yet, the widget awaits
- *     window.checkUserSession() once, then re-reads user data.
- *   • aria-hidden / inert. When the panel is closed, focus inside
- *     the panel is released and the panel is marked inert. When it
- *     is open, inert is removed. This resolves the browser warning:
- *     "Blocked aria-hidden on an element because its descendant
- *     retained focus."
- *   • CONFIG.MESSAGE_MAX_LEN_SAFE is now defined (was referenced in
- *     renderGuestTicket but never set, producing maxlength="undefined").
- *   • No API contract changes. Same endpoints, same request bodies,
- *     same response shapes. Backend routes are untouched.
+ * MilesSpace Support Widget — v20.0 (iPhone Modal Fix + Desktop Footer Fix)
+ * -----------------------------------------------------------------
+ * • Retains ALL features: guest flows, help articles, drag-and-drop,
+ *   rating, unread badges, optimistic messaging, idempotency, and retries.
+ * • FIXED: iPhone Subject input no longer breaks layout or auto-zooms.
+ * • FIXED: Desktop Create Ticket button is always clickable by using
+ *   a flex-column layout with a scrollable body.
+ * • NO API contract changes. Same endpoints.
  */
 
 (function () {
@@ -74,7 +55,6 @@
                 sessionStorage.removeItem(toRemove[j]);
             }
         } catch (e) { /* ignore */ }
-
         window.MilesWidget = null;
         return;
     }
@@ -97,8 +77,6 @@
         MOBILE_BREAKPOINT: 520,
         POLL_INTERVAL: 25000,
         MAX_MESSAGE_LENGTH: 5000,
-        // Alias used inside renderGuestTicket; was referenced but never
-        // defined in v16.2, so the textarea got maxlength="undefined".
         MESSAGE_MAX_LEN_SAFE: 5000,
         MAX_SUBJECT_LENGTH: 150,
         MAX_FILE_SIZE: 10 * 1024 * 1024,
@@ -331,17 +309,21 @@
         chat:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 01-11.6 7.2L4 20l1.1-4.3A8 8 0 1121 12z"/></svg>',
         close:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>',
         minimize:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>',
-        send:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
+        send:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', 
         search:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
         bell:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 004 0"/></svg>',
         bellOff:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M6 8a6 6 0 0110.9-3.4M18 14c0-1 .2-2 0-3"/><path d="M4 14s2-1 2-6"/><path d="M10 21a2 2 0 004 0"/></svg>',
         info:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="8" r="0.6" fill="currentColor"/></svg>',
         image:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-5 5-4-4-4 4"/></svg>',
+        paperclip:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>',
+        smile:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>',
         pdf:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>',
         file:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>',
         back:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 19l-7-7 7-7"/></svg>',
         plus:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
         clock:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+        check:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+        error:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
         star:        '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>',
         starOutline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>'
     };
@@ -394,7 +376,7 @@
         '#miles-launcher .badge{position:absolute;top:-4px;right:-4px;background:var(--miles-danger);color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:99px;display:none;align-items:center;justify-content:center;padding:0 5px;border:2px solid #fff;pointer-events:none}',
         '#miles-launcher .badge.show{display:flex}',
 
-        '#miles-panel{position:fixed;bottom:102px;right:24px;width:460px;height:min(720px,calc(100vh - 140px));min-height:460px;background:var(--miles-white);border-radius:var(--miles-radius);box-shadow:0 20px 60px rgba(8,42,51,0.28);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--miles-border);pointer-events:auto;z-index:2147483001}',
+        '#miles-panel{position:fixed;bottom:102px;right:24px;width:460px;height:min(720px,calc(100dvh - 140px));min-height:460px;background:var(--miles-white);border-radius:var(--miles-radius);box-shadow:0 20px 60px rgba(8,42,51,0.28);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--miles-border);pointer-events:auto;z-index:2147483001}',
         '#miles-panel.open{display:flex;animation:milesSlideUp .22s cubic-bezier(.4,0,.2,1)}',
         '@keyframes milesSlideUp{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}',
 
@@ -479,12 +461,19 @@
         '.miles-msg-header-actions button{padding:6px 10px;border-radius:7px;border:1px solid var(--miles-border);background:var(--miles-white);color:var(--miles-text-dim);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}',
 
         '.miles-message-list{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px}',
-        '.miles-msg{max-width:82%;padding:10px 14px;border-radius:12px;word-wrap:break-word;line-height:1.5;font-size:13.5px;animation:fadeIn .25s ease}',
+        '.miles-msg{max-width:82%;padding:10px 14px;border-radius:12px;word-wrap:break-word;line-height:1.5;font-size:13.5px;animation:fadeIn .25s ease;overflow-wrap:anywhere;white-space:pre-wrap}',
         '.miles-msg.user{align-self:flex-end;background:var(--miles-primary);color:#fff;border-bottom-right-radius:4px}',
         '.miles-msg.support{align-self:flex-start;background:var(--miles-white);color:var(--miles-text);border:1px solid var(--miles-border);border-bottom-left-radius:4px}',
         '.miles-msg.system{align-self:center;background:#eef2f5;color:var(--miles-text-dim);font-size:12px;max-width:92%;border-radius:20px;padding:5px 16px}',
-        '.miles-msg .time{font-size:10.5px;opacity:.65;margin-top:4px;text-align:right}',
+        '.miles-msg .time{font-size:10.5px;opacity:.65;margin-top:4px;text-align:right;display:flex;align-items:center;justify-content:flex-end;gap:4px}',
         '.miles-msg.failed{border:1px solid var(--miles-danger)}',
+        
+        '.msg-status{display:inline-flex;width:12px;height:12px;flex-shrink:0;}',
+        '.msg-status svg{width:100%;height:100%;}',
+        '.msg-status.sending{animation:spin 1s linear infinite;opacity:0.6;}',
+        '.msg-status.failed{color:var(--miles-danger);cursor:pointer;}',
+        '@keyframes spin{100%{transform:rotate(360deg);}}',
+
         '.miles-date-sep{align-self:center;font-size:11px;color:var(--miles-text-faint);padding:4px 12px;margin:6px 0}',
 
         '.miles-waiting-panel{margin:16px;padding:18px;border-radius:14px;background:#fff;border:1px solid var(--miles-border);text-align:center}',
@@ -501,7 +490,9 @@
         '.miles-msg.user .miles-attachment{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)}',
         '.miles-msg.user .miles-attachment .attachment-info{background:transparent;color:rgba(255,255,255,.85)}',
 
-        '.miles-file-preview{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 6px 0}',
+        /* PREMIUM COMPOSER STYLES */
+        '.miles-input-area{padding:10px 16px 16px 16px;border-top:1px solid var(--miles-border);background:var(--miles-white);flex-shrink:0;position:relative}',
+        '.miles-file-preview{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px 0}',
         '.miles-file-preview:empty{display:none}',
         '.miles-file-preview .file-item{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 6px;background:var(--miles-bg);border:1px solid var(--miles-border);border-radius:6px;font-size:11.5px}',
         '.miles-file-preview .file-item.image-item{padding:0;overflow:hidden}',
@@ -509,17 +500,32 @@
         '.miles-file-preview .file-item .file-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
         '.miles-file-preview .file-item .remove-file{cursor:pointer;color:var(--miles-danger);background:none;border:none;padding:4px;font-size:13px;line-height:1;font-weight:700;min-width:22px;min-height:22px}',
 
-        '.miles-input-area{padding:12px 16px;border-top:1px solid var(--miles-border);background:var(--miles-white);display:flex;flex-direction:column;gap:6px;flex-shrink:0}',
-        '.miles-input-row{display:flex;gap:10px;align-items:flex-end}',
-        '.miles-input-area textarea{flex:1;padding:10px 14px;border:1px solid var(--miles-border);border-radius:12px;resize:none;font-family:inherit;font-size:13.5px;outline:none;min-height:46px;max-height:140px;background:var(--miles-bg)}',
-        '.miles-input-area textarea:focus{border-color:var(--miles-primary);background:var(--miles-white)}',
-        '.miles-input-area .send-btn{width:44px;height:44px;border-radius:50%;background:var(--miles-primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}',
-        '.miles-input-area .send-btn:disabled{opacity:.5;cursor:not-allowed}',
-        '.miles-input-area .attach-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--miles-border);background:var(--miles-bg);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--miles-text-dim);flex-shrink:0}',
-        '.miles-input-area .attach-btn:hover{border-color:var(--miles-primary);color:var(--miles-primary)}',
-        '.miles-input-area .attach-input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}',
-        '.miles-send-status{font-size:11px;color:var(--miles-text-faint);padding:0 2px;min-height:14px}',
+        '.miles-composer-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:22px;padding:8px 10px;display:flex;flex-direction:column;transition:border-color .2s, box-shadow .2s}',
+        '.miles-composer-box:focus-within{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15);background:#fff}',
+        
+        '.miles-composer-textarea{width:100%;border:none;background:transparent;resize:none;padding:6px 8px;font-family:inherit;font-size:14px;color:var(--miles-text);outline:none;min-height:38px;max-height:120px;line-height:1.5;overflow-y:auto}',
+        '.miles-composer-textarea::placeholder{color:#94a3b8}',
+        
+        '.miles-composer-actions{display:flex;align-items:center;justify-content:space-between;margin-top:4px}',
+        '.miles-composer-left{display:flex;align-items:center;gap:2px}',
+        
+        '.miles-composer-btn{width:36px;height:36px;border-radius:50%;border:none;background:transparent;color:#64748b;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s, color .15s}',
+        '.miles-composer-btn:hover{background:#e2e8f0;color:#0f172a}',
+        '.miles-composer-btn .miles-icon{width:20px;height:20px}',
+        
+        '.miles-send-btn{width:38px;height:38px;border-radius:50%;background:#3b82f6;color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s, transform .1s}',
+        '.miles-send-btn:hover{background:#2563eb}',
+        '.miles-send-btn:active{transform:scale(0.95)}',
+        '.miles-send-btn:disabled{opacity:.4;cursor:not-allowed;background:#94a3b8}',
+        '.miles-send-btn .miles-icon{width:20px;height:20px}',
+        
+        '.miles-send-status{font-size:11px;color:var(--miles-text-faint);padding:6px 4px 0 4px;min-height:14px;text-align:center}',
         '.miles-send-status.error{color:var(--miles-danger)}',
+
+        '.miles-emoji-picker{position:absolute;bottom:70px;left:16px;background:#fff;border:1px solid var(--miles-border);border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.1);padding:8px;display:none;grid-template-columns:repeat(6,1fr);gap:4px;z-index:10;width:220px;max-height:180px;overflow-y:auto}',
+        '.miles-emoji-picker.open{display:grid}',
+        '.miles-emoji-picker button{background:none;border:none;font-size:20px;cursor:pointer;padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center}',
+        '.miles-emoji-picker button:hover{background:#f1f5f9}',
 
         '.miles-msg-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--miles-text-faint);text-align:center;padding:24px}',
         '.miles-msg-empty .miles-icon{width:44px;height:44px;opacity:.35;margin-bottom:14px}',
@@ -569,18 +575,28 @@
         '.miles-form-error{font-size:12.5px;color:var(--miles-danger);min-height:16px;font-weight:500}',
         '.miles-form-note{font-size:12px;color:var(--miles-text-faint);line-height:1.5}',
 
+        /* MODAL STYLES - FIXED FOR IPHONE & DESKTOP */
         '.miles-modal-overlay{position:fixed;inset:0;background:rgba(8,20,25,.55);z-index:2147483003;display:none;align-items:center;justify-content:center;padding:16px;pointer-events:auto}',
         '.miles-modal-overlay.open{display:flex}',
-        '.miles-modal-box{width:440px;max-width:100%;max-height:88vh;background:var(--miles-white);border-radius:16px;box-shadow:var(--miles-shadow);display:flex;flex-direction:column;overflow:hidden}',
+        '.miles-modal-box{width:440px;max-width:100%;height:auto;max-height:calc(100dvh - 32px);background:var(--miles-white);border-radius:16px;box-shadow:var(--miles-shadow);display:flex;flex-direction:column;overflow:hidden}',
+
         '.miles-modal-head{padding:16px 18px;border-bottom:1px solid var(--miles-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}',
         '.miles-modal-head h4{font-size:16px;font-weight:700}',
         '.miles-modal-head button{background:none;border:none;cursor:pointer;color:var(--miles-text-dim);padding:4px}',
-        '.miles-modal-body{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}',
+
+        '.miles-modal-body{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}',
         '.miles-modal-body label{font-size:12px;font-weight:700;color:var(--miles-text-dim);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px}',
-        '.miles-modal-body input,.miles-modal-body select,.miles-modal-body textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:13.5px;outline:none;background:var(--miles-bg);font-family:inherit}',
+        
+        /* 16px prevents iOS auto-zoom */
+        '.miles-modal-body input,.miles-modal-body select,.miles-modal-body textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:16px!important;outline:none;background:var(--miles-bg);font-family:inherit}',
+        
+        '.miles-modal-body input:focus,.miles-modal-body select:focus,.miles-modal-body textarea:focus{border-color:var(--miles-primary)}',
         '.miles-modal-body textarea{min-height:110px;resize:vertical}',
-        '.miles-modal-foot{padding:14px 18px;border-top:1px solid var(--miles-border)}',
+
+        '.miles-modal-foot{padding:14px 18px;border-top:1px solid var(--miles-border);flex-shrink:0}',
         '.miles-modal-foot .submit-ticket-btn{width:100%;padding:13px;border-radius:10px;background:var(--miles-primary);color:#fff;border:none;font-weight:700;cursor:pointer;font-size:13.5px}',
+        '.miles-modal-foot .submit-ticket-btn:disabled{opacity:.6;cursor:not-allowed}',
+
         '.miles-modal-error{font-size:12.5px;color:var(--miles-danger);text-align:center}',
         '.miles-modal-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 8px;gap:8px}',
 
@@ -592,18 +608,26 @@
 
         '@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}',
 
+        /* FIX FOR MOBILE KEYBOARD & FULL SCREEN MODAL */
         '@media (max-width:520px){',
-        '#miles-launcher{bottom:16px;right:16px;width:56px;height:56px}',
+        '#miles-launcher{bottom:calc(16px + env(safe-area-inset-bottom));right:16px;width:56px;height:56px}',
         '#miles-launcher .miles-icon{width:26px;height:26px}',
         '#miles-panel{inset:0!important;left:0!important;top:0!important;width:100%!important;height:100%!important;max-height:100dvh!important;min-height:0!important;border-radius:0!important;bottom:auto!important;right:auto!important}',
+        '.miles-header{padding-top:calc(16px + env(safe-area-inset-top))}',
         '.miles-tabs .tab{padding:12px 8px;font-size:12.5px}',
-        '.miles-input-area textarea{font-size:16px!important}',
-        '.miles-modal-box{width:100%!important;height:100%!important;max-height:100dvh!important;border-radius:0!important}',
+        '.miles-composer-textarea{font-size:16px!important}',
+        '.miles-input-area{padding-bottom:calc(16px + env(safe-area-inset-bottom))}',
+        
+        /* Full screen modal on mobile */
+        '.miles-modal-overlay{padding:0!important;align-items:flex-start!important}',
+        '.miles-modal-box{width:100%!important;height:100dvh!important;max-height:100dvh!important;border-radius:0!important;display:flex;flex-direction:column}',
+        '.miles-modal-head{padding-top:calc(16px + env(safe-area-inset-top))!important;flex-shrink:0}',
+        '.miles-modal-body{flex:1;overflow-y:auto;padding-bottom:0}',
+        '.miles-modal-foot{flex-shrink:0;padding-bottom:calc(14px + env(safe-area-inset-bottom))}',
         '}'
     ].join('');
 
-    // ═════════════════════════════════════════════════════════
-    //  Template
+    // ═════════════════════════════════════════════════════════    //  Template
     // ═════════════════════════════════════════════════════════
     function buildTemplate() {
         return '' +
@@ -666,14 +690,21 @@
                         '</div>' +
                         '<div class="miles-message-list" id="milesMessageList"><div class="miles-msg-empty">' + iconMarkup('chat') + '<p>No messages yet</p></div></div>' +
                         '<div id="milesRatingSlot"></div>' +
+                        
                         '<div class="miles-input-area" id="milesInputArea">' +
+                            '<div class="miles-emoji-picker" id="milesEmojiPicker"></div>' +
                             '<div class="miles-file-preview" id="milesFilePreview"></div>' +
-                            '<div class="miles-input-row">' +
-                                '<button class="attach-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('image') + '</button>' +
-                                '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true">' +
-                                '<textarea id="milesInput" placeholder="Type a message… (Shift+Enter for new line)" rows="1" maxlength="' + CONFIG.MAX_MESSAGE_LENGTH + '"></textarea>' +
-                                '<button class="send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                            '<div class="miles-composer-box">' +
+                                '<textarea class="miles-composer-textarea" id="milesInput" placeholder="Type a message…" rows="1" maxlength="' + CONFIG.MAX_MESSAGE_LENGTH + '"></textarea>' +
+                                '<div class="miles-composer-actions">' +
+                                    '<div class="miles-composer-left">' +
+                                        '<button class="miles-composer-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('paperclip') + '</button>' +
+                                        '<button class="miles-composer-btn" id="milesEmojiBtn" type="button" aria-label="Insert emoji">' + iconMarkup('smile') + '</button>' +
+                                    '</div>' +
+                                    '<button class="miles-send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                                '</div>' +
                             '</div>' +
+                            '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true" style="display:none">' +
                             '<div class="miles-send-status" id="milesSendStatus"></div>' +
                         '</div>' +
                     '</div>' +
@@ -779,8 +810,6 @@
 
     MilesWidget.prototype.init = function () {
         var self = this;
-        // Synchronous read of any cached identity so the greeting is
-        // correct on the first paint.
         this.getUserData();
         this.injectStyles();
         this.injectMarkup();
@@ -797,17 +826,6 @@
     };
 
     // ─── AUTH RESOLUTION ─────────────────────────────────────
-    // Preferred path: the page already loaded public/js/session.js,
-    // which exposes:
-    //   window.getUser()             -> user object | null
-    //   window.getAccessToken()      -> access token | null
-    //   window.checkUserSession()    -> Promise<boolean>
-    //   window.userFetch(url, opts)  -> Promise<Response>
-    //
-    // Legacy path (only used if none of those exist): read 'mx_sess'
-    // from storage. That key was used by an older session.js but is
-    // now scrubbed on every page load, so this path is a fallback,
-    // not the primary.
     MilesWidget.prototype.getUserData = function () {
         if (this.isAuthPage) {
             this.userId = null; this.token = null; this.username = 'there';
@@ -815,7 +833,6 @@
             return;
         }
 
-        // ── Preferred: session.js API ──
         var hasUserFn = (typeof window.getUser === 'function');
         var hasTokenFn = (typeof window.getAccessToken === 'function');
 
@@ -827,17 +844,11 @@
             this.token = t || null;
             this.username = u.username || 'there';
 
-            // A user with a valid, unexpired access token is
-            // authenticated. If the token is absent, we are not —
-            // yet. The async resolveAuth() call below will try to
-            // refresh once, and re-run getUserData.
             var tokenUsable = !!(t && !isJwtExpired(t));
             this.isAuthenticated = !!(this.userId && tokenUsable);
             return;
         }
 
-        // ── Legacy fallback: read 'mx_sess' from storage ──
-        // Kept only for pages that still ship the old session.js.
         try {
             var stored = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
             if (stored) {
@@ -860,16 +871,11 @@
         }
     };
 
-    // Attempts to resolve the session asynchronously. Called once
-    // during setupWidget(). If the access token is not in memory yet,
-    // this invokes window.checkUserSession(), which refreshes from
-    // the HttpOnly cookie and populates the in-memory token.
     MilesWidget.prototype.resolveAuthAsync = function () {
         var self = this;
         if (this.isAuthPage) return Promise.resolve();
         if (this.isAuthenticated) return Promise.resolve();
 
-        // session.js not present — nothing more to try.
         if (typeof window.checkUserSession !== 'function') {
             return Promise.resolve();
         }
@@ -879,7 +885,6 @@
                 if (ok === false) return;
                 self.getUserData();
                 if (self.isAuthenticated) {
-                    // Re-render the greeting and refresh the lists.
                     self.setGreeting();
                     self.loadConversations().catch(function () {});
                     self.refreshUnreadMap().catch(function () {});
@@ -974,10 +979,14 @@
         this.msgBack = q('#milesMsgBack');
         this.msgHeaderActions = q('#milesMsgHeaderActions');
         this.ratingSlot = q('#milesRatingSlot');
+        
         this.input = q('#milesInput');
         this.sendBtn = q('#milesSendBtn');
         this.sendStatus = q('#milesSendStatus');
         this.inputArea = q('#milesInputArea');
+        this.emojiBtn = q('#milesEmojiBtn');
+        this.emojiPicker = q('#milesEmojiPicker');
+        
         this.helpList = q('#milesHelpList');
         this.helpSearch = q('#milesHelpSearch');
         this.articleView = q('#milesArticleView');
@@ -1003,7 +1012,6 @@
 
         if (!this.launcher || !this.panel) return;
 
-        // Panel starts closed and inert. Remove inert before opening.
         this._setPanelInert(true);
 
         this.setGreeting();
@@ -1012,6 +1020,7 @@
         this.renderHelpArticles(HELP_ARTICLES);
         this.applyMuteUI();
         this.initializePosition();
+        this.setupEmojiPicker();
 
         window.addEventListener('resize', this._boundResize);
         window.addEventListener('orientationchange', this._boundResize);
@@ -1024,8 +1033,6 @@
             self.fetchStatus();
             self.attachSocket();
 
-            // Resolve auth BEFORE deciding whether to load
-            // conversations or fall back to the guest flow.
             self.resolveAuthAsync().then(function () {
                 if (self.isAuthenticated && !self.isAuthPage) {
                     self.loadConversations();
@@ -1041,17 +1048,10 @@
         Promise.resolve(this.loadCategories()).then(afterCats, afterCats);
     };
 
-    // ─── Panel inert / focus management ─────────────────────
-    // When the panel is closed we set aria-hidden="true" AND inert.
-    // inert removes the subtree from the tab order and from assistive
-    // tech, which is what the browser warning asks for. Before we
-    // mark the panel inert, we move focus out (to the launcher) so
-    // that no descendant is left focused inside a hidden ancestor.
     MilesWidget.prototype._setPanelInert = function (inertOn) {
         if (!this.panel) return;
         try {
             if (inertOn) {
-                // Release focus if it is currently inside the panel.
                 var active = document.activeElement;
                 if (active && this.panel.contains(active)) {
                     if (this.launcher && typeof this.launcher.focus === 'function') {
@@ -1067,7 +1067,6 @@
                 this.panel.setAttribute('aria-hidden', 'false');
             }
         } catch (e) {
-            // Older browsers ignore inert; fall back to aria-hidden only.
             this.panel.setAttribute('aria-hidden', inertOn ? 'true' : 'false');
         }
     };
@@ -1223,7 +1222,7 @@
     MilesWidget.prototype.setupDragging = function () {
         var self = this;
         if (!this.launcher) return;
-        var DRAG_THRESHOLD_PX = 12;
+        var DRAG_THRESHOLD_PX = 5;
         var HOLD_TO_DRAG_MS = 220;
         var holdTimer = null;
         var startLeft = 0;
@@ -1236,10 +1235,13 @@
         }
 
         function onDown(e) {
-            if (e.button !== undefined && e.button !== 0) return;
             isTouchLike = (e.pointerType === 'touch' || e.pointerType === 'pen');
-            canDrag = !isTouchLike;
+            
+            if (!isTouchLike && e.button !== 2) {
+                return;
+            }
 
+            canDrag = false;
             var rect = self.launcher.getBoundingClientRect();
             startLeft = rect.left;
             startTop = rect.top;
@@ -1258,18 +1260,19 @@
                     canDrag = true;
                     try { if (navigator.vibrate) navigator.vibrate(8); } catch (err) {}
                 }, HOLD_TO_DRAG_MS);
+            } else {
+                canDrag = true;
+                e.preventDefault(); 
             }
         }
 
         function onMove(e) {
+            if (!canDrag) return;
+
             var dx = e.clientX - self.dragStartX;
             var dy = e.clientY - self.dragStartY;
             var dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (isTouchLike && !canDrag) {
-                if (dist > DRAG_THRESHOLD_PX) clearHold();
-                return;
-            }
             if (!self.isDragging && dist < DRAG_THRESHOLD_PX) return;
 
             if (!self.isDragging) {
@@ -1309,6 +1312,8 @@
                     safeStorageSet(localStorage, keys.left, left);
                     safeStorageSet(localStorage, keys.top, top);
                 }
+            } else if (!self.isDragging && !isTouchLike && e.button === 2) {
+                // do nothing
             } else if (!self.isDragging) {
                 self.toggle();
             } else {
@@ -1335,11 +1340,18 @@
             self.hasMoved = false;
             canDrag = false;
         }
+        
+        function onContextMenu(e) {
+            if (e.button === 2) {
+                e.preventDefault();
+            }
+        }
 
         this.launcher.addEventListener('pointerdown', onDown);
         this.launcher.addEventListener('pointermove', onMove);
         this.launcher.addEventListener('pointerup', onUp);
         this.launcher.addEventListener('pointercancel', onCancel);
+        this.launcher.addEventListener('contextmenu', onContextMenu);
     };
 
     MilesWidget.prototype.setGreeting = function () {
@@ -1383,11 +1395,16 @@
 
         if (this.input) {
             this.input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); self.sendMessage(); }
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); self.sendMessage(); }
             });
             this.input.addEventListener('input', function () {
                 this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                if (this.scrollHeight > 120) {
+                    this.style.overflowY = 'auto';
+                } else {
+                    this.style.overflowY = 'hidden';
+                }
             });
         }
 
@@ -1449,6 +1466,49 @@
             document.addEventListener(evt, self._boundFirstInteraction, { once: true, passive: true });
         });
     };
+    
+    MilesWidget.prototype.setupEmojiPicker = function () {
+        var self = this;
+        var emojis = ['😀','😂','🥰','😍','🤔','😎','😭','👍','🙏','🔥','🎉','💡','❤️','✨','😊','👋','✅','⚠️','📌','💬'];
+        if (this.emojiPicker) {
+            this.emojiPicker.innerHTML = emojis.map(function(emoji) {
+                return '<button type="button" data-emoji="' + emoji + '">' + emoji + '</button>';
+            }).join('');
+            
+            this.emojiPicker.addEventListener('click', function(e) {
+                var btn = e.target.closest('button[data-emoji]');
+                if (btn) {
+                    self.insertEmoji(btn.dataset.emoji);
+                }
+            });
+        }
+        
+        if (this.emojiBtn && this.emojiPicker) {
+            this.emojiBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                self.emojiPicker.classList.toggle('open');
+            });
+            document.addEventListener('click', function(e) {
+                if (self.emojiPicker && self.emojiPicker.classList.contains('open')) {
+                    if (!self.emojiPicker.contains(e.target) && !self.emojiBtn.contains(e.target)) {
+                        self.emojiPicker.classList.remove('open');
+                    }
+                }
+            });
+        }
+    };
+    
+    MilesWidget.prototype.insertEmoji = function (emoji) {
+        if (!this.input) return;
+        var startPos = this.input.selectionStart;
+        var endPos = this.input.selectionEnd;
+        var text = this.input.value;
+        this.input.value = text.substring(0, startPos) + emoji + text.substring(endPos, text.length);
+        this.input.selectionStart = this.input.selectionEnd = startPos + emoji.length;
+        this.input.focus();
+        this.input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
     MilesWidget.prototype._handleConvClick = function (e) {
         var item = e.target.closest('.miles-conv-item');
         if (!item) return;
@@ -1458,18 +1518,16 @@
         item.classList.add('active');
         this.selectConversation(id);
     };
+    
     MilesWidget.prototype.onGlobalKeydown = function (e) {
         if (e.key !== 'Escape') return;
         if (this.lightbox && this.lightbox.classList.contains('open')) { this.closeLightbox(); return; }
         if (this.modalOverlay && this.modalOverlay.classList.contains('open')) { this.closeNewTicketModal(); return; }
+        if (this.emojiPicker && this.emojiPicker.classList.contains('open')) { this.emojiPicker.classList.remove('open'); return; }
         if (this.isOpen) this.close();
     };
 
     // ─── AUTH-AWARE FETCH ─────────────────────────────────────
-    // If session.js exposes window.userFetch, use it. It attaches
-    // the bearer token, refreshes on 401, redirects on hard
-    // failures, and coordinates across tabs. Otherwise, fall back
-    // to a direct fetch with a manually attached token.
     MilesWidget.prototype._authFetch = function (path, opts) {
         opts = opts || {};
         var url = this.apiUrl + path;
@@ -1483,13 +1541,10 @@
         }
         if (!headers['X-Request-Id']) headers['X-Request-Id'] = newRequestId();
 
-        // Preferred path: session.js owns auth. It will fetch with
-        // the current access token and retry once on 401.
         if (typeof window.userFetch === 'function' && this.isAuthenticated && !this.isAuthPage) {
             return window.userFetch(url, { method: method, body: body, headers: headers });
         }
 
-        // Fallback: attach whatever token we have.
         var token = this.getToken();
         if (token) headers['Authorization'] = 'Bearer ' + token;
         return fetch(url, { method: method, body: body, headers: headers, credentials: 'same-origin' });
@@ -1513,14 +1568,9 @@
         });
     };
 
-    // getToken() must agree with getUserData(). It prefers the
-    // in-memory access token from session.js; it only touches
-    // legacy storage if session.js is not present.
     MilesWidget.prototype.getToken = function () {
-        // If we already cached a usable token, return it.
         if (this.token && !isJwtExpired(this.token)) return this.token;
 
-        // Preferred: session.js.
         if (typeof window.getAccessToken === 'function') {
             var t = window.getAccessToken();
             if (t) {
@@ -1534,7 +1584,6 @@
             }
         }
 
-        // Legacy fallback. This is almost never used today.
         try {
             var stored = localStorage.getItem('mx_sess') || sessionStorage.getItem('mx_sess');
             if (stored) {
@@ -1916,13 +1965,19 @@
         } else {
             composerOrWaiting =
                 '<div class="miles-input-area" id="milesInputArea">' +
+                    '<div class="miles-emoji-picker" id="milesEmojiPicker"></div>' +
                     '<div class="miles-file-preview" id="milesFilePreview"></div>' +
-                    '<div class="miles-input-row">' +
-                        '<button class="attach-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('image') + '</button>' +
-                        '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true">' +
-                        '<textarea id="milesInput" placeholder="Type your reply…" rows="1" maxlength="' + CONFIG.MESSAGE_MAX_LEN_SAFE + '"></textarea>' +
-                        '<button class="send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                    '<div class="miles-composer-box">' +
+                        '<textarea class="miles-composer-textarea" id="milesInput" placeholder="Type your reply…" rows="1" maxlength="' + CONFIG.MESSAGE_MAX_LEN_SAFE + '"></textarea>' +
+                        '<div class="miles-composer-actions">' +
+                            '<div class="miles-composer-left">' +
+                                '<button class="miles-composer-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('paperclip') + '</button>' +
+                                '<button class="miles-composer-btn" id="milesEmojiBtn" type="button" aria-label="Insert emoji">' + iconMarkup('smile') + '</button>' +
+                            '</div>' +
+                            '<button class="miles-send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                        '</div>' +
                     '</div>' +
+                    '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true" style="display:none">' +
                     '<div class="miles-send-status" id="milesSendStatus"></div>' +
                 '</div>';
         }
@@ -1959,6 +2014,8 @@
         var fileInput = this.root.querySelector('#milesFileInput');
         var preview = this.root.querySelector('#milesFilePreview');
         var status = this.root.querySelector('#milesSendStatus');
+        var emojiBtn = this.root.querySelector('#milesEmojiBtn');
+        var emojiPicker = this.root.querySelector('#milesEmojiPicker');
 
         this.input = input;
         this.sendBtn = send;
@@ -1966,14 +2023,21 @@
         this.fileInput = fileInput;
         this.filePreview = preview;
         this.sendStatus = status;
+        this.emojiBtn = emojiBtn;
+        this.emojiPicker = emojiPicker;
 
         if (input) {
             input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); self.sendGuestMessage(); }
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); self.sendGuestMessage(); }
             });
             input.addEventListener('input', function () {
                 this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                if (this.scrollHeight > 120) {
+                    this.style.overflowY = 'auto';
+                } else {
+                    this.style.overflowY = 'hidden';
+                }
             });
         }
         if (send) send.addEventListener('click', function (e) { e.preventDefault(); self.sendGuestMessage(); });
@@ -1984,6 +2048,7 @@
                 e.target.value = '';
             });
         }
+        this.setupEmojiPicker();
     };
 
     MilesWidget.prototype.sendGuestMessage = function () {
@@ -2367,6 +2432,10 @@
             .catch(function () {})
             .then(function () { self._isLoadingMessages = false; });
     };
+
+    // ═════════════════════════════════════════════════════════
+    //  Messaging (Optimistic UI)
+    // ═════════════════════════════════════════════════════════
     MilesWidget.prototype.renderMessages = function () {
         if (!this.messageList) return;
         var self = this;
@@ -2400,10 +2469,23 @@
                     '</div>';
                 }).join('');
             }
+            
+            // Status icon for user messages
+            var statusIcon = '';
+            if (cls === 'user') {
+                if (m._status === 'sending') {
+                    statusIcon = `<span class="msg-status sending">${iconMarkup('clock')}</span>`;
+                } else if (m._status === 'failed') {
+                    statusIcon = `<span class="msg-status failed" onclick="window.MilesWidget.retryMessage('${m.id}')">${iconMarkup('error')}</span>`;
+                } else {
+                    statusIcon = `<span class="msg-status">${iconMarkup('check')}</span>`;
+                }
+            }
+
             parts.push('<div class="miles-msg ' + cls + (m._failed ? ' failed' : '') + '">' +
                 self._formatMessage(m.message) +
                 attachmentHtml +
-                '<div class="time">' + escapeHtml(time) + (m._failed ? ' · Failed' : '') + '</div>' +
+                '<div class="time">' + escapeHtml(time) + ' ' + statusIcon + '</div>' +
             '</div>');
         });
         this.messageList.innerHTML = parts.join('');
@@ -2551,12 +2633,14 @@
         if (this.sendBtn) this.sendBtn.disabled = true;
         this.setSendStatus('Sending…');
 
+        // 1. OPTIMISTIC UI: Add to list and render instantly
         var localId = 'local-' + Date.now();
         var localMsg = {
             id: localId,
             sender_type: 'user',
             message: message || '📎 Attachment',
             created_at: new Date().toISOString(),
+            _status: 'sending',
             attachments: this.pendingFiles.map(function (f) { return { name: f.name, size: f.size, mime: f.type }; })
         };
         this.messages.push(localMsg);
@@ -2572,7 +2656,12 @@
         form.append('message', message || '');
         filesToSend.forEach(function (f) { form.append('attachments', f); });
 
-        return this._authFetch('/tickets/' + ticketId + '/messages', { method: 'POST', body: form })
+        // 2. Send in background
+        return this._authFetch('/tickets/' + ticketId + '/messages', { 
+            method: 'POST', 
+            body: form,
+            headers: { 'X-Request-Id': localId } // Idempotency
+        })
             .then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { return { res: res, data: data }; }); })
             .then(function (r) {
                 if (!r.res.ok) {
@@ -2580,15 +2669,28 @@
                     e.code = r.data.code;
                     throw e;
                 }
+                
+                // 3. Success: Update local message
+                for (var i = 0; i < self.messages.length; i++) {
+                    if (self.messages[i].id === localId) {
+                        self.messages[i]._status = 'sent';
+                        self.messages[i].id = r.data.data.id;
+                        self.messages[i].created_at = r.data.data.created_at;
+                        break;
+                    }
+                }
                 self.setSendStatus('✅ Sent');
-                self.messages = self.messages.filter(function (m) { return m.id !== localId; });
-                self.knownMessageIds.delete(localId);
-                return self.loadMessages(ticketId, { force: true }).then(function () { return self.loadConversations(); });
+                self.renderMessages();
+                return self.loadConversations(); // Refresh list in background
             })
             .then(function () { setTimeout(function () { self.setSendStatus(''); }, 1500); })
             .catch(function (e) {
+                // 4. Failure: Mark as failed
                 for (var i = 0; i < self.messages.length; i++) {
-                    if (self.messages[i].id === localId) { self.messages[i]._failed = true; break; }
+                    if (self.messages[i].id === localId) {
+                        self.messages[i]._status = 'failed';
+                        break;
+                    }
                 }
                 self.renderMessages();
                 self.setSendStatus('❌ ' + (e.message || 'Failed'), true);
@@ -2599,6 +2701,47 @@
                 if (self.sendBtn) self.sendBtn.disabled = false;
                 self.input.focus();
             });
+    };
+
+    MilesWidget.prototype.retryMessage = function (localId) {
+        var self = this;
+        var msg = null;
+        for (var i = 0; i < this.messages.length; i++) {
+            if (this.messages[i].id === localId) { msg = this.messages[i]; break; }
+        }
+        if (!msg || msg._status !== 'failed') return;
+
+        msg._status = 'sending';
+        this.renderMessages();
+        this.setSendStatus('Retrying…');
+
+        var form = new FormData();
+        form.append('message', msg.message);
+        
+        this._authFetch('/tickets/' + this.currentConversationId + '/messages', { 
+            method: 'POST', 
+            body: form,
+            headers: { 'X-Request-Id': localId }
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data.success) {
+                msg._status = 'sent';
+                msg.id = data.data.id;
+                msg.created_at = data.data.created_at;
+                self.setSendStatus('✅ Sent');
+                setTimeout(function() { self.setSendStatus(''); }, 1500);
+            } else {
+                msg._status = 'failed';
+                self.setSendStatus('❌ Failed', true);
+            }
+            self.renderMessages();
+        })
+        .catch(function () {
+            msg._status = 'failed';
+            self.setSendStatus('❌ Failed', true);
+            self.renderMessages();
+        });
     };
 
     MilesWidget.prototype.openNewTicketModal = function (prefill) {
@@ -2626,8 +2769,13 @@
         var form = this.modalContent.querySelector('#milesTicketForm');
         form.addEventListener('submit', function (e) { self.submitNewTicketForm(e); });
         this.modalOverlay.classList.add('open');
-        var subjectInput = form.querySelector('[name="subject"]');
-        requestAnimationFrame(function () { if (subjectInput) subjectInput.focus(); });
+        
+        // Only autofocus on non-touch devices to prevent iOS keyboard from breaking layout
+        var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (!isTouch) {
+            var subjectInput = form.querySelector('[name="subject"]');
+            requestAnimationFrame(function () { if (subjectInput) subjectInput.focus(); });
+        }
     };
     MilesWidget.prototype.closeNewTicketModal = function () {
         if (!this.modalOverlay) return;

@@ -1,11 +1,12 @@
 // services/reconciliationService.js
-// COMPLETE RECONCILIATION SERVICE — CASHBACK + AIRTIME
-// Uses VTpass for cashback, DT One for airtime.
-// No DingConnect references.
+// COMPLETE RECONCILIATION SERVICE — CASHBACK + AIRTIME + DEPOSITS
 
 const { supabaseAdmin } = require('../db/supabase');
 const vtpassService = require('./vtpassService');
 const dtoneService = require('./dtoneService');
+const korapayService = require('./korapayService');
+const depositService = require('./depositService');
+const cryptoDepositService = require('./cryptoDepositService');
 const { LedgerService } = require('./ledgerService');
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────
@@ -20,6 +21,14 @@ function logReconciliation(message, data = {}) {
 }
 function logError(message, error) {
     console.error(`❌ [RECONCILE] ${message}`, error);
+}
+
+// ─── TIMEOUT HELPER ──────────────────────────────────────────────────────
+function withTimeout(promise, ms, errorMessage = 'Provider query timeout') {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms))
+    ]);
 }
 
 // ─── NORMALIZATION ───────────────────────────────────────────────────────
@@ -112,7 +121,7 @@ async function reconcileSingleCashbackTransaction(tx) {
 
     if (!requestId) {
         logReconciliation(`No request ID for ${tx.reference}, skipping`);
-        await supabaseAdmin
+        const { error: updateErr } = await supabaseAdmin
             .from('cashback_transactions')
             .update({
                 reconciliation_attempts: (tx.reconciliation_attempts || 0) + 1,
@@ -123,11 +132,20 @@ async function reconcileSingleCashbackTransaction(tx) {
                 }
             })
             .eq('id', tx.id);
+        if (updateErr) logError(`Failed to update missing request ID for ${tx.reference}:`, updateErr);
         return { status: 'skipped', reason: 'No request ID' };
     }
 
     logReconciliation(`Querying VTpass for ${tx.reference} (${requestId})`);
-    const result = await vtpassService.queryTransaction(requestId);
+    
+    let result;
+    try {
+        result = await withTimeout(vtpassService.queryTransaction(requestId), PROVIDER_QUERY_TIMEOUT_MS);
+    } catch (error) {
+        logError(`VTpass query failed for ${tx.reference}:`, error);
+        await incrementCashbackAttempts(tx, error.message);
+        return { status: 'pending', reason: 'Provider query failed' };
+    }
 
     logReconciliation(`VTpass result for ${tx.reference}:`, {
         status: result.status,
@@ -136,7 +154,7 @@ async function reconcileSingleCashbackTransaction(tx) {
     });
 
     if (result.status === 'success' || result.status === 'delivered') {
-        await supabaseAdmin
+        const { error: updateErr } = await supabaseAdmin
             .from('cashback_transactions')
             .update({
                 status: 'success',
@@ -154,12 +172,18 @@ async function reconcileSingleCashbackTransaction(tx) {
             })
             .eq('id', tx.id);
 
+        if (updateErr) {
+            logError(`Failed to finalize cashback ${tx.reference}:`, updateErr);
+            return { status: 'pending', reason: 'DB update failed' };
+        }
+
         await createNotification(
             tx.user_id,
             '✅ Cashback Delivered',
             `Your cashback redemption of ₦${tx.amount} was confirmed by provider.`,
             'cashback_completed',
-            `/cashback/transaction/${tx.id}`
+            `/cashback/transaction/${tx.id}`,
+            `notif-cashback-success-${tx.id}`
         );
         logReconciliation(`✅ ${tx.reference} → SUCCESS (VTpass confirmed)`);
         return { status: 'success' };
@@ -169,25 +193,13 @@ async function reconcileSingleCashbackTransaction(tx) {
         return await refundCashbackTransaction(tx, result);
     }
 
-    const attempts = (tx.reconciliation_attempts || 0) + 1;
-    await supabaseAdmin
-        .from('cashback_transactions')
-        .update({
-            reconciliation_attempts: attempts,
-            last_reconciliation_at: new Date().toISOString(),
-            metadata: {
-                ...(tx.metadata || {}),
-                last_reconciliation_attempt: new Date().toISOString(),
-                reconciliation_status: result.status || 'unknown'
-            }
-        })
-        .eq('id', tx.id);
-
-    logReconciliation(`⏳ ${tx.reference} still ${result.status || 'processing'} (attempt ${attempts}/${MAX_RECONCILIATION_ATTEMPTS})`);
+    await incrementCashbackAttempts(tx, result.status || 'processing');
+    logReconciliation(`⏳ ${tx.reference} still ${result.status || 'processing'} (attempt ${(tx.reconciliation_attempts || 0) + 1}/${MAX_RECONCILIATION_ATTEMPTS})`);
     return { status: 'pending' };
 }
 
 async function refundCashbackTransaction(tx, providerResult = null) {
+    // Use atomic RPC to prevent double refunds
     const { data: credited, error: creditError } = await supabaseAdmin
         .rpc('credit_cashback_wallet_atomic', {
             p_user_id: tx.user_id,
@@ -204,7 +216,7 @@ async function refundCashbackTransaction(tx, providerResult = null) {
 
     if (creditError) {
         logError(`Refund failed for ${tx.reference}:`, creditError);
-        await supabaseAdmin
+        const { error: updateErr } = await supabaseAdmin
             .from('cashback_transactions')
             .update({
                 status: 'manual_review',
@@ -217,12 +229,13 @@ async function refundCashbackTransaction(tx, providerResult = null) {
                 }
             })
             .eq('id', tx.id);
+        if (updateErr) logError(`Failed to mark cashback ${tx.reference} for manual review:`, updateErr);
         return { status: 'failed', reason: 'Refund error' };
     }
 
     const refundBalance = credited?.[0]?.balance ?? tx.balance_before;
 
-    await supabaseAdmin
+    const { error: finalizeErr } = await supabaseAdmin
         .from('cashback_transactions')
         .update({
             status: 'failed',
@@ -242,12 +255,18 @@ async function refundCashbackTransaction(tx, providerResult = null) {
         })
         .eq('id', tx.id);
 
+    if (finalizeErr) {
+        logError(`Failed to finalize cashback refund ${tx.reference}:`, finalizeErr);
+        return { status: 'failed', reason: 'DB update failed' };
+    }
+
     await createNotification(
         tx.user_id,
         '💸 Cashback Refunded',
         `Your cashback redemption of ₦${tx.amount} failed and has been refunded to your wallet.`,
         'cashback_refunded',
-        `/cashback/transaction/${tx.id}`
+        `/cashback/transaction/${tx.id}`,
+        `notif-cashback-refund-${tx.id}`
     );
 
     logReconciliation(`💸 ${tx.reference} → FAILED, refunded ₦${tx.amount}`);
@@ -302,7 +321,6 @@ async function reconcileStuckAirtimeTransactions() {
 }
 
 async function reconcileSingleAirtimeTransaction(tx) {
-    // DT One uses provider_transaction_id (async ID) as the primary identifier
     const providerTxId = tx.provider_transaction_id;
     const externalId = tx.dtone_external_id;
 
@@ -320,18 +338,9 @@ async function reconcileSingleAirtimeTransaction(tx) {
     let result;
     try {
         if (providerTxId) {
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Provider query timeout')), PROVIDER_QUERY_TIMEOUT_MS)
-            );
-            const queryPromise = dtoneService.queryTransaction(providerTxId);
-            result = await Promise.race([queryPromise, timeoutPromise]);
+            result = await withTimeout(dtoneService.queryTransaction(providerTxId), PROVIDER_QUERY_TIMEOUT_MS);
         } else {
-            // Fallback to external ID lookup
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Provider query timeout')), PROVIDER_QUERY_TIMEOUT_MS)
-            );
-            const lookupPromise = dtoneService.getTransactionByExternalId(externalId);
-            const raw = await Promise.race([lookupPromise, timeoutPromise]);
+            const raw = await withTimeout(dtoneService.getTransactionByExternalId(externalId), PROVIDER_QUERY_TIMEOUT_MS);
             const transaction = Array.isArray(raw) ? raw[0] : raw;
             if (!transaction) throw new Error('Transaction not found by external ID');
             const statusObj = transaction?.status || {};
@@ -360,7 +369,7 @@ async function reconcileSingleAirtimeTransaction(tx) {
     const normalized = normalizeAirtimeProviderStatus(result);
 
     if (normalized.status === 'completed') {
-        await supabaseAdmin
+        const { error: updateErr } = await supabaseAdmin
             .from('airtime_transactions')
             .update({
                 status: 'completed',
@@ -379,12 +388,18 @@ async function reconcileSingleAirtimeTransaction(tx) {
             })
             .eq('id', tx.id);
 
+        if (updateErr) {
+            logError(`Failed to finalize airtime ${tx.reference}:`, updateErr);
+            return { status: 'pending', reason: 'DB update failed' };
+        }
+
         await createNotification(
             tx.user_id,
             '📱 Airtime Delivered',
             `Airtime to ${tx.country_code} was delivered successfully.`,
             'airtime_sent',
-            `/airtime/order/${tx.reference}`
+            `/airtime/order/${tx.reference}`,
+            `notif-airtime-success-${tx.id}`
         );
 
         logReconciliation(`✅ ${tx.reference} → SUCCESS (DT One confirmed)`);
@@ -410,6 +425,7 @@ async function refundAirtimeTransaction(tx, providerResult = null) {
         return { status: 'failed', refunded: true };
     }
 
+    // Atomic refund guard: Only credit if not already refunded
     try {
         await LedgerService.creditWallet(
             userId,
@@ -422,7 +438,8 @@ async function refundAirtimeTransaction(tx, providerResult = null) {
                 original_type: 'airtime_purchase',
                 reason: providerResult?.error || 'Provider reported failure',
                 refund_type: 'auto_reconciliation'
-            }
+            },
+            `REF-${tx.reference}` // Idempotency key to prevent double credit
         );
     } catch (creditError) {
         logError(`Refund failed for ${tx.reference}:`, creditError);
@@ -441,7 +458,7 @@ async function refundAirtimeTransaction(tx, providerResult = null) {
         return { status: 'failed', reason: 'Refund error' };
     }
 
-    await supabaseAdmin
+    const { error: updateErr } = await supabaseAdmin
         .from('airtime_transactions')
         .update({
             status: 'failed',
@@ -464,16 +481,174 @@ async function refundAirtimeTransaction(tx, providerResult = null) {
         .eq('id', tx.id)
         .eq('refunded', false);
 
+    if (updateErr) {
+        logError(`Failed to finalize airtime refund ${tx.reference}:`, updateErr);
+        return { status: 'failed', reason: 'DB update failed' };
+    }
+
     await createNotification(
         tx.user_id,
         '💸 Airtime Refunded',
         `Airtime to ${tx.country_code} failed and has been refunded to your wallet.`,
         'airtime_refunded',
-        `/airtime/order/${tx.reference}`
+        `/airtime/order/${tx.reference}`,
+        `notif-airtime-refund-${tx.id}`
     );
 
     logReconciliation(`💸 ${tx.reference} → FAILED, refunded ${currency} ${refundAmount}`);
     return { status: 'failed', refunded: true };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DEPOSIT RECONCILIATION (KORAPAY + NOWPAYMENTS)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Reconciles Kora deposits that were initiated but never finalized.
+ * It checks the provider status and completes the ledger if successful.
+ */
+async function reconcileStuckKoraDeposits() {
+    const cutoff = new Date(Date.now() - STUCK_AFTER_MS).toISOString();
+
+    // Check for pending AND processing_credit states
+    const { data: stuck, error } = await supabaseAdmin
+        .from('deposit_requests')
+        .select('*')
+        .eq('provider', 'korapay')
+        .in('status', ['pending', 'processing', 'processing_credit'])
+        .lt('created_at', cutoff)
+        .limit(BATCH_SIZE);
+
+    if (error) {
+        logError('Kora reconcile query error:', error);
+        return { success: false, error: error.message };
+    }
+
+    if (!stuck || stuck.length === 0) {
+        logReconciliation('No stuck Kora deposits found');
+        return { success: true, processed: 0 };
+    }
+
+    logReconciliation(`Found ${stuck.length} stuck Kora deposits to reconcile`);
+    let successCount = 0;
+    let skippedCount = 0;
+
+    for (const dep of stuck) {
+        // Prefer merchant_reference for verification as it's the origin reference
+        const providerRef = dep.provider_reference || dep.merchant_reference;
+        if (!providerRef) {
+            logReconciliation(`Deposit ${dep.id} has no provider reference — skipping`);
+            skippedCount++;
+            continue;
+        }
+
+        try {
+            // 1. Check provider status with timeout
+            const verified = await withTimeout(
+                korapayService.verifyTransaction(providerRef),
+                PROVIDER_QUERY_TIMEOUT_MS
+            );
+
+            if (!['success', 'successful', 'completed'].includes(String(verified.provider_status || '').toLowerCase())) {
+                logReconciliation(`Deposit ${dep.id} still ${verified.provider_status || 'pending'} at provider`);
+                skippedCount++;
+                continue;
+            }
+
+            // 2. Build trusted digest to bypass re-verification inside completeKoraDeposit
+            const verifiedData = {
+                provider_status: verified.provider_status,
+                amount: verified.amount,
+                currency: verified.currency,
+                reference: verified.reference || verified.payment_reference
+            };
+            const digest = depositService.computeVerifiedDigest(verifiedData);
+
+            // 3. Complete the deposit
+            const result = await depositService.completeKoraDeposit({
+                depositId: dep.id,
+                providerTransaction: {
+                    ...verifiedData,
+                    _trustedVerified: true,
+                    _verifiedDigest: digest
+                },
+                source: 'reconciliation'
+            });
+
+            if (result.completed) {
+                logReconciliation(`✅ Kora deposit ${dep.id} recovered successfully`);
+                successCount++;
+            } else {
+                logReconciliation(`⏳ Kora deposit ${dep.id} still pending — ${result.reason || 'unknown'}`);
+                skippedCount++;
+            }
+        } catch (e) {
+            logError(`Kora deposit ${dep.id} reconciliation failed:`, e);
+            skippedCount++;
+        }
+    }
+
+    return { success: true, processed: successCount, skipped: skippedCount };
+}
+
+/**
+ * Reconciles NowPayments crypto deposits that were initiated but never finalized.
+ * It checks the provider status and completes the ledger if successful.
+ */
+async function reconcileStuckCryptoDeposits() {
+    const cutoff = new Date(Date.now() - STUCK_AFTER_MS).toISOString();
+
+    const { data: stuck, error } = await supabaseAdmin
+        .from('crypto_deposits')
+        .select('*')
+        .in('status', ['pending', 'processing', 'processing_credit'])
+        .lt('created_at', cutoff)
+        .limit(BATCH_SIZE);
+
+    if (error) {
+        logError('Crypto reconcile query error:', error);
+        return { success: false, error: error.message };
+    }
+
+    if (!stuck || stuck.length === 0) {
+        logReconciliation('No stuck crypto deposits found');
+        return { success: true, processed: 0 };
+    }
+
+    logReconciliation(`Found ${stuck.length} stuck crypto deposits to reconcile`);
+    let successCount = 0;
+    let skippedCount = 0;
+
+    for (const dep of stuck) {
+        const paymentId = dep.nowpayments_payment_id;
+        if (!paymentId) {
+            logReconciliation(`Deposit ${dep.id} has no payment ID — skipping`);
+            skippedCount++;
+            continue;
+        }
+
+        try {
+            // verifyAndComplete handles idempotency and checks if already completed
+            // We wrap it with timeout just in case
+            const result = await withTimeout(
+                cryptoDepositService.verifyAndComplete(paymentId, 'reconciliation'),
+                PROVIDER_QUERY_TIMEOUT_MS * 2 // slightly longer for crypto
+            );
+            
+            if (result.completed) {
+                logReconciliation(`✅ Crypto deposit ${paymentId} recovered successfully`);
+                successCount++;
+            } else {
+                logReconciliation(`⏳ Crypto deposit ${paymentId} still pending — ${result.reason || 'unknown'}`);
+                skippedCount++;
+            }
+        } catch (e) {
+            logError(`Crypto deposit ${paymentId} reconciliation failed:`, e);
+            skippedCount++;
+        }
+    }
+
+    return { success: true, processed: successCount, skipped: skippedCount };
 }
 
 // ─── UTILITY ─────────────────────────────────────────────────────────────
@@ -490,14 +665,14 @@ async function incrementAirtimeAttempts(tx, error = null) {
             last_reconciliation_error_at: new Date().toISOString()
         };
     }
-    await supabaseAdmin
+    const { error: updateErr } = await supabaseAdmin
         .from('airtime_transactions')
         .update(updates)
         .eq('id', tx.id);
+    if (updateErr) logError(`Failed to increment airtime attempts for ${tx.reference}:`, updateErr);
 }
 
-async function incrementReconciliationAttempts(tx, error = null) {
-    const table = tx.type === 'airtime' ? 'airtime_transactions' : 'cashback_transactions';
+async function incrementCashbackAttempts(tx, error = null) {
     const attempts = (tx.reconciliation_attempts || 0) + 1;
     const updates = {
         reconciliation_attempts: attempts,
@@ -510,10 +685,14 @@ async function incrementReconciliationAttempts(tx, error = null) {
             last_reconciliation_error_at: new Date().toISOString()
         };
     }
-    await supabaseAdmin.from(table).update(updates).eq('id', tx.id);
+    const { error: updateErr } = await supabaseAdmin
+        .from('cashback_transactions')
+        .update(updates)
+        .eq('id', tx.id);
+    if (updateErr) logError(`Failed to increment cashback attempts for ${tx.reference}:`, updateErr);
 }
 
-async function createNotification(userId, title, message, type = 'info', link = null) {
+async function createNotification(userId, title, message, type = 'info', link = null, referenceId = null) {
     try {
         const iconMap = {
             cashback_completed: '✅',
@@ -524,7 +703,9 @@ async function createNotification(userId, title, message, type = 'info', link = 
             airtime_refunded: '💸',
             info: '📌'
         };
-        await supabaseAdmin.from('notifications').insert({
+        
+        // Use reference_id to prevent duplicate notifications if referenceId is provided
+        const insertData = {
             user_id: userId,
             title,
             message,
@@ -533,7 +714,19 @@ async function createNotification(userId, title, message, type = 'info', link = 
             link: link || '/',
             is_read: false,
             created_at: new Date().toISOString()
-        });
+        };
+        
+        if (referenceId) {
+            insertData.reference_id = referenceId;
+            // Upsert with onConflict to avoid duplicates
+            const { error } = await supabaseAdmin
+                .from('notifications')
+                .upsert(insertData, { onConflict: 'reference_id', ignoreDuplicates: true });
+            if (error) logError('Notification upsert error:', error);
+        } else {
+            const { error } = await supabaseAdmin.from('notifications').insert(insertData);
+            if (error) logError('Notification insert error:', error);
+        }
     } catch (e) {
         logError('Notification error:', e);
     }
@@ -545,6 +738,8 @@ async function runFullReconciliation() {
     const results = {
         cashback: null,
         airtime: null,
+        koraDeposits: null,
+        cryptoDeposits: null,
         timestamp: new Date().toISOString()
     };
 
@@ -560,6 +755,20 @@ async function runFullReconciliation() {
     } catch (error) {
         logError('Airtime reconciliation failed:', error);
         results.airtime = { success: false, error: error.message };
+    }
+
+    try {
+        results.koraDeposits = await reconcileStuckKoraDeposits();
+    } catch (error) {
+        logError('Kora deposit reconciliation failed:', error);
+        results.koraDeposits = { success: false, error: error.message };
+    }
+
+    try {
+        results.cryptoDeposits = await reconcileStuckCryptoDeposits();
+    } catch (error) {
+        logError('Crypto deposit reconciliation failed:', error);
+        results.cryptoDeposits = { success: false, error: error.message };
     }
 
     logReconciliation('Full reconciliation complete:', results);
@@ -587,13 +796,31 @@ async function forceReconcile(transactionId, table = 'cashback_transactions') {
 }
 
 async function getStuckTransactions(table = 'cashback_transactions', limit = 50) {
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
         .from(table)
         .select('*')
         .eq('status', 'processing')
         .lt('reconciliation_attempts', MAX_RECONCILIATION_ATTEMPTS)
         .order('created_at', { ascending: false })
         .limit(limit);
+
+    if (table === 'deposit_requests') {
+        query = supabaseAdmin
+            .from(table)
+            .select('*')
+            .in('status', ['pending', 'processing', 'processing_credit'])
+            .order('created_at', { ascending: false })
+            .limit(limit);
+    } else if (table === 'crypto_deposits') {
+        query = supabaseAdmin
+            .from(table)
+            .select('*')
+            .in('status', ['pending', 'processing', 'processing_credit'])
+            .order('created_at', { ascending: false })
+            .limit(limit);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         logError('Get stuck query error:', error);
@@ -614,11 +841,16 @@ module.exports = {
     reconcileSingleAirtimeTransaction,
     refundAirtimeTransaction,
 
+    // Deposits
+    reconcileStuckKoraDeposits,
+    reconcileStuckCryptoDeposits,
+
     // Main
     runFullReconciliation,
     forceReconcile,
     getStuckTransactions,
 
     // Utilities
-    incrementReconciliationAttempts
+    incrementCashbackAttempts,
+    incrementAirtimeAttempts
 };

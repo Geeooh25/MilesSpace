@@ -1,20 +1,8 @@
-// services/ledgerService.js
-// Ledger — accounting source of truth.
-//
-// CHANGES IN THIS REVISION:
-//   • Cashback methods (add/use/getBalance) REMOVED.
-//     Historical cashback rows in ledger_entries and transactions
-//     are untouched and remain readable.
-//   • CASHBACK_CURRENCY export retained (harmless no-op) so any
-//     remaining import in an old file does not crash. Delete the
-//     export once you've grepped the codebase.
-//   • Uses IdempotencyService for idempotency instead of the
-//     in-service helpers.
-//   • createTransaction() still uses process_transaction RPC, and
-//     will continue to do so. The RPC remains the authority for
-//     wallet balance changes.
-
 'use strict';
+
+// services/ledgerService.js
+//
+// The ledger is the ONLY authority that changes wallet balances.
 
 const { supabaseAdmin } = require('../db/supabase');
 const crypto = require('crypto');
@@ -24,19 +12,41 @@ const DEFAULT_CURRENCY = 'NGN';
 const SUPPORTED_CURRENCIES = new Set(['NGN', 'USD']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const ACCOUNT_COLUMNS = [
-    'id', 'user_id', 'currency', 'available_balance', 'held_balance', 'created_at', 'updated_at'
-].join(', ');
+const TYPE_DIRECTION = {
+    deposit:              'credit',
+    wallet_credit:        'credit',
+    refund:               'credit',
+    adjustment:           'both',
+    wallet_debit:         'debit',
+    withdrawal:           'debit',
+    fee_revenue:          'credit',
+    marketplace_purchase: 'debit',
+    // future service purchases:
+    airtime_purchase:     'debit',
+    data_purchase:        'debit',
+    giftcard_purchase:    'debit',
+    esim_purchase:        'debit',
+    boost_purchase:       'debit',
+    virtual_number_purchase: 'debit',
+};
+const HISTORICAL_TYPES = new Set(['cashback_redeem', 'cashback']);
 
-const ENTRY_COLUMNS = [
-    'id', 'account_id', 'transaction_id', 'entry_type', 'amount', 'currency',
-    'balance_before', 'balance_after', 'description', 'created_at'
-].join(', ');
+const ACCOUNT_COLUMNS = 'id, user_id, currency, available_balance, held_balance, created_at, updated_at';
+const ENTRY_COLUMNS = 'id, account_id, transaction_id, entry_type, amount, currency, balance_before, balance_after, description, created_at';
+const TX_COLUMNS_MIN = 'id, user_id, type, status, currency, amount, reference, source_type, source_id, created_at, completed_at';
+const TX_COLUMNS_VERIFY = 'id, user_id, type, status, currency, amount, reference, source_type, source_id, provider, provider_reference, created_at, completed_at';
 
-const TX_COLUMNS_MIN = [
-    'id', 'user_id', 'type', 'status', 'currency', 'amount', 'reference',
-    'source_type', 'source_id', 'created_at', 'completed_at'
-].join(', ');
+function round2(n) {
+    return Math.round(Number(n) * 100) / 100;
+}
+
+function assertPrecision(amount, currency) {
+    const rounded = round2(amount);
+    if (Math.abs(rounded - Number(amount)) > 1e-6) {
+        throw new Error(`createTransaction: amount ${amount} has more precision than ${currency} supports`);
+    }
+    return rounded;
+}
 
 class LedgerService {
 
@@ -56,13 +66,9 @@ class LedgerService {
             .eq('currency', ccy)
             .maybeSingle();
 
-        if (readErr) {
-            throw new Error(`Failed to read ledger account: ${readErr.message}`);
-        }
+        if (readErr) throw new Error(`Failed to read ledger account: ${readErr.message}`);
         if (account) return account;
 
-        // Insert; on unique violation (another request created it first),
-        // re-read and return.
         const { data: newAccount, error: insertErr } = await supabaseAdmin
             .from('ledger_accounts')
             .insert({ user_id: userId, currency: ccy, available_balance: 0, held_balance: 0 })
@@ -71,13 +77,13 @@ class LedgerService {
 
         if (insertErr) {
             if (insertErr.code === '23505') {
-                // Concurrent create. Re-read.
-                const { data: reread } = await supabaseAdmin
+                const { data: reread, error: reErr } = await supabaseAdmin
                     .from('ledger_accounts')
                     .select(ACCOUNT_COLUMNS)
                     .eq('user_id', userId)
                     .eq('currency', ccy)
                     .maybeSingle();
+                if (reErr) throw new Error(`Failed to reread ledger account: ${reErr.message}`);
                 if (reread) return reread;
             }
             throw new Error(`Failed to create ledger account: ${insertErr.message}`);
@@ -90,7 +96,6 @@ class LedgerService {
         return parseFloat(account.available_balance) || 0;
     }
 
-    // ─── Customer-facing balances: NGN + USD only ────────────
     static async getAllBalances(userId) {
         if (!UUID_RE.test(String(userId || ''))) {
             throw new Error('getAllBalances: userId must be a UUID');
@@ -120,15 +125,28 @@ class LedgerService {
         if (!UUID_RE.test(String(userId || ''))) {
             throw new Error('createTransaction: userId must be a UUID');
         }
-
         const ccy = String(currency).toUpperCase();
         if (!SUPPORTED_CURRENCIES.has(ccy)) {
             throw new Error(`createTransaction: unsupported currency ${ccy}`);
         }
 
-        const amountNum = parseFloat(amount);
-        if (!Number.isFinite(amountNum) || amountNum === 0) {
+        if (HISTORICAL_TYPES.has(String(type))) {
+            throw new Error(`createTransaction: "${type}" is retired and cannot be created`);
+        }
+
+        const rawAmount = parseFloat(amount);
+        if (!Number.isFinite(rawAmount) || rawAmount === 0) {
             throw new Error('createTransaction: amount must be a non-zero finite number');
+        }
+        const amountNum = assertPrecision(Math.abs(rawAmount), ccy);
+
+        const direction = rawAmount > 0 ? 'credit' : 'debit';
+        const expectedDirection = TYPE_DIRECTION[type];
+        if (!expectedDirection) {
+            throw new Error(`createTransaction: unknown or retired transaction type "${type}"`);
+        }
+        if (expectedDirection !== 'both' && expectedDirection !== direction) {
+            throw new Error(`createTransaction: type "${type}" must be ${expectedDirection}, got ${direction}`);
         }
 
         if (!reference) {
@@ -138,14 +156,14 @@ class LedgerService {
             reference = `${prefix}-${ts}-${rnd}`;
         }
 
-        // ─── Atomic idempotency claim (before any side effects) ────
+        // ── Idempotency ──────────────────────────────────────
         if (idempotencyKey) {
             const existing = await IdempotencyService.check(userId, idempotencyKey, 'transaction');
             if (existing && !existing.__in_flight) return existing;
 
             const claimed = await IdempotencyService.claim(
                 userId, idempotencyKey, 'transaction',
-                { type, amount: Math.abs(amountNum), currency: ccy }
+                { type, amount: amountNum, currency: ccy, reference }
             );
             if (!claimed) {
                 const inFlight = await IdempotencyService.check(userId, idempotencyKey, 'transaction');
@@ -154,20 +172,18 @@ class LedgerService {
             }
         }
 
-        // ─── Read account (the RPC will re-check balance atomically) ─
-        const account = await this.getOrCreateAccount(userId, ccy);
-        const currentBalance = parseFloat(account.available_balance) || 0;
-
-        // Friendly early rejection — the RPC still enforces this for real.
-        if (amountNum < 0 && currentBalance + amountNum < 0) {
+        // ── Account ──────────────────────────────────────────
+        let account;
+        try {
+            account = await this.getOrCreateAccount(userId, ccy);
+        } catch (acctErr) {
             if (idempotencyKey) {
-                await IdempotencyService.release(userId, idempotencyKey, 'transaction');
+                await IdempotencyService.release(userId, idempotencyKey, 'transaction').catch(() => {});
             }
-            throw new Error(`Insufficient ${ccy} balance. Available: ${currentBalance}, Required: ${Math.abs(amountNum)}`);
+            throw acctErr;
         }
 
         const nowIso = new Date().toISOString();
-        const newBalance = currentBalance + amountNum;
 
         const transactionData = {
             user_id: userId,
@@ -175,67 +191,96 @@ class LedgerService {
             type,
             status: 'completed',
             currency: ccy,
-            amount: Math.abs(amountNum),
+            amount: rawAmount > 0 ? amountNum : -amountNum,
             description: description || type,
             source_type: sourceType,
             source_id: sourceId,
             provider,
             provider_reference: providerReference,
-            metadata: {
-                ...metadata,
-                balance_before: currentBalance,
-                balance_after: newBalance,
-                direction: amountNum >= 0 ? 'credit' : 'debit',
-                currency_type: ccy
-            },
+            metadata: { ...metadata, direction, currency_type: ccy },
             created_at: nowIso,
             updated_at: nowIso,
             completed_at: nowIso
         };
 
-        const { data: result, error } = await supabaseAdmin.rpc('process_transaction', {
-            p_user_id:        userId,
-            p_account_id:     account.id,
+        // ── RPC ──────────────────────────────────────────────
+        const { data: result, error } = await supabaseAdmin.rpc('process_transaction_v2', {
+            p_user_id:          userId,
+            p_account_id:       account.id,
             p_transaction_data: transactionData,
-            p_entry_type:     amountNum >= 0 ? 'CREDIT' : 'DEBIT',
-            p_amount:         Math.abs(amountNum),
-            p_currency:       ccy,
-            p_balance_before: currentBalance,
-            p_balance_after:  newBalance
+            p_entry_type:       direction === 'credit' ? 'CREDIT' : 'DEBIT',
+            p_amount:           amountNum,
+            p_currency:         ccy
         });
 
         if (error) {
-            // Release the claim so the caller can retry.
             if (idempotencyKey) {
-                await IdempotencyService.release(userId, idempotencyKey, 'transaction');
+                await IdempotencyService.release(userId, idempotencyKey, 'transaction').catch(() => {});
             }
+
+            if (error.code === '23505') {
+                const existingTx = await this.getTransactionByReferenceForVerification(reference);
+                if (!existingTx) {
+                    throw new Error(`Transaction failed: 23505 but no row found for reference ${reference}`);
+                }
+                const sameUser        = String(existingTx.user_id) === String(userId);
+                const sameType        = String(existingTx.type) === String(type);
+                const sameCurrency    = String(existingTx.currency).toUpperCase() === ccy;
+                const sameAmount      = Math.abs(parseFloat(existingTx.amount) - amountNum) < 0.005;
+                const sameSourceType  = String(existingTx.source_type || '') === String(sourceType || '');
+                const sameSourceId    = String(existingTx.source_id || '') === String(sourceId || '');
+                const sameProviderRef = String(existingTx.provider_reference || '') === String(providerReference || '');
+
+                if (!sameUser || !sameType || !sameCurrency || !sameAmount ||
+                    !sameSourceType || !sameSourceId || !sameProviderRef) {
+                    throw new Error(
+                        `Transaction failed: reference ${reference} exists but does not match the intended operation.`
+                    );
+                }
+                return {
+                    success: true,
+                    already_exists: true,
+                    transaction_id: existingTx.id,
+                    reference,
+                    amount: amountNum,
+                    currency: ccy
+                };
+            }
+
             throw new Error(`Transaction failed: ${error.message}`);
         }
 
-        const transactionId =
-            (Array.isArray(result) ? result[0]?.transaction_id : result?.transaction_id) ||
-            result?.id || null;
+        // ── Success ──────────────────────────────────────────
+        const payload = Array.isArray(result) ? result[0] : result;
+        let transactionId = payload?.transaction_id || payload?.id || null;
+
+        if (!transactionId) {
+            const recovered = await this.getTransactionByReferenceForVerification(reference);
+            transactionId = recovered?.id || null;
+            if (!transactionId) {
+                if (idempotencyKey) {
+                    await IdempotencyService.release(userId, idempotencyKey, 'transaction').catch(() => {});
+                }
+                throw new Error(`Transaction failed: RPC returned no transaction_id for ${reference}`);
+            }
+        }
 
         const finalResponse = {
             success: true,
             transaction_id: transactionId,
             reference,
-            amount: Math.abs(amountNum),
+            amount: amountNum,
             currency: ccy,
-            balance_before: currentBalance,
-            balance_after: newBalance,
-            entry_type: amountNum >= 0 ? 'CREDIT' : 'DEBIT'
+            balance_before: payload?.balance_before ?? null,
+            balance_after:  payload?.balance_after  ?? null,
+            entry_type: direction === 'credit' ? 'CREDIT' : 'DEBIT'
         };
 
         if (idempotencyKey) {
             try {
                 await IdempotencyService.save(userId, idempotencyKey, 'transaction', finalResponse);
             } catch (saveErr) {
-                // The money moved but the idempotency row failed to
-                // persist. This is a real problem — log loudly. We do
-                // NOT throw here because the ledger is already updated;
-                // throwing would mislead the caller into retrying.
-                console.error('[LEDGER] CRITICAL: idempotency save failed after ledger write', {
+                console.error('[LEDGER] idempotency save failed after ledger write', {
                     userId, idempotencyKey, reference, transactionId,
                     error: saveErr.message
                 });
@@ -248,17 +293,10 @@ class LedgerService {
     static async creditWallet(...args) {
         const o = this._normalizeWalletArgs(args, 'credit');
         return await this.createTransaction({
-            userId: o.userId,
-            type: o.type || 'wallet_credit',
-            amount: Math.abs(o.amount),
-            currency: o.currency,
-            description: o.description,
-            reference: o.reference,
-            sourceType: o.sourceType,
-            sourceId: o.sourceId,
-            provider: o.provider || null,
-            providerReference: o.providerReference || null,
-            metadata: o.metadata,
+            userId: o.userId, type: o.type || 'wallet_credit', amount: Math.abs(o.amount),
+            currency: o.currency, description: o.description, reference: o.reference,
+            sourceType: o.sourceType, sourceId: o.sourceId, provider: o.provider || null,
+            providerReference: o.providerReference || null, metadata: o.metadata,
             idempotencyKey: o.idempotencyKey || null
         });
     }
@@ -266,17 +304,10 @@ class LedgerService {
     static async debitWallet(...args) {
         const o = this._normalizeWalletArgs(args, 'debit');
         return await this.createTransaction({
-            userId: o.userId,
-            type: o.type || 'wallet_debit',
-            amount: -Math.abs(o.amount),
-            currency: o.currency,
-            description: o.description,
-            reference: o.reference,
-            sourceType: o.sourceType,
-            sourceId: o.sourceId,
-            provider: o.provider || null,
-            providerReference: o.providerReference || null,
-            metadata: o.metadata,
+            userId: o.userId, type: o.type || 'wallet_debit', amount: -Math.abs(o.amount),
+            currency: o.currency, description: o.description, reference: o.reference,
+            sourceType: o.sourceType, sourceId: o.sourceId, provider: o.provider || null,
+            providerReference: o.providerReference || null, metadata: o.metadata,
             idempotencyKey: o.idempotencyKey || null
         });
     }
@@ -318,8 +349,10 @@ class LedgerService {
         };
     }
 
-    // ─── History helpers (unchanged) ───────────────────────────────
     static async getTransactionHistory(userId, limit = 50, offset = 0, filters = {}) {
+        const safeLimit  = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+        const safeOffset = Math.max(parseInt(offset, 10) || 0, 0);
+
         let q = supabaseAdmin
             .from('transactions')
             .select(TX_COLUMNS_MIN, { count: 'exact' })
@@ -328,72 +361,199 @@ class LedgerService {
         if (filters.type) q = q.eq('type', filters.type);
         if (filters.status) q = q.eq('status', filters.status);
         if (filters.currency) q = q.eq('currency', filters.currency);
-        const { data, error, count } = await q.range(offset, offset + limit - 1);
+        const { data, error, count } = await q.range(safeOffset, safeOffset + safeLimit - 1);
         if (error) throw error;
         return { transactions: data || [], total: count || 0 };
     }
 
     static async getTransactionByReference(reference) {
-        const { data } = await supabaseAdmin
-            .from('transactions')
-            .select(TX_COLUMNS_MIN)
-            .eq('reference', reference)
-            .maybeSingle();
+        const { data, error } = await supabaseAdmin
+            .from('transactions').select(TX_COLUMNS_MIN).eq('reference', reference).maybeSingle();
+        if (error) throw new Error(`getTransactionByReference failed: ${error.message}`);
         return data || null;
     }
 
+    static async getTransactionByReferenceForVerification(reference) {
+        const { data, error } = await supabaseAdmin
+            .from('transactions').select(TX_COLUMNS_VERIFY).eq('reference', reference).maybeSingle();
+        if (error) throw new Error(`getTransactionByReferenceForVerification failed: ${error.message}`);
+        return data || null;
+    }
+
+        // ═══════════════════════════════════════════════════════════════
+    //  REFUND — reverse a prior debit and credit the user back.
+    //
+    //  Caller contract (see routes/billsRoutes.js):
+    //      LedgerService.refundTransaction({
+    //          userId,
+    //          transactionId: <transactions.id of the original DEBIT>,
+    //          reason: 'Provider failed' | ...
+    //      })
+    //
+    //  Idempotent: deterministic reference "REFUND-{original.reference}"
+    //  means a retry after a partial success cannot double-credit.
+    // ═══════════════════════════════════════════════════════════════
+    static async refundTransaction({
+        userId,
+        transactionId,
+        reason = 'Refund',
+        reference = null,
+        idempotencyKey = null
+    }) {
+        if (!UUID_RE.test(String(userId || ''))) {
+            throw new Error('refundTransaction: userId must be a UUID');
+        }
+        if (!UUID_RE.test(String(transactionId || ''))) {
+            throw new Error('refundTransaction: transactionId must be a UUID');
+        }
+
+        // 1. Load the original transaction so we can validate and inherit context.
+        const original = await this.getTransactionById(transactionId);
+        if (!original) {
+            throw new Error(`refundTransaction: transaction ${transactionId} not found`);
+        }
+        if (String(original.user_id) !== String(userId)) {
+            throw new Error('refundTransaction: transaction does not belong to this user');
+        }
+
+        // 2. Must be a debit. Refunding a credit would be nonsense.
+        // 2. Must be a debit.
+//    Historically, `transactions.amount` was written unsigned (positive) even for
+//    debits (see process_transaction_v2 sign bug). `metadata.direction` is the
+//    authoritative source of direction for such legacy rows. Balance movement
+//    lives in `ledger_entries` and was correct all along.
+const rawAmount = parseFloat(original.amount) || 0;
+const metaDirection = String(original.metadata?.direction || '').toLowerCase();
+const isDebit =
+    rawAmount < 0 ||
+    metaDirection === 'debit' ||
+    String(original.type || '').endsWith('_purchase') ||
+    String(original.type || '') === 'wallet_debit' ||
+    String(original.type || '') === 'withdrawal';
+
+if (!isDebit) {
+    throw new Error(
+        `refundTransaction: transaction ${transactionId} is not a debit ` +
+        `(amount=${original.amount}, direction=${metaDirection || 'unknown'}, type=${original.type})`
+    );
+}
+        // 3. Deterministic reference — retries short-circuit on the unique constraint.
+        const refundRef = reference || `REFUND-${original.reference}`;
+
+        // 4. Idempotency: if we already refunded, return the existing credit row.
+        const already = await this.getTransactionByReference(refundRef);
+        if (already) {
+            return {
+                success: true,
+                already_exists: true,
+                transaction_id: already.id,
+                reference: refundRef,
+                amount: Math.abs(parseFloat(already.amount) || 0),
+                currency: already.currency
+            };
+        }
+
+        // 5. Credit the user back. Metadata keeps the audit trail intact.
+        // 5. Credit the user back. Metadata keeps the audit trail intact.
+const refundAmount = Math.abs(rawAmount);
+
+        return await this.createTransaction({
+            userId,
+            type: 'refund',
+            amount: +refundAmount,                 // positive = credit
+            currency: original.currency || DEFAULT_CURRENCY,
+            description: reason,
+            reference: refundRef,
+            sourceType: original.source_type || 'refund',
+            sourceId: original.source_id || original.id,
+            provider: original.provider || null,
+            providerReference: original.provider_reference || null,
+            metadata: {
+                refunded_transaction_id: original.id,
+                refunded_reference: original.reference,
+                refunded_type: original.type,
+                reason
+            },
+            idempotencyKey: idempotencyKey || null
+        });
+    }
+    
+
     static async getTransactionById(id) {
-        const { data } = await supabaseAdmin
-            .from('transactions')
-            .select(TX_COLUMNS_MIN)
-            .eq('id', id)
-            .maybeSingle();
+        const { data, error } = await supabaseAdmin
+            .from('transactions').select(TX_COLUMNS_MIN).eq('id', id).maybeSingle();
+        if (error) throw new Error(`getTransactionById failed: ${error.message}`);
         return data || null;
     }
 
     static async getLedgerEntriesByTransaction(transactionId) {
         if (!UUID_RE.test(String(transactionId || ''))) return [];
         const { data, error } = await supabaseAdmin
-            .from('ledger_entries')
-            .select(ENTRY_COLUMNS)
-            .eq('transaction_id', transactionId)
-            .order('created_at', { ascending: true });
+            .from('ledger_entries').select(ENTRY_COLUMNS)
+            .eq('transaction_id', transactionId).order('created_at', { ascending: true });
         if (error) throw new Error(error.message);
         return data || [];
     }
 }
 
-// ─── AdminConfigService — explicit columns ──────────────────
 class AdminConfigService {
-    static async getSettings() {
-        const { data, error } = await supabaseAdmin
-            .from('app_config')
-            .select('key, value');
-        if (error) return this.getDefaultSettings();
+    static ALLOWED_KEYS = new Set([
+        'usd_to_ngn', 'boost_markup', 'gift_card_markup',
+        'virtual_sms_markup', 'marketplace_markup', 'airtime_markup'
+    ]);
+
+    static async getSettingsOrNull() {
+        const { data, error } = await supabaseAdmin.from('app_config').select('key, value');
+        if (error) return null;
         const settings = {};
         (data || []).forEach(item => { settings[item.key] = item.value; });
         return settings;
     }
+
+    static async getSettings() {
+        const s = await this.getSettingsOrNull();
+        if (s === null) {
+            console.error('[ADMIN CONFIG] database read failed');
+            throw new Error('Configuration unavailable');
+        }
+        return s;
+    }
+
     static getDefaultSettings() {
         return {
             usd_to_ngn: '1620', boost_markup: '18', gift_card_markup: '10',
-            virtual_sms_markup: '15', marketplace_markup: '20'
+            virtual_sms_markup: '15', marketplace_markup: '20', airtime_markup: '18'
         };
     }
+
     static async updateSetting(key, value) {
+        if (!this.ALLOWED_KEYS.has(key)) {
+            throw new Error(`updateSetting: "${key}" is not an editable setting`);
+        }
+        const n = parseFloat(value);
+        if (!Number.isFinite(n) || n <= 0 || n > 1000000) {
+            throw new Error(`updateSetting: "${key}" must be a positive finite number`);
+        }
         const { error } = await supabaseAdmin
             .from('app_config')
-            .upsert({ key, value: String(value), updated_at: new Date().toISOString() }, { onConflict: 'key' });
-        if (error) throw new Error(`Failed to update ${key}`);
-        return { success: true, key, value };
+            .upsert({ key, value: String(n), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        if (error) throw new Error(`Failed to update ${key}: ${error.message}`);
+        return { success: true, key, value: n };
     }
+
     static async getExchangeRate() {
         const s = await this.getSettings();
-        return parseFloat(s.usd_to_ngn) || 1620;
+        const n = parseFloat(s.usd_to_ngn);
+        if (!Number.isFinite(n) || n <= 0) throw new Error('getExchangeRate: usd_to_ngn is not configured');
+        return n;
     }
+
     static async getMarkup(service) {
         const s = await this.getSettings();
-        return parseFloat(s[`${service}_markup`]) || 18;
+        const raw = s[`${service}_markup`];
+        const n = parseFloat(raw);
+        if (!Number.isFinite(n) || n < 0) throw new Error(`getMarkup: "${service}_markup" is not configured`);
+        return n;
     }
 }
 

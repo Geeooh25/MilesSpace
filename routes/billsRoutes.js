@@ -265,7 +265,7 @@ function resolveNetwork(body, detectedNetwork) {
     return null;
 }
 
-// ─── WALLET DEBIT HELPERS ───────────────────────────────────────────
+// ─── WALLET DEBIT / REFUND HELPERS ─────────────────────────────────
 async function debitWalletWithReference({ userId, amount, currency = 'NGN', reference, description, metadata }) {
     return await LedgerService.debitWallet({
         userId,
@@ -283,6 +283,61 @@ async function refundWalletByLedgerId({ userId, ledgerTransactionId, reason }) {
         transactionId: ledgerTransactionId,
         reason: reason || 'Refund'
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  REFUND WITH ESCALATION
+//  Wraps LedgerService.refundTransaction with:
+//    • loud logging on failure
+//    • insert into failed_refunds so a reconciler can retry later
+//  Returns { success, refund? , error? }.
+// ═══════════════════════════════════════════════════════════════════
+async function attemptRefund({ userId, ledgerTransactionId, reason, sourceContext }) {
+    if (!ledgerTransactionId) {
+        return { success: false, error: 'no ledgerTransactionId provided', code: 'NO_LEDGER_ID' };
+    }
+
+    try {
+        const result = await LedgerService.refundTransaction({
+            userId,
+            transactionId: ledgerTransactionId,
+            reason: reason || 'Refund'
+        });
+
+        if (!result || result.success !== true) {
+            throw new Error(result?.error || 'refund returned unsuccessful');
+        }
+
+        console.log(
+            `[BILLS] ✅ Refunded ${result.amount} ${result.currency} ` +
+            `(refund_tx=${result.transaction_id}, original=${ledgerTransactionId})`
+        );
+        return { success: true, refund: result };
+    } catch (refundErr) {
+        console.error(
+            `[BILLS] 🚨 REFUND FAILED — user=${userId}, ledger_tx=${ledgerTransactionId}, ` +
+            `reason="${reason}". Manual intervention may be required.`,
+            refundErr
+        );
+
+        // Persist for later reconciliation / manual audit. Best-effort.
+        try {
+            await supabaseAdmin.from('failed_refunds').insert({
+                user_id: userId,
+                ledger_transaction_id: ledgerTransactionId,
+                reason: String(reason || 'unknown').slice(0, 500),
+                error_message: String(refundErr.message || refundErr).slice(0, 1000),
+                context: sourceContext || {},
+                status: 'pending',
+                attempts: 0,
+                created_at: new Date().toISOString()
+            });
+        } catch (persistErr) {
+            console.error('[BILLS] 🚨 Could not persist failed_refunds row:', persistErr.message);
+        }
+
+        return { success: false, error: refundErr.message || String(refundErr) };
+    }
 }
 
 // ─── IDEMPOTENCY ─────────────────────────────────────────────────────
@@ -727,16 +782,22 @@ router.post('/airtime/purchase', authMiddleware, async (req, res) => {
                 message: 'Transaction is being processed'
             };
         } else {
-            let refundResult = { success: false };
-            try {
-                refundResult = await refundWalletByLedgerId({
-                    userId,
-                    ledgerTransactionId: debitResult.transaction_id,
-                    reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed'
-                });
-            } catch (refundErr) {
-                console.error('❌ Airtime refund failed:', refundErr);
-            }
+            // ── REFUND (hardened) ────────────────────────────────
+            const refundOutcome = await attemptRefund({
+                userId,
+                ledgerTransactionId: debitResult.transaction_id,
+                reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed',
+                sourceContext: {
+                    bill_transaction_id: transaction.id,
+                    reference,
+                    service: 'airtime',
+                    provider_status: vtpassResult.providerStatus,
+                    provider_code: vtpassResult.code
+                }
+            });
+            const refundResult = refundOutcome.success
+                ? { success: true }
+                : { success: false, error: refundOutcome.error };
 
             await updateTransaction(transaction.id, {
                 status: 'failed',
@@ -753,7 +814,7 @@ router.post('/airtime/purchase', authMiddleware, async (req, res) => {
             await createNotification(
                 userId,
                 'Airtime Purchase Failed',
-                `Your airtime purchase of ₦${numericAmount.toFixed(2)} for ${phoneValidation.phone} failed. ${refundResult.success ? 'Your wallet has been refunded.' : ''}`,
+                `Your airtime purchase of ₦${numericAmount.toFixed(2)} for ${phoneValidation.phone} failed. ${refundResult.success ? 'Your wallet has been refunded.' : 'A refund is being processed.'}`,
                 'error',
                 '/bills'
             );
@@ -1006,16 +1067,22 @@ router.post('/data/purchase', authMiddleware, async (req, res) => {
                 message: 'Transaction is being processed'
             };
         } else {
-            let refundResult = { success: false };
-            try {
-                refundResult = await refundWalletByLedgerId({
-                    userId,
-                    ledgerTransactionId: debitResult.transaction_id,
-                    reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed'
-                });
-            } catch (refundErr) {
-                console.error('❌ Data refund failed:', refundErr);
-            }
+            // ── REFUND (hardened) ────────────────────────────────
+            const refundOutcome = await attemptRefund({
+                userId,
+                ledgerTransactionId: debitResult.transaction_id,
+                reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed',
+                sourceContext: {
+                    bill_transaction_id: transaction.id,
+                    reference,
+                    service: 'data',
+                    provider_status: vtpassResult.providerStatus,
+                    provider_code: vtpassResult.code
+                }
+            });
+            const refundResult = refundOutcome.success
+                ? { success: true }
+                : { success: false, error: refundOutcome.error };
 
             await updateTransaction(transaction.id, {
                 status: 'failed',
@@ -1032,7 +1099,7 @@ router.post('/data/purchase', authMiddleware, async (req, res) => {
             await createNotification(
                 userId,
                 'Data Purchase Failed',
-                `Your data purchase of ${planData.name} for ${phoneValidation.phone} failed. ${refundResult.success ? 'Your wallet has been refunded.' : ''}`,
+                `Your data purchase of ${planData.name} for ${phoneValidation.phone} failed. ${refundResult.success ? 'Your wallet has been refunded.' : 'A refund is being processed.'}`,
                 'error',
                 '/bills'
             );
@@ -1273,16 +1340,22 @@ router.post('/electricity/purchase', authMiddleware, async (req, res) => {
                 message: 'Transaction is being processed'
             };
         } else {
-            let refundResult = { success: false };
-            try {
-                refundResult = await refundWalletByLedgerId({
-                    userId,
-                    ledgerTransactionId: debitResult.transaction_id,
-                    reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed'
-                });
-            } catch (refundErr) {
-                console.error('❌ Electricity refund failed:', refundErr);
-            }
+            // ── REFUND (hardened) ────────────────────────────────
+            const refundOutcome = await attemptRefund({
+                userId,
+                ledgerTransactionId: debitResult.transaction_id,
+                reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed',
+                sourceContext: {
+                    bill_transaction_id: transaction.id,
+                    reference,
+                    service: 'electricity',
+                    provider_status: vtpassResult.providerStatus,
+                    provider_code: vtpassResult.code
+                }
+            });
+            const refundResult = refundOutcome.success
+                ? { success: true }
+                : { success: false, error: refundOutcome.error };
 
             await updateTransaction(transaction.id, {
                 status: 'failed',
@@ -1299,7 +1372,7 @@ router.post('/electricity/purchase', authMiddleware, async (req, res) => {
             await createNotification(
                 userId,
                 'Electricity Payment Failed',
-                `Your electricity payment of ₦${numericAmount.toFixed(2)} for meter ${customerId} failed. ${refundResult.success ? 'Your wallet has been refunded.' : ''}`,
+                `Your electricity payment of ₦${numericAmount.toFixed(2)} for meter ${customerId} failed. ${refundResult.success ? 'Your wallet has been refunded.' : 'A refund is being processed.'}`,
                 'error',
                 '/bills'
             );
@@ -1531,16 +1604,22 @@ router.post('/tv/purchase', authMiddleware, async (req, res) => {
                 message: 'Transaction is being processed'
             };
         } else {
-            let refundResult = { success: false };
-            try {
-                refundResult = await refundWalletByLedgerId({
-                    userId,
-                    ledgerTransactionId: debitResult.transaction_id,
-                    reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed'
-                });
-            } catch (refundErr) {
-                console.error('❌ TV refund failed:', refundErr);
-            }
+            // ── REFUND (hardened) ────────────────────────────────
+            const refundOutcome = await attemptRefund({
+                userId,
+                ledgerTransactionId: debitResult.transaction_id,
+                reason: vtpassResult.friendlyError || vtpassResult.error || 'Provider transaction failed',
+                sourceContext: {
+                    bill_transaction_id: transaction.id,
+                    reference,
+                    service: 'tv',
+                    provider_status: vtpassResult.providerStatus,
+                    provider_code: vtpassResult.code
+                }
+            });
+            const refundResult = refundOutcome.success
+                ? { success: true }
+                : { success: false, error: refundOutcome.error };
 
             await updateTransaction(transaction.id, {
                 status: 'failed',
@@ -1557,7 +1636,7 @@ router.post('/tv/purchase', authMiddleware, async (req, res) => {
             await createNotification(
                 userId,
                 'TV Subscription Failed',
-                `Your TV subscription of ${packageData.name} for ${customerId} failed. ${refundResult.success ? 'Your wallet has been refunded.' : ''}`,
+                `Your TV subscription of ${packageData.name} for ${customerId} failed. ${refundResult.success ? 'Your wallet has been refunded.' : 'A refund is being processed.'}`,
                 'error',
                 '/bills'
             );
@@ -1693,16 +1772,25 @@ router.post('/status/:id/refresh', authMiddleware, async (req, res) => {
             }
 
             if (requery.state === 'failed') {
-                if (transaction.ledger_transaction_id && !transaction.refunded) {
-                    try {
-                        await refundWalletByLedgerId({
-                            userId,
-                            ledgerTransactionId: transaction.ledger_transaction_id,
-                            reason: requery.friendlyError || 'Provider transaction failed'
-                        });
-                    } catch (refundErr) {
-                        console.error('❌ Refresh refund failed:', refundErr);
-                    }
+                // ── REFUND (hardened) ────────────────────────────
+                // Only attempt if not already refunded.
+                let refundedOk = !!transaction.refunded;
+
+                if (transaction.ledger_transaction_id && !refundedOk) {
+                    const refundOutcome = await attemptRefund({
+                        userId,
+                        ledgerTransactionId: transaction.ledger_transaction_id,
+                        reason: requery.friendlyError || 'Provider transaction failed',
+                        sourceContext: {
+                            bill_transaction_id: transaction.id,
+                            reference: transaction.reference,
+                            service: transaction.service_type,
+                            via: 'status_refresh',
+                            provider_status: requery.providerStatus,
+                            provider_code: requery.code
+                        }
+                    });
+                    refundedOk = !!refundOutcome.success;
                 }
 
                 await updateTransaction(transaction.id, {
@@ -1711,8 +1799,8 @@ router.post('/status/:id/refresh', authMiddleware, async (req, res) => {
                     provider_code: requery.code,
                     failure_reason: requery.friendlyError,
                     failed_at: new Date().toISOString(),
-                    refunded: true,
-                    refunded_at: new Date().toISOString()
+                    refunded: refundedOk,
+                    refunded_at: refundedOk ? new Date().toISOString() : (transaction.refunded_at || null)
                 });
 
                 return res.json({
@@ -1722,7 +1810,7 @@ router.post('/status/:id/refresh', authMiddleware, async (req, res) => {
                         reference: transaction.reference,
                         status: 'failed',
                         error: requery.friendlyError,
-                        refunded: true
+                        refunded: refundedOk
                     }
                 });
             }
@@ -1750,12 +1838,6 @@ router.post('/status/:id/refresh', authMiddleware, async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════════════
 // HISTORY — merges bill_payment_transactions + airtime_transactions
-//
-// This is THE FIX. Bills history comes from two tables:
-//   • bill_payment_transactions  (VTpass — new bills.html purchases)
-//   • airtime_transactions       (DT One — international airtime)
-//
-// We merge, sort by created_at, paginate in-memory.
 // ═══════════════════════════════════════════════════════════════════════
 router.get('/history', authMiddleware, async (req, res) => {
     try {

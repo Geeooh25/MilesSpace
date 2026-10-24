@@ -28,7 +28,7 @@
   <meta name="twitter:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more." />
   <meta name="twitter:image" content="https://www.milesspaceedigital.com/images/social-preview.png" />
 
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>MilesSpace | Dashboard</title>
 
   <!-- Preconnects -->
@@ -151,7 +151,7 @@
 
     input, select {
       font-family: inherit;
-      font-size: inherit;
+      font-size: 16px;
       color: inherit;
     }
 
@@ -200,6 +200,7 @@
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: var(--bdr) transparent;
+      padding-bottom: calc(16px + var(--safe-b));
     }
     .sidebar.open {
       transform: none;
@@ -370,6 +371,7 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      width: 100%;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -483,6 +485,7 @@
       flex: 1;
       min-width: 0;
       padding-bottom: calc(90px + var(--safe-b));
+      overflow: visible;
     }
     @media (min-width: 768px) {
       .content {
@@ -697,9 +700,7 @@
       gap: 4px;
       flex-wrap: wrap;
       margin-bottom: 4px;
-    
     }
-   
     .bh-currency-sym {
       font-family: var(--fd);
       font-size: 1.3rem;
@@ -807,7 +808,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       TICKER
+       TICKER (iOS Optimized)
        ═══════════════════════════════════════════════════════════ */
     .ticker-section { margin-bottom: 20px; }
     .ticker-lbl {
@@ -852,11 +853,22 @@
     .ticker-track {
       display: flex;
       gap: 12px;
-      animation: ticker 30s linear infinite;
       width: max-content;
       padding: 4px 0;
+      will-change: transform;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      -webkit-perspective: 1000px;
+      perspective: 1000px;
+      /* Fallback CSS Animation */
+      -webkit-animation: ticker-css 40s linear infinite;
+      animation: ticker-css 40s linear infinite;
     }
-    .ticker-track:hover { animation-play-state: paused; }
+    
+    /* No :hover pause — on iOS, :hover fires after a tap and freezes the ticker. */
+    
     .ticker-item {
       display: flex;
       align-items: center;
@@ -868,11 +880,10 @@
       white-space: nowrap;
       flex-shrink: 0;
       cursor: pointer;
-      transition: all .2s;
+      transition: border-color .2s, box-shadow .2s;
     }
     .ticker-item:hover {
       border-color: var(--p);
-      transform: translateY(-1px);
       box-shadow: var(--s0);
     }
     .ticker-icon { font-size: .9rem; flex-shrink: 0; }
@@ -889,9 +900,31 @@
       background: var(--acc);
       color: #fff;
     }
-    @keyframes ticker {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
+
+    @-webkit-keyframes ticker-css {
+      from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
+      to   { -webkit-transform: translate3d(calc(-50% - 6px), 0, 0); transform: translate3d(calc(-50% - 6px), 0, 0); }
+    }
+    @keyframes ticker-css {
+      from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
+      to   { -webkit-transform: translate3d(calc(-50% - 6px), 0, 0); transform: translate3d(calc(-50% - 6px), 0, 0); }
+    }
+
+    /* iOS: never pause the ticker via CSS */
+    .ticker-track,
+    .ticker-track:hover,
+    .ticker-track:active,
+    .ticker-track:focus,
+    .ticker-track:focus-within {
+      -webkit-animation-play-state: running !important;
+      animation-play-state: running !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-track {
+        -webkit-animation: none !important;
+        animation: none !important;
+      }
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -1618,6 +1651,7 @@
       overflow-y: auto;
       margin: 0;
       border-radius: 0;
+      -webkit-overflow-scrolling: touch;
     }
     .pin-ov.on .pin-panel { transform: translateX(0); }
     @media (max-width: 640px) {
@@ -1794,6 +1828,57 @@
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE KEYBOARD / VIEWPORT FIXES (iPhone Safari)
+       ═══════════════════════════════════════════════════════════ */
+    html {
+      width: 100%;
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      width: 100%;
+      min-width: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-wrap: anywhere;
+    }
+
+    .main {
+      width: 100%;
+      min-width: 0;
+    }
+
+    /* All text inputs must be >= 16px to stop iOS auto-zoom */
+    input,
+    select,
+    textarea,
+    .pin-box {
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
+    }
+    .pin-box {
+      /* restore compact visual size after the 16px base */
+      font-size: 1.35rem;
+    }
+
+    .content {
+      overflow: visible;
+    }
+
+    .tx-scroll,
+    .announce-row,
+    .bh-actions,
+    .prod-grid,
+    .pin-panel,
+    .tx-sheet-body,
+    .curr-dropdown {
+      -webkit-overflow-scrolling: touch;
     }
   </style>
 
@@ -2437,7 +2522,9 @@ function renderBalance() {
     DOM.mainBal.classList.add('hidden');
     DOM.mainBal.classList.remove('loading');
   } else {
-    const parts = bal.toFixed(2).split('.');
+    // Format with commas using Intl.NumberFormat
+    const formatted = bal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const parts = formatted.split('.');
     DOM.mainBal.innerHTML = parts[0] + '<span class="cents">.' + parts[1] + '</span>';
     DOM.mainBal.classList.remove('hidden');
     DOM.mainBal.classList.remove('loading');
@@ -2450,12 +2537,31 @@ function renderBalance() {
 /* ─── Load user ───────────────────────────────────────────── */
 async function loadUser() {
   try {
+    // Fetch the LEDGER balance (source of truth) plus the profile
+    // (for username/avatar/pin status).
+    let ledgerData = null;
+    try {
+      const walletRes = await api('/wallet/me', {}, true);
+      ledgerData = walletRes?.data || null;
+    } catch (e) { /* non-fatal */ }
+
     const result = await api('/auth/me', {}, true);
     if (!result) return;
     const data = result.data;
     if (!data) return;
 
     populateUser(data);
+
+    // Apply the LEDGER balance if available, else fall back to profile.
+    if (ledgerData) {
+      State.balNGN = Number(ledgerData.wallet_ngn) || 0;
+      State.balUSD = Number(ledgerData.wallet_usd) || 0;
+    } else {
+      State.balNGN = parseFloat(data.wallet_ngn) || 0;
+      State.balUSD = parseFloat(data.wallet_usd) || 0;
+    }
+    State.balanceLoaded = true;
+    renderBalance();
 
     const pinAlreadySet = data.has_transaction_pin === true;
     const hasHash = data.transaction_pin_hash !== null &&
@@ -2490,7 +2596,6 @@ async function loadUser() {
     }
   } catch (e) {
     console.warn('loadUser error:', e.message);
-    // If the balance never loads, show a placeholder that isn't a lie.
     if (!State.balanceLoaded && DOM.mainBal) {
       DOM.mainBal.classList.remove('loading');
       DOM.mainBal.textContent = 'Unavailable';
@@ -2527,14 +2632,14 @@ function populateUser(u) {
       el.textContent = init;
     }
   });
-
-  State.balNGN = parseFloat(u.wallet_ngn) || 0;
-  State.balUSD = parseFloat(u.wallet_usd) || 0;
-  State.balanceLoaded = true;
-  renderBalance();
 }
 
-/* ─── Ticker ──────────────────────────────────────────────── */
+/* ─── Ticker (JS Fallback for iOS) ────────────────────────── */
+let tickerAnimationId = null;
+let tickerOffset = 0;
+let tickerSpeed = 1.2; // px per frame
+let tickerMax = 0;
+
 async function loadTicker() {
   if (!DOM.tickerTrack) return;
   try {
@@ -2563,7 +2668,19 @@ async function loadTicker() {
 
 function renderTicker(items) {
   if (!DOM.tickerTrack) return;
-  const doubled = [...items, ...items, ...items];
+
+  // Pause CSS animation to prevent clashes
+  DOM.tickerTrack.style.animation = 'none';
+  DOM.tickerTrack.style.webkitAnimation = 'none';
+  
+  // Clear any existing JS animation
+  if (tickerAnimationId) {
+    cancelAnimationFrame(tickerAnimationId);
+    tickerAnimationId = null;
+  }
+
+  // We need exactly TWO copies of the list for a seamless loop
+  const doubled = [...items, ...items];
   DOM.tickerTrack.innerHTML = doubled.map(item => `
     <div class="ticker-item">
       <span class="ticker-icon">${item.icon || '📌'}</span>
@@ -2571,7 +2688,90 @@ function renderTicker(items) {
       ${item.badge ? `<span class="ticker-badge">${item.badge}</span>` : ''}
     </div>
   `).join('');
+
+  // Wait for DOM to paint so we can calculate widths correctly
+  setTimeout(initTickerAnimation, 100);
 }
+
+function initTickerAnimation() {
+  if (!DOM.tickerTrack) return;
+
+  // Reset position
+  tickerOffset = 0;
+  DOM.tickerTrack.style.transform = `translate3d(0, 0, 0)`;
+  
+  // Calculate width of exactly ONE copy of the list
+  // We measure the first half of the children
+  const children = DOM.tickerTrack.children;
+  const halfCount = children.length / 2;
+  if (halfCount < 1) return;
+  
+  let widthOfOneSet = 0;
+  for (let i = 0; i < halfCount; i++) {
+    // Get width including margins/gaps. Since it's flexbox, we use offsetWidth + the gap
+    widthOfOneSet += children[i].offsetWidth + 12; // 12px is the gap defined in CSS
+  }
+  tickerMax = widthOfOneSet;
+
+  // Try to start the CSS animation. We use a specific class to trigger it.
+  DOM.tickerTrack.style.animation = '';
+  DOM.tickerTrack.style.webkitAnimation = '';
+  
+  // Start the JS fallback loop
+  let lastTime = performance.now();
+  
+  function animate(time) {
+    const delta = time - lastTime;
+    
+    // Only update if roughly 16ms passed (60fps) to avoid burning CPU
+    if (delta > 10) {
+      tickerOffset -= tickerSpeed;
+      
+      // Loop reset
+      if (Math.abs(tickerOffset) >= tickerMax) {
+        tickerOffset = 0;
+      }
+      
+      // Apply translation
+      if (DOM.tickerTrack) {
+        DOM.tickerTrack.style.transform = `translate3d(${tickerOffset}px, 0, 0)`;
+      }
+      
+      lastTime = time;
+    }
+    tickerAnimationId = requestAnimationFrame(animate);
+  }
+  
+  // Only run the JS loop on touch devices (where iOS Safari drops CSS animations)
+  // But to be safe, we run it everywhere, ensuring it *always* moves.
+  tickerAnimationId = requestAnimationFrame(animate);
+}
+
+// Handle tab visibility so we don't animate when hidden
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (tickerAnimationId) {
+      cancelAnimationFrame(tickerAnimationId);
+      tickerAnimationId = null;
+    }
+  } else {
+    if (!tickerAnimationId && DOM.tickerTrack) {
+      // Re-sync
+      let lastTime = performance.now();
+      function animate(time) {
+        const delta = time - lastTime;
+        if (delta > 10) {
+          tickerOffset -= tickerSpeed;
+          if (Math.abs(tickerOffset) >= tickerMax) tickerOffset = 0;
+          if (DOM.tickerTrack) DOM.tickerTrack.style.transform = `translate3d(${tickerOffset}px, 0, 0)`;
+          lastTime = time;
+        }
+        tickerAnimationId = requestAnimationFrame(animate);
+      }
+      tickerAnimationId = requestAnimationFrame(animate);
+    }
+  }
+});
 
 /* ─── Transactions ────────────────────────────────────────── */
 let transactionsLoaded = false;
@@ -3090,8 +3290,7 @@ async function initDashboard() {
   setInterval(() => {
     const tickerVisible = DOM.tickerTrack && DOM.tickerTrack.offsetParent !== null;
     if (tickerVisible) loadTicker();
-    // Refresh user only while the tab is visible. Avoids wasted
-    // requests and stale session warnings on background tabs.
+    // Refresh user only while the tab is visible.
     if (!document.hidden) loadUser();
   }, 60000);
 }

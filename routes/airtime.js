@@ -31,6 +31,23 @@
 //        • Webhook refuses to run without DTONE_WEBHOOK_SECRET in prod.
 //        • Idempotency claim is atomic; no silent fallback.
 //        • PIN attempts use the RPC; the non-atomic fallback is removed.
+//
+//   C. [NEW] Preflight endpoint:
+//        • POST /preflight validates country, phone, network, amount,
+//          product availability, min/max, fee, and total — WITHOUT
+//          debiting, writing to the ledger, or contacting DT One's
+//          financial endpoints.
+//        • Frontend calls this before showing the wallet step, so the
+//          user never sees "network unavailable" after being debited.
+//        • Response shape mirrors what /purchase will charge, so the
+//          review screen numbers are guaranteed to match.
+//
+//   D. [NEW] Short-lived product catalog cache (5 min per operator):
+//        • Avoids fetching 50 products on every purchase.
+//        • Deduplicates concurrent identical fetches.
+//        • Purchase still revalidates the amount against the cached
+//          product — stale cache can only cause a safe failure, never a
+//          wrong charge.
 // ─────────────────────────────────────────────────────────────────────────
 
 const express = require('express');
@@ -130,6 +147,14 @@ function getLocalRate(currency) {
 const inflightOperators = new Map();
 const swrOperators = new Map();
 const SWR_TTL_MS = 30 * 60 * 1000;
+
+// [NEW] Short-lived per-operator product cache. Key: `${iso3}:${operatorId}`.
+// A stale entry can only cause a SAFE failure (amount no longer in range),
+// never a wrong charge, because /purchase re-validates the amount against
+// the cached product before creating the DT One quote.
+const productCache = new Map();
+const productInflight = new Map();
+const PRODUCT_TTL_MS = 5 * 60 * 1000;
 
 let adminReconcileRunning = false;
 
@@ -361,6 +386,127 @@ async function getAirtimeProductsForOperator(iso3, operatorId) {
         serviceId: 1,
         subserviceId: 11
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// [NEW]  PRODUCT CACHE — 5-min TTL, dedupes concurrent fetches
+// ═══════════════════════════════════════════════════════════════════════
+async function getCachedAirtimeProducts(iso3, operatorId) {
+    const key = `${String(iso3).toUpperCase()}:${String(operatorId)}`;
+    const hit = productCache.get(key);
+    if (hit && Date.now() - hit.time < PRODUCT_TTL_MS) return hit.data;
+    if (productInflight.has(key)) return productInflight.get(key);
+
+    const promise = (async () => {
+        try {
+            const products = await getAirtimeProductsForOperator(iso3, operatorId);
+            if (Array.isArray(products) && products.length > 0) {
+                productCache.set(key, { data: products, time: Date.now() });
+            }
+            return products;
+        } finally {
+            productInflight.delete(key);
+        }
+    })();
+
+    productInflight.set(key, promise);
+    return promise;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// [NEW]  PRODUCT SELECTOR — shared by /preflight and /purchase
+// Picks a usable RANGED_VALUE_RECHARGE product for srcAmountUSD and
+// returns everything needed to compute fee/total or validate range.
+// Throws on failure with a stable error code the caller can map.
+// ═══════════════════════════════════════════════════════════════════════
+function selectAirtimeProduct({ products, srcAmountUSD }) {
+    if (!Array.isArray(products) || products.length === 0) {
+        const err = new Error('This network currently has no available products');
+        err.code = 'NO_PRODUCTS';
+        throw err;
+    }
+
+    const rangedSourceProducts = products.filter(p => {
+        if (p.type !== 'RANGED_VALUE_RECHARGE') return false;
+        const modes = Array.isArray(p.accepted_calculation_modes) ? p.accepted_calculation_modes : [];
+        return modes.includes('SOURCE_AMOUNT');
+    });
+
+    let selectedProduct = rangedSourceProducts.find(p =>
+        String(p.source?.unit || '').toUpperCase() === 'USD'
+    );
+
+    let sourceCurrency = 'USD';
+    let needsConversion = false;
+    let rate = 1;
+
+    if (!selectedProduct) {
+        for (const candidate of rangedSourceProducts) {
+            const cur = String(candidate.source?.unit || '').toUpperCase();
+            const r = getLocalRate(cur);
+            if (r) {
+                selectedProduct = candidate;
+                sourceCurrency = cur;
+                needsConversion = true;
+                rate = r;
+                break;
+            }
+        }
+    }
+
+    if (!selectedProduct) {
+        const err = new Error('This network does not support variable recharge amounts.');
+        err.code = 'RANGED_NOT_SUPPORTED';
+        throw err;
+    }
+
+    const sourceAmountForProvider = needsConversion
+        ? Math.round(srcAmountUSD * rate)
+        : srcAmountUSD;
+
+    const pMin = Number(selectedProduct.source?.amount?.min);
+    const pMax = Number(selectedProduct.source?.amount?.max);
+
+    if (Number.isFinite(pMin) && sourceAmountForProvider < pMin) {
+        const humanMin = needsConversion ? (pMin / rate).toFixed(2) : pMin.toFixed(2);
+        const err = new Error(`Minimum amount for this network is $${humanMin}`);
+        err.code = 'AMOUNT_BELOW_MIN';
+        err.min_amount_usd = Number(humanMin);
+        throw err;
+    }
+    if (Number.isFinite(pMax) && sourceAmountForProvider > pMax) {
+        const humanMax = needsConversion ? (pMax / rate).toFixed(2) : pMax.toFixed(2);
+        const err = new Error(`Maximum amount for this network is $${humanMax}`);
+        err.code = 'AMOUNT_ABOVE_MAX';
+        err.max_amount_usd = Number(humanMax);
+        throw err;
+    }
+
+    return {
+        selectedProduct,
+        sourceCurrency,
+        needsConversion,
+        rate,
+        sourceAmountForProvider,
+        minUsd: Number.isFinite(pMin)
+            ? Number((needsConversion ? pMin / rate : pMin).toFixed(2))
+            : null,
+        maxUsd: Number.isFinite(pMax)
+            ? Number((needsConversion ? pMax / rate : pMax).toFixed(2))
+            : null
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// [NEW]  FEE CALCULATOR — single source of truth for fee/total math
+// Mirrors exactly what /purchase will charge.
+// ═══════════════════════════════════════════════════════════════════════
+function computeFeeAndTotal(srcAmountUSD) {
+    const feeUSD   = Number((srcAmountUSD * MILESSPACE_FEE_PERCENT).toFixed(2));
+    const totalUSD = Number((srcAmountUSD + feeUSD).toFixed(2));
+    const usdToNgn = Number(process.env.MILESSPACE_USD_TO_NGN || 1600);
+    const totalNgn = Number((totalUSD * usdToNgn).toFixed(2));
+    return { feeUSD, totalUSD, totalNgn, usdToNgn };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -648,16 +794,144 @@ router.get('/operators', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const balances = await LedgerService.getAllBalances(req.user.id);
+        // [NEW] Include usd_to_ngn and fee_percent so the frontend can
+        // display the exact numbers the server will charge. The
+        // frontend no longer hardcodes the rate.
         res.json({
             success: true,
             data: {
                 wallet_ngn: balances.NGN || 0,
-                wallet_usd: balances.USD || 0
+                wallet_usd: balances.USD || 0,
+                usd_to_ngn: Number(process.env.MILESSPACE_USD_TO_NGN || 1600),
+                fee_percent: MILESSPACE_FEE_PERCENT
             }
         });
     } catch (error) {
         console.error('❌ Balance error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to fetch balances' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// [NEW] PREFLIGHT — read-only availability + quote check.
+//
+// Validates that a purchase CAN succeed, without touching the ledger or
+// creating any database rows. The frontend calls this BEFORE showing
+// the wallet step. If it fails, the user sees "network unavailable" on
+// the form — no debit, no failed receipt.
+//
+// Response shape mirrors exactly what /purchase will charge, so the
+// review screen numbers are guaranteed to match.
+// ═══════════════════════════════════════════════════════════════════════
+router.post('/preflight', authMiddleware, async (req, res) => {
+    try {
+        const { country, phone, operator_id, source_amount_usd, wallet_type } = req.body || {};
+
+        if (!country || !phone || !operator_id || source_amount_usd == null || !wallet_type) {
+            return res.status(400).json({
+                success: false, error: 'Missing required fields', code: 'MISSING_FIELDS'
+            });
+        }
+
+        const normalizedCountry = normalizeCountryCodes(country);
+        if (!normalizedCountry?.iso3 || !normalizedCountry?.iso2) {
+            return res.status(400).json({ success: false, error: 'Invalid country', code: 'INVALID_COUNTRY' });
+        }
+        const iso3 = normalizedCountry.iso3;
+        const iso2 = normalizedCountry.iso2;
+
+        const srcAmountUSD = Number(source_amount_usd);
+        if (!Number.isFinite(srcAmountUSD) || srcAmountUSD < MIN_USD || srcAmountUSD > MAX_USD) {
+            return res.status(400).json({
+                success: false,
+                error: `Amount must be between $${MIN_USD} and $${MAX_USD}`,
+                code: 'INVALID_AMOUNT'
+            });
+        }
+
+        const parsed = parsePhoneNumberFromString(phone, iso2);
+        if (!parsed || !parsed.isValid()) {
+            return res.status(400).json({ success: false, error: `Invalid phone for ${iso3}`, code: 'INVALID_PHONE' });
+        }
+
+        const walletType = String(wallet_type).toUpperCase();
+        if (!['USD', 'NGN'].includes(walletType)) {
+            return res.status(400).json({ success: false, error: 'Unsupported wallet', code: 'INVALID_WALLET' });
+        }
+
+        // Operator must exist in the cached catalog.
+        let operators = [];
+        try {
+            operators = await getCachedOperatorsFast(iso3);
+        } catch (err) {
+            return res.status(503).json({
+                success: false,
+                error: 'Networks are temporarily unavailable for this country.',
+                code: 'OPERATORS_UNAVAILABLE'
+            });
+        }
+        const selectedOp = operators.find(op => String(op.id) === String(operator_id));
+        if (!selectedOp) {
+            return res.status(400).json({
+                success: false,
+                error: 'Selected network is not available for this country',
+                code: 'OPERATOR_NOT_FOUND'
+            });
+        }
+
+        // Product availability — cached.
+        let products = [];
+        try {
+            products = await getCachedAirtimeProducts(iso3, selectedOp.id);
+        } catch (err) {
+            return res.status(503).json({
+                success: false,
+                error: 'Could not check availability for this network.',
+                code: 'PRODUCT_FETCH_FAILED'
+            });
+        }
+
+        // Validate amount range against the operator's products.
+        let selection;
+        try {
+            selection = selectAirtimeProduct({ products, srcAmountUSD });
+        } catch (selErr) {
+            return res.status(400).json({
+                success: false,
+                error: selErr.message,
+                code: selErr.code || 'NO_PRODUCTS',
+                min_amount_usd: selErr.min_amount_usd,
+                max_amount_usd: selErr.max_amount_usd
+            });
+        }
+
+        const { feeUSD, totalUSD, totalNgn, usdToNgn } = computeFeeAndTotal(srcAmountUSD);
+
+        return res.json({
+            success: true,
+            quote: {
+                country: iso3,
+                phone_masked: maskPhone(parsed.number),
+                operator_id: String(selectedOp.id),
+                operator_name: selectedOp.name,
+                product_id: selection.selectedProduct.id,
+                send_amount_usd: srcAmountUSD,
+                fee_usd: feeUSD,
+                total_usd: totalUSD,
+                total_ngn: totalNgn,
+                usd_to_ngn: usdToNgn,
+                fee_percent: MILESSPACE_FEE_PERCENT,
+                source_currency: selection.sourceCurrency,
+                source_amount: selection.sourceAmountForProvider,
+                needs_conversion: selection.needsConversion,
+                min_usd: selection.minUsd,
+                max_usd: selection.maxUsd,
+                expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('❌ [PREFLIGHT]', error.message);
+        return res.status(500).json({ success: false, error: error.message || 'Preflight failed', code: 'SERVER_ERROR' });
     }
 });
 
@@ -723,10 +997,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         }
 
         // ── 2. Recompute fee + total on the server ──
-        const feeUSD    = Number((srcAmountUSD * MILESSPACE_FEE_PERCENT).toFixed(2));
-        const totalUSD  = Number((srcAmountUSD + feeUSD).toFixed(2));
-        const usdToNgn  = Number(process.env.MILESSPACE_USD_TO_NGN || 1600);
-        const totalNgn  = Number((totalUSD * usdToNgn).toFixed(2));
+        const { feeUSD, totalUSD, totalNgn, usdToNgn } = computeFeeAndTotal(srcAmountUSD);
 
         const paymentCurrency = walletType;
         const paymentAmount   = walletType === 'USD' ? totalUSD : totalNgn;
@@ -860,12 +1131,19 @@ router.post('/purchase', authMiddleware, async (req, res) => {
 
         // ═══════════════════════════════════════════════════════════════
         //  ★ DT ONE IS CONTACTED FOR THE FIRST TIME HERE ★
+        //  (Since the frontend now calls /preflight, this purchase is
+        //   only reached when we've ALREADY confirmed product availability
+        //   and amount range. So the failure modes below are only:
+        //    - DT One went down in the last 5 minutes
+        //    - The amount drifted outside the product range
+        //    - DT One's quote/confirm failed
+        //   All of which auto-refund and reconcile safely.)
         // ═══════════════════════════════════════════════════════════════
 
-        // ── 10. Fetch products ──
+        // ── 10. Fetch products (cached — 5-min TTL) ──
         let products = [];
         try {
-            products = await getAirtimeProductsForOperator(iso3, selectedOp.id);
+            products = await getCachedAirtimeProducts(iso3, selectedOp.id);
         } catch (productsError) {
             console.error('❌ [PURCHASE] Product fetch failed:', productsError.message);
             await refundAirtime({
@@ -885,115 +1163,60 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        if (!Array.isArray(products) || products.length === 0) {
-            await refundAirtime({
-                userId, amount: paymentAmount, currency: paymentCurrency,
-                reference, reason: 'No products available', kind: 'NOP'
-            });
-            await supabaseAdmin.from('airtime_transactions').update({
-                status: 'failed', refunded: true,
-                failure_message: 'No products available — auto-refunded',
-                updated_at: new Date().toISOString()
-            }).eq('id', airtimeTx.id).eq('refunded', false);
+        // ── 11. Select a product and validate the amount range ──
+        let selection;
+        try {
+            selection = selectAirtimeProduct({ products, srcAmountUSD });
+        } catch (selErr) {
+            // Map selector errors back to the same stable codes the old
+            // handler returned, so existing frontend error handling works.
+            const code = selErr.code || 'NO_PRODUCTS';
+            const isMin = code === 'AMOUNT_BELOW_MIN';
+            const isMax = code === 'AMOUNT_ABOVE_MAX';
+            const isNoProd = code === 'NO_PRODUCTS';
+            const isUnsupported = code === 'RANGED_NOT_SUPPORTED';
 
-            return res.status(400).json({
-                success: false,
-                error: 'This network currently has no available products',
-                code: 'NO_PRODUCTS'
-            });
-        }
+            const refundReasonMap = {
+                AMOUNT_BELOW_MIN: 'Amount below minimum',
+                AMOUNT_ABOVE_MAX: 'Amount above maximum',
+                NO_PRODUCTS: 'No products available',
+                RANGED_NOT_SUPPORTED: 'Network does not support variable amounts'
+            };
+            const refundKindMap = {
+                AMOUNT_BELOW_MIN: 'MIN',
+                AMOUNT_ABOVE_MAX: 'MAX',
+                NO_PRODUCTS: 'NOP',
+                RANGED_NOT_SUPPORTED: 'UNS'
+            };
 
-        const rangedSourceProducts = products.filter(p => {
-            if (p.type !== 'RANGED_VALUE_RECHARGE') return false;
-            const modes = Array.isArray(p.accepted_calculation_modes) ? p.accepted_calculation_modes : [];
-            return modes.includes('SOURCE_AMOUNT');
-        });
-
-        let selectedProduct = rangedSourceProducts.find(p =>
-            String(p.source?.unit || '').toUpperCase() === 'USD'
-        );
-
-        let sourceCurrency = 'USD';
-        let needsConversion = false;
-        let rate = 1;
-
-        if (!selectedProduct) {
-            for (const candidate of rangedSourceProducts) {
-                const cur = String(candidate.source?.unit || '').toUpperCase();
-                const r = getLocalRate(cur);
-                if (r) {
-                    selectedProduct = candidate;
-                    sourceCurrency = cur;
-                    needsConversion = true;
-                    rate = r;
-                    break;
-                }
+            if (refundReasonMap[code]) {
+                await refundAirtime({
+                    userId, amount: paymentAmount, currency: paymentCurrency,
+                    reference, reason: refundReasonMap[code], kind: refundKindMap[code]
+                });
+                await supabaseAdmin.from('airtime_transactions').update({
+                    status: 'failed', refunded: true,
+                    failure_message: `${selErr.message} — auto-refunded`,
+                    updated_at: new Date().toISOString()
+                }).eq('id', airtimeTx.id).eq('refunded', false);
             }
-        }
-
-        if (!selectedProduct) {
-            await refundAirtime({
-                userId, amount: paymentAmount, currency: paymentCurrency,
-                reference, reason: 'Network does not support variable amounts', kind: 'UNS'
-            });
-            await supabaseAdmin.from('airtime_transactions').update({
-                status: 'failed', refunded: true,
-                failure_message: 'Network does not support variable amounts — auto-refunded',
-                updated_at: new Date().toISOString()
-            }).eq('id', airtimeTx.id).eq('refunded', false);
 
             return res.status(400).json({
                 success: false,
-                error: 'This network does not support variable recharge amounts.',
-                code: 'RANGED_NOT_SUPPORTED'
+                error: selErr.message,
+                code,
+                min_amount_usd: selErr.min_amount_usd,
+                max_amount_usd: selErr.max_amount_usd
             });
         }
 
-        const sourceAmountForProvider = needsConversion
-            ? Math.round(srcAmountUSD * rate)
-            : srcAmountUSD;
+        const {
+            selectedProduct,
+            sourceCurrency,
+            sourceAmountForProvider
+        } = selection;
 
-        const pMin = Number(selectedProduct.source?.amount?.min);
-        const pMax = Number(selectedProduct.source?.amount?.max);
-
-        if (Number.isFinite(pMin) && sourceAmountForProvider < pMin) {
-            const humanMin = needsConversion ? (pMin / rate).toFixed(2) : pMin.toFixed(2);
-            await refundAirtime({
-                userId, amount: paymentAmount, currency: paymentCurrency,
-                reference, reason: `Below minimum $${humanMin}`, kind: 'MIN'
-            });
-            await supabaseAdmin.from('airtime_transactions').update({
-                status: 'failed', refunded: true,
-                failure_message: `Amount below minimum $${humanMin} — auto-refunded`,
-                updated_at: new Date().toISOString()
-            }).eq('id', airtimeTx.id).eq('refunded', false);
-
-            return res.status(400).json({
-                success: false,
-                error: `Minimum amount for this network is $${humanMin}`,
-                code: 'AMOUNT_BELOW_MIN'
-            });
-        }
-        if (Number.isFinite(pMax) && sourceAmountForProvider > pMax) {
-            const humanMax = needsConversion ? (pMax / rate).toFixed(2) : pMax.toFixed(2);
-            await refundAirtime({
-                userId, amount: paymentAmount, currency: paymentCurrency,
-                reference, reason: `Above maximum $${humanMax}`, kind: 'MAX'
-            });
-            await supabaseAdmin.from('airtime_transactions').update({
-                status: 'failed', refunded: true,
-                failure_message: `Amount above maximum $${humanMax} — auto-refunded`,
-                updated_at: new Date().toISOString()
-            }).eq('id', airtimeTx.id).eq('refunded', false);
-
-            return res.status(400).json({
-                success: false,
-                error: `Maximum amount for this network is $${humanMax}`,
-                code: 'AMOUNT_ABOVE_MAX'
-            });
-        }
-
-        // ── 11. Create the DT One quote ──
+        // ── 12. Create the DT One quote ──
         const callbackUrl = getPublicCallbackUrl();
         let quoteResult;
         try {
@@ -1118,7 +1341,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             updated_at: new Date().toISOString()
         }).eq('id', airtimeTx.id);
 
-        // ── 12. Confirm the DT One transaction ──
+        // ── 13. Confirm the DT One transaction ──
         let confirmResult;
         let providerAmbiguous = false;
         providerConfirmStarted = true;
@@ -1159,7 +1382,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             }
         }
 
-        // ── 13. Final status. No synchronous refund here for ambiguous
+        // ── 14. Final status. No synchronous refund here for ambiguous
         //         states — reconciliation owns that.
         let finalStatus = 'processing';
         if (normalizedProviderStatus.status === 'completed') finalStatus = 'completed';

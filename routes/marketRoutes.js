@@ -28,7 +28,7 @@ router.get('/products', authMiddleware, async (req, res) => {
         const search = (req.query.search || '').trim();
         const sort = (req.query.sort || 'default').trim();
 
-        // Explicit column selection — NEVER select inventory_raw
+        // Explicit column selection — includes ALL detail fields
         let query = supabaseAdmin
             .from('marketplace_products')
             .select(`
@@ -36,6 +36,12 @@ router.get('/products', authMiddleware, async (req, res) => {
                 name,
                 category_id,
                 description,
+                long_description,
+                how_to_use,
+                features,
+                mail_access,
+                login_tutorial,
+                login_format,
                 country,
                 price_usd,
                 price_ngn,
@@ -51,12 +57,10 @@ router.get('/products', authMiddleware, async (req, res) => {
             query = query.eq('category_id', category);
         }
         if (search) {
-            // Escape ILIKE wildcards
             const safe = search.replace(/[%_]/g, (m) => '\\' + m);
             query = query.ilike('name', `%${safe}%`);
         }
 
-        // Sort
         if (sort === 'price-asc') query = query.order('price_usd', { ascending: true });
         else if (sort === 'price-desc') query = query.order('price_usd', { ascending: false });
         else if (sort === 'qty-desc') query = query.order('stock', { ascending: false });
@@ -103,6 +107,12 @@ router.get('/products/:id', authMiddleware, async (req, res) => {
                 name,
                 category_id,
                 description,
+                long_description,
+                how_to_use,
+                features,
+                mail_access,
+                login_tutorial,
+                login_format,
                 country,
                 price_usd,
                 price_ngn,
@@ -128,11 +138,6 @@ router.get('/products/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════
-//  POST /api/market/purchase
-//  Body: { product_id, wallet_type }
-//  Header: Idempotency-Key (preferred)
-// ═══════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════
 //  POST /api/market/purchase
 // ═══════════════════════════════════════════════════════════════════
@@ -195,7 +200,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        // ─── 5. IDs ─── (orderId is now UUID)
+        // ─── 5. IDs ───
         const orderId = marketplace.generateOrderId();       // UUID
         const orderRef = marketplace.generateOrderRef();
         const downloadToken = marketplace.generateDownloadToken();
@@ -270,7 +275,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
                 description: `Purchased: ${product.name}`,
                 reference: orderRef,
                 sourceType: 'order',
-                sourceId: order.id,             // ← now valid UUID
+                sourceId: order.id,             // ← valid UUID
                 provider: 'marketplace',
                 metadata: {
                     product_id: product.id,
@@ -310,7 +315,6 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             .eq('id', order.id);
 
         // ─── 9b. Insert into UNIFIED transactions table ───
-        // This is what makes it appear in the user's overall history.
         try {
             const walletLabel = wallet === 'USD' ? 'USD' : 'NGN';
             const unifiedRow = {
@@ -500,8 +504,6 @@ router.get('/orders/:id', authMiddleware, async (req, res) => {
         }
 
         const order = marketplace.sanitizeOrderRow(data);
-
-        // Delivery details exposed only on this endpoint
         order.delivery = data.delivered_data || null;
 
         res.json({ success: true, order });
@@ -513,7 +515,6 @@ router.get('/orders/:id', authMiddleware, async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════════
 //  GET /api/market/orders/:id/download
-//  Authenticated + ownership-checked download.
 // ═══════════════════════════════════════════════════════════════════
 router.get('/orders/:id/download', authMiddleware, async (req, res) => {
     try {
@@ -548,7 +549,6 @@ router.get('/orders/:id/download', authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Order is not completed', code: 'ORDER_NOT_COMPLETED' });
         }
 
-        // Atomic download count increment
         let downloadCount = (order.download_count || 0) + 1;
         try {
             const { data: newCount, error: incErr } = await supabaseAdmin.rpc(
@@ -560,7 +560,6 @@ router.get('/orders/:id/download', authMiddleware, async (req, res) => {
             console.warn('[MARKET] Download counter RPC failed (non-fatal):', incErr.message);
         }
 
-        // Build text receipt
         const delivery = order.delivered_data || {};
         const wallet = order.wallet_used || order.wallet || 'NGN';
         const amount = wallet === 'USD'
@@ -608,8 +607,6 @@ router.get('/orders/:id/download', authMiddleware, async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════════
 //  LEGACY: GET /api/market/download/:token
-//  Kept for backward compatibility with old order links.
-//  DEPRECATED — logs warning, requires token.
 // ═══════════════════════════════════════════════════════════════════
 router.get('/download/:token', authMiddleware, async (req, res) => {
     try {
@@ -627,7 +624,6 @@ router.get('/download/:token', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, error: 'Order not found', code: 'NOT_FOUND' });
         }
 
-        // Redirect to the new endpoint
         return res.redirect(`/api/market/orders/${order.id}/download`);
     } catch (err) {
         console.error('[MARKET] legacy /download error:', err.message);
