@@ -97,7 +97,17 @@
     body.sb-open { overflow: hidden; }
     a { color: inherit; text-decoration: none; }
     button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; font-size: inherit; }
-    input, select { font-family: inherit; font-size: inherit; color: inherit; }
+    
+    /* ─── FIX: Enforce 16px font size to prevent iOS Auto-Zoom ─── */
+    input, select, textarea {
+      font-family: inherit;
+      font-size: 16px !important;
+      color: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+      scroll-margin-block: 16px;
+    }
+    
     ::selection { background: var(--pl); }
     
     button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible {
@@ -450,7 +460,7 @@
       border-radius: 10px;
       background: var(--bg);
       color: var(--t1);
-      font-size: .9rem;
+      font-size: 16px !important; /* FIX: prevents iOS zoom */
       transition: var(--tr);
       min-height: 44px;
     }
@@ -519,7 +529,7 @@
       border-radius: 10px;
       background: var(--bg);
       color: var(--t1);
-      font-size: .88rem;
+      font-size: 16px !important; /* FIX: prevents iOS zoom */
       transition: var(--tr);
       min-height: 44px;
     }
@@ -541,6 +551,7 @@
       overflow-y: auto;
       z-index: 100;
       display: none;
+      -webkit-overflow-scrolling: touch;
     }
     .search-dropdown.show { display: block; }
     .search-item {
@@ -736,6 +747,7 @@
       max-width: none;
       font-weight: 500;
       border-left: 3px solid var(--acc);
+      pointer-events: none;
     }
     @media (min-width: 641px) { .toast { left: auto; right: 22px; max-width: 340px; } }
     .toast.show { transform: translateY(0); opacity: 1; }
@@ -745,7 +757,7 @@
        ═══════════════════════════════════════════════════════════ */
     .pin-modal { position: fixed; inset: 0; background: rgba(18, 22, 41, .55); z-index: 950; display: none; align-items: center; justify-content: center; padding: 20px; }
     .pin-modal.show { display: flex; }
-    .pin-card { background: var(--srf); border-radius: 16px; padding: 28px 26px; max-width: 380px; width: 100%; text-align: center; animation: fadeUp .25s var(--tr); }
+    .pin-card { background: var(--srf); border-radius: 16px; padding: 28px 26px; max-width: 380px; width: 100%; max-height: 90dvh; overflow-y: auto; text-align: center; animation: fadeUp .25s var(--tr); }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
     .pin-icon { width: 54px; height: 54px; border-radius: 50%; background: var(--accl); color: var(--acd); display: grid; place-items: center; margin: 0 auto 14px; font-size: 1.35rem; }
     .pin-card h3 { font-family: var(--fd); font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; }
@@ -753,7 +765,7 @@
     .pin-summary { background: var(--bg); border: 1px solid var(--bdr); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; text-align: left; font-size: .8rem; }
     .pin-summary .row { display: flex; justify-content: space-between; padding: 3px 0; color: var(--t2); }
     .pin-summary .row strong { color: var(--t1); font-weight: 600; }
-    .pin-input { width: 100%; text-align: center; font-size: 1.8rem; letter-spacing: .6em; padding: 14px 12px 14px 20px; border: 1.5px solid var(--bdr); border-radius: 12px; background: var(--bg); color: var(--t1); margin-bottom: 18px; font-weight: 700; transition: var(--tr); min-height: 52px; }
+    .pin-input { width: 100%; text-align: center; font-size: 1.8rem !important; letter-spacing: .6em; padding: 14px 12px 14px 20px; border: 1.5px solid var(--bdr); border-radius: 12px; background: var(--bg); color: var(--t1); margin-bottom: 18px; font-weight: 700; transition: var(--tr); min-height: 52px; }
     .pin-input:focus { border-color: var(--acc); background: var(--srf); outline: none; box-shadow: 0 0 0 3px rgba(245, 166, 35, .18); }
     .pin-input.error { border-color: var(--err); background: var(--erl); animation: shake .35s; }
     @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
@@ -764,7 +776,7 @@
 
     .status-modal { position: fixed; inset: 0; background: rgba(18, 22, 41, .55); z-index: 960; display: none; align-items: center; justify-content: center; padding: 20px; }
     .status-modal.show { display: flex; }
-    .status-card { background: var(--srf); border-radius: 16px; padding: 32px 26px; max-width: 420px; width: 100%; text-align: center; animation: fadeUp .25s var(--tr); }
+    .status-card { background: var(--srf); border-radius: 16px; padding: 32px 26px; max-width: 420px; width: 100%; max-height: 90dvh; overflow-y: auto; text-align: center; animation: fadeUp .25s var(--tr); }
     .status-icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 18px; font-size: 1.4rem; }
     .status-icon.processing { background: var(--accl); color: var(--acd); }
     .status-icon.completed { background: var(--sul); color: var(--succ); }
@@ -795,6 +807,7 @@
       overflow-y: auto;
       padding: 22px;
       padding-bottom: calc(22px + var(--safe-b));
+      -webkit-overflow-scrolling: touch;
     }
     .hist-drawer.open { transform: translateX(0); }
     .hist-drawer h3 { font-family: var(--fd); font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
@@ -1176,7 +1189,7 @@
 
 <!-- Receipt Modal -->
 <div class="receipt-modal" id="receiptModal" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:970;align-items:center;justify-content:center;padding:20px;background:rgba(18,22,41,.65);">
-  <div id="receiptWrap" style="background:var(--srf);border-radius:20px;max-width:420px;width:100%;max-height:calc(100vh - 40px);overflow-y:auto;box-shadow:0 24px 60px rgba(18,22,41,.35);"></div>
+  <div id="receiptWrap" style="background:var(--srf);border-radius:20px;max-width:420px;width:100%;max-height:calc(100vh - 40px);overflow-y:auto;box-shadow:0 24px 60px rgba(18,22,41,.35);-webkit-overflow-scrolling:touch;"></div>
 </div>
 
 <!-- History Drawer -->
