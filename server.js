@@ -388,14 +388,15 @@ app.use('/api/admin', require('./routes/admin/meRoutes'));
 app.use('/api/admin', require('./routes/admin/permissionsRoutes'));
 app.use('/api/admin', require('./routes/admin/stepUpRoutes'));
 console.log('  ✅ /api/admin (me, permissions, step-up) → loaded');
-
+app.use('/api/admin', require('./routes/admin/providerAdminRoutes'));
+console.log('  ✅ /api/admin (providers) → loaded');
 if (marketplaceRoutes)   safeMount(app, '/api/admin', marketplaceRoutes);
 
 if (giftcardAdminRoutes) app.use('/api/admin', giftcardAdminRoutes);
 if (adminUserRoutes)     app.use('/api/admin', adminUserRoutes);
 if (auditLogRoutes)      app.use('/api/admin', auditLogRoutes);
 if (messageRoutes)       app.use('/api/messages', messageRoutes);
-
+0-
 console.log('\n✅ All API routes mounted');
 
 // ═══════════════════════════════════════════════════════════════════

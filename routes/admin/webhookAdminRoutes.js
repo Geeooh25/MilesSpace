@@ -16,25 +16,12 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { requirePermission, PERMISSIONS } = require('../../middleware/adminAuth');
+const { requirePermission, PERMISSIONS, can } = require('../../middleware/adminAuth');
 const { requireStepUpAuth } = require('../../middleware/adminStepUp');
 const { supabaseAdmin } = require('../../db/supabase');
 const webhookService = require('../../services/webhookService');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const WEBHOOK_LIST_COLS = [
-    'id', 'provider', 'event_id', 'event_type', 'order_id', 'provider_order_id',
-    'signature_valid', 'processing_status', 'processing_error', 'attempts',
-    'received_at', 'processed_at'
-].join(', ');
-
-const WEBHOOK_DETAIL_COLS = [
-    'id', 'provider', 'event_id', 'event_fingerprint', 'event_type',
-    'order_id', 'provider_order_id', 'payload', 'headers',
-    'signature_valid', 'processing_status', 'processing_error', 'attempts',
-    'received_at', 'processed_at', 'created_at'
-].join(', ');
 
 function attachRequestId(req, res, next) {
     req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
@@ -52,7 +39,7 @@ function err(res, e) {
     res.status(status).json({ success: false, code: e?.code || 'WEBHOOK_ERROR', error: message });
 }
 
-// ─── List ────────────────────────────────────────────────────────
+// ─── List (Merges all 3 tables) ─────────────────────────────────
 
 router.get(
     '/webhooks',
@@ -63,29 +50,34 @@ router.get(
             const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 25));
             const offset = (page - 1) * limit;
 
-            let q = supabaseAdmin
-                .from('webhook_events')
-                .select(WEBHOOK_LIST_COLS, { count: 'exact' })
-                .order('received_at', { ascending: false })
-                .range(offset, offset + limit - 1);
+            // Fetch from all 3 tables
+            const [generalRes, koraRes, npRes] = await Promise.all([
+                supabaseAdmin.from('webhook_events').select('id, provider, event_type, order_id, processing_status, processing_error, received_at, signature_valid', { count: 'exact' }),
+                supabaseAdmin.from('kora_webhook_events').select('id, provider, event_type, provider_reference, processing_status, processing_error, received_at, signature_valid', { count: 'exact' }),
+                supabaseAdmin.from('provider_webhook_events').select('id, provider, event_type, payment_id, processing_status, processing_error, received_at, signature_valid', { count: 'exact' })
+            ]);
 
-            if (req.query.provider && req.query.provider !== 'all') q = q.eq('provider', req.query.provider);
-            if (req.query.status && req.query.status !== 'all') q = q.eq('processing_status', req.query.status);
-            if (req.query.order_id && UUID_RE.test(req.query.order_id)) q = q.eq('order_id', req.query.order_id);
+            let allEvents = [];
+            if (generalRes.data) allEvents.push(...generalRes.data.map(e => ({ ...e, provider: e.provider || 'general' })));
+            if (koraRes.data) allEvents.push(...koraRes.data.map(e => ({ ...e, provider: 'korapay', order_id: e.provider_reference })));
+            if (npRes.data) allEvents.push(...npRes.data.map(e => ({ ...e, provider: 'nowpayments', order_id: e.payment_id })));
 
-            const { data, error, count } = await q;
-            if (error) {
-                if (error.code === '42P01') {
-                    return ok(res, { webhooks: [], count: 0, page, limit, totalPages: 0, note: 'webhook_events table not present' });
-                }
-                throw error;
-            }
+            // Filter
+            let filtered = allEvents;
+            if (req.query.provider && req.query.provider !== 'all') filtered = filtered.filter(e => e.provider === req.query.provider);
+            if (req.query.status && req.query.status !== 'all') filtered = filtered.filter(e => e.processing_status === req.query.status);
+            if (req.query.order_id && UUID_RE.test(req.query.order_id)) filtered = filtered.filter(e => String(e.order_id) === req.query.order_id);
+
+            // Sort & Paginate
+            filtered.sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
+            const total = filtered.length;
+            const paginated = filtered.slice(offset, offset + limit);
 
             ok(res, {
-                webhooks: data || [],
-                count: count || 0,
+                webhooks: paginated,
+                count: total,
                 page, limit,
-                totalPages: Math.ceil((count || 0) / limit)
+                totalPages: Math.ceil(total / limit)
             });
         } catch (e) { err(res, e); }
     }
@@ -99,23 +91,23 @@ router.get(
     async (req, res) => {
         try {
             const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-            const counts = {};
-            for (const s of ['received','processing','processed','failed','ignored']) {
-                const { count, error } = await supabaseAdmin
-                    .from('webhook_events')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('processing_status', s);
-                if (error && error.code === '42P01') {
-                    return ok(res, { stats: { available: false, reason: 'WEBHOOK_TABLE_NOT_FOUND' } });
-                }
-                counts[s] = count || 0;
-            }
-            const { count: last24h } = await supabaseAdmin
-                .from('webhook_events')
-                .select('id', { count: 'exact', head: true })
-                .gte('received_at', since);
+            const counts = { received: 0, processing: 0, processed: 0, failed: 0, ignored: 0 };
 
-            ok(res, { stats: { ...counts, last_24h: last24h || 0, available: true } });
+            const tables = ['webhook_events', 'kora_webhook_events', 'provider_webhook_events'];
+            let last24h = 0;
+
+            for (const t of tables) {
+                // Status counts
+                for (const s of Object.keys(counts)) {
+                    const { count } = await supabaseAdmin.from(t).select('id', { count: 'exact', head: true }).eq('processing_status', s);
+                    if (count) counts[s] += count;
+                }
+                // Last 24h
+                const { count: dayCount } = await supabaseAdmin.from(t).select('id', { count: 'exact', head: true }).gte('received_at', since);
+                if (dayCount) last24h += dayCount;
+            }
+
+            ok(res, { stats: { ...counts, last_24h: last24h, available: true } });
         } catch (e) { err(res, e); }
     }
 );
@@ -128,46 +120,52 @@ router.get(
     async (req, res, next) => {
         if (!UUID_RE.test(String(req.params.id || ''))) return next();
         try {
-            const { data, error } = await supabaseAdmin
-                .from('webhook_events')
-                .select(WEBHOOK_DETAIL_COLS)
-                .eq('id', req.params.id)
-                .maybeSingle();
-            if (error || !data) {
+            let event = null;
+            let provider = null;
+            const tables = ['webhook_events', 'kora_webhook_events', 'provider_webhook_events'];
+            
+            for (const t of tables) {
+                const { data } = await supabaseAdmin.from(t).select('*').eq('id', req.params.id).maybeSingle();
+                if (data) {
+                    event = data;
+                    provider = data.provider || (t === 'kora_webhook_events' ? 'korapay' : 'nowpayments');
+                    break;
+                }
+            }
+
+            if (!event) {
                 const e = new Error('Webhook event not found.'); e.status = 404; e.code = 'EVENT_NOT_FOUND'; throw e;
             }
 
-            // Payload is only exposed when the caller has REPLAY.
-            // Otherwise the event is shown without the raw body.
-            const canReplay = typeof PERMISSIONS.WEBHOOKS_REPLAY === 'string';
-            const event = {
-                id: data.id,
-                provider: data.provider,
-                event_id: data.event_id,
-                event_type: data.event_type,
-                order_id: data.order_id,
-                provider_order_id: data.provider_order_id,
-                signature_valid: data.signature_valid,
-                processing_status: data.processing_status,
-                processing_error: data.processing_error,
-                attempts: data.attempts,
-                received_at: data.received_at,
-                processed_at: data.processed_at,
-                created_at: data.created_at,
-                headers: webhookService.maskHeaders(data.headers),
-                payload: canReplay ? data.payload : null
+            // ─── CRITICAL FIX: Check actual admin permission ───
+            const canReplay = can(req.adminContext, PERMISSIONS.WEBHOOKS_REPLAY);
+            
+            // Normalize the output
+            const cleanEvent = {
+                id: event.id,
+                provider: provider,
+                event_id: event.event_id || event.provider_event_ref || event.event_hash,
+                event_type: event.event_type,
+                order_id: event.order_id || event.provider_reference || event.payment_id,
+                signature_valid: event.signature_valid,
+                processing_status: event.processing_status,
+                processing_error: event.processing_error,
+                received_at: event.received_at,
+                processed_at: event.processed_at,
+                headers: webhookService.maskHeaders(event.headers || {}),
+                payload: canReplay ? event.payload : null
             };
 
             let order = null;
-            if (data.order_id) {
+            if (cleanEvent.order_id && UUID_RE.test(cleanEvent.order_id)) {
                 const { data: o } = await supabaseAdmin
                     .from('orders')
                     .select('id, order_ref, status, provider, provider_order_id, total_amount, currency')
-                    .eq('id', data.order_id).maybeSingle();
+                    .eq('id', cleanEvent.order_id).maybeSingle();
                 order = o || null;
             }
 
-            ok(res, { event, order });
+            ok(res, { event: cleanEvent, order });
         } catch (e) { err(res, e); }
     }
 );
@@ -187,12 +185,9 @@ router.post(
             }
             const result = await webhookService.reprocessWebhook({
                 eventId: req.params.id,
-                ctx: {
-                    adminId: req.adminContext.id,
-                    adminEmail: req.adminContext.email,
-                    requestId: req.requestId
-                }
+                ctx: { adminId: req.adminContext.id, adminEmail: req.adminContext.email, requestId: req.requestId }
             });
+            
             await supabaseAdmin.from('admin_audit_logs').insert({
                 admin_id: req.adminContext.id,
                 admin_email: req.adminContext.email,
@@ -206,6 +201,7 @@ router.post(
                 request_id: req.requestId,
                 created_at: new Date().toISOString()
             }).then(() => {}, () => {});
+
             ok(res, result);
         } catch (e) { err(res, e); }
     }
@@ -223,11 +219,9 @@ router.post(
             const result = await webhookService.ignoreWebhook({
                 eventId: req.params.id,
                 reason,
-                ctx: {
-                    adminId: req.adminContext.id,
-                    requestId: req.requestId
-                }
+                ctx: { adminId: req.adminContext.id, requestId: req.requestId }
             });
+            
             await supabaseAdmin.from('admin_audit_logs').insert({
                 admin_id: req.adminContext.id,
                 admin_email: req.adminContext.email,
@@ -240,6 +234,7 @@ router.post(
                 request_id: req.requestId,
                 created_at: new Date().toISOString()
             }).then(() => {}, () => {});
+
             ok(res, result);
         } catch (e) { err(res, e); }
     }
