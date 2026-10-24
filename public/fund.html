@@ -24,8 +24,10 @@
        DESIGN TOKENS
        ═══════════════════════════════════════════════════════════ */
     :root {
-      --fd: 'Inter', 'General Sans', sans-serif;
-      --fb: 'Inter', 'Clash Display', sans-serif;
+       /* Fonts */
+    --fd: 'Inter', system-ui, sans-serif;
+      --fb: 'Inter', system-ui, sans-serif;
+
 
       --p:   #0c3d4a;
       --pm:  #155e72;
@@ -1284,6 +1286,106 @@
       border-bottom: 1px solid var(--bdr);
       gap: 12px;
     }
+        /* ═══════════════════════════════════════════════════════════
+       CLEAN TRANSACTION RECEIPT
+       ═══════════════════════════════════════════════════════════ */
+    .tx-receipt-hero {
+      text-align: center;
+      padding: 24px 16px 28px;
+      border-bottom: 1px solid var(--bdr);
+      margin-bottom: 20px;
+    }
+    .tx-receipt-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--t3);
+      margin-bottom: 10px;
+    }
+    .tx-receipt-amount {
+      font-family: var(--fd);
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      word-break: break-all;
+      margin-bottom: 14px;
+    }
+    .tx-receipt-amount.credit { color: var(--ok); }
+    .tx-receipt-amount.debit  { color: var(--t1); }
+    .tx-receipt-status {
+      display: flex;
+      justify-content: center;
+    }
+
+    .tx-receipt-rows {
+      margin-bottom: 24px;
+    }
+    .tx-receipt-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .tx-receipt-row:last-child {
+      border-bottom: none;
+    }
+    .tx-receipt-lbl {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--t3);
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .tx-receipt-val {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--t1);
+      text-align: right;
+      word-break: break-all;
+      max-width: 60%;
+      line-height: 1.5;
+    }
+
+    .tx-receipt-foot {
+      text-align: center;
+      font-size: 0.65rem;
+      color: var(--t3);
+      padding-top: 16px;
+      border-top: 1px dashed var(--bdr);
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* Responsive receipt adjustments */
+    @media (max-width: 480px) {
+      .tx-receipt-hero {
+        padding: 18px 12px 22px;
+        margin-bottom: 16px;
+      }
+      .tx-receipt-amount {
+        font-size: 1.65rem;
+      }
+      .tx-receipt-lbl {
+        font-size: 0.68rem;
+      }
+      .tx-receipt-val {
+        font-size: 0.78rem;
+        max-width: 55%;
+      }
+      .tx-receipt-row {
+        padding: 10px 0;
+        gap: 12px;
+      }
+    }
     .bd-item:last-child { border-bottom: none; }
     .bd-left {
       display: flex;
@@ -2384,12 +2486,9 @@ function renderTxRow(t, idx) {
 
   return `
   <div class="tx-row" data-tx-idx="${idx}" role="button" tabindex="0">
-    <div class="tx-bank">
-      <div class="tx-bank-icon" style="background:${cfg.bg};color:${cfg.cl}"><i class="fas ${cfg.icon}"></i></div>
-      <div style="min-width:0">
-        <div class="tx-bank-name">${escapeHtml(cfg.label)}</div>
-        <div class="tx-bank-acc">${escapeHtml(subtitle || '—')}</div>
-      </div>
+    <div style="min-width:0">
+      <div class="tx-bank-name">${escapeHtml(cfg.label)}</div>
+      <div class="tx-bank-acc">${escapeHtml(subtitle || t.reference || '—')}</div>
     </div>
     <div style="font-weight:700;color:${isCredit ? 'var(--ok)' : 'var(--err)'};">
       ${isCredit ? '+' : '-'}${escapeHtml(formatCurrency(absAmt, currency))}
@@ -2398,6 +2497,9 @@ function renderTxRow(t, idx) {
     <div class="tx-date">${escapeHtml(date)}</div>
   </div>`;
 }
+/* ═══════════════════════════════════════════════════════════════
+   ROW MARKUP — MOBILE
+   ═══════════════════════════════════════════════════════════════ */
 
 function renderTxMobileCard(t, idx) {
   const { amount, currency } = resolveTxAmount(t);
@@ -2413,7 +2515,6 @@ function renderTxMobileCard(t, idx) {
 
   return `
   <button type="button" class="tx-mobile-card" data-tx-idx="${idx}">
-    <div class="tx-bank-icon" style="background:${cfg.bg};color:${cfg.cl}"><i class="fas ${cfg.icon}"></i></div>
     <div class="tx-mobile-body">
       <div class="tx-mobile-top">
         <div class="tx-mobile-name">${escapeHtml(cfg.label)}</div>
@@ -2429,7 +2530,6 @@ function renderTxMobileCard(t, idx) {
     <i class="fas fa-chevron-right tx-mobile-chev"></i>
   </button>`;
 }
-
 /* ═══════════════════════════════════════════════════════════════
    CLICK DELEGATION & FILTER UI
    ═══════════════════════════════════════════════════════════════ */
@@ -2493,50 +2593,64 @@ function showTransactionDetail(idx) {
 
   const { amount, currency } = resolveTxAmount(t);
   const absAmt = Math.abs(amount);
-  const date = t.created_at ? new Date(t.created_at).toLocaleString() : '—';
+  const date = t.created_at
+    ? new Date(t.created_at).toLocaleString('en-NG', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      })
+    : '—';
   const cfg = getTxType(t.type);
   const dir = String(t.direction || '').toLowerCase();
   const type = String(t.type || '').toLowerCase();
   const isCredit = dir === 'credit' ||
                    ['deposit', 'wallet_credit', 'refund', 'cashback_redeem', 'adjustment'].includes(type);
+  const status = txStatusInfo(t.status);
+  const statusClass = status.dot === 'failed' ? 'failed'
+                    : status.dot === 'pending' ? 'processing'
+                    : 'finished';
 
   const details = [
-    { icon: '🔖', label: 'Reference', value: t.reference || t.ref || t.id || '—' },
-    { icon: '💰', label: 'Amount', value: `${isCredit ? '+' : '-'}${formatCurrency(absAmt, currency)}` },
-    { icon: '📌', label: 'Status', value: txStatusInfo(t.status).label.toUpperCase() },
-    { icon: '📅', label: 'Date', value: date }
+    { label: 'Reference', value: t.reference || t.ref || t.id || '—' },
+    { label: 'Type',      value: cfg.label },
+    { label: 'Amount',    value: `${isCredit ? '+' : '-'}${formatCurrency(absAmt, currency)}` },
+    { label: 'Currency',  value: currency },
+    { label: 'Status',    value: status.label.toUpperCase() },
+    { label: 'Date',      value: date }
   ];
   const rawDesc = String(t.description || '').trim();
   if (SAFE_DESCRIPTIONS.has(rawDesc)) {
-    details.push({ icon: '📝', label: 'Description', value: rawDesc });
+    details.push({ label: 'Description', value: rawDesc });
   }
 
   DOM.txDetailBody.innerHTML = `
-    <div style="margin-bottom:16px;">
-      <div style="background:${cfg.bg};color:${cfg.cl};width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.2rem;margin:0 auto;">
-        <i class="fas ${cfg.icon}"></i>
-      </div>
-      <div style="font-family:var(--fd);font-size:1.3rem;font-weight:800;text-align:center;margin-top:6px;word-break:break-all;">
+    <div class="tx-receipt-hero">
+      <div class="tx-receipt-label">${escapeHtml(cfg.label)}</div>
+      <div class="tx-receipt-amount ${isCredit ? 'credit' : 'debit'}">
         ${isCredit ? '+' : '-'}${escapeHtml(formatCurrency(absAmt, currency))}
       </div>
-      <div style="font-size:.7rem;color:var(--t3);text-align:center;">${cfg.label}</div>
-    </div>
-    ${details.map(d => `
-      <div class="bd-item">
-        <div class="bd-left">
-          <div class="bd-icon" style="background:var(--srf2);color:var(--t1);font-size:1rem;">${d.icon}</div>
-          <div class="bd-name">${d.label}</div>
-        </div>
-        <div class="bd-amt" style="max-width:200px;word-break:break-all;text-align:right;font-size:.8rem;">${escapeHtml(d.value)}</div>
+      <div class="tx-receipt-status">
+        <span class="status-badge ${statusClass}">${escapeHtml(status.label)}</span>
       </div>
-    `).join('')}
+    </div>
+    <div class="tx-receipt-rows">
+      ${details.map(d => `
+        <div class="tx-receipt-row">
+          <div class="tx-receipt-lbl">${escapeHtml(d.label)}</div>
+          <div class="tx-receipt-val">${escapeHtml(d.value)}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="tx-receipt-foot">
+      <span>MilesSpace</span>
+      <span>•</span>
+      <span>Wallet Receipt</span>
+    </div>
   `;
 
   DOM.drawerOverlay.classList.add('show');
   DOM.txDetailDrawer.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
-
 /* ═══════════════════════════════════════════════════════════════
    ENTRY POINTS
    ═══════════════════════════════════════════════════════════════ */
@@ -3272,7 +3386,6 @@ function openFinancialHistory() {
 function openBreakdownPanel() {
   openFinancialHistory();
 }
-
 function renderDrawerItem(t) {
   const { amount, currency } = resolveTxAmount(t);
   const dir = String(t.direction || '').toLowerCase();
@@ -3285,12 +3398,15 @@ function renderDrawerItem(t) {
   const idx = State.txCache.indexOf(t);
 
   return `<div class="bd-item" data-tx-idx="${idx}" role="button" tabindex="0" style="cursor:pointer;">
-    <div class="bd-left">
-      <div class="bd-icon" style="background:${cfg.bg};color:${cfg.cl}"><i class="fas ${cfg.icon}"></i></div>
+    <div class="bd-left" style="min-width:0;flex:1;">
       <div style="min-width:0">
         <div class="bd-name">${escapeHtml(cfg.label)}</div>
-        <div style="font-size:.6rem;color:var(--t3)">${escapeHtml(date)} · ${escapeHtml(status.label)}</div>
-        <div style="font-size:.6rem;color:var(--t3);word-break:break-all;">${escapeHtml(t.reference || '')}</div>
+        <div style="font-size:.65rem;color:var(--t3);margin-top:2px;">
+          ${escapeHtml(date)} · ${escapeHtml(status.label)}
+        </div>
+        <div style="font-size:.6rem;color:var(--t3);word-break:break-all;margin-top:1px;">
+          ${escapeHtml(t.reference || '')}
+        </div>
       </div>
     </div>
     <div class="bd-amt" style="color:${isCredit ? 'var(--ok)' : 'var(--err)'};flex-shrink:0;">
@@ -3298,7 +3414,6 @@ function renderDrawerItem(t) {
     </div>
   </div>`;
 }
-
 function initBreakdownDelegation() {
   if (!DOM.bdList) return;
   DOM.bdList.addEventListener('click', (e) => {
