@@ -1,12 +1,11 @@
 /*!
- * MilesSpace Support Widget — v19.1 (Strict Right-Click Drag + Desktop Modal Scroll Fix)
+ * MilesSpace Support Widget — v20.0 (iPhone Modal Fix + Desktop Footer Fix)
  * -----------------------------------------------------------------
  * • Retains ALL features: guest flows, help articles, drag-and-drop,
  *   rating, unread badges, optimistic messaging, idempotency, and retries.
- * • NEW: Desktop drag is explicitly restricted to Right-Click + Hold.
- *   Hovering/normal pointer movement will NEVER move the launcher.
- * • NEW: Modal is scrollable on desktop with a sticky footer so the
- *   "Create Ticket" button is always visible.
+ * • FIXED: iPhone Subject input no longer breaks layout or auto-zooms.
+ * • FIXED: Desktop Create Ticket button is always clickable by using
+ *   a flex-column layout with a scrollable body.
  * • NO API contract changes. Same endpoints.
  */
 
@@ -576,18 +575,28 @@
         '.miles-form-error{font-size:12.5px;color:var(--miles-danger);min-height:16px;font-weight:500}',
         '.miles-form-note{font-size:12px;color:var(--miles-text-faint);line-height:1.5}',
 
+        /* MODAL STYLES - FIXED FOR IPHONE & DESKTOP */
         '.miles-modal-overlay{position:fixed;inset:0;background:rgba(8,20,25,.55);z-index:2147483003;display:none;align-items:center;justify-content:center;padding:16px;pointer-events:auto}',
         '.miles-modal-overlay.open{display:flex}',
-        '.miles-modal-box{width:440px;max-width:100%;max-height:88dvh;background:var(--miles-white);border-radius:16px;box-shadow:var(--miles-shadow);display:flex;flex-direction:column;overflow:hidden}',
+        '.miles-modal-box{width:440px;max-width:100%;height:auto;max-height:calc(100dvh - 32px);background:var(--miles-white);border-radius:16px;box-shadow:var(--miles-shadow);display:flex;flex-direction:column;overflow:hidden}',
+
         '.miles-modal-head{padding:16px 18px;border-bottom:1px solid var(--miles-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}',
         '.miles-modal-head h4{font-size:16px;font-weight:700}',
         '.miles-modal-head button{background:none;border:none;cursor:pointer;color:var(--miles-text-dim);padding:4px}',
-        '.miles-modal-body{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}',
+
+        '.miles-modal-body{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}',
         '.miles-modal-body label{font-size:12px;font-weight:700;color:var(--miles-text-dim);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px}',
-        '.miles-modal-body input,.miles-modal-body select,.miles-modal-body textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:13.5px;outline:none;background:var(--miles-bg);font-family:inherit}',
+        
+        /* 16px prevents iOS auto-zoom */
+        '.miles-modal-body input,.miles-modal-body select,.miles-modal-body textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:16px!important;outline:none;background:var(--miles-bg);font-family:inherit}',
+        
+        '.miles-modal-body input:focus,.miles-modal-body select:focus,.miles-modal-body textarea:focus{border-color:var(--miles-primary)}',
         '.miles-modal-body textarea{min-height:110px;resize:vertical}',
-        '.miles-modal-foot{padding:14px 18px;border-top:1px solid var(--miles-border)}',
+
+        '.miles-modal-foot{padding:14px 18px;border-top:1px solid var(--miles-border);flex-shrink:0}',
         '.miles-modal-foot .submit-ticket-btn{width:100%;padding:13px;border-radius:10px;background:var(--miles-primary);color:#fff;border:none;font-weight:700;cursor:pointer;font-size:13.5px}',
+        '.miles-modal-foot .submit-ticket-btn:disabled{opacity:.6;cursor:not-allowed}',
+
         '.miles-modal-error{font-size:12.5px;color:var(--miles-danger);text-align:center}',
         '.miles-modal-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 8px;gap:8px}',
 
@@ -609,12 +618,12 @@
         '.miles-composer-textarea{font-size:16px!important}',
         '.miles-input-area{padding-bottom:calc(16px + env(safe-area-inset-bottom))}',
         
-        /* Make modal fill screen and scrollable so the keyboard doesn't hide the button */
+        /* Full screen modal on mobile */
         '.miles-modal-overlay{padding:0!important;align-items:flex-start!important}',
-        '.miles-modal-box{width:100%!important;height:100%!important;max-height:100dvh!important;border-radius:0!important;overflow-y:auto!important}',
-        '.miles-modal-head{padding-top:calc(16px + env(safe-area-inset-top))!important;position:sticky;top:0;z-index:10;background:#fff}',
-        '.miles-modal-body{flex:1;padding-bottom:100px}',
-        '.miles-modal-foot{position:sticky;bottom:0;background:#fff;z-index:10;padding-bottom:calc(14px + env(safe-area-inset-bottom))}',
+        '.miles-modal-box{width:100%!important;height:100dvh!important;max-height:100dvh!important;border-radius:0!important;display:flex;flex-direction:column}',
+        '.miles-modal-head{padding-top:calc(16px + env(safe-area-inset-top))!important;flex-shrink:0}',
+        '.miles-modal-body{flex:1;overflow-y:auto;padding-bottom:0}',
+        '.miles-modal-foot{flex-shrink:0;padding-bottom:calc(14px + env(safe-area-inset-bottom))}',
         '}'
     ].join('');
 
@@ -1228,8 +1237,6 @@
         function onDown(e) {
             isTouchLike = (e.pointerType === 'touch' || e.pointerType === 'pen');
             
-            // Strict check: Desktop requires right-click (button 2) to drag.
-            // Touch devices allow drag after long-press.
             if (!isTouchLike && e.button !== 2) {
                 return;
             }
@@ -1249,15 +1256,13 @@
             clearHold();
 
             if (isTouchLike) {
-                // Touch devices: wait for long press to drag so normal scrolling works
                 holdTimer = setTimeout(function () {
                     canDrag = true;
                     try { if (navigator.vibrate) navigator.vibrate(8); } catch (err) {}
                 }, HOLD_TO_DRAG_MS);
             } else {
-                // Desktop: right-click held down is immediate drag permission
                 canDrag = true;
-                e.preventDefault(); // prevent context menu from blocking the drag
+                e.preventDefault(); 
             }
         }
 
@@ -1308,7 +1313,7 @@
                     safeStorageSet(localStorage, keys.top, top);
                 }
             } else if (!self.isDragging && !isTouchLike && e.button === 2) {
-                // If it was a right-click but didn't move enough to drag, do nothing (don't open)
+                // do nothing
             } else if (!self.isDragging) {
                 self.toggle();
             } else {
@@ -1337,7 +1342,6 @@
         }
         
         function onContextMenu(e) {
-            // Only prevent the default context menu when the drag was actually initiated via right-click
             if (e.button === 2) {
                 e.preventDefault();
             }
@@ -2765,8 +2769,13 @@
         var form = this.modalContent.querySelector('#milesTicketForm');
         form.addEventListener('submit', function (e) { self.submitNewTicketForm(e); });
         this.modalOverlay.classList.add('open');
-        var subjectInput = form.querySelector('[name="subject"]');
-        requestAnimationFrame(function () { if (subjectInput) subjectInput.focus(); });
+        
+        // Only autofocus on non-touch devices to prevent iOS keyboard from breaking layout
+        var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (!isTouch) {
+            var subjectInput = form.querySelector('[name="subject"]');
+            requestAnimationFrame(function () { if (subjectInput) subjectInput.focus(); });
+        }
     };
     MilesWidget.prototype.closeNewTicketModal = function () {
         if (!this.modalOverlay) return;
