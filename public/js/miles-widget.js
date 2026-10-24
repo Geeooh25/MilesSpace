@@ -1,12 +1,12 @@
 /*!
- * MilesSpace Support Widget — v18.0 (Premium UI + Composer Redesign)
+ * MilesSpace Support Widget — v19.1 (Strict Right-Click Drag + Desktop Modal Scroll Fix)
  * -----------------------------------------------------------------
- * • Retains ALL v17 features: guest flows, help articles, drag-and-drop,
+ * • Retains ALL features: guest flows, help articles, drag-and-drop,
  *   rating, unread badges, optimistic messaging, idempotency, and retries.
- * • NEW: Screenshot-inspired integrated composer (rounded, multiline).
- * • NEW: Auto-expanding textarea with max-height and scroll.
- * • NEW: Built-in emoji picker (inserts at cursor).
- * • NEW: Full safe-area and dynamic viewport support for modern mobile.
+ * • NEW: Desktop drag is explicitly restricted to Right-Click + Hold.
+ *   Hovering/normal pointer movement will NEVER move the launcher.
+ * • NEW: Modal is scrollable on desktop with a sticky footer so the
+ *   "Create Ticket" button is always visible.
  * • NO API contract changes. Same endpoints.
  */
 
@@ -310,7 +310,7 @@
         chat:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 01-11.6 7.2L4 20l1.1-4.3A8 8 0 1121 12z"/></svg>',
         close:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>',
         minimize:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>',
-        send:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', // Up arrow
+        send:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', 
         search:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
         bell:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 004 0"/></svg>',
         bellOff:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M6 8a6 6 0 0110.9-3.4M18 14c0-1 .2-2 0-3"/><path d="M4 14s2-1 2-6"/><path d="M10 21a2 2 0 004 0"/></svg>',
@@ -599,6 +599,7 @@
 
         '@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}',
 
+        /* FIX FOR MOBILE KEYBOARD & FULL SCREEN MODAL */
         '@media (max-width:520px){',
         '#miles-launcher{bottom:calc(16px + env(safe-area-inset-bottom));right:16px;width:56px;height:56px}',
         '#miles-launcher .miles-icon{width:26px;height:26px}',
@@ -607,12 +608,17 @@
         '.miles-tabs .tab{padding:12px 8px;font-size:12.5px}',
         '.miles-composer-textarea{font-size:16px!important}',
         '.miles-input-area{padding-bottom:calc(16px + env(safe-area-inset-bottom))}',
-        '.miles-modal-box{width:100%!important;height:100%!important;max-height:100dvh!important;border-radius:0!important}',
+        
+        /* Make modal fill screen and scrollable so the keyboard doesn't hide the button */
+        '.miles-modal-overlay{padding:0!important;align-items:flex-start!important}',
+        '.miles-modal-box{width:100%!important;height:100%!important;max-height:100dvh!important;border-radius:0!important;overflow-y:auto!important}',
+        '.miles-modal-head{padding-top:calc(16px + env(safe-area-inset-top))!important;position:sticky;top:0;z-index:10;background:#fff}',
+        '.miles-modal-body{flex:1;padding-bottom:100px}',
+        '.miles-modal-foot{position:sticky;bottom:0;background:#fff;z-index:10;padding-bottom:calc(14px + env(safe-area-inset-bottom))}',
         '}'
     ].join('');
 
-    // ═════════════════════════════════════════════════════════
-    //  Template
+    // ═════════════════════════════════════════════════════════    //  Template
     // ═════════════════════════════════════════════════════════
     function buildTemplate() {
         return '' +
@@ -1207,7 +1213,7 @@
     MilesWidget.prototype.setupDragging = function () {
         var self = this;
         if (!this.launcher) return;
-        var DRAG_THRESHOLD_PX = 12;
+        var DRAG_THRESHOLD_PX = 5;
         var HOLD_TO_DRAG_MS = 220;
         var holdTimer = null;
         var startLeft = 0;
@@ -1220,10 +1226,15 @@
         }
 
         function onDown(e) {
-            if (e.button !== undefined && e.button !== 0) return;
             isTouchLike = (e.pointerType === 'touch' || e.pointerType === 'pen');
-            canDrag = !isTouchLike;
+            
+            // Strict check: Desktop requires right-click (button 2) to drag.
+            // Touch devices allow drag after long-press.
+            if (!isTouchLike && e.button !== 2) {
+                return;
+            }
 
+            canDrag = false;
             var rect = self.launcher.getBoundingClientRect();
             startLeft = rect.left;
             startTop = rect.top;
@@ -1238,22 +1249,25 @@
             clearHold();
 
             if (isTouchLike) {
+                // Touch devices: wait for long press to drag so normal scrolling works
                 holdTimer = setTimeout(function () {
                     canDrag = true;
                     try { if (navigator.vibrate) navigator.vibrate(8); } catch (err) {}
                 }, HOLD_TO_DRAG_MS);
+            } else {
+                // Desktop: right-click held down is immediate drag permission
+                canDrag = true;
+                e.preventDefault(); // prevent context menu from blocking the drag
             }
         }
 
         function onMove(e) {
+            if (!canDrag) return;
+
             var dx = e.clientX - self.dragStartX;
             var dy = e.clientY - self.dragStartY;
             var dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (isTouchLike && !canDrag) {
-                if (dist > DRAG_THRESHOLD_PX) clearHold();
-                return;
-            }
             if (!self.isDragging && dist < DRAG_THRESHOLD_PX) return;
 
             if (!self.isDragging) {
@@ -1293,6 +1307,8 @@
                     safeStorageSet(localStorage, keys.left, left);
                     safeStorageSet(localStorage, keys.top, top);
                 }
+            } else if (!self.isDragging && !isTouchLike && e.button === 2) {
+                // If it was a right-click but didn't move enough to drag, do nothing (don't open)
             } else if (!self.isDragging) {
                 self.toggle();
             } else {
@@ -1319,11 +1335,19 @@
             self.hasMoved = false;
             canDrag = false;
         }
+        
+        function onContextMenu(e) {
+            // Only prevent the default context menu when the drag was actually initiated via right-click
+            if (e.button === 2) {
+                e.preventDefault();
+            }
+        }
 
         this.launcher.addEventListener('pointerdown', onDown);
         this.launcher.addEventListener('pointermove', onMove);
         this.launcher.addEventListener('pointerup', onUp);
         this.launcher.addEventListener('pointercancel', onCancel);
+        this.launcher.addEventListener('contextmenu', onContextMenu);
     };
 
     MilesWidget.prototype.setGreeting = function () {
