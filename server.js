@@ -88,7 +88,7 @@ app.use(helmet({
                 "https://fonts.gstatic.com",
                 "https://cdnjs.cloudflare.com"
             ],
-            imgSrc: ["'self'", "data:", "https:"],
+            imgSrc: ["'self'", "data:", "https:", "blob:"],
             connectSrc: [
                 "'self'",
                 "https://*.supabase.co",
