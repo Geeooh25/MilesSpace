@@ -361,7 +361,7 @@ const marketplaceRoutes      = safeRequire('./routes/admin/marketplaceRoutes');
 const giftcardAdminRoutes    = safeRequire('./routes/admin/giftcardAdminRoutes');
 const adminUserRoutes        = safeRequire('./routes/admin/userRoutes');
 
-app.use('/api/admin/support', require('./routes/admin/supportRoutes'));
+app.use('/api/admin', require('./routes/admin/supportRoutes'));
 app.use('/api/admin', require('./routes/admin/boostAdminRoutes'));
 const orderAdminRoutes        = require('./routes/admin/orderRoutes');
 

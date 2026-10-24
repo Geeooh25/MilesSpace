@@ -1,12 +1,13 @@
 /*!
- * MilesSpace Support Widget — v17.0 (Complete + Optimistic UI)
+ * MilesSpace Support Widget — v18.0 (Premium UI + Composer Redesign)
  * -----------------------------------------------------------------
- * • ALL v16.3 features preserved (guest forms, help articles, 
- *   attachments, drag-and-drop, rating, unread badges, etc.).
- * • NEW: WhatsApp-style optimistic messaging.
- * • NEW: Message status (sending, sent, failed) + Retry logic.
- * • NEW: Idempotency via X-Request-Id to prevent duplicates.
- * • No API contract changes. Same endpoints.
+ * • Retains ALL v17 features: guest flows, help articles, drag-and-drop,
+ *   rating, unread badges, optimistic messaging, idempotency, and retries.
+ * • NEW: Screenshot-inspired integrated composer (rounded, multiline).
+ * • NEW: Auto-expanding textarea with max-height and scroll.
+ * • NEW: Built-in emoji picker (inserts at cursor).
+ * • NEW: Full safe-area and dynamic viewport support for modern mobile.
+ * • NO API contract changes. Same endpoints.
  */
 
 (function () {
@@ -309,12 +310,14 @@
         chat:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 01-11.6 7.2L4 20l1.1-4.3A8 8 0 1121 12z"/></svg>',
         close:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>',
         minimize:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>',
-        send:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
+        send:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', // Up arrow
         search:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
         bell:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 004 0"/></svg>',
         bellOff:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M6 8a6 6 0 0110.9-3.4M18 14c0-1 .2-2 0-3"/><path d="M4 14s2-1 2-6"/><path d="M10 21a2 2 0 004 0"/></svg>',
         info:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="8" r="0.6" fill="currentColor"/></svg>',
         image:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-5 5-4-4-4 4"/></svg>',
+        paperclip:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>',
+        smile:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>',
         pdf:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>',
         file:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>',
         back:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 19l-7-7 7-7"/></svg>',
@@ -374,7 +377,7 @@
         '#miles-launcher .badge{position:absolute;top:-4px;right:-4px;background:var(--miles-danger);color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:99px;display:none;align-items:center;justify-content:center;padding:0 5px;border:2px solid #fff;pointer-events:none}',
         '#miles-launcher .badge.show{display:flex}',
 
-        '#miles-panel{position:fixed;bottom:102px;right:24px;width:460px;height:min(720px,calc(100vh - 140px));min-height:460px;background:var(--miles-white);border-radius:var(--miles-radius);box-shadow:0 20px 60px rgba(8,42,51,0.28);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--miles-border);pointer-events:auto;z-index:2147483001}',
+        '#miles-panel{position:fixed;bottom:102px;right:24px;width:460px;height:min(720px,calc(100dvh - 140px));min-height:460px;background:var(--miles-white);border-radius:var(--miles-radius);box-shadow:0 20px 60px rgba(8,42,51,0.28);display:none;flex-direction:column;overflow:hidden;border:1px solid var(--miles-border);pointer-events:auto;z-index:2147483001}',
         '#miles-panel.open{display:flex;animation:milesSlideUp .22s cubic-bezier(.4,0,.2,1)}',
         '@keyframes milesSlideUp{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}',
 
@@ -459,7 +462,7 @@
         '.miles-msg-header-actions button{padding:6px 10px;border-radius:7px;border:1px solid var(--miles-border);background:var(--miles-white);color:var(--miles-text-dim);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}',
 
         '.miles-message-list{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px}',
-        '.miles-msg{max-width:82%;padding:10px 14px;border-radius:12px;word-wrap:break-word;line-height:1.5;font-size:13.5px;animation:fadeIn .25s ease}',
+        '.miles-msg{max-width:82%;padding:10px 14px;border-radius:12px;word-wrap:break-word;line-height:1.5;font-size:13.5px;animation:fadeIn .25s ease;overflow-wrap:anywhere;white-space:pre-wrap}',
         '.miles-msg.user{align-self:flex-end;background:var(--miles-primary);color:#fff;border-bottom-right-radius:4px}',
         '.miles-msg.support{align-self:flex-start;background:var(--miles-white);color:var(--miles-text);border:1px solid var(--miles-border);border-bottom-left-radius:4px}',
         '.miles-msg.system{align-self:center;background:#eef2f5;color:var(--miles-text-dim);font-size:12px;max-width:92%;border-radius:20px;padding:5px 16px}',
@@ -488,7 +491,9 @@
         '.miles-msg.user .miles-attachment{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)}',
         '.miles-msg.user .miles-attachment .attachment-info{background:transparent;color:rgba(255,255,255,.85)}',
 
-        '.miles-file-preview{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 6px 0}',
+        /* PREMIUM COMPOSER STYLES */
+        '.miles-input-area{padding:10px 16px 16px 16px;border-top:1px solid var(--miles-border);background:var(--miles-white);flex-shrink:0;position:relative}',
+        '.miles-file-preview{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px 0}',
         '.miles-file-preview:empty{display:none}',
         '.miles-file-preview .file-item{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 6px;background:var(--miles-bg);border:1px solid var(--miles-border);border-radius:6px;font-size:11.5px}',
         '.miles-file-preview .file-item.image-item{padding:0;overflow:hidden}',
@@ -496,17 +501,32 @@
         '.miles-file-preview .file-item .file-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
         '.miles-file-preview .file-item .remove-file{cursor:pointer;color:var(--miles-danger);background:none;border:none;padding:4px;font-size:13px;line-height:1;font-weight:700;min-width:22px;min-height:22px}',
 
-        '.miles-input-area{padding:12px 16px;border-top:1px solid var(--miles-border);background:var(--miles-white);display:flex;flex-direction:column;gap:6px;flex-shrink:0}',
-        '.miles-input-row{display:flex;gap:10px;align-items:flex-end}',
-        '.miles-input-area textarea{flex:1;padding:10px 14px;border:1px solid var(--miles-border);border-radius:12px;resize:none;font-family:inherit;font-size:13.5px;outline:none;min-height:46px;max-height:140px;background:var(--miles-bg)}',
-        '.miles-input-area textarea:focus{border-color:var(--miles-primary);background:var(--miles-white)}',
-        '.miles-input-area .send-btn{width:44px;height:44px;border-radius:50%;background:var(--miles-primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}',
-        '.miles-input-area .send-btn:disabled{opacity:.5;cursor:not-allowed}',
-        '.miles-input-area .attach-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--miles-border);background:var(--miles-bg);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--miles-text-dim);flex-shrink:0}',
-        '.miles-input-area .attach-btn:hover{border-color:var(--miles-primary);color:var(--miles-primary)}',
-        '.miles-input-area .attach-input{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}',
-        '.miles-send-status{font-size:11px;color:var(--miles-text-faint);padding:0 2px;min-height:14px}',
+        '.miles-composer-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:22px;padding:8px 10px;display:flex;flex-direction:column;transition:border-color .2s, box-shadow .2s}',
+        '.miles-composer-box:focus-within{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15);background:#fff}',
+        
+        '.miles-composer-textarea{width:100%;border:none;background:transparent;resize:none;padding:6px 8px;font-family:inherit;font-size:14px;color:var(--miles-text);outline:none;min-height:38px;max-height:120px;line-height:1.5;overflow-y:auto}',
+        '.miles-composer-textarea::placeholder{color:#94a3b8}',
+        
+        '.miles-composer-actions{display:flex;align-items:center;justify-content:space-between;margin-top:4px}',
+        '.miles-composer-left{display:flex;align-items:center;gap:2px}',
+        
+        '.miles-composer-btn{width:36px;height:36px;border-radius:50%;border:none;background:transparent;color:#64748b;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s, color .15s}',
+        '.miles-composer-btn:hover{background:#e2e8f0;color:#0f172a}',
+        '.miles-composer-btn .miles-icon{width:20px;height:20px}',
+        
+        '.miles-send-btn{width:38px;height:38px;border-radius:50%;background:#3b82f6;color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s, transform .1s}',
+        '.miles-send-btn:hover{background:#2563eb}',
+        '.miles-send-btn:active{transform:scale(0.95)}',
+        '.miles-send-btn:disabled{opacity:.4;cursor:not-allowed;background:#94a3b8}',
+        '.miles-send-btn .miles-icon{width:20px;height:20px}',
+        
+        '.miles-send-status{font-size:11px;color:var(--miles-text-faint);padding:6px 4px 0 4px;min-height:14px;text-align:center}',
         '.miles-send-status.error{color:var(--miles-danger)}',
+
+        '.miles-emoji-picker{position:absolute;bottom:70px;left:16px;background:#fff;border:1px solid var(--miles-border);border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.1);padding:8px;display:none;grid-template-columns:repeat(6,1fr);gap:4px;z-index:10;width:220px;max-height:180px;overflow-y:auto}',
+        '.miles-emoji-picker.open{display:grid}',
+        '.miles-emoji-picker button{background:none;border:none;font-size:20px;cursor:pointer;padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center}',
+        '.miles-emoji-picker button:hover{background:#f1f5f9}',
 
         '.miles-msg-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--miles-text-faint);text-align:center;padding:24px}',
         '.miles-msg-empty .miles-icon{width:44px;height:44px;opacity:.35;margin-bottom:14px}',
@@ -558,7 +578,7 @@
 
         '.miles-modal-overlay{position:fixed;inset:0;background:rgba(8,20,25,.55);z-index:2147483003;display:none;align-items:center;justify-content:center;padding:16px;pointer-events:auto}',
         '.miles-modal-overlay.open{display:flex}',
-        '.miles-modal-box{width:440px;max-width:100%;max-height:88vh;background:var(--miles-white);border-radius:16px;box-shadow:var(--miles-shadow);display:flex;flex-direction:column;overflow:hidden}',
+        '.miles-modal-box{width:440px;max-width:100%;max-height:88dvh;background:var(--miles-white);border-radius:16px;box-shadow:var(--miles-shadow);display:flex;flex-direction:column;overflow:hidden}',
         '.miles-modal-head{padding:16px 18px;border-bottom:1px solid var(--miles-border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}',
         '.miles-modal-head h4{font-size:16px;font-weight:700}',
         '.miles-modal-head button{background:none;border:none;cursor:pointer;color:var(--miles-text-dim);padding:4px}',
@@ -580,11 +600,13 @@
         '@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}',
 
         '@media (max-width:520px){',
-        '#miles-launcher{bottom:16px;right:16px;width:56px;height:56px}',
+        '#miles-launcher{bottom:calc(16px + env(safe-area-inset-bottom));right:16px;width:56px;height:56px}',
         '#miles-launcher .miles-icon{width:26px;height:26px}',
         '#miles-panel{inset:0!important;left:0!important;top:0!important;width:100%!important;height:100%!important;max-height:100dvh!important;min-height:0!important;border-radius:0!important;bottom:auto!important;right:auto!important}',
+        '.miles-header{padding-top:calc(16px + env(safe-area-inset-top))}',
         '.miles-tabs .tab{padding:12px 8px;font-size:12.5px}',
-        '.miles-input-area textarea{font-size:16px!important}',
+        '.miles-composer-textarea{font-size:16px!important}',
+        '.miles-input-area{padding-bottom:calc(16px + env(safe-area-inset-bottom))}',
         '.miles-modal-box{width:100%!important;height:100%!important;max-height:100dvh!important;border-radius:0!important}',
         '}'
     ].join('');
@@ -653,14 +675,21 @@
                         '</div>' +
                         '<div class="miles-message-list" id="milesMessageList"><div class="miles-msg-empty">' + iconMarkup('chat') + '<p>No messages yet</p></div></div>' +
                         '<div id="milesRatingSlot"></div>' +
+                        
                         '<div class="miles-input-area" id="milesInputArea">' +
+                            '<div class="miles-emoji-picker" id="milesEmojiPicker"></div>' +
                             '<div class="miles-file-preview" id="milesFilePreview"></div>' +
-                            '<div class="miles-input-row">' +
-                                '<button class="attach-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('image') + '</button>' +
-                                '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true">' +
-                                '<textarea id="milesInput" placeholder="Type a message… (Shift+Enter for new line)" rows="1" maxlength="' + CONFIG.MAX_MESSAGE_LENGTH + '"></textarea>' +
-                                '<button class="send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                            '<div class="miles-composer-box">' +
+                                '<textarea class="miles-composer-textarea" id="milesInput" placeholder="Type a message…" rows="1" maxlength="' + CONFIG.MAX_MESSAGE_LENGTH + '"></textarea>' +
+                                '<div class="miles-composer-actions">' +
+                                    '<div class="miles-composer-left">' +
+                                        '<button class="miles-composer-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('paperclip') + '</button>' +
+                                        '<button class="miles-composer-btn" id="milesEmojiBtn" type="button" aria-label="Insert emoji">' + iconMarkup('smile') + '</button>' +
+                                    '</div>' +
+                                    '<button class="miles-send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                                '</div>' +
                             '</div>' +
+                            '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true" style="display:none">' +
                             '<div class="miles-send-status" id="milesSendStatus"></div>' +
                         '</div>' +
                     '</div>' +
@@ -935,10 +964,14 @@
         this.msgBack = q('#milesMsgBack');
         this.msgHeaderActions = q('#milesMsgHeaderActions');
         this.ratingSlot = q('#milesRatingSlot');
+        
         this.input = q('#milesInput');
         this.sendBtn = q('#milesSendBtn');
         this.sendStatus = q('#milesSendStatus');
         this.inputArea = q('#milesInputArea');
+        this.emojiBtn = q('#milesEmojiBtn');
+        this.emojiPicker = q('#milesEmojiPicker');
+        
         this.helpList = q('#milesHelpList');
         this.helpSearch = q('#milesHelpSearch');
         this.articleView = q('#milesArticleView');
@@ -972,6 +1005,7 @@
         this.renderHelpArticles(HELP_ARTICLES);
         this.applyMuteUI();
         this.initializePosition();
+        this.setupEmojiPicker();
 
         window.addEventListener('resize', this._boundResize);
         window.addEventListener('orientationchange', this._boundResize);
@@ -1333,11 +1367,16 @@
 
         if (this.input) {
             this.input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); self.sendMessage(); }
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); self.sendMessage(); }
             });
             this.input.addEventListener('input', function () {
                 this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                if (this.scrollHeight > 120) {
+                    this.style.overflowY = 'auto';
+                } else {
+                    this.style.overflowY = 'hidden';
+                }
             });
         }
 
@@ -1399,6 +1438,49 @@
             document.addEventListener(evt, self._boundFirstInteraction, { once: true, passive: true });
         });
     };
+    
+    MilesWidget.prototype.setupEmojiPicker = function () {
+        var self = this;
+        var emojis = ['😀','😂','🥰','😍','🤔','😎','😭','👍','🙏','🔥','🎉','💡','❤️','✨','😊','👋','✅','⚠️','📌','💬'];
+        if (this.emojiPicker) {
+            this.emojiPicker.innerHTML = emojis.map(function(emoji) {
+                return '<button type="button" data-emoji="' + emoji + '">' + emoji + '</button>';
+            }).join('');
+            
+            this.emojiPicker.addEventListener('click', function(e) {
+                var btn = e.target.closest('button[data-emoji]');
+                if (btn) {
+                    self.insertEmoji(btn.dataset.emoji);
+                }
+            });
+        }
+        
+        if (this.emojiBtn && this.emojiPicker) {
+            this.emojiBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                self.emojiPicker.classList.toggle('open');
+            });
+            document.addEventListener('click', function(e) {
+                if (self.emojiPicker && self.emojiPicker.classList.contains('open')) {
+                    if (!self.emojiPicker.contains(e.target) && !self.emojiBtn.contains(e.target)) {
+                        self.emojiPicker.classList.remove('open');
+                    }
+                }
+            });
+        }
+    };
+    
+    MilesWidget.prototype.insertEmoji = function (emoji) {
+        if (!this.input) return;
+        var startPos = this.input.selectionStart;
+        var endPos = this.input.selectionEnd;
+        var text = this.input.value;
+        this.input.value = text.substring(0, startPos) + emoji + text.substring(endPos, text.length);
+        this.input.selectionStart = this.input.selectionEnd = startPos + emoji.length;
+        this.input.focus();
+        this.input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
     MilesWidget.prototype._handleConvClick = function (e) {
         var item = e.target.closest('.miles-conv-item');
         if (!item) return;
@@ -1408,10 +1490,12 @@
         item.classList.add('active');
         this.selectConversation(id);
     };
+    
     MilesWidget.prototype.onGlobalKeydown = function (e) {
         if (e.key !== 'Escape') return;
         if (this.lightbox && this.lightbox.classList.contains('open')) { this.closeLightbox(); return; }
         if (this.modalOverlay && this.modalOverlay.classList.contains('open')) { this.closeNewTicketModal(); return; }
+        if (this.emojiPicker && this.emojiPicker.classList.contains('open')) { this.emojiPicker.classList.remove('open'); return; }
         if (this.isOpen) this.close();
     };
 
@@ -1853,13 +1937,19 @@
         } else {
             composerOrWaiting =
                 '<div class="miles-input-area" id="milesInputArea">' +
+                    '<div class="miles-emoji-picker" id="milesEmojiPicker"></div>' +
                     '<div class="miles-file-preview" id="milesFilePreview"></div>' +
-                    '<div class="miles-input-row">' +
-                        '<button class="attach-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('image') + '</button>' +
-                        '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true">' +
-                        '<textarea id="milesInput" placeholder="Type your reply…" rows="1" maxlength="' + CONFIG.MESSAGE_MAX_LEN_SAFE + '"></textarea>' +
-                        '<button class="send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                    '<div class="miles-composer-box">' +
+                        '<textarea class="miles-composer-textarea" id="milesInput" placeholder="Type your reply…" rows="1" maxlength="' + CONFIG.MESSAGE_MAX_LEN_SAFE + '"></textarea>' +
+                        '<div class="miles-composer-actions">' +
+                            '<div class="miles-composer-left">' +
+                                '<button class="miles-composer-btn" id="milesAttachBtn" type="button" aria-label="Attach file">' + iconMarkup('paperclip') + '</button>' +
+                                '<button class="miles-composer-btn" id="milesEmojiBtn" type="button" aria-label="Insert emoji">' + iconMarkup('smile') + '</button>' +
+                            '</div>' +
+                            '<button class="miles-send-btn" id="milesSendBtn" type="button" aria-label="Send message">' + iconMarkup('send') + '</button>' +
+                        '</div>' +
                     '</div>' +
+                    '<input class="attach-input" type="file" id="milesFileInput" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/csv" tabindex="-1" aria-hidden="true" style="display:none">' +
                     '<div class="miles-send-status" id="milesSendStatus"></div>' +
                 '</div>';
         }
@@ -1896,6 +1986,8 @@
         var fileInput = this.root.querySelector('#milesFileInput');
         var preview = this.root.querySelector('#milesFilePreview');
         var status = this.root.querySelector('#milesSendStatus');
+        var emojiBtn = this.root.querySelector('#milesEmojiBtn');
+        var emojiPicker = this.root.querySelector('#milesEmojiPicker');
 
         this.input = input;
         this.sendBtn = send;
@@ -1903,14 +1995,21 @@
         this.fileInput = fileInput;
         this.filePreview = preview;
         this.sendStatus = status;
+        this.emojiBtn = emojiBtn;
+        this.emojiPicker = emojiPicker;
 
         if (input) {
             input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); self.sendGuestMessage(); }
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); self.sendGuestMessage(); }
             });
             input.addEventListener('input', function () {
                 this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                if (this.scrollHeight > 120) {
+                    this.style.overflowY = 'auto';
+                } else {
+                    this.style.overflowY = 'hidden';
+                }
             });
         }
         if (send) send.addEventListener('click', function (e) { e.preventDefault(); self.sendGuestMessage(); });
@@ -1921,6 +2020,7 @@
                 e.target.value = '';
             });
         }
+        this.setupEmojiPicker();
     };
 
     MilesWidget.prototype.sendGuestMessage = function () {
