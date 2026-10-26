@@ -11,11 +11,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
-
-  
-  <!-- QR Code for Crypto -->
+  <!-- QR Code for Crypto & PDF -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="/js/session.js"></script>
   <script src="/js/presence.js" defer></script>
 
@@ -24,10 +22,8 @@
        DESIGN TOKENS
        ═══════════════════════════════════════════════════════════ */
     :root {
-       /* Fonts */
-    --fd: 'Inter', system-ui, sans-serif;
+      --fd: 'Inter', system-ui, sans-serif;
       --fb: 'Inter', system-ui, sans-serif;
-
 
       --p:   #0c3d4a;
       --pm:  #155e72;
@@ -1286,106 +1282,153 @@
       border-bottom: 1px solid var(--bdr);
       gap: 12px;
     }
-        /* ═══════════════════════════════════════════════════════════
+
+    /* ═══════════════════════════════════════════════════════════
        CLEAN TRANSACTION RECEIPT
        ═══════════════════════════════════════════════════════════ */
-    .tx-receipt-hero {
-      text-align: center;
-      padding: 24px 16px 28px;
-      border-bottom: 1px solid var(--bdr);
-      margin-bottom: 20px;
+    .tx-receipt-doc {
+      background: var(--srf);
+      border: 1px solid var(--bdr);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 18px;
     }
-    .tx-receipt-label {
-      font-size: 0.7rem;
-      font-weight: 700;
+
+    /* HEADER BLOCK COMPLETELY REMOVED */
+    
+    .tx-receipt-amount-block {
+      padding: 22px 18px 20px;
+      text-align: center;
+      border-bottom: 1px solid var(--bdr);
+      background: var(--srf2);
+      border-radius: 14px 14px 0 0; /* Round top corners since header is gone */
+    }
+    .tx-receipt-amount-label {
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
       color: var(--t3);
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
     .tx-receipt-amount {
       font-family: var(--fd);
-      font-size: 2rem;
+      font-size: 26px;
       font-weight: 800;
       letter-spacing: -0.03em;
       line-height: 1.1;
       word-break: break-all;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
+      font-variant-numeric: tabular-nums;
     }
     .tx-receipt-amount.credit { color: var(--ok); }
     .tx-receipt-amount.debit  { color: var(--t1); }
-    .tx-receipt-status {
-      display: flex;
-      justify-content: center;
-    }
-
-    .tx-receipt-rows {
-      margin-bottom: 24px;
-    }
-    .tx-receipt-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--bdr);
-    }
-    .tx-receipt-row:last-child {
-      border-bottom: none;
-    }
-    .tx-receipt-lbl {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--t3);
-      flex-shrink: 0;
+    .tx-receipt-amount-block .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .tx-receipt-val {
-      font-size: 0.82rem;
+
+    .tx-receipt-info {
+      padding: 6px 18px;
+    }
+    .tx-receipt-section {
+      padding: 14px 0;
+      border-bottom: 1px dashed var(--bdr);
+    }
+    .tx-receipt-section:last-child {
+      border-bottom: none;
+    }
+    .tx-receipt-section-title {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--acd); /* Yellowish touch */
+      margin-bottom: 8px;
+    }
+
+    .tx-receipt-row {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      column-gap: 12px;
+      align-items: start;
+      padding: 6px 0;
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .tx-receipt-lbl {
       font-weight: 600;
+      color: var(--t2);
+      text-align: left;
+      white-space: nowrap;
+    }
+    .tx-receipt-val {
+      font-weight: 700;
       color: var(--t1);
       text-align: right;
       word-break: break-all;
-      max-width: 60%;
-      line-height: 1.5;
+      min-width: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .tx-receipt-val.mono {
+      font-family: 'SF Mono', 'Courier New', monospace;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: -0.1px;
     }
 
     .tx-receipt-foot {
+      padding: 14px 18px 16px;
+      border-top: 1px solid var(--bdr);
+      background: var(--srf2);
       text-align: center;
-      font-size: 0.65rem;
+      border-radius: 0 0 14px 14px; /* Round bottom corners */
+    }
+    .tx-receipt-foot-line {
+      font-size: 9.5px;
       color: var(--t3);
-      padding-top: 16px;
-      border-top: 1px dashed var(--bdr);
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      letter-spacing: 0.05em;
+      line-height: 1.55;
+      font-weight: 500;
+    }
+    .tx-receipt-verified {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      font-weight: 600;
+      color: var(--ok);
     }
 
-    /* Responsive receipt adjustments */
-    @media (max-width: 480px) {
-      .tx-receipt-hero {
-        padding: 18px 12px 22px;
-        margin-bottom: 16px;
-      }
-      .tx-receipt-amount {
-        font-size: 1.65rem;
-      }
-      .tx-receipt-lbl {
-        font-size: 0.68rem;
-      }
-      .tx-receipt-val {
-        font-size: 0.78rem;
-        max-width: 55%;
-      }
-      .tx-receipt-row {
-        padding: 10px 0;
-        gap: 12px;
-      }
+    .tx-receipt-actions {
+      display: flex;
+      gap: 8px;
     }
+    .tx-receipt-actions .btn {
+      flex: 1;
+    }
+
+    @media (max-width: 480px) {
+      .tx-receipt-amount-block { padding: 18px 14px 16px; }
+      .tx-receipt-amount { font-size: 22px; }
+      .tx-receipt-info { padding: 4px 14px; }
+      .tx-receipt-section { padding: 12px 0; }
+      .tx-receipt-row {
+        grid-template-columns: 84px 1fr;
+        column-gap: 10px;
+        font-size: 12px;
+      }
+      .tx-receipt-val.mono { font-size: 11px; }
+      .tx-receipt-foot { padding: 12px 14px 14px; }
+    }
+
     .bd-item:last-child { border-bottom: none; }
     .bd-left {
       display: flex;
@@ -1766,7 +1809,7 @@
   <div class="main-content">
     <header class="topbar">
       <button class="tb-hbg" id="hbg" aria-label="Open menu"><i class="fas fa-bars"></i></button>
-      <p class="tb-title">💳 Wallet</p>
+      <p class="tb-title">MilesSpace</p>
       <div class="tb-right">
         <a href="notifications.html" class="tb-btn" aria-label="Notifications"><i class="fas fa-bell"></i></a>
         <div class="tb-av" id="tbAv">U</div>
@@ -2408,11 +2451,8 @@ async function loadWalletActivity() {
     const safeRows = raw.filter(t => FINANCIAL_TYPES.has(String(t.type || '').toLowerCase()));
 
     // --- DEDUPLICATION FIX ---
-    // The backend creates two rows for some deposits (e.g., a "PENDING-MSDEP..." and a "KORA-...").
-    // We group by the actual reference or internal metadata to prevent double-rendering.
     const uniqueMap = new Map();
     safeRows.forEach(row => {
-      // Prioritize completed rows so the pending one gets overwritten in the map
       const key = row.reference ? row.reference.replace(/^(KORA|PENDING)-/, '') : row.id;
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, row);
@@ -2593,12 +2633,6 @@ function showTransactionDetail(idx) {
 
   const { amount, currency } = resolveTxAmount(t);
   const absAmt = Math.abs(amount);
-  const date = t.created_at
-    ? new Date(t.created_at).toLocaleString('en-NG', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      })
-    : '—';
   const cfg = getTxType(t.type);
   const dir = String(t.direction || '').toLowerCase();
   const type = String(t.type || '').toLowerCase();
@@ -2609,41 +2643,103 @@ function showTransactionDetail(idx) {
                     : status.dot === 'pending' ? 'processing'
                     : 'finished';
 
-  const details = [
-    { label: 'Reference', value: t.reference || t.ref || t.id || '—' },
-    { label: 'Type',      value: cfg.label },
-    { label: 'Amount',    value: `${isCredit ? '+' : '-'}${formatCurrency(absAmt, currency)}` },
-    { label: 'Currency',  value: currency },
-    { label: 'Status',    value: status.label.toUpperCase() },
-    { label: 'Date',      value: date }
-  ];
+  // Dates
+  const txDate = t.created_at ? new Date(t.created_at) : new Date();
+  const dateStr = txDate.toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  });
+  const timeStr = txDate.toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit'
+  });
+  const fullDate = `${dateStr} · ${timeStr}`;
+
+  // Reference
+  const reference = String(t.reference || t.ref || t.id || '—');
+  const shortRef = reference.length > 28
+    ? reference.slice(0, 14) + '…' + reference.slice(-10)
+    : reference;
+
+  // Description (only safe ones)
   const rawDesc = String(t.description || '').trim();
-  if (SAFE_DESCRIPTIONS.has(rawDesc)) {
-    details.push({ label: 'Description', value: rawDesc });
-  }
+  const safeDesc = SAFE_DESCRIPTIONS.has(rawDesc) ? rawDesc : null;
+
+  // Wallet metadata
+  const walletName = currency === 'USD' ? 'USD Wallet' : 'Naira Wallet';
 
   DOM.txDetailBody.innerHTML = `
-    <div class="tx-receipt-hero">
-      <div class="tx-receipt-label">${escapeHtml(cfg.label)}</div>
-      <div class="tx-receipt-amount ${isCredit ? 'credit' : 'debit'}">
-        ${isCredit ? '+' : '-'}${escapeHtml(formatCurrency(absAmt, currency))}
-      </div>
-      <div class="tx-receipt-status">
+    <div class="tx-receipt-doc">
+
+      <!-- HEADER REMOVED COMPLETELY -->
+
+      <!-- Amount -->
+      <div class="tx-receipt-amount-block">
+        <div class="tx-receipt-amount-label">${isCredit ? 'Amount Credited' : 'Amount Debited'}</div>
+        <div class="tx-receipt-amount ${isCredit ? 'credit' : 'debit'}">
+          ${isCredit ? '+' : '-'}${escapeHtml(formatCurrency(absAmt, currency))}
+        </div>
         <span class="status-badge ${statusClass}">${escapeHtml(status.label)}</span>
       </div>
-    </div>
-    <div class="tx-receipt-rows">
-      ${details.map(d => `
-        <div class="tx-receipt-row">
-          <div class="tx-receipt-lbl">${escapeHtml(d.label)}</div>
-          <div class="tx-receipt-val">${escapeHtml(d.value)}</div>
+
+      <!-- Info -->
+      <div class="tx-receipt-info">
+
+        <div class="tx-receipt-section">
+          <div class="tx-receipt-section-title"></div>
+          <div class="tx-receipt-row">
+            <span class="tx-receipt-lbl">Type</span>
+            <span class="tx-receipt-val">${escapeHtml(cfg.label)}</span>
+          </div>
+          <div class="tx-receipt-row">
+            <span class="tx-receipt-lbl">Date &amp; Time</span>
+            <span class="tx-receipt-val">${escapeHtml(fullDate)}</span>
+          </div>
+          <div class="tx-receipt-row">
+            <span class="tx-receipt-lbl">Currency</span>
+            <span class="tx-receipt-val">${escapeHtml(currency)}</span>
+          </div>
+          ${safeDesc ? `
+          <div class="tx-receipt-row">
+            <span class="tx-receipt-lbl">Description</span>
+            <span class="tx-receipt-val">${escapeHtml(safeDesc)}</span>
+          </div>` : ''}
         </div>
-      `).join('')}
+
+        <div class="tx-receipt-section">
+          <div class="tx-receipt-section-title"></div>
+          <div class="tx-receipt-row">
+            <span class="tx-receipt-lbl">Wallet</span>
+            <span class="tx-receipt-val">${escapeHtml(walletName)}</span>
+          </div>
+          <div class="tx-receipt-row">
+            <span class="tx-receipt-lbl">Status</span>
+            <span class="tx-receipt-val">${escapeHtml(status.label.toUpperCase())}</span>
+          </div>
+        </div>
+
+        <div class="tx-receipt-section">
+          <div class="tx-receipt-section-title"></div>
+          <div class="tx-receipt-row">
+            <span class="tx-receipt-lbl">Ref No.</span>
+            <span class="tx-receipt-val mono">${escapeHtml(shortRef)}</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="tx-receipt-foot">
+        <div class="tx-receipt-foot-line">
+        MILESSPACE.WALLET RECEIPT | ${escapeHtml(fullDate)} | Ref: ${escapeHtml(reference)}
+        </div>
+        <div class="tx-receipt-verified">✓ Verified Transaction</div>
+      </div>
+
     </div>
-    <div class="tx-receipt-foot">
-      <span>MilesSpace</span>
-      <span>•</span>
-      <span>Wallet Receipt</span>
+
+    <div class="tx-receipt-actions">
+      <button class="btn btn-primary" onclick="closeDrawer()">
+        <i class="fas fa-times"></i> Close
+      </button>
     </div>
   `;
 
@@ -3435,46 +3531,359 @@ function openStatementPanel() {
   DOM.stmtFrom.value = firstDay.toISOString().split('T')[0];
   DOM.stmtTo.value = now.toISOString().split('T')[0];
 }
-
 async function downloadStatement() {
   const account = DOM.stmtAccount.value;
   const from = DOM.stmtFrom.value;
   const to = DOM.stmtTo.value;
-  if (!from || !to) { showToast('Please select date range', 'error'); return; }
+
+  if (!from || !to) {
+    showToast('Please select a date range', 'error');
+    return;
+  }
+  if (new Date(from) > new Date(to)) {
+    showToast('From date must be before To date', 'error');
+    return;
+  }
+
+  const btn = document.querySelector('#statementDrawer .btn-primary');
+  const originalHTML = btn.innerHTML;
 
   const txs = State.txCache || [];
-  const filtered = txs.filter(t => {
-    const date = new Date(t.created_at);
-    const cur = (t.currency || 'NGN').toUpperCase();
-    const cur2 = cur === 'USD' ? 'USD' : 'NGN';
-    return date >= new Date(from) && date <= new Date(to) && cur2 === account;
-  });
+  const filtered = txs
+    .filter(t => {
+      const date = new Date(t.created_at);
+      const cur = (t.currency || t.wallet_used || 'NGN').toUpperCase();
+      const cur2 = cur === 'USD' ? 'USD' : 'NGN';
+      return date >= new Date(from) && date <= new Date(to + 'T23:59:59') && cur2 === account;
+    })
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  if (filtered.length === 0) { showToast('No transactions found for this period', 'info'); return; }
+  if (filtered.length === 0) {
+    showToast('No transactions found for this period', 'info');
+    return;
+  }
 
-  let content = `MILESSPACE WALLET STATEMENT\n${'='.repeat(60)}\n`;
-  content += `Account: ${account}\nPeriod: ${from} to ${to}\n`;
-  content += `Generated: ${new Date().toLocaleString()}\n${'='.repeat(60)}\n\n`;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating PDF…';
 
-  filtered.forEach(t => {
-    const { amount, currency } = resolveTxAmount(t);
-    const date = t.created_at ? new Date(t.created_at).toLocaleDateString() : '—';
-    const status = txStatusInfo(t.status).label;
-    content += `${date}\t${formatCurrency(Math.abs(amount), currency)}\t${t.type}\t${status}\t${t.reference || ''}\n`;
-  });
+  try {
+    if (typeof window.jspdf === 'undefined') {
+      throw new Error('PDF library not loaded. Check your connection.');
+    }
 
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `wallet_statement_${account}_${from}_to_${to}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-  showToast('Statement downloaded', 'success');
-  closeDrawer();
+    const pageW = 210;
+    const pageH = 297;
+    const margin = 16;
+    const contentW = pageW - margin * 2;
+
+    // Colors (Modern FinTech Palette)
+    const C_DARK  = [12, 61, 74];    // Brand dark teal
+    const C_TEXT  = [15, 25, 35];    // Deep text
+    const C_MUTED = [74, 96, 112];   // Subtitles
+    const C_FAINT = [146, 168, 180]; // Table header text
+    const C_LINE  = [228, 232, 236]; // Borders
+    const C_ALT   = [248, 249, 250]; // Zebra stripes
+    const C_GREEN = [5, 150, 105];   // Credits
+    const C_RED   = [153, 27, 27];   // Debits
+
+    let pageNum = 1;
+
+    const drawHeader = () => {
+      // WHITE BACKGROUND HEADER
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, pageW, 35, 'F');
+
+      // ADD LOGO TO STATEMENT
+      try {
+        const img = new Image();
+        img.src = '/images/miles.png';
+        doc.addImage(img, 'PNG', margin, 6, 16, 16);
+      } catch(e) {
+        // Silently fail if logo can't be added
+      }
+
+      // TEXT FOLLOWS THE DESIGN COLORS
+      doc.setTextColor(C_DARK[0], C_DARK[1], C_DARK[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text('MilesSpace', margin + 22, 15);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(C_MUTED[0], C_MUTED[1], C_MUTED[2]);
+      doc.text('ACCOUNT STATEMENT', margin + 22, 22);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(C_DARK[0], C_DARK[1], C_DARK[2]);
+      doc.text(`${account} WALLET`, pageW - margin, 15, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(C_MUTED[0], C_MUTED[1], C_MUTED[2]);
+      doc.text(`Page ${pageNum}`, pageW - margin, 22, { align: 'right' });
+
+      // Bottom border for header
+      doc.setDrawColor(C_LINE[0], C_LINE[1], C_LINE[2]);
+      doc.setLineWidth(0.3);
+      doc.line(0, 35, pageW, 35);
+    };
+
+    const drawFooter = () => {
+      doc.setDrawColor(C_LINE[0], C_LINE[1], C_LINE[2]);
+      doc.setLineWidth(0.2);
+      doc.line(margin, pageH - 16, pageW - margin, pageH - 16);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(C_FAINT[0], C_FAINT[1], C_FAINT[2]);
+      doc.text(
+        'This is a computer-generated statement from MilesSpace. No signature is required.',
+        pageW / 2, pageH - 11, { align: 'center' }
+      );
+      doc.text(
+        `Generated ${new Date().toLocaleString('en-GB')}`,
+        pageW / 2, pageH - 7, { align: 'center' }
+      );
+    };
+
+    drawHeader();
+    let y = 45;
+
+    // ═══════════════════════════════════════════
+    // SUMMARY BLOCK
+    // ═══════════════════════════════════════════
+    const opening = State.wallets[account]?.balance || 0;
+
+    let totalCredit = 0;
+    let totalDebit = 0;
+    filtered.forEach(t => {
+      const { amount } = resolveTxAmount(t);
+      const dir = String(t.direction || '').toLowerCase();
+      const type = String(t.type || '').toLowerCase();
+      const isCredit = dir === 'credit' ||
+        ['deposit', 'wallet_credit', 'refund', 'cashback_redeem', 'adjustment'].includes(type);
+      const abs = Math.abs(amount);
+      if (isCredit) totalCredit += abs;
+      else totalDebit += abs;
+    });
+
+    const closing = opening + totalCredit - totalDebit;
+    // Use 'NGN' for Naira and '$' for USD because jsPDF doesn't support ₦ properly
+    const sym = account === 'USD' ? '$' : 'NGN ';
+
+    // Period & Account Info
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(C_MUTED[0], C_MUTED[1], C_MUTED[2]);
+    doc.text('STATEMENT PERIOD', margin, y);
+    doc.text('ACCOUNT TYPE', pageW / 2 + 10, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+    doc.text(`${from}  —  ${to}`, margin, y);
+    doc.text(`${account} Wallet`, pageW / 2 + 10, y);
+    y += 12;
+
+    // Summary boxes (Aligned & Modern)
+    const boxW = (contentW - 9) / 4; // 3 gaps of 3mm each
+    const boxH = 20;
+    const boxY = y;
+
+    const boxes = [
+      { label: 'OPENING', value: `${sym}${formatUSD(opening)}`, color: C_TEXT },
+      { label: 'CREDITS', value: `+${sym}${formatUSD(totalCredit)}`, color: C_GREEN },
+      { label: 'DEBITS',  value: `-${sym}${formatUSD(totalDebit)}`, color: C_RED },
+      { label: 'CLOSING', value: `${sym}${formatUSD(closing)}`, color: C_DARK }
+    ];
+
+    boxes.forEach((b, i) => {
+      const x = margin + i * (boxW + 3);
+      doc.setFillColor(C_ALT[0], C_ALT[1], C_ALT[2]);
+      doc.roundedRect(x, boxY, boxW, boxH, 2, 2, 'F');
+      
+      // Subtle border for boxes
+      doc.setDrawColor(C_LINE[0], C_LINE[1], C_LINE[2]);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(x, boxY, boxW, boxH, 2, 2, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(C_FAINT[0], C_FAINT[1], C_FAINT[2]);
+      doc.text(b.label, x + 4, boxY + 6);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(b.color[0], b.color[1], b.color[2]);
+      doc.text(b.value, x + 4, boxY + 14);
+    });
+
+    y = boxY + boxH + 12;
+
+    // ═══════════════════════════════════════════
+    // TRANSACTIONS TABLE
+    // ═══════════════════════════════════════════
+    
+    // STRICT COLUMN COORDINATES TO PREVENT OVERLAPPING
+    const colX = {
+      date: margin + 2,          // Starts at 18
+      desc: margin + 26,         // Starts at 42
+      ref:  margin + 86,         // Starts at 102
+      amt:  margin + 125,        // Starts at 126
+      bal:  pageW - margin - 2      // Ends at 194 (Right-aligned edge)
+    };
+
+    const drawTableHeader = () => {
+      doc.setFillColor(C_DARK[0], C_DARK[1], C_DARK[2]);
+      doc.roundedRect(margin, y - 6, contentW, 10, 1, 1, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text('DATE', colX.date, y);
+      doc.text('DESCRIPTION', colX.desc, y);
+      doc.text('REFERENCE', colX.ref, y);
+      
+      doc.text('AMOUNT', colX.amt, y); // Left aligned header
+      doc.text('BALANCE', colX.bal, y, { align: 'right' }); // Right aligned header
+      
+      y += 10;
+    };
+
+    drawTableHeader();
+
+    let running = opening;
+
+    filtered.forEach((t, i) => {
+      const { amount } = resolveTxAmount(t);
+      const abs = Math.abs(amount);
+      const dir = String(t.direction || '').toLowerCase();
+      const type = String(t.type || '').toLowerCase();
+      const isCredit = dir === 'credit' ||
+        ['deposit', 'wallet_credit', 'refund', 'cashback_redeem', 'adjustment'].includes(type);
+
+      running += isCredit ? abs : -abs;
+
+      const cfg = getTxType(t.type);
+      const dateStr = t.created_at
+        ? new Date(t.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+        : '—';
+      
+      let ref = String(t.reference || t.id || '—');
+      // Trim reference if it's too long so it fits the column
+      if (ref.length > 24) ref = ref.slice(0, 21) + '...';
+
+      const amtStr = `${isCredit ? '+' : '-'}${sym}${formatUSD(abs)}`;
+      const balStr = `${sym}${formatUSD(running)}`;
+
+      // Handle description wrapping
+      const descLines = doc.splitTextToSize(cfg.label, 55);
+      const rowHeight = Math.max(descLines.length * 4.5 + 6, 12);
+
+      // Page break check
+      if (y + rowHeight + 4 > pageH - 22) {
+        drawFooter();
+        doc.addPage();
+        pageNum++;
+        drawHeader();
+        y = 45;
+        drawTableHeader();
+      }
+
+      // Zebra stripe
+      if (i % 2 === 0) {
+        doc.setFillColor(C_ALT[0], C_ALT[1], C_ALT[2]);
+        doc.rect(margin, y - 6, contentW, rowHeight, 'F');
+      }
+
+      // Divider line
+      doc.setDrawColor(C_LINE[0], C_LINE[1], C_LINE[2]);
+      doc.setLineWidth(0.1);
+      doc.line(margin, y + rowHeight - 6, pageW - margin, y + rowHeight - 6);
+
+      // Date
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      doc.text(dateStr, colX.date, y);
+
+      // Description
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      doc.text(descLines, colX.desc, y);
+
+      // Reference (Courier for monospace alignment)
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(C_MUTED[0], C_MUTED[1], C_MUTED[2]);
+      doc.text(ref, colX.ref, y + 0.5); // slight optical adjustment
+
+      // Amount (LEFT ALIGNED)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(isCredit ? C_GREEN[0] : C_RED[0], isCredit ? C_GREEN[1] : C_RED[1], isCredit ? C_GREEN[2] : C_RED[2]);
+      doc.text(amtStr, colX.amt, y); // REMOVED align: 'right'
+
+      // Balance (RIGHT ALIGNED)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      doc.text(balStr, colX.bal, y, { align: 'right' });
+
+      y += rowHeight;
+    });
+
+    // ═══════════════════════════════════════════
+    // SUMMARY END
+    // ═══════════════════════════════════════════
+    if (y + 25 > pageH - 22) {
+      drawFooter();
+      doc.addPage();
+      pageNum++;
+      drawHeader();
+      y = 45;
+    }
+
+    y += 4;
+    doc.setDrawColor(C_DARK[0], C_DARK[1], C_DARK[2]);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(C_MUTED[0], C_MUTED[1], C_MUTED[2]);
+    doc.text('TOTALS', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${filtered.length} transactions`, margin, y + 5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(C_DARK[0], C_DARK[1], C_DARK[2]);
+    doc.text(`Closing Balance:  ${sym}${formatUSD(closing)}`, pageW - margin, y + 3, { align: 'right' });
+
+    drawFooter();
+
+    // ═══════════════════════════════════════════
+    // SAVE
+    // ═══════════════════════════════════════════
+    const filename = `MilesSpace_${account}_Statement_${from}_to_${to}.pdf`;
+    doc.save(filename);
+
+    showToast('Statement downloaded', 'success');
+    closeDrawer();
+  } catch (err) {
+    console.error('[PDF] statement error:', err);
+    showToast(err.message || 'Could not generate statement', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
