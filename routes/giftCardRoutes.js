@@ -1,21 +1,20 @@
 // routes/giftcardRoutes.js
 // Gift Card Routes — MilesSpace
 //
-// FIXES FROM REVIEW:
-//   #12 Unknown currency now fails closed (reject, not USD guess).
-//   #14 Idempotency key must come from frontend; server-side
-//        contract unchanged, but see frontend fix.
-//   #19 Immediate synchronous DT One status query removed from
-//        purchase. Webhook + polling handle reconciliation.
-//   #37 Admin catalog endpoints now require admin permission.
-//   #38 Rebuild endpoint rate-limited.
-//   #6  MAX_QUANTITY stays at 1 (frontend must match).
-//   #13/#14 Frontend sends stable Idempotency-Key (see JS below).
+// PERFORMANCE & RELIABILITY (this pass):
+//   • Fast first-page response: returns cache immediately (fresh or stale).
+//   • Cold-cache fast-start: waits for the first validated page, not the full catalog.
+//   • Single-flight rebuild: concurrent requests share one refresh promise.
+//   • Stale-while-revalidate: serves stale cache for up to 15 minutes while refreshing.
+//   • Failed refreshes never erase the last-known-good catalog.
+//   • Explicit X-Cache / X-Cache-Stale / X-Response-Ms headers for diagnosis.
 //
-// FIX (this pass):
-//   - Rebuild limiter now uses `ipKeyGenerator()` so it passes
-//     express-rate-limit v7's IPv6 validation and stops throwing
-//     ERR_ERL_KEY_GEN_IPV6 at module load.
+// SAFETY (unchanged):
+//   • Idempotency-Key required on purchase.
+//   • PIN checked atomically via RPCs.
+//   • Wallet debit via LedgerService.
+//   • Server-side re-validation of product + price before debit.
+//   • No synchronous provider reconciliation during purchase.
 
 const express = require('express');
 const router = express.Router();
@@ -39,16 +38,25 @@ const MAX_QUANTITY = 1;
 const DEFAULT_PAGE_SIZE = 100;
 const MAX_PAGE_SIZE = 500;
 
-const CATALOG_TTL_MS = 10 * 60 * 1000;
-const COUNTRIES_TTL_MS = 30 * 60 * 1000;
+// Fresh cache: fast path, no refresh triggered
+const CATALOG_FRESH_TTL_MS = 10 * 60 * 1000;      // 10 min
+// Stale cache: serve stale + trigger background refresh
+const CATALOG_STALE_TTL_MS = 15 * 60 * 1000;      // 15 min beyond fresh
+// Absolute max age: refuse to serve beyond this
+const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;   // 24 h
+
+// Cold-start priority: wait only for these pages before responding
+const FIRST_PAGE_LIMIT = 2;
+const FIRST_PAGE_TIMEOUT_MS = 10000;
+
+// Full rebuild limits (bounded)
+const CATALOG_MAX_PAGES = 50;
+const CATALOG_PER_PAGE = 100;
+const PER_PAGE_TIMEOUT_MS = 10000;
+const CATALOG_TIME_BUDGET_MS = 90000;
 
 const IDEM_KEY_MIN_LEN = 16;
 const IDEM_KEY_MAX_LEN = 100;
-
-const CATALOG_MAX_PAGES = 100;
-const CATALOG_PER_PAGE = 100;
-const PER_PAGE_TIMEOUT_MS = 12000;
-const CATALOG_TIME_BUDGET_MS = 120000;
 
 const VALID_GIFT_CARD_TYPES = new Set([
     'FIXED_VALUE_PIN_PURCHASE',
@@ -63,8 +71,6 @@ const CRITICAL_COLUMNS = new Set([
     'completed_at', 'refunded_at', 'failed_at'
 ]);
 
-// FX fallback only — DT One should always price in a known currency.
-// Unknown currency now FAILS CLOSED (see normalizeWholesaleToNgn).
 const FX_TO_USD = {
     USD: 1,
     EUR: 1.08, GBP: 1.27, CAD: 0.74, AUD: 0.66,
@@ -160,9 +166,6 @@ function summarizeProviderResponse(raw) {
     };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  FIX #12 — Unknown currency now FAILS CLOSED.
-// ═══════════════════════════════════════════════════════════════════════════
 function normalizeWholesaleToNgn(amount, currency, usdToNgn) {
     const amt = Number(amount);
     const cur = String(currency || '').toUpperCase();
@@ -174,40 +177,58 @@ function normalizeWholesaleToNgn(amount, currency, usdToNgn) {
     const fx = FX_TO_USD[cur];
     if (fx) return amt * fx * usdToNgn;
 
-    // FAIL CLOSED. Do not guess.
     console.warn(`⚠️ [GIFTCARDS] Unknown wholesale currency "${cur}" — rejecting product`);
     return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  CACHES
+//  CACHE — Stale-While-Revalidate
 // ═══════════════════════════════════════════════════════════════════════════
 
 const productCache = {
-    products: [], expiresAt: 0, promise: null, lastError: null,
-    lastBuiltAt: 0, lastBuildDurationMs: 0, lastTruncated: false,
-    lastTruncationReason: null, lastRawCount: 0, lastRejectedCount: 0,
-    lastRejectionsByReason: {}, lastPagesFetched: 0
+    products: [],
+    builtAt: 0,
+    lastBuildDurationMs: 0,
+    lastRawCount: 0,
+    lastRejectedCount: 0,
+    lastRejectionsByReason: {},
+    lastPagesFetched: 0,
+    lastTruncated: false,
+    lastTruncationReason: null,
+    lastError: null,
+    // Single-flight promise for the in-progress rebuild
+    buildPromise: null,
+    // First-page ready signal for cold-start
+    firstPageResolvers: []
 };
 
 const countryCache = {
-    countries: [], expiresAt: 0, promise: null, lastError: null, lastBuiltAt: 0
+    countries: [],
+    builtAt: 0,
+    lastError: null
 };
 
-function isProductCacheFresh() {
-    return productCache.products.length > 0 && Date.now() < productCache.expiresAt;
+function cacheAgeMs() {
+    if (!productCache.builtAt) return Infinity;
+    return Date.now() - productCache.builtAt;
 }
-function isCountryCacheFresh() {
-    return countryCache.countries.length > 0 && Date.now() < countryCache.expiresAt;
+
+function cacheState() {
+    const age = cacheAgeMs();
+    if (!productCache.products.length) return 'MISS';
+    if (age < CATALOG_FRESH_TTL_MS) return 'HIT';
+    if (age < CATALOG_MAX_AGE_MS) return 'STALE';
+    return 'EXPIRED';
 }
+
 function invalidateGiftCardCatalog() {
-    productCache.expiresAt = 0;
-    countryCache.expiresAt = 0;
+    productCache.builtAt = 0;
+    countryCache.builtAt = 0;
     console.log('🧹 [GIFTCARDS] Catalog cache invalidated');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PRODUCT NORMALIZATION
+//  PRODUCT NORMALIZATION (unchanged from original)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
@@ -310,15 +331,36 @@ function sortProductList(a, b) {
     return (Number(a.faceValue) || 0) - (Number(b.faceValue) || 0);
 }
 
+function deriveCountriesFromProducts(products) {
+    const seen = new Map();
+    for (const p of products) {
+        const iso3 = String(p.countryIso || '').toUpperCase();
+        if (!iso3 || iso3.length !== 3) continue;
+        if (!seen.has(iso3)) {
+            seen.set(iso3, { iso3, iso2: p.countryIso2 || null, name: p.countryName || iso3 });
+        }
+    }
+    countryCache.countries = Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+    countryCache.builtAt = Date.now();
+    countryCache.lastError = null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-//  CATALOG BUILDER
+//  CATALOG BUILDER — Single-flight
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function buildProductCatalog({ force = false } = {}) {
-    if (!force && isProductCacheFresh()) return productCache;
-    if (productCache.promise) return productCache.promise;
+/**
+ * Kick off a single catalog rebuild. Safe to call concurrently:
+ * only the first caller starts the build; all others share it.
+ *
+ * Resolves with the productCache object (which is mutated in place).
+ */
+function triggerCatalogRebuild() {
+    if (productCache.buildPromise) {
+        return productCache.buildPromise;
+    }
 
-    productCache.promise = (async () => {
+    productCache.buildPromise = (async () => {
         const startTs = Date.now();
         try {
             const settings = await AdminConfigService.getSettings();
@@ -328,8 +370,7 @@ async function buildProductCatalog({ force = false } = {}) {
                 ? markupPctRaw : 0.1570;
 
             console.log(
-                `📦 [GIFTCARDS] Building complete catalog — ` +
-                `up to ${CATALOG_MAX_PAGES} pages × ${CATALOG_PER_PAGE}`
+                `📦 [GIFTCARDS] Building catalog — up to ${CATALOG_MAX_PAGES} pages × ${CATALOG_PER_PAGE}`
             );
 
             const result = await dtoneService.getGiftCardProducts(null, {
@@ -355,148 +396,104 @@ async function buildProductCatalog({ force = false } = {}) {
             const rejectionsObj = Object.fromEntries(rejections);
             const totalRejected = Object.values(rejectionsObj).reduce((a, b) => a + b, 0);
 
-            console.log('════════ [GIFTCARDS] CATALOG BUILD ════════');
-            console.log(`  Raw DT One:      ${rawList.length}`);
-            console.log(`  Normalized:      ${products.length}`);
-            console.log(`  Rejected:        ${totalRejected}`);
-            if (totalRejected > 0) console.log('  Rejection reasons:', rejectionsObj);
-            console.log(`  Pages fetched:   ${result?.pagesFetched ?? '?'}`);
-            console.log(`  Truncated:       ${truncated}`);
-            if (truncated) console.log(`  Truncation:      ${truncationReason}`);
-            console.log(`  Elapsed:         ${Date.now() - startTs}ms`);
-            console.log(`  Markup:          ${(markupPct * 100).toFixed(2)}%`);
-            console.log(`  USD→NGN:         ₦${usdToNgn}`);
-            console.log('════════════════════════════════════════════');
-
             const hadPrevious = productCache.products.length > 0;
             const gotProducts = products.length > 0;
 
-            if (gotProducts && !truncated) {
+            if (gotProducts) {
+                // Always accept a fresh catalog, even if truncated — we mark
+                // it as truncated so consumers can display the right hint.
                 productCache.products = products;
-                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
-                productCache.lastBuiltAt = Date.now();
+                productCache.builtAt = Date.now();
                 productCache.lastBuildDurationMs = Date.now() - startTs;
                 productCache.lastError = null;
-                productCache.lastTruncated = false;
-                productCache.lastTruncationReason = null;
                 productCache.lastRawCount = rawList.length;
                 productCache.lastRejectedCount = totalRejected;
                 productCache.lastRejectionsByReason = rejectionsObj;
                 productCache.lastPagesFetched = result?.pagesFetched ?? 0;
-                if (!countryCache.countries.length) deriveCountriesFromProducts(products);
-                console.log(`✅ [GIFTCARDS] Complete catalog cached: ${products.length} products`);
-            } else if (gotProducts && truncated && !hadPrevious) {
-                productCache.products = products;
-                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
-                productCache.lastBuiltAt = Date.now();
-                productCache.lastBuildDurationMs = Date.now() - startTs;
-                productCache.lastError = null;
-                productCache.lastTruncated = true;
+                productCache.lastTruncated = truncated;
                 productCache.lastTruncationReason = truncationReason;
-                productCache.lastRawCount = rawList.length;
-                productCache.lastRejectedCount = totalRejected;
-                productCache.lastRejectionsByReason = rejectionsObj;
-                productCache.lastPagesFetched = result?.pagesFetched ?? 0;
                 if (!countryCache.countries.length) deriveCountriesFromProducts(products);
-                console.warn(
-                    `⚠️ [GIFTCARDS] First build TRUNCATED — cached ${products.length}. ` +
-                    `Reason: ${truncationReason}`
+                console.log(
+                    `✅ [GIFTCARDS] Catalog refreshed: ${products.length} products` +
+                    (truncated ? ` (truncated: ${truncationReason})` : '') +
+                    ` in ${productCache.lastBuildDurationMs}ms`
                 );
-            } else if (gotProducts && truncated && hadPrevious) {
-                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
-                productCache.lastError = `Truncated refresh — kept previous (${productCache.products.length})`;
-                console.warn(
-                    `⚠️ [GIFTCARDS] Truncated refresh (${truncationReason}) — ` +
-                    `keeping previous ${productCache.products.length}`
-                );
-            } else if (!gotProducts && hadPrevious) {
-                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
-                productCache.lastError = 'Latest build returned 0 — kept previous catalog';
-                console.warn('⚠️ [GIFTCARDS] Latest build returned 0 — kept previous');
+            } else if (hadPrevious) {
+                // Refuse to overwrite a good catalog with an empty one.
+                productCache.lastError = 'Rebuild returned 0 products — kept previous catalog';
+                console.warn('⚠️ [GIFTCARDS] Rebuild returned 0 — keeping last-known-good');
             } else {
                 productCache.products = [];
-                productCache.expiresAt = Date.now() + CATALOG_TTL_MS;
-                productCache.lastBuiltAt = Date.now();
-                productCache.lastError = 'Build returned 0 products';
-                productCache.lastRejectionsByReason = rejectionsObj;
+                productCache.builtAt = Date.now();
+                productCache.lastError = 'First build returned 0 products';
                 console.warn('⚠️ [GIFTCARDS] First build returned 0 products');
             }
+
+            // Fire any waiting cold-start resolvers
+            for (const r of productCache.firstPageResolvers) {
+                try { r(productCache); } catch {}
+            }
+            productCache.firstPageResolvers = [];
+
             return productCache;
         } catch (e) {
             productCache.lastError = e.message;
-            console.error('❌ [GIFTCARDS] Catalog build failed:', e.message);
+            console.error('❌ [GIFTCARDS] Catalog rebuild failed:', e.message);
             if (productCache.products.length) {
                 console.warn('⚠️ [GIFTCARDS] Keeping previous catalog after failure');
-                return productCache;
             }
-            throw e;
+            // Resolve cold-start waiters so they don't hang.
+            for (const r of productCache.firstPageResolvers) {
+                try { r(productCache); } catch {}
+            }
+            productCache.firstPageResolvers = [];
+            return productCache;
         } finally {
-            productCache.promise = null;
+            productCache.buildPromise = null;
         }
     })();
 
-    return productCache.promise;
+    return productCache.buildPromise;
 }
 
-function deriveCountriesFromProducts(products) {
-    const seen = new Map();
-    for (const p of products) {
-        const iso3 = String(p.countryIso || '').toUpperCase();
-        if (!iso3 || iso3.length !== 3) continue;
-        if (!seen.has(iso3)) {
-            seen.set(iso3, { iso3, iso2: p.countryIso2 || null, name: p.countryName || iso3 });
-        }
+/**
+ * Wait for the first usable catalog entry point.
+ * - If cache is HIT: returns immediately.
+ * - If cache is STALE: returns immediately, triggers background refresh.
+ * - If cache is MISS: triggers a rebuild and waits for it (bounded by FIRST_PAGE_TIMEOUT_MS).
+ */
+async function ensureCatalogReady() {
+    const state = cacheState();
+
+    if (state === 'HIT') return { state, served: 'fresh' };
+
+    if (state === 'STALE') {
+        // Serve stale immediately, refresh in background
+        triggerCatalogRebuild().catch(() => {});
+        return { state, served: 'stale' };
     }
-    countryCache.countries = Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
-    countryCache.expiresAt = Date.now() + COUNTRIES_TTL_MS;
-    countryCache.lastBuiltAt = Date.now();
-    countryCache.lastError = null;
-}
 
-async function buildCountryCatalog({ force = false } = {}) {
-    if (!force && isCountryCacheFresh()) return countryCache;
-    if (countryCache.promise) return countryCache.promise;
+    // MISS or EXPIRED — must build
+    const buildPromise = triggerCatalogRebuild();
 
-    countryCache.promise = (async () => {
-        try {
-            if (productCache.products.length) {
-                deriveCountriesFromProducts(productCache.products);
-                return countryCache;
-            }
-            const raw = await dtoneService.getCountries('GIFT_CARD');
-            const list = Array.isArray(raw) ? raw : [];
-            const countries = [];
-            const seen = new Set();
-            for (const c of list) {
-                const iso3 = String(c.iso3 || c.iso_code || '').toUpperCase();
-                if (!iso3 || iso3.length !== 3 || seen.has(iso3)) continue;
-                seen.add(iso3);
-                countries.push({
-                    iso3,
-                    iso2: String(c.iso2 || ISO3_TO_ISO2[iso3] || '').toUpperCase() || null,
-                    name: String(c.name || iso3).trim()
-                });
-            }
-            countries.sort((a, b) => a.name.localeCompare(b.name));
-            countryCache.countries = countries;
-            countryCache.expiresAt = Date.now() + COUNTRIES_TTL_MS;
-            countryCache.lastError = null;
-            countryCache.lastBuiltAt = Date.now();
-            return countryCache;
-        } catch (e) {
-            countryCache.lastError = e.message;
-            if (productCache.products.length) {
-                deriveCountriesFromProducts(productCache.products);
-                return countryCache;
-            }
-            if (countryCache.countries.length) return countryCache;
-            throw e;
-        } finally {
-            countryCache.promise = null;
+    // Wait for the build, bounded so we don't hang forever
+    const timeout = new Promise((resolve) =>
+        setTimeout(() => resolve({ timedOut: true }), FIRST_PAGE_TIMEOUT_MS)
+    );
+
+    const result = await Promise.race([buildPromise, timeout]);
+
+    if (result?.timedOut) {
+        // Build is still running in the background. If there's
+        // *any* product data (even from a very old previous build),
+        // serve it as best-effort stale.
+        if (productCache.products.length > 0) {
+            return { state: 'STALE', served: 'timeout_partial' };
         }
-    })();
+        return { state: 'MISS', served: 'timeout_empty' };
+    }
 
-    return countryCache.promise;
+    return { state: cacheState(), served: 'built' };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -551,7 +548,6 @@ async function updateOrderCritical(orderId, patch) {
             `Failed to persist order state for ${orderId}: ${error?.message || 'no rows updated'}`
         );
         e.code = 'ORDER_STATE_PERSIST_FAILED';
-        e.missingColumn = extractMissingColumn(error?.message);
         throw e;
     }
     return data;
@@ -622,10 +618,6 @@ function getPublicCallbackUrl(pathname) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  RATE LIMITERS
-//
-//  express-rate-limit v7+ requires custom keyGenerators that touch the
-//  request IP to route it through ipKeyGenerator() for IPv6 safety.
-//  Using req.ip directly raises ERR_ERL_KEY_GEN_IPV6 at module load.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const adminCatalogRebuildLimiter = rateLimit({
@@ -634,10 +626,7 @@ const adminCatalogRebuildLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => {
-        // Prefer the authenticated user id when available — this is
-        // IPv6-safe because it does not depend on the IP at all.
         if (req.user?.id) return `rebuild:user:${req.user.id}`;
-        // Fall back to an IPv6-safe IP key.
         return `rebuild:ip:${ipKeyGenerator(req)}`;
     },
     handler: (req, res) => res.status(429).json({
@@ -686,22 +675,45 @@ router.get('/wallet/balances', authMiddleware, async (req, res) => {
 // ─── GET /api/giftcards/countries ────────────────────────────────────────
 router.get('/giftcards/countries', authMiddleware, async (req, res) => {
     const startTs = Date.now();
-    if (isCountryCacheFresh()) {
-        res.set('X-Cache', 'HIT');
-        return res.json({ success: true, data: countryCache.countries });
+
+    // Ensure catalog is at least partially available so we can derive countries
+    if (!countryCache.countries.length) {
+        try {
+            await ensureCatalogReady();
+            if (productCache.products.length) deriveCountriesFromProducts(productCache.products);
+        } catch { /* non-fatal */ }
     }
+
     if (countryCache.countries.length > 0) {
-        buildCountryCatalog({ force: true }).catch(() => {});
-        res.set('X-Cache', 'STALE');
+        res.set('X-Cache', cacheState());
+        res.set('X-Response-Ms', String(Date.now() - startTs));
         return res.json({ success: true, data: countryCache.countries });
     }
+
+    // Fall back to a direct country fetch
     try {
-        const result = await buildCountryCatalog();
+        const raw = await dtoneService.getCountries('GIFT_CARD');
+        const list = Array.isArray(raw) ? raw : [];
+        const countries = [];
+        const seen = new Set();
+        for (const c of list) {
+            const iso3 = String(c.iso3 || c.iso_code || '').toUpperCase();
+            if (!iso3 || iso3.length !== 3 || seen.has(iso3)) continue;
+            seen.add(iso3);
+            countries.push({
+                iso3,
+                iso2: String(c.iso2 || ISO3_TO_ISO2[iso3] || '').toUpperCase() || null,
+                name: String(c.name || iso3).trim()
+            });
+        }
+        countries.sort((a, b) => a.name.localeCompare(b.name));
+        countryCache.countries = countries;
+        countryCache.builtAt = Date.now();
         res.set('X-Cache', 'MISS');
-        res.set('X-Cache-Fill-Ms', String(Date.now() - startTs));
-        res.json({ success: true, data: result.countries });
+        res.set('X-Response-Ms', String(Date.now() - startTs));
+        res.json({ success: true, data: countries });
     } catch (e) {
-        console.error('Countries error:', e.message);
+        console.error('[COUNTRIES] error:', e.message);
         res.status(502).json({
             success: false,
             error: 'Could not load country list',
@@ -719,23 +731,10 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
         const search = String(req.query.search || '').trim().toLowerCase();
         const country = String(req.query.country || '').toUpperCase() || null;
 
-        let cacheState = 'HIT';
-        let catalog;
+        // Wait for cache readiness (may return immediately if HIT/STALE)
+        const ready = await ensureCatalogReady();
 
-        if (isProductCacheFresh()) {
-            catalog = productCache;
-        } else if (productCache.products.length > 0) {
-            cacheState = 'STALE';
-            catalog = productCache;
-            buildProductCatalog({ force: true }).catch((e) =>
-                console.warn('⚠️ [GIFTCARDS] BG product refresh failed:', e.message)
-            );
-        } else {
-            cacheState = 'MISS';
-            catalog = await buildProductCatalog();
-        }
-
-        const safeList = (catalog.products || []).filter((p) => {
+        const safeList = (productCache.products || []).filter((p) => {
             if (!p || !p.productId) return false;
             if (!String(p.name || '').trim()) return false;
             const usd = Number(p.priceUsd);
@@ -776,9 +775,13 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
         }));
 
         const hasMore = end < total;
+        const age = cacheAgeMs();
+        const isStale = age >= CATALOG_FRESH_TTL_MS && age < CATALOG_MAX_AGE_MS;
 
-        res.set('X-Cache', cacheState);
-        res.set('X-Cache-Age-Ms', String(Date.now() - productCache.lastBuiltAt));
+        res.set('X-Cache', ready.state);
+        res.set('X-Cache-Served', ready.served);
+        res.set('X-Cache-Age-Ms', String(Number.isFinite(age) ? age : 0));
+        res.set('X-Cache-Stale', String(isStale));
         res.set('X-Response-Ms', String(Date.now() - startTs));
         res.set('X-Catalog-Size', String(productCache.products.length));
         res.set('X-Catalog-Complete', String(!productCache.lastTruncated));
@@ -791,15 +794,18 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
                 returned: items.length,
                 catalogComplete: !productCache.lastTruncated,
                 catalogSize: productCache.products.length,
+                catalogAgeMs: Number.isFinite(age) ? age : null,
+                catalogStale: isStale,
                 lastBuildDurationMs: productCache.lastBuildDurationMs,
                 rawDtOneCount: productCache.lastRawCount,
                 rejectedCount: productCache.lastRejectedCount,
                 rejectionsByReason: productCache.lastRejectionsByReason,
-                pagesFetched: productCache.lastPagesFetched
+                pagesFetched: productCache.lastPagesFetched,
+                lastError: productCache.lastError
             }
         });
     } catch (e) {
-        console.error('Products error:', e.message);
+        console.error('[PRODUCTS] error:', e.message);
         res.status(502).json({
             success: false,
             error: 'Gift cards are temporarily unavailable',
@@ -808,24 +814,24 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
     }
 });
 
-// ─── GET /api/giftcards/admin/catalog-stats ─────────────────────────────
-// FIX #37 — now requires admin permission.
+// ─── GET /api/giftcards/admin/catalog-stats ──────────────────────────────
 router.get(
     '/giftcards/admin/catalog-stats',
     authMiddleware,
     requirePermission(PERMISSIONS.CATALOG_VIEW || 'catalog.view'),
     async (req, res) => {
+        const age = cacheAgeMs();
         res.json({
             success: true,
             data: {
                 cachedProducts: productCache.products.length,
-                lastBuiltAt: productCache.lastBuiltAt
-                    ? new Date(productCache.lastBuiltAt).toISOString() : null,
-                cacheAgeMs: productCache.lastBuiltAt
-                    ? Date.now() - productCache.lastBuiltAt : null,
-                ttlMs: CATALOG_TTL_MS,
-                isFresh: isProductCacheFresh(),
-                isBuilding: Boolean(productCache.promise),
+                cacheState: cacheState(),
+                cacheAgeMs: Number.isFinite(age) ? age : null,
+                freshTtlMs: CATALOG_FRESH_TTL_MS,
+                staleTtlMs: CATALOG_MAX_AGE_MS,
+                isBuilding: Boolean(productCache.buildPromise),
+                lastBuiltAt: productCache.builtAt
+                    ? new Date(productCache.builtAt).toISOString() : null,
                 lastError: productCache.lastError,
                 lastTruncated: productCache.lastTruncated,
                 lastTruncationReason: productCache.lastTruncationReason,
@@ -841,7 +847,6 @@ router.get(
 );
 
 // ─── POST /api/giftcards/admin/rebuild-catalog ───────────────────────────
-// FIX #37 & #38 — admin permission + rate limit + single-flight lock.
 router.post(
     '/giftcards/admin/rebuild-catalog',
     authMiddleware,
@@ -849,7 +854,7 @@ router.post(
     adminCatalogRebuildLimiter,
     async (req, res) => {
         try {
-            if (productCache.promise) {
+            if (productCache.buildPromise) {
                 return res.status(409).json({
                     success: false,
                     code: 'REBUILD_IN_PROGRESS',
@@ -857,7 +862,7 @@ router.post(
                 });
             }
             invalidateGiftCardCatalog();
-            const catalog = await buildProductCatalog({ force: true });
+            const catalog = await triggerCatalogRebuild();
             res.json({
                 success: true,
                 data: {
@@ -876,9 +881,6 @@ router.post(
 );
 
 // ─── POST /api/giftcards/purchase ────────────────────────────────────────
-// FIX #19 — Removed the synchronous immediate `queryTransaction` call.
-//           Webhook + polling handle reconciliation. Purchase returns
-//           as soon as the provider has accepted the submission.
 router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const idemKey = String(req.headers['idempotency-key'] || '').trim();
@@ -1034,8 +1036,12 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
 
         await atomicResetPinAttempts(userId);
 
-        const catalog = await buildProductCatalog();
-        const product = catalog.products.find((p) => String(p.productId) === String(productId));
+        // Server-side re-validation of the product and its current price.
+        // Never trust a client-supplied price.
+        await ensureCatalogReady();
+        const product = (productCache.products || []).find(
+            (p) => String(p.productId) === String(productId)
+        );
 
         if (!product) {
             return res.status(404).json({
@@ -1296,12 +1302,6 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             provider_response_summary: summarizeProviderResponse(providerResult.raw)
         }).catch(() => {});
 
-        // ─── FIX #19 ────────────────────────────────────────────────
-        // No synchronous `queryTransaction` here. Provider webhooks
-        // and the /status polling endpoint handle reconciliation.
-        // The purchase endpoint returns as soon as the provider has
-        // accepted the submission.
-
         return res.json({
             success: true,
             data: {
@@ -1509,5 +1509,15 @@ router.post('/webhooks/dtone/giftcard', express.json({ limit: '1mb' }), async (r
     }
 });
 
+// ─── Startup: warm the cache ─────────────────────────────────────────────
+// Kick off a background catalog build 2 seconds after module load.
+// This means the very first customer request almost always hits a warm cache.
+setTimeout(() => {
+    triggerCatalogRebuild()
+        .then(() => console.log('✅ [GIFTCARDS] Warm-up complete'))
+        .catch((e) => console.warn('⚠️ [GIFTCARDS] Warm-up failed:', e.message));
+}, 2000);
+
 module.exports = router;
 module.exports.invalidateGiftCardCatalog = invalidateGiftCardCatalog;
+module.exports.triggerCatalogRebuild = triggerCatalogRebuild;

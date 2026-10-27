@@ -367,6 +367,28 @@ router.get(
     }
 );
 
+// In your admin boost routes
+router.post('/services/:id', requirePermission(PERMISSIONS.BOOST_MANAGE), async (req, res) => {
+  const { description, name, active, visible_to_users, min_quantity, max_quantity, markup_percent } = req.body;
+  
+  const updates = {};
+  if (description !== undefined) {
+    // Enforce a sensible limit
+    updates.description = String(description).slice(0, 2000);
+  }
+  if (name) updates.name = String(name).slice(0, 200);
+  if (active !== undefined) updates.active = Boolean(active);
+  if (visible_to_users !== undefined) updates.visible_to_users = Boolean(visible_to_users);
+  if (min_quantity) updates.min_quantity = parseInt(min_quantity, 10);
+  if (max_quantity) updates.max_quantity = parseInt(max_quantity, 10);
+  if (markup_percent) updates.markup_percent = parseFloat(markup_percent);
+
+  const { error } = await supabaseAdmin.from('boost_services').update(updates).eq('id', req.params.id);
+  
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  res.json({ success: true, message: 'Service updated' });
+});
+
 // ─── Reveal code ─────────────────────────────────────────────────
 router.post(
     '/gift-cards/orders/:id/reveal-code',

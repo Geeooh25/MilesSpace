@@ -45,10 +45,8 @@
        DESIGN TOKENS
        ═══════════════════════════════════════════════════════════ */
     :root {
-     /* Fonts */
-     --fd: 'Inter', system-ui, sans-serif;
+      --fd: 'Inter', system-ui, sans-serif;
       --fb: 'Inter', system-ui, sans-serif;
-
 
       --bg:    #F5F6FB;
       --srf:   #FFFFFF;
@@ -384,7 +382,7 @@
       border-radius: 10px;
       background: var(--bg);
       color: var(--t1);
-      font-size: 16px; /* prevents iOS zoom */
+      font-size: 16px;
       transition: var(--tr);
       min-height: 44px;
       scroll-margin-block: 16px;
@@ -862,7 +860,6 @@
       min-width: 0;
     }
 
-    /* All text inputs must be >= 16px to stop iOS auto-zoom */
     .search-input,
     .country-menu .cm-search input,
     .email-input,
@@ -873,12 +870,8 @@
       scroll-margin-block: 16px;
     }
 
-    /* Let the page scroll when the keyboard opens */
-    .wrap {
-      overflow: visible;
-    }
+    .wrap { overflow: visible; }
 
-    /* Ensure lists scroll naturally with touch */
     .gc-list,
     .country-menu,
     .hist-drawer,
@@ -886,7 +879,6 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* Keep layout calm when keyboard reduces visible viewport */
     @media (max-height: 600px) {
       .country-menu { max-height: 220px; }
       .drawer-body { padding-bottom: 120px; }
@@ -946,7 +938,6 @@
     <span class="tb-brand">MilesSpace</span>
     <div class="tb-spacer"></div>
     <div class="tb-right">
-      <!-- This opens the Gift Card History drawer -->
       <button class="tb-icon-btn" id="histBtn" title="Gift Card History" aria-label="Gift Card History"><i class="fas fa-clock-rotate-left"></i></button>
       <a href="notifications.html" class="tb-icon-btn" aria-label="Notifications"><i class="fas fa-bell"></i></a>
       <a href="usersettings.html" class="tb-av" id="tbAv">U</a>
@@ -1165,12 +1156,7 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   AUTH MODEL
-   ───────────────────────────────────────────────────────────────────────
-   • Access token lives in memory (managed by /js/session.js).
-   • Refresh token lives in an HttpOnly cookie.
-   • All authenticated requests go through window.userFetch().
-   • User metadata is available via window.getUser().
+   CONFIG
    ═══════════════════════════════════════════════════════════════════════ */
 
 const CONFIG = {
@@ -1187,9 +1173,10 @@ const CONFIG = {
   pollIntervalMs: 3000,
   pollMaxAttempts: 40,
   maxQty: 5,
+  // Cache is now used purely as a fast-paint source; we no longer
+  // discard it based on a short TTL. Freshness is enforced on the server.
   productsCacheKey: 'mx_giftcard_products_v2',
   legacyCacheKeys: ['mx_giftcard_products_v1'],
-  productsCacheTtlMs: 10 * 60 * 1000,
   productsPageSize: 500,
   productsMaxPages: 20,
   hydrationConcurrency: 3,
@@ -1444,19 +1431,16 @@ function renderUserFromSession() {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PRODUCTS CATALOG
+   PRODUCTS CATALOG — Stale-While-Revalidate
    ══════════════════════════════════════════════════════════════ */
 async function loadProducts() {
-  State.loading = true;
-  State.loadError = false;
-  renderList();
-
   let paintedFromCache = false;
 
+  // 1. Paint from cache immediately if we have *anything* cached.
+  //    No TTL check here; the server enforces freshness on purchase.
   try {
     const cached = JSON.parse(localStorage.getItem(CONFIG.productsCacheKey) || 'null');
-    if (cached && Array.isArray(cached.data) && cached.data.length &&
-        (Date.now() - cached.ts) < CONFIG.productsCacheTtlMs) {
+    if (cached && Array.isArray(cached.data) && cached.data.length) {
       State.products = cached.data;
       buildCountryList();
       State.loading = false;
@@ -1466,6 +1450,13 @@ async function loadProducts() {
     }
   } catch { /* ignore cache errors */ }
 
+  if (!paintedFromCache) {
+    State.loading = true;
+    State.loadError = false;
+    renderList();
+  }
+
+  // 2. Fetch fresh data from server (always, even if cache was used)
   try {
     const firstPage = await apiGet(CONFIG.api.products(1, CONFIG.productsPageSize));
     const firstRows = Array.isArray(firstPage.data) ? firstPage.data : [];

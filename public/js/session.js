@@ -12,20 +12,35 @@
 //                     No tokens, no secrets.
 //
 // CROSS-TAB
-//   • One BroadcastChannel coordinates refresh across tabs so
-//     two tabs do not race the same refresh token.
+//   • Coordinated via Web Locks API (primary) + BroadcastChannel
+//     (fallback). Tabs broadcast *state changes* (refresh start,
+//     refresh done, logout) but NEVER share bearer tokens.
+//     Each tab mints its own access token via the server.
 //
-// UTC
-//   • Server returns ISO 8601 with `Z`. This file never parses
-//     a timestamp as local time — it only ever displays.
+// SESSION READY EVENT
+//   • Dispatches `session:ready` once the access token is minted
+//     (or once we know we do not need one — auth page, admin,
+//     root page). Fires `session:error` if refresh fails.
+//     Pages that need an authenticated call listen for this.
+//
+// FINANCIAL SAFETY
+//   • userFetch() will not replay non-idempotent POSTs after a
+//     timeout or 401 unless an `Idempotency-Key` header is present.
 // ============================================================
 
 (function () {
     'use strict';
 
+    // ─── GUARD AGAINST DUPLICATE INCLUSION ─────────────────────
+    if (window.__MILES_SESSION_LOADED__) {
+        console.warn('[SESSION] Already loaded — ignoring duplicate script tag.');
+        return;
+    }
+    window.__MILES_SESSION_LOADED__ = true;
+
     // ─── CONSTANTS ─────────────────────────────────────────────
-    const USER_KEY        = 'mx_user';                // non-sensitive
-    const DEVICE_ID_KEY   = 'mx_device_id';           // non-sensitive
+    const USER_KEY        = 'mx_user';
+    const DEVICE_ID_KEY   = 'mx_device_id';
     const RETURN_TO_KEY   = 'milespace_return_to';
 
     const LOGIN_PAGE      = '/login.html';
@@ -34,6 +49,11 @@
     const REFRESH_ENDPOINT = '/api/auth/refresh';
     const SESSION_ENDPOINT = '/api/auth/session';
     const LOGOUT_ENDPOINT  = '/api/auth/logout';
+
+    const REFRESH_LOCK_NAME = 'mx_auth_refresh';
+    const REFRESH_LOCK_TIMEOUT_MS = 15000;
+    const REFRESH_AHEAD_MS = 5 * 60 * 1000;
+    const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
 
     const AUTH_PAGES = new Set([
         '/login.html', '/login',
@@ -61,7 +81,7 @@
     }
     function getAccessToken() {
         if (!_accessToken) return null;
-        if (Date.now() >= _accessTokenExpiresAt - 5000) return null;   // 5s skew
+        if (Date.now() >= _accessTokenExpiresAt - 5000) return null;
         return _accessToken;
     }
     function clearAccessToken() {
@@ -93,17 +113,21 @@
     function getUser() { return readUser(); }
 
     // ─── DEVICE ID ─────────────────────────────────────────────
-    // Stable, opaque, per-browser identifier. This is NOT a
-    // fingerprint — it is just a random UUID we generate once
-    // and reuse. Clearing site data makes it look like a new
-    // device, which is the conservative default.
     function getOrCreateDeviceId() {
         try {
             let id = localStorage.getItem(DEVICE_ID_KEY);
             if (!id || typeof id !== 'string' || id.length < 8) {
-                id = (window.crypto && crypto.randomUUID)
+                id = (window.crypto && typeof crypto.randomUUID === 'function')
                     ? crypto.randomUUID()
-                    : ('dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 12));
+                    : (() => {
+                        const buf = new Uint8Array(16);
+                        if (window.crypto && crypto.getRandomValues) {
+                            crypto.getRandomValues(buf);
+                        } else {
+                            for (let i = 0; i < 16; i++) buf[i] = Math.floor(Math.random() * 256);
+                        }
+                        return 'dev_' + Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+                    })();
                 localStorage.setItem(DEVICE_ID_KEY, id);
             }
             return id;
@@ -118,7 +142,7 @@
     let redirecting    = false;
     let isOffline      = false;
     let bannerEl       = null;
-    let channel        = null;      // BroadcastChannel
+    let channel        = null;
 
     // ─── PAGE DETECTION ────────────────────────────────────────
     const pathname = window.location.pathname;
@@ -132,7 +156,7 @@
     const IS_ROOT_PAGE = pathname === '/' || pathname === '/index.html';
 
     // ============================================================
-    // RETURN-TO
+    // RETURN-TO (SAFE)
     // ============================================================
     function isSafeInternalPath(dest) {
         if (typeof dest !== 'string' || dest.length === 0) return false;
@@ -141,12 +165,15 @@
         if (/^\s*(javascript|data|vbscript|file):/i.test(dest)) return false;
         if (dest.includes('\\')) return false;
 
-        let pathOnly;
-        try { pathOnly = new URL(dest, window.location.origin).pathname; }
+        let url;
+        try { url = new URL(dest, window.location.origin); }
         catch { return false; }
 
-        if (AUTH_PAGES.has(pathOnly)) return false;
-        if (pathOnly === '/login.html' || pathOnly === '/login') return false;
+        if (url.origin !== window.location.origin) return false;
+
+        const p = url.pathname;
+        if (AUTH_PAGES.has(p)) return false;
+        if (p === '/login.html' || p === '/login') return false;
         return true;
     }
 
@@ -160,7 +187,7 @@
                 JSON.stringify({ path: dest, savedAt: Date.now() })
             );
         } catch (e) {
-            console.warn('[SESSION] Failed to save return destination:', e);
+            console.warn('[SESSION] Failed to save return destination:', e.message);
         }
     }
 
@@ -174,13 +201,11 @@
             }
         } catch { sessionStorage.removeItem(RETURN_TO_KEY); }
 
+        // URLSearchParams.get() already returns a decoded value — do NOT decode again.
         try {
             const params = new URLSearchParams(window.location.search);
             const fromQuery = params.get('redirect');
-            if (fromQuery) {
-                const decoded = decodeURIComponent(fromQuery);
-                if (isSafeInternalPath(decoded)) return decoded;
-            }
+            if (fromQuery && isSafeInternalPath(fromQuery)) return fromQuery;
         } catch {}
 
         return null;
@@ -191,7 +216,7 @@
     }
 
     // ============================================================
-    // CONNECTIVITY BANNER
+    // CONNECTIVITY BANNER (safe DOM insertion)
     // ============================================================
     function ensureBanner() {
         if (bannerEl && document.body.contains(bannerEl)) return bannerEl;
@@ -213,7 +238,9 @@
             display: 'flex', alignItems: 'center', gap: '8px',
             maxWidth: 'calc(100vw - 32px)'
         });
-        bannerEl.innerHTML = '<span id="milespaceConnectivityText"></span>';
+        const span = document.createElement('span');
+        span.id = 'milespaceConnectivityText';
+        bannerEl.appendChild(span);
         document.body.appendChild(bannerEl);
         return bannerEl;
     }
@@ -224,7 +251,7 @@
         }
         const el = ensureBanner();
         const txt = el.querySelector('#milespaceConnectivityText');
-        if (txt) txt.textContent = text;
+        if (txt) txt.textContent = String(text || '');
         el.style.background = tone === 'online' ? '#065f46' : '#1a2c3e';
         el.style.transform = 'translateX(-50%) translateY(0)';
         el.style.opacity = '1';
@@ -285,7 +312,7 @@
     }
 
     // ============================================================
-    // BROADCAST CHANNEL (cross-tab coordination)
+    // BROADCAST CHANNEL (state sync only — NOT token sharing)
     // ============================================================
     function initChannel() {
         if (channel !== null) return channel;
@@ -297,12 +324,9 @@
                     clearAccessToken();
                     clearUser();
                     if (!IS_ADMIN_PAGE && !IS_AUTH_PAGE) redirectToUserLogin();
-                } else if (msg.type === 'token' && msg.token) {
-                    setAccessToken(msg.token, msg.expiresIn || 900);
-                    scheduleProactiveRefresh();
-                } else if (msg.type === 'refresh_start') {
-                    // Another tab is refreshing; wait a moment.
                 }
+                // We deliberately do NOT accept raw tokens from other tabs.
+                // Each tab calls the refresh endpoint itself.
             };
         } catch {
             channel = null;
@@ -314,51 +338,99 @@
     }
 
     // ============================================================
-    // REFRESH (single-flight, cross-tab aware)
+    // SESSION-READY EVENT
+    // ============================================================
+    function fireReady() {
+        try { window.dispatchEvent(new CustomEvent('session:ready')); } catch (_) {}
+    }
+    function fireError() {
+        try { window.dispatchEvent(new CustomEvent('session:error')); } catch (_) {}
+    }
+
+    // ============================================================
+    // CROSS-TAB REFRESH LOCK
+    //
+    // Uses the Web Locks API when available (Chrome, Edge, Safari 16.4+)
+    // which guarantees a single lock holder even across tabs and is
+    // released automatically if a tab crashes.
+    //
+    // Falls back to BroadcastChannel handshake when Web Locks is missing.
+    // ============================================================
+    function withRefreshLock(fn) {
+        if (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') {
+            return navigator.locks.request(
+                REFRESH_LOCK_NAME,
+                { mode: 'exclusive' },
+                async () => fn()
+            );
+        }
+        // Fallback: no cross-tab lock. The refresh endpoint must handle
+        // concurrent requests via rotation + REFRESH_RACE handling.
+        return fn();
+    }
+
+    // ============================================================
+    // REFRESH (single-flight, cross-tab coordinated)
     // ============================================================
     async function refreshToken(force = false) {
-        if (refreshPromise && !force) return refreshPromise;
+        // If a refresh is already running in this tab, join it.
+        if (refreshPromise) {
+            if (!force) return refreshPromise;
+            // For force, wait for the current refresh to complete, then
+            // start a new one — never corrupt the shared promise.
+            try { await refreshPromise; } catch {}
+        }
 
         refreshPromise = (async () => {
-            try {
-                const response = await fetch(REFRESH_ENDPOINT, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' }
-                });
+            return withRefreshLock(async () => {
+                bcPost({ type: 'refresh_start' });
 
-                if (response.status === 409) {
-                    // Concurrent refresh. Retry once after a short delay.
-                    const body = await response.json().catch(() => ({}));
-                    if (body.code === 'REFRESH_RACE') {
-                        await new Promise(r => setTimeout(r, 250));
-                        const retry = await fetch(REFRESH_ENDPOINT, {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                        if (retry.ok) {
-                            return await _consumeRefreshResponse(retry);
+                const doFetch = async () => {
+                    const response = await fetch(REFRESH_ENDPOINT, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (response.status === 409) {
+                        const body = await response.json().catch(() => ({}));
+                        if (body.code === 'REFRESH_RACE') {
+                            await new Promise(r => setTimeout(r, 300));
+                            const retry = await fetch(REFRESH_ENDPOINT, {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            if (retry.ok) return _consumeRefreshResponse(retry);
+                            throw new Error(`Refresh race retry failed: ${retry.status}`);
                         }
-                        throw new Error(`Refresh race retry failed: ${retry.status}`);
+                        throw new Error(`Refresh failed: ${response.status}`);
                     }
-                    throw new Error(`Refresh failed: ${response.status}`);
-                }
 
-                if (!response.ok) {
-                    throw new Error(`Refresh failed: ${response.status}`);
-                }
+                    if (!response.ok) {
+                        throw new Error(`Refresh failed: ${response.status}`);
+                    }
 
-                return await _consumeRefreshResponse(response);
-            } catch (error) {
-                clearAccessToken();
-                throw error;
-            } finally {
-                refreshPromise = null;
-            }
+                    return _consumeRefreshResponse(response);
+                };
+
+                try {
+                    const token = await doFetch();
+                    bcPost({ type: 'refresh_done' });
+                    return token;
+                } catch (err) {
+                    bcPost({ type: 'refresh_failed' });
+                    clearAccessToken();
+                    throw err;
+                }
+            });
         })();
 
-        return refreshPromise;
+        try {
+            return await refreshPromise;
+        } finally {
+            refreshPromise = null;
+        }
     }
 
     async function _consumeRefreshResponse(response) {
@@ -366,10 +438,8 @@
         const accessToken = result?.data?.access_token || result?.access_token || null;
         const expiresIn   = result?.data?.expires_in   || result?.expires_in   || 900;
         if (!accessToken) throw new Error('Refresh response contained no access token');
-
         setAccessToken(accessToken, expiresIn);
         scheduleProactiveRefresh();
-        bcPost({ type: 'token', token: accessToken, expiresIn });
         return accessToken;
     }
 
@@ -384,14 +454,15 @@
     }
 
     // ============================================================
-    // HEARTBEAT (60s, paused when hidden)
+    // HEARTBEAT (5 min, paused when hidden)
     // ============================================================
     function startUserHeartbeat() {
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         if (IS_AUTH_PAGE || IS_ADMIN_PAGE) return;
 
         heartbeatTimer = setInterval(async () => {
-            if (document.hidden) return;   // pause when hidden
+            if (document.hidden) return;
+            if (!navigator.onLine) return;
             const token = getAccessToken();
             if (!token) {
                 try { await refreshToken(); }
@@ -422,7 +493,7 @@
             } catch {
                 console.warn('[SESSION] Heartbeat network error — keeping session');
             }
-        }, 60000);
+        }, HEARTBEAT_INTERVAL_MS);
     }
 
     // ============================================================
@@ -434,7 +505,6 @@
         const token = getAccessToken();
         if (!token) return;
         const timeLeft = _accessTokenExpiresAt - Date.now();
-        const REFRESH_AHEAD_MS = 5 * 60 * 1000;
         const refreshIn = Math.max(0, timeLeft - REFRESH_AHEAD_MS);
         refreshTimer = setTimeout(() => {
             if (document.hidden) return;
@@ -444,7 +514,26 @@
 
     // ============================================================
     // USER FETCH — attaches access token, retries once on 401
+    //
+    // SAFETY: Never replay a non-idempotent POST without an
+    // `Idempotency-Key` header after a 401, because the server may
+    // have already processed the request.
     // ============================================================
+    const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+    function isIdempotentSafe(method, headers) {
+        const m = String(method || 'GET').toUpperCase();
+        if (SAFE_METHODS.has(m)) return true;
+        // For non-safe methods, require an idempotency key header.
+        const keys = Object.keys(headers || {});
+        for (const k of keys) {
+            if (k.toLowerCase() === 'idempotency-key') {
+                return !!headers[k];
+            }
+        }
+        return false;
+    }
+
     async function userFetch(url, options = {}, retry = true) {
         if (IS_ADMIN_PAGE) throw new Error('userFetch() cannot be used on admin pages');
 
@@ -457,12 +546,13 @@
             }
         }
 
-        const headers = {
-            ...(options.headers || {}),
-            Authorization: `Bearer ${token}`
-        };
-        if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
-            headers['Content-Type'] = 'application/json';
+        // Normalize headers via Headers object to avoid duplicate keys
+        const headers = new Headers(options.headers || {});
+        headers.set('Authorization', `Bearer ${token}`);
+
+        const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+        if (!headers.has('Content-Type') && !isFormData) {
+            headers.set('Content-Type', 'application/json');
         }
 
         let response;
@@ -470,7 +560,7 @@
             response = await fetch(url, {
                 ...options,
                 headers,
-                credentials: 'same-origin'      // cookies only same-origin
+                credentials: 'same-origin'
             });
         } catch (networkError) {
             if (navigator.onLine === false) markOffline();
@@ -484,6 +574,12 @@
         const code = data.code;
 
         if (retry && (code === 'SESSION_EXPIRED' || code === 'INVALID_TOKEN')) {
+            // Only retry if the original request is safe to replay.
+            const method = options.method || 'GET';
+            if (!isIdempotentSafe(method, Object.fromEntries(headers.entries()))) {
+                // Return the 401 as-is for the caller to handle — do NOT replay.
+                return response;
+            }
             try {
                 await refreshToken();
                 return userFetch(url, options, false);
@@ -543,7 +639,6 @@
         if (initialized) return;
         initialized = true;
 
-        // Scrub legacy token keys unconditionally.
         try {
             for (const k of LEGACY_TOKEN_KEYS) {
                 localStorage.removeItem(k);
@@ -555,13 +650,25 @@
 
         if (!IS_ADMIN_PAGE) installConnectivityListeners();
 
-        if (IS_ADMIN_PAGE || IS_AUTH_PAGE || IS_ROOT_PAGE) return;
+        if (IS_ADMIN_PAGE || IS_AUTH_PAGE || IS_ROOT_PAGE) {
+            fireReady();
+            return;
+        }
 
-        const valid = await checkUserSession();
-        if (!valid) return;
+        let valid = false;
+        try { valid = await checkUserSession(); }
+        catch { valid = false; }
+
+        if (!valid) {
+            fireError();
+            return;
+        }
+
         startUserHeartbeat();
         scheduleProactiveRefresh();
+        fireReady();
     }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { once: true });
     } else {
@@ -572,13 +679,16 @@
     // VISIBILITY
     // ============================================================
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && !IS_ADMIN_PAGE && !IS_AUTH_PAGE && !IS_ROOT_PAGE) {
-            checkUserSession().then((valid) => { if (valid) scheduleProactiveRefresh(); });
-        }
+        if (document.hidden) return;
+        if (IS_ADMIN_PAGE || IS_AUTH_PAGE || IS_ROOT_PAGE) return;
+        if (!navigator.onLine) return;
+        checkUserSession().then((valid) => {
+            if (valid) scheduleProactiveRefresh();
+        }).catch(() => {});
     });
 
     // ============================================================
-    // CROSS-TAB (storage fallback if BroadcastChannel missing)
+    // CROSS-TAB (storage fallback)
     // ============================================================
     window.addEventListener('storage', (event) => {
         if (event.key === USER_KEY && event.newValue === null && !IS_ADMIN_PAGE && !IS_AUTH_PAGE) {
@@ -588,7 +698,7 @@
     });
 
     // ============================================================
-    // EXPORTS
+    // EXPORTS (unchanged names — backward compatible)
     // ============================================================
     window.getUserSession = readSession;
     window.getUser        = getUser;
@@ -611,16 +721,14 @@
     window.redirectToUserLogin       = redirectToUserLogin;
     window.milespaceIsOffline        = () => isOffline;
 
-    console.log('[SESSION] Ready — memory-only access token, HttpOnly refresh cookie, cross-tab coordinated');
+    console.log('[SESSION] Ready — memory-only token, HttpOnly refresh, Web Locks cross-tab, session:ready wired');
 })();
 
-//by geeooh universal notifications badge
-
-/* ── Load notification badge everywhere ── */
+// ─── Universal notification badge loader ─────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('notif-badge-script')) {
-  const s = document.createElement('script');
-  s.id = 'notif-badge-script';
-  s.src = '/js/notif-badge.js';
-  s.defer = true;
-  document.head.appendChild(s);
+    const s = document.createElement('script');
+    s.id = 'notif-badge-script';
+    s.src = '/js/notif-badge.js';
+    s.defer = true;
+    document.head.appendChild(s);
 }
