@@ -850,7 +850,7 @@
       right: 0;
       background: linear-gradient(to left, var(--srf), transparent);
     }
-    .ticker-track {
+       .ticker-track {
       display: flex;
       gap: 12px;
       width: max-content;
@@ -862,9 +862,13 @@
       backface-visibility: hidden;
       -webkit-perspective: 1000px;
       perspective: 1000px;
-      /* Fallback CSS Animation */
-      -webkit-animation: ticker-css 40s linear infinite;
-      animation: ticker-css 40s linear infinite;
+      /* CSS Animation Removed — handled purely by JS for better performance */
+    }
+    
+    /* Prevent the ticker from blocking the main thread during initial paint */
+    .ticker-wrap {
+      content-visibility: auto;
+      contain-intrinsic-size: 50px;
     }
     
     /* No :hover pause — on iOS, :hover fires after a tap and freezes the ticker. */
@@ -1222,6 +1226,8 @@
       display: flex;
       align-items: center;
       gap: 5px;
+      width: max-content;
+      align-items: center;
     }
     .tx-status-dot {
       width: 6px;
@@ -1882,6 +1888,8 @@
     }
   </style>
 
+<script src="/js/session.js"></script>
+<script src="/js/presence.js"></script>
   <script src="/js/session.js"></script>
   <script src="/js/presence.js"></script>
 
@@ -2689,8 +2697,8 @@ function renderTicker(items) {
     </div>
   `).join('');
 
-  // Wait for DOM to paint so we can calculate widths correctly
-  setTimeout(initTickerAnimation, 100);
+  // start immediately
+  setTimeout(initTickerAnimation, 0);
 }
 
 function initTickerAnimation() {
