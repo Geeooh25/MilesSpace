@@ -2,649 +2,299 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>MilesSpace — Admin Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="/js/admin-session.js?v=2025-admin-dash-v4"></script>
-
-<!--
-============================================================================
- MilesSpace Admin Dashboard
-============================================================================
- Rules honored:
-   • Every number comes from a real backend endpoint.
-   • No fabricated charts, no Math.random(), no revenue*0.6.
-   • Every failure renders "Data unavailable" — never a fabricated 0.
-   • Every KPI is clickable and preserves the global date range.
-   • Withdrawals are entirely absent.
-   • "Online Now" is entirely absent — the dashboard does not track presence.
-   • Transactions display the real username + email (fallback to old shape).
-   • Frontend never computes financial truth. It only formats.
-
- Endpoints consumed:
-   GET /api/admin/stats
-   GET /api/admin/logins/today
-   GET /api/admin/recent-activity
-   GET /api/admin/users/recent
-   GET /api/admin/users/:id/detail
-   GET /api/admin/transactions/recent
-   GET /api/admin/deposits/recent
-   GET /api/admin/orders/failed/recent
-   GET /api/admin/webhooks/recent
-   GET /api/admin/services/performance
-   GET /api/admin/providers/health
-   GET /api/admin/needs-attention
-   GET /api/admin/charts
-   GET /api/admin/health
-   GET /api/admin/notifications/recent
-   GET /api/admin/me
-   GET /api/admin/reconciliation/exceptions/count
-============================================================================
--->
-
-<style>
-:root{
-    --brand-primary:#0f4c5c; --brand-primary-deep:#0a3542; --brand-primary-light:#14607a;
-    --brand-accent:#f5a623; --brand-accent-soft:#fde3ad;
-    --navy:var(--brand-primary); --navy-light:var(--brand-primary-light); --navy-deep:var(--brand-primary-deep);
-    --gold:var(--brand-accent); --gold-soft:var(--brand-accent-soft);
-    --white:#ffffff; --bg:#f4f7fb; --bg-card:rgba(255,255,255,.72);
-    --border:rgba(15,76,92,.09); --text:#0c1f26; --text-dim:#5b7480; --text-faint:#8fa3ab;
-    --success:#16a34a; --success-bg:#e9f9ef;
-    --danger:#dc2626; --danger-bg:#fdecec;
-    --warn:#f59e0b; --warn-bg:#fef3d9;
-    --info:#2563a8; --info-bg:#e8f1fb;
-    --purple:#8b5cf6; --purple-bg:#ede9fe;
-    --usd:#0891b2; --usd-bg:#e0f6fa;
-    --radius-sm:8px; --radius-md:14px; --radius-lg:20px;
-    --shadow-sm:0 1px 2px rgba(8,42,51,.06);
-    --shadow-md:0 8px 24px -8px rgba(8,42,51,.16);
-    --shadow-lg:0 16px 48px -12px rgba(8,42,51,.26);
-    --sidebar-w:264px; --sidebar-w-collapsed:78px; --topbar-h:68px;
-    --transition:180ms cubic-bezier(.4,0,.2,1);
-}
-html.dark{
-    --bg:#08151a; --bg-card:rgba(18,38,44,.75);
-    --border:rgba(255,255,255,.08); --text:#eaf3f5;
-    --text-dim:#9db4bb; --text-faint:#5b7480;
-    --success-bg:rgba(22,163,74,.15); --danger-bg:rgba(220,38,38,.15);
-    --warn-bg:rgba(245,158,11,.15); --info-bg:rgba(37,99,168,.18);
-    --purple-bg:rgba(139,92,246,.18); --usd-bg:rgba(8,145,178,.18);
-    --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 8px 24px -8px rgba(0,0,0,.5);
-    --shadow-lg:0 16px 48px -12px rgba(0,0,0,.6);
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%} html{overflow-x:hidden}
-body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;transition:background var(--transition),color var(--transition);overflow-x:hidden;width:100%}
-img,svg,canvas{max-width:100%}
-::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:rgba(15,76,92,.18);border-radius:99px}
-html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14)}
-.mono{font-family:'JetBrains Mono',monospace}
-:focus-visible{outline:2.5px solid var(--brand-accent);outline-offset:2px;border-radius:6px}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-
-/* ── Layout ── */
-.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;transition:grid-template-columns var(--transition)}
-.app.sb-collapsed{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
-.sidebar{background:linear-gradient(180deg,var(--navy-deep),var(--navy) 70%);color:#eaf6f8;padding:20px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:40;transition:transform var(--transition),width var(--transition);overflow-y:auto;overflow-x:hidden;width:var(--sidebar-w)}
-.app.sb-collapsed .sidebar{width:var(--sidebar-w-collapsed)}
-.app.sb-collapsed .sidebar .brand-text,.app.sb-collapsed .sidebar .nav-label,.app.sb-collapsed .sidebar .nav-item span:not(.ic),.app.sb-collapsed .sidebar .who,.app.sb-collapsed .sidebar .chev{display:none}
-.app.sb-collapsed .nav-item{justify-content:center}
-.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;flex-shrink:0}
-.brand img{width:32px;height:32px;border-radius:8px;flex-shrink:0}
-.brand-text{display:flex;flex-direction:column;line-height:1.15}
-.brand-text strong{font-size:15px;font-weight:800;letter-spacing:-.01em}
-.brand-text span{font-size:10.5px;color:#9fd4de;letter-spacing:.06em;text-transform:uppercase}
-.nav-scroll{flex:1;overflow-y:auto;padding-right:2px}
-.nav-group{margin-bottom:2px}
-.nav-group-head{display:flex;align-items:center;justify-content:space-between;padding:12px 10px 5px;cursor:pointer;user-select:none;border:none;background:none;width:100%;color:inherit}
-.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#6fa2ad;font-weight:700}
-.nav-group-head .chev{font-size:9px;color:#6fa2ad;transition:transform var(--transition)}
-.nav-group.collapsed .chev{transform:rotate(-90deg)}
-.nav-group.collapsed .nav-items{display:none}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8.5px 10px;border-radius:9px;color:#cfe7ea;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:background var(--transition),color var(--transition);white-space:nowrap;text-decoration:none}
-.nav-item .ic{width:17px;text-align:center;font-size:13.5px;flex-shrink:0}
-.nav-item:hover,.nav-item:focus-visible{background:rgba(255,255,255,.06);color:#fff}
-.nav-item.active{background:rgba(245,166,35,.16);color:#ffd899;border-color:rgba(245,166,35,.3);font-weight:600}
-.nav-item .badge-count{margin-left:auto;background:var(--gold);color:var(--navy-deep);font-size:10px;font-weight:800;padding:1.5px 6px;border-radius:99px}
-.sidebar-foot{border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:8px;display:flex;align-items:center;gap:10px;padding-left:4px;flex-shrink:0}
-.sidebar-foot .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#25748a,#0c3d4a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0}
-.sidebar-foot .who{display:flex;flex-direction:column;line-height:1.2}
-.sidebar-foot .who strong{font-size:12.5px;color:#fff}
-.sidebar-foot .who span{font-size:10.5px;color:#8fbac2}
-.sb-collapse-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe7ea;width:26px;height:26px;border-radius:8px;cursor:pointer;margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
-.sb-collapse-btn:hover{background:rgba(255,255,255,.14)}
-
-.main{min-width:0;display:flex;flex-direction:column}
-.topbar{height:var(--topbar-h);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:0 26px;background:var(--bg-card);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
-.hamburger{display:none;width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--white);align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:18px}
-html.dark .hamburger{background:rgba(255,255,255,.05)}
-.sb-toggle-desktop{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);font-size:13px;flex-shrink:0}
-html.dark .sb-toggle-desktop{background:rgba(255,255,255,.05);color:#dff0f2}
-@media(max-width:768px){.sb-toggle-desktop{display:none}}
-.topbar-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
-.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:nowrap}
-.page-title{display:flex;flex-direction:column;line-height:1.2;min-width:0}
-.page-title h1{margin:0;font-size:clamp(16px,2.4vw,19px);font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.breadcrumb{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-bottom:2px}
-.breadcrumb a{color:var(--text-faint);text-decoration:none}
-.crumb{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.crumb .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;margin-right:5px;animation:pulse-dot 1.8s infinite}
-.crumb .live-dot.off{background:var(--danger);animation:none}
-@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
-.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;color:var(--navy);font-size:15px;transition:transform var(--transition),background var(--transition)}
-html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
-.icon-btn:hover{transform:translateY(-1px);background:var(--gold-soft);color:var(--navy-deep)}
-.admin-chip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:99px;border:1px solid var(--border);background:var(--white);cursor:pointer}
-html.dark .admin-chip{background:rgba(255,255,255,.04)}
-.admin-chip .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d97e06);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-deep)}
-.admin-chip .info{display:flex;flex-direction:column;line-height:1.15}
-.admin-chip .info strong{font-size:12.3px}
-.admin-chip .info span{font-size:10.5px;color:var(--text-dim)}
-
-.content{padding:clamp(14px,2vw,22px) clamp(14px,2.6vw,26px) 60px;min-width:0}
-@media(min-width:1920px){.content{max-width:1800px;margin:0 auto}}
-
-/* ── Page header ── */
-.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
-.page-header h2{font-size:clamp(18px,2.6vw,23px);font-weight:800;letter-spacing:-.01em}
-.page-header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;max-width:520px}
-.page-header .header-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-
-.range-select{display:flex;gap:2px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:3px;flex-wrap:wrap}
-.range-btn{border:none;background:none;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;color:var(--text-dim);cursor:pointer;white-space:nowrap}
-.range-btn.active{background:var(--navy);color:#fff}
-.range-btn:hover:not(.active){background:var(--bg)}
-
-.range-label{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:6px;margin-top:4px}
-.range-label strong{color:var(--text-dim);font-weight:600}
-
-.custom-range{display:none;align-items:center;gap:6px;margin-top:6px;font-size:12px}
-.custom-range.show{display:flex}
-.custom-range input[type="date"]{border:1px solid var(--border);background:var(--white);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none}
-html.dark .custom-range input[type="date"]{background:rgba(255,255,255,.04);color:var(--text)}
-.custom-range button{border:1px solid var(--border);background:var(--white);border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:600;cursor:pointer;color:var(--navy)}
-html.dark .custom-range button{background:rgba(255,255,255,.04);color:#dff0f2}
-
-.refresh-btn{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);transition:background var(--transition)}
-html.dark .refresh-btn{background:rgba(255,255,255,.04);color:#dff0f2}
-.refresh-btn:hover{background:var(--gold-soft);color:var(--navy-deep)}
-.refresh-btn.spinning i{animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-.auto-refresh-select{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim)}
-.auto-refresh-select select{border:1px solid var(--border);background:var(--white);border-radius:8px;padding:5px 8px;font-size:11.5px;font-family:inherit;color:var(--text);outline:none}
-html.dark .auto-refresh-select select{background:rgba(255,255,255,.04);color:var(--text)}
-
-/* ── Sections ── */
-.section-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin:24px 2px 10px}
-.section-title .hint{font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-faint)}
-
-.grid{display:grid;gap:14px}
-.grid.cols-7{grid-template-columns:repeat(7,1fr)}
-.grid.cols-6{grid-template-columns:repeat(6,1fr)}
-.grid.cols-5{grid-template-columns:repeat(5,1fr)}
-.grid.cols-4{grid-template-columns:repeat(4,1fr)}
-.grid.cols-3{grid-template-columns:repeat(3,1fr)}
-.grid.cols-2{grid-template-columns:repeat(2,1fr)}
-@media(max-width:1500px){.grid.cols-7,.grid.cols-6,.grid.cols-5{grid-template-columns:repeat(3,1fr)}.grid.cols-4{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:900px){.grid.cols-7,.grid.cols-6,.grid.cols-5{grid-template-columns:repeat(2,1fr)}.grid.cols-4{grid-template-columns:1fr 1fr}.grid.cols-3,.grid.cols-2{grid-template-columns:1fr}}
-@media(max-width:480px){.grid.cols-7,.grid.cols-6,.grid.cols-5,.grid.cols-4{grid-template-columns:1fr}}
-
-/* ── KPI cards ── */
-.kpi-card{background:var(--bg-card);backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 18px 14px;transition:transform var(--transition),box-shadow var(--transition),border-color var(--transition);position:relative;overflow:hidden}
-.kpi-card.clickable{cursor:pointer}
-.kpi-card.clickable:hover,.kpi-card.clickable:focus-visible{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:rgba(245,166,35,.35)}
-.kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.kpi-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.kpi-icon.gold{background:var(--warn-bg);color:#b3720a}
-.kpi-icon.green{background:var(--success-bg);color:var(--success)}
-.kpi-icon.blue{background:var(--info-bg);color:var(--info)}
-.kpi-icon.purple{background:var(--purple-bg);color:var(--purple)}
-.kpi-icon.red{background:var(--danger-bg);color:var(--danger)}
-.kpi-icon.usd{background:var(--usd-bg);color:var(--usd)}
-.kpi-value{font-size:clamp(16px,2vw,21px);font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.kpi-value.unavailable{color:var(--text-faint);font-weight:600;font-size:14px}
-.kpi-label{font-size:11.5px;color:var(--text-dim);margin-top:2px;font-weight:500}
-.kpi-desc{font-size:10.2px;color:var(--text-faint);margin-top:5px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.3}
-.kpi-hint{font-size:9.5px;color:var(--gold);font-weight:700;margin-top:3px;display:none}
-.kpi-card.clickable .kpi-hint{display:block}
-
-/* ── Skeletons ── */
-.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.skel-line{height:12px;border-radius:5px;margin-bottom:6px}
-.skel-kpi .skel-line:first-child{width:40%;height:20px;margin-bottom:10px}
-.skel-kpi .skel-line:nth-child(2){width:65%}
-.skel-row td{padding:12px 14px}
-.skel-row .skel-line{height:10px}
-
-/* ── Cards / panels ── */
-.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);backdrop-filter:blur(10px)}
-.panel{padding:18px 20px}
-.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
-.panel-head h3{font-size:14px;margin:0;font-weight:700;display:flex;align-items:center;gap:7px}
-.panel-head .hint{font-size:11.5px;color:var(--text-faint)}
-.panel-head .link{font-size:12px;color:var(--gold);font-weight:600;cursor:pointer;text-decoration:none}
-.panel-head .link:hover{text-decoration:underline}
-
-/* ── Unavailable box ── */
-.unavailable-box{text-align:center;padding:22px 14px;color:var(--text-faint)}
-.unavailable-box .ic{font-size:20px;margin-bottom:6px;display:block}
-.unavailable-box .msg{font-size:12.5px;font-weight:600;color:var(--text-dim)}
-.unavailable-box .sub{font-size:11px;margin-top:3px}
-.unavailable-box button{margin-top:10px;border:1px solid var(--border);background:var(--white);color:var(--navy);border-radius:8px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer}
-html.dark .unavailable-box button{background:rgba(255,255,255,.04);color:#dff0f2}
-.unavailable-box button:hover{background:var(--gold-soft);color:var(--navy-deep)}
-
-/* ── Money overview cards ── */
-.money-card{padding:18px 20px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;gap:6px}
-.money-card .label{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
-.money-card .amount{font-size:clamp(18px,2.2vw,24px);font-weight:800;font-variant-numeric:tabular-nums;color:var(--navy);line-height:1.15}
-html.dark .money-card .amount{color:#dff0f2}
-.money-card .sub{font-size:11px;color:var(--text-faint)}
-.money-card.clickable{cursor:pointer;transition:transform var(--transition),box-shadow var(--transition),border-color var(--transition)}
-.money-card.clickable:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:rgba(245,166,35,.35)}
-
-/* ── Charts ── */
-.chart-wrap{position:relative;width:100%}
-.chart-wrap.h-260{height:260px}
-.chart-wrap.h-220{height:220px}
-
-/* ── Tables ── */
-.table-scroll{overflow-x:auto;overflow-y:auto;max-height:460px}
-table.data-table{width:100%;border-collapse:collapse;font-size:12.6px;min-width:640px}
-table.data-table th{text-align:left;padding:10px 14px;color:var(--text-dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
-table.data-table td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
-table.data-table tbody tr.row-clickable{cursor:pointer}
-table.data-table tbody tr:hover{background:rgba(245,166,35,.05)}
-table.data-table tbody tr:last-child td{border-bottom:none}
-.cell-user{display:flex;align-items:center;gap:10px}
-.cell-user .av{width:30px;height:30px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--navy-light),var(--navy-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
-.cell-user .meta{display:flex;flex-direction:column;line-height:1.3}
-.cell-user .meta strong{font-size:12.5px}
-.cell-user .meta span{font-size:11px;color:var(--text-dim)}
-
-/* ── Badges ── */
-.badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-.badge.success{background:var(--success-bg);color:var(--success)}
-.badge.danger{background:var(--danger-bg);color:var(--danger)}
-.badge.warn{background:var(--warn-bg);color:#b3720a}
-.badge.info{background:var(--info-bg);color:var(--info)}
-.badge.purple{background:var(--purple-bg);color:var(--purple)}
-.badge.neutral{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
-
-/* ── Provider list ── */
-.provider-row{display:grid;grid-template-columns:1.4fr .9fr 1fr 1fr .8fr;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);margin-bottom:8px;font-size:12px}
-.provider-row .pname{font-weight:700;display:flex;align-items:center;gap:8px}
-.provider-row .pdim{color:var(--text-dim);font-size:11px}
-@media(max-width:900px){.provider-row{grid-template-columns:1fr 1fr;row-gap:4px}}
-.status-dot-lg{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.status-dot-lg.operational{background:var(--success);box-shadow:0 0 0 3px rgba(22,163,74,.18)}
-.status-dot-lg.degraded{background:var(--warn);box-shadow:0 0 0 3px rgba(245,158,11,.18)}
-.status-dot-lg.unavailable{background:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.18)}
-.status-dot-lg.unknown{background:var(--text-faint)}
-.status-dot-lg.not_configured{background:var(--text-faint)}
-
-/* ── Needs attention ── */
-.attn-item{display:flex;align-items:flex-start;gap:11px;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);margin-bottom:8px;cursor:pointer;transition:background var(--transition)}
-.attn-item:hover{background:var(--warn-bg)}
-.attn-item .aic{width:30px;height:30px;border-radius:9px;background:var(--warn-bg);color:#b3720a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
-.attn-item .body{flex:1}
-.attn-item .title{font-size:12.5px;font-weight:700}
-.attn-item .desc{font-size:11.3px;color:var(--text-dim);margin-top:1px}
-.attn-item .count{font-size:10.5px;color:var(--gold);font-weight:700;margin-top:3px}
-.attn-empty{text-align:center;color:var(--success);padding:26px 10px;font-size:13px;font-weight:600}
-
-/* ── Quick actions ── */
-.qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.qa-card{padding:14px 12px;text-align:center;border-radius:14px;cursor:pointer;background:var(--bg-card);border:1px solid var(--border);transition:transform var(--transition),box-shadow var(--transition),border-color var(--transition)}
-.qa-card:hover,.qa-card:focus-visible{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:rgba(245,166,35,.4)}
-.qa-card .qa-ic{font-size:22px;display:block;margin-bottom:6px}
-.qa-card .qa-title{font-size:12px;font-weight:600}
-.qa-card .qa-desc{font-size:10.5px;color:var(--text-dim);margin-top:2px}
-@media(max-width:768px){.qa-grid{grid-template-columns:repeat(2,1fr)}}
-
-/* ── Footer ── */
-.dash-footer{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;padding:14px 18px;margin-top:24px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-faint)}
-.dash-footer .left{display:flex;gap:14px;flex-wrap:wrap}
-.dash-footer .right{display:flex;gap:14px;flex-wrap:wrap}
-
-/* ── Drawer ── */
-.drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms ease}
-.drawer-scrim.show{opacity:1;pointer-events:auto}
-.detail-drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,94vw);background:var(--bg);z-index:301;box-shadow:var(--shadow-lg);transform:translateX(100%);transition:transform 260ms cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
-.detail-drawer.open{transform:translateX(0)}
-.dd-head{display:flex;align-items:center;gap:14px;padding:20px 22px;background:linear-gradient(135deg,var(--navy),var(--navy-deep));color:#fff;flex-shrink:0}
-.dd-head .dd-ic{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.dd-head .dd-titles{flex:1;min-width:0}
-.dd-head h2{margin:0;font-size:16.5px;font-weight:800}
-.dd-head .dd-sub{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dd-close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:14px;flex-shrink:0}
-.dd-close:hover{background:rgba(255,255,255,.2)}
-.dd-body{flex:1;overflow-y:auto;padding:20px 22px 40px}
-.dd-field{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
-.dd-field .k{color:var(--text-dim);font-weight:600;flex-shrink:0;min-width:110px}
-.dd-field .v{font-weight:700;text-align:right;word-break:break-word;overflow-wrap:anywhere}
-.dd-section{margin-bottom:18px}
-.dd-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
-.dd-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-.dd-stat{padding:12px 14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)}
-.dd-stat .k{font-size:10.5px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.dd-stat .v{font-size:16px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
-.dd-user-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);margin-bottom:6px;cursor:pointer;transition:background var(--transition),transform var(--transition)}
-.dd-user-item:hover{background:var(--gold-soft);transform:translateX(2px)}
-.dd-user-item .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--navy-light),var(--navy-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
-.dd-user-item .meta{flex:1;min-width:0}
-.dd-user-item .meta strong{font-size:12.5px;display:block}
-.dd-user-item .meta span{font-size:11px;color:var(--text-dim)}
-.dd-user-item .rt{font-size:10.5px;color:var(--text-faint);white-space:nowrap}
-.dd-empty{text-align:center;color:var(--text-faint);padding:24px 10px;font-size:12px}
-
-/* ── Toasts ── */
-.toast-stack{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:10px;z-index:200}
-.toast{background:var(--navy-deep);color:#fff;padding:12px 16px;border-radius:12px;font-size:12.8px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;min-width:230px;border-left:3px solid var(--gold)}
-
-/* ── Mobile bottom nav ── */
-.mnav{display:none;position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:calc(100% - 20px);max-width:420px;height:54px;background:rgba(255,255,255,.92);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.8);border-radius:17px;box-shadow:0 6px 22px rgba(12,61,74,.12);z-index:450;align-items:center;justify-content:space-around;padding:0 4px}
-.mni{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;font-weight:600;color:var(--text-faint);text-decoration:none;flex:1;padding:4px 0}
-.mni i{font-size:16px;padding:2px 4px;border-radius:8px}
-.mni.active{color:var(--navy)}
-@media(max-width:768px){
-    .app{grid-template-columns:1fr!important}
-    .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:290px!important;box-shadow:var(--shadow-lg);z-index:50;height:100vh}
-    .sidebar.open{transform:translateX(0)}
-    .hamburger{display:flex}
-    .admin-chip .info{display:none}
-    .topbar{padding:0 14px;height:60px;gap:8px}
-    .content{padding:12px 10px 60px}
-    .qa-grid{grid-template-columns:repeat(2,1fr)}
-    .provider-row{grid-template-columns:1fr 1fr}
-    .mnav{display:flex!important}
-    .page-header{flex-direction:column;align-items:stretch}
-    .page-header .header-actions{align-items:flex-start}
-    .dd-stat-grid{grid-template-columns:1fr}
-}
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:39;display:none}
-.scrim.show{display:block}
-</style>
+<script src="/js/admin-session.js?v=2025-admin-dash-v6"></script>
+<link rel="stylesheet" href="/css/admin-dashboard.css?v=2025-v6">
 </head>
 <body>
 <div class="app" id="appRoot">
 
-<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<!-- ═══════════ SIDEBAR ═══════════ -->
 <aside class="sidebar" id="sidebar" aria-label="Admin navigation">
     <div class="brand">
-        <img src="../images/miles.png" alt="" onerror="this.style.display='none'">
+        <div class="brand-mark" aria-hidden="true"><img src="../images/miles.png" alt=""></div>
         <div class="brand-text"><strong>MilesSpace</strong><span>Admin</span></div>
         <button class="sb-collapse-btn" id="sbCollapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar"><i class="fas fa-angles-left"></i></button>
     </div>
     <nav class="nav-scroll" id="navScroll">
         <div class="nav-group">
             <div class="nav-group-head"><span class="nav-label">Overview</span></div>
-            <div class="nav-items"><a href="/admin/dashboard" class="nav-item active" aria-current="page"><span class="ic" aria-hidden="true">📊</span><span>Dashboard</span></a></div>
+            <div class="nav-items"><a href="/admin/dashboard" class="nav-item active" aria-current="page"><span class="ic" aria-hidden="true"><i class="fas fa-gauge-high"></i></span><span>Dashboard</span></a></div>
         </div>
         <div class="nav-group" data-group="customers">
-            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Customers</span><span class="chev" aria-hidden="true">▾</span></button>
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Customers</span><span class="chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span></button>
             <div class="nav-items">
-                <a href="/admin/users" class="nav-item"><span class="ic" aria-hidden="true">👥</span><span>Users</span><span class="badge-count" id="usersBadge">0</span></a>
-                <a href="/admin/support" class="nav-item"><span class="ic" aria-hidden="true">💬</span><span>Support</span><span class="badge-count" id="supportBadge">0</span></a>
+                <a href="/admin/users" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-user"></i></span><span>Users</span><span class="badge-count" id="usersBadge">0</span></a>
+                <a href="/admin/support" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-comment-dots"></i></span><span>Support</span><span class="badge-count" id="supportBadge">0</span></a>
             </div>
         </div>
         <div class="nav-group" data-group="money">
-            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Money</span><span class="chev" aria-hidden="true">▾</span></button>
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Money</span><span class="chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span></button>
             <div class="nav-items">
-                <a href="/admin/transactions" class="nav-item"><span class="ic" aria-hidden="true">💳</span><span>Transactions</span></a>
-                <a href="/admin/deposits" class="nav-item"><span class="ic" aria-hidden="true">📥</span><span>Deposits</span></a>
-                <a href="/admin/ledger" class="nav-item"><span class="ic" aria-hidden="true">📒</span><span>Ledger</span></a>
-                <a href="/admin/reconciliation" class="nav-item"><span class="ic" aria-hidden="true">🔄</span><span>Reconciliation</span></a>
+                <a href="/admin/transactions" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-arrow-right-arrow-left"></i></span><span>Transactions</span></a>
+                <a href="/admin/deposits" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-wallet"></i></span><span>Deposits</span></a>
+                <a href="/admin/ledger" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-book-open"></i></span><span>Ledger</span></a>
+                <a href="/admin/reconciliation" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-rotate"></i></span><span>Reconciliation</span></a>
             </div>
         </div>
         <div class="nav-group" data-group="services">
-            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Services</span><span class="chev" aria-hidden="true">▾</span></button>
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="true"><span class="nav-label">Services</span><span class="chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span></button>
             <div class="nav-items">
-                <a href="/admin/sellgift" class="nav-item"><span class="ic" aria-hidden="true">🎁</span><span>Gift Cards</span></a>
-                <a href="/admin/airtime-data" class="nav-item"><span class="ic" aria-hidden="true">📶</span><span>Airtime &amp; Data</span></a>
-                <a href="/admin/bills" class="nav-item"><span class="ic" aria-hidden="true">🧾</span><span>Bills &amp; Utilities</span></a>
-                <a href="/admin/esim" class="nav-item"><span class="ic" aria-hidden="true">📡</span><span>eSIM</span></a>
-                <a href="/admin/virtual-sms" class="nav-item"><span class="ic" aria-hidden="true">📱</span><span>Virtual SMS</span></a>
-                <a href="/admin/boost" class="nav-item"><span class="ic" aria-hidden="true">📈</span><span>Boost</span></a>
-                <a href="/admin/marketplace-products" class="nav-item"><span class="ic" aria-hidden="true">📦</span><span>Marketplace</span></a>
+                <a href="/admin/sellgift" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-gift"></i></span><span>Gift Cards</span></a>
+                <a href="/admin/airtime-data" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-signal"></i></span><span>Airtime &amp; Data</span></a>
+                <a href="/admin/bills" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-file-invoice-dollar"></i></span><span>Bills &amp; Utilities</span></a>
+                <a href="/admin/esim" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-sim-card"></i></span><span>eSIM</span></a>
+                <a href="/admin/virtual-sms" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-mobile-screen"></i></span><span>Virtual SMS</span></a>
+                <a href="/admin/boost" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-rocket"></i></span><span>Boost</span></a>
+                <a href="/admin/marketplace-products" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-box"></i></span><span>Marketplace</span></a>
             </div>
         </div>
         <div class="nav-group collapsed" data-group="operations">
-            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">Operations</span><span class="chev" aria-hidden="true">▾</span></button>
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">Operations</span><span class="chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span></button>
             <div class="nav-items">
-                <a href="/admin/orders" class="nav-item"><span class="ic" aria-hidden="true">🧮</span><span>Orders</span></a>
-                <a href="/admin/orders?status=failed" class="nav-item"><span class="ic" aria-hidden="true">⚠️</span><span>Failed Orders</span></a>
-                <a href="/admin/providers" class="nav-item"><span class="ic" aria-hidden="true">🔌</span><span>Providers</span></a>
-                <a href="/admin/webhooks" class="nav-item"><span class="ic" aria-hidden="true">🪝</span><span>Webhooks</span></a>
+                <a href="/admin/orders" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-clipboard-list"></i></span><span>Orders</span></a>
+                <a href="/admin/orders?status=failed" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-triangle-exclamation"></i></span><span>Failed Orders</span></a>
+                <a href="/admin/providers" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-server"></i></span><span>Providers</span></a>
+                <a href="/admin/webhooks" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-plug"></i></span><span>Webhooks</span></a>
             </div>
         </div>
         <div class="nav-group collapsed" data-group="analytics">
-            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">Analytics</span><span class="chev" aria-hidden="true">▾</span></button>
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">Analytics</span><span class="chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span></button>
             <div class="nav-items">
-                <a href="/admin/revenue" class="nav-item"><span class="ic" aria-hidden="true">💹</span><span>Revenue</span></a>
-                <a href="/admin/reports" class="nav-item"><span class="ic" aria-hidden="true">📄</span><span>Reports</span></a>
-                <a href="/admin/infrastructure" class="nav-item"><span class="ic" aria-hidden="true">📄</span><span>Infrastructure</span></a>
-
+                <a href="/admin/reports" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-file-lines"></i></span><span>Reports</span></a>
+                <a href="/admin/revenue" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-chart-line"></i></span><span>Revenue</span></a>
             </div>
         </div>
         <div class="nav-group collapsed" data-group="system">
-            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">System</span><span class="chev" aria-hidden="true">▾</span></button>
+            <button class="nav-group-head" onclick="toggleNavGroup(this)" aria-expanded="false"><span class="nav-label">System</span><span class="chev" aria-hidden="true"><i class="fas fa-chevron-down"></i></span></button>
             <div class="nav-items">
-                <a href="/admin/notifications" class="nav-item"><span class="ic" aria-hidden="true">🔔</span><span>Notifications</span><span class="badge-count" id="notifSidebarBadge">0</span></a>
-                <a href="/admin/audit" class="nav-item"><span class="ic" aria-hidden="true">📜</span><span>Audit Logs</span></a>
-                <a href="/admin/settings" class="nav-item"><span class="ic" aria-hidden="true">⚙️</span><span>Settings</span></a>
+                <a href="/admin/settings" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+                <a href="/admin/audit" class="nav-item"><span class="ic" aria-hidden="true"><i class="fas fa-scroll"></i></span><span>Logs</span></a>
             </div>
         </div>
     </nav>
-    <div class="sidebar-foot">
-        <div class="av" id="adminAvatar">DA</div>
-        <div class="who"><strong id="adminName">Admin</strong><span id="adminRole">Admin</span></div>
+    <div class="sidebar-foot" role="button" tabindex="0" id="sidebarFoot">
+        <div class="av" id="adminAvatar">M</div>
+        <div class="who"><strong id="adminName">Miles Admin</strong><span id="adminRole">Super_admin</span></div>
+        <i class="fas fa-chevron-right foot-chev" aria-hidden="true"></i>
     </div>
 </aside>
 <div class="scrim" id="scrim"></div>
 
-<!-- ═══════════════════════ MAIN ═══════════════════════ -->
+<!-- ═══════════ MAIN ═══════════ -->
 <div class="main">
     <header class="topbar">
-        <button class="hamburger" id="hamburger" aria-label="Open menu">☰</button>
+        <button class="hamburger" id="hamburger" aria-label="Open menu"><i class="fas fa-bars"></i></button>
         <button class="sb-toggle-desktop" id="sbToggleDesktop" aria-label="Toggle sidebar width"><i class="fas fa-bars"></i></button>
-        <div class="topbar-left">
-            <div class="page-title">
-                <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/admin/dashboard">Home</a><span aria-hidden="true">/</span><span aria-current="page">Dashboard</span></nav>
-                <h1>Dashboard</h1>
-                <div class="crumb"><span class="live-dot" id="liveDot"></span><span id="liveDotLabel">Checking…</span> · <span id="lastUpdated">never</span></div>
-            </div>
+        <div class="search-wrap">
+            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="globalSearch" placeholder="Search users, transactions, reference..." aria-label="Search users, transactions, reference">
         </div>
         <div class="topbar-right">
-            <button class="icon-btn" title="Notifications" aria-label="Notifications" onclick="window.location.href='/admin/notifications'">🔔<span class="badge-count" id="notifCount" style="position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;min-width:18px;text-align:center">0</span></button>
-            <button class="icon-btn" id="darkToggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+            <button class="icon-btn" title="Notifications" aria-label="Notifications" onclick="window.location.href='/admin/notifications'"><i class="fas fa-bell"></i><span class="dot-badge" id="notifCount">0</span></button>
+            <button class="icon-btn" id="darkToggle" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
             <div class="admin-chip" id="adminChip" role="button" tabindex="0" aria-label="Admin menu, sign out">
-                <div class="av" id="chipAvatar">DA</div>
-                <div class="info"><strong id="chipName">Admin</strong><span id="chipRole">Admin</span></div>
-                <span aria-hidden="true" style="font-size:10px;color:var(--text-faint);">▾</span>
+                <div class="av" id="chipAvatar">M</div>
+                <div class="info"><strong id="chipName">Miles Admin</strong><span id="chipRole">Super_admin</span></div>
+                <i class="fas fa-chevron-down" aria-hidden="true" class="chip-chev"></i>
             </div>
         </div>
     </header>
 
     <div class="content">
 
-        <!-- ═══ Page header ═══ -->
-        <div class="page-header">
-            <div>
-                <h2>Dashboard</h2>
-                <div class="sub">Platform overview and operational activity for the selected period.</div>
+        <!-- ═══ Greeting + date-range + refresh ═══ -->
+        <div class="greeting-row">
+            <div class="greeting-block">
+                <h1 id="greeting">Good afternoon, Admin <span aria-hidden="true">👋</span></h1>
+                <p>Here's what's happening with your platform today.</p>
+
+
+              <div style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-dim); margin-top:6px;">
+        <span class="live-dot" id="liveDot" style="width:6px;height:6px;border-radius:50%;background:var(--success);display:inline-block;animation:pulse-dot 1.8s infinite"></span>
+        <span id="liveDotLabel">Live data</span>
+        <span>·</span>
+        <span id="lastUpdated">Checking…</span>
+    </div>
+
+
             </div>
-            <div class="header-actions">
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-                    <div class="auto-refresh-select">
-                        <label for="autoRefresh">Auto</label>
-                        <select id="autoRefresh" aria-label="Auto refresh interval">
-                            <option value="0">Off</option>
-                            <option value="30000">30s</option>
-                            <option value="60000">1m</option>
-                            <option value="300000">5m</option>
-                        </select>
-                    </div>
-                    <button class="refresh-btn" id="refreshBtn" aria-label="Refresh dashboard"><i class="fas fa-rotate-right" aria-hidden="true"></i> Refresh</button>
+            <div class="greeting-actions">
+                <div class="date-pill" id="datePill" role="group" aria-label="Date range">
+                    <i class="far fa-calendar" aria-hidden="true"></i>
+                    <span id="datePillText">Oct 21, 2025 – Oct 28, 2025</span>
+                    <button class="date-pill-btn" id="datePillDropdown" aria-label="Choose date range"><i class="fas fa-chevron-down" aria-hidden="true"></i></button>
                 </div>
-                <div class="range-select" role="group" aria-label="Date range" id="rangeSelect">
-                    <button class="range-btn active" data-range="today">Today</button>
-                    <button class="range-btn" data-range="yesterday">Yesterday</button>
-                    <button class="range-btn" data-range="7d">7D</button>
-                    <button class="range-btn" data-range="30d">30D</button>
-                    <button class="range-btn" data-range="month">This Month</button>
-                    <button class="range-btn" data-range="lastmonth">Last Month</button>
-                    <button class="range-btn" data-range="custom">Custom</button>
+
+
+
+<div class="auto-refresh-wrap" style="position:relative">
+    <button class="btn-icon" id="autoRefreshBtn" title="Auto-refresh settings" style="border:1px solid var(--border); background:var(--bg-card); border-radius:9px; padding:8px 10px; cursor:pointer; color:var(--text-dim); display:flex; align-items:center; justify-content:center; height:36px;">
+        <i class="fas fa-clock-rotate-left"></i>
+    </button>
+    <div class="auto-popover" id="autoPopover" style="display:none; position:absolute; top:100%; right:0; margin-top:6px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow-lg); padding:5px; z-index:60; flex-direction:column; min-width:120px;">
+        <button class="range-opt active" data-val="0">Off</button>
+        <button class="range-opt" data-val="30000">30s</button>
+        <button class="range-opt" data-val="60000">1m</button>
+        <button class="range-opt" data-val="300000">5m</button>
+    </div>
+</div>
+
+
+
+
+                <button class="refresh-btn-primary" id="refreshBtn" aria-label="Refresh dashboard"><i class="fas fa-rotate" aria-hidden="true"></i> Refresh</button>
+
+                <div class="range-popover" id="rangePopover" role="dialog" aria-label="Date range picker">
+                    <button data-range="today" class="range-opt">Today</button>
+                    <button data-range="yesterday" class="range-opt">Yesterday</button>
+                    <button data-range="7d" class="range-opt">Last 7 days</button>
+                    <button data-range="30d" class="range-opt">Last 30 days</button>
+                    <button data-range="month" class="range-opt">This month</button>
+                    <button data-range="lastmonth" class="range-opt">Last month</button>
+                    <button data-range="custom" class="range-opt">Custom range…</button>
                 </div>
-                <div class="range-label">Showing: <strong id="rangeLabelText">Today</strong> · <span id="rangeLabelDetail">—</span></div>
                 <div class="custom-range" id="customRange">
                     <input type="date" id="customFrom" aria-label="From">
                     <span>to</span>
                     <input type="date" id="customTo" aria-label="To">
-                    <button id="customApply">Apply</button>
+                    <button id="customApply" type="button">Apply</button>
                 </div>
             </div>
         </div>
 
-        <!-- ═══ KPI grid (12 cards — no Online Now) ═══ -->
-        <div class="grid cols-6" id="kpiGrid"></div>
+        <!-- ═══ 5 primary KPI cards ═══ -->
+        <div class="kpi-row" id="kpiGrid"></div>
 
-        <!-- ═══ Money overview ═══ -->
-        <div class="section-title">Money Overview</div>
-        <div class="grid cols-4" id="moneyOverview">
-            <div class="money-card"><div class="label">NGN Customer Wallets</div><div class="amount"><span class="skel skel-line" style="width:120px;height:24px;display:inline-block"></span></div><div class="sub">Ledger liability</div></div>
-            <div class="money-card"><div class="label">USD Customer Wallets</div><div class="amount"><span class="skel skel-line" style="width:120px;height:24px;display:inline-block"></span></div><div class="sub">Ledger liability</div></div>
-            <div class="money-card"><div class="label">Deposits (period)</div><div class="amount"><span class="skel skel-line" style="width:120px;height:24px;display:inline-block"></span></div><div class="sub">Count</div></div>
-            <div class="money-card"><div class="label">Revenue (period)</div><div class="amount"><span class="skel skel-line" style="width:120px;height:24px;display:inline-block"></span></div><div class="sub">Platform fees &amp; markup</div></div>
-        </div>
-
-        <!-- ═══ Transaction activity chart ═══ -->
-        <div class="section-title">Transaction Activity <span class="hint">NGN volume, last 7 days</span></div>
-        <div class="card panel">
-            <div class="panel-head">
-                <h3>📈 Volume &amp; Count</h3>
-            </div>
-            <div class="grid cols-2" style="margin-bottom:12px;">
-                <div class="card panel" style="background:var(--bg);padding:14px 16px;">
-                    <div class="label" style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">NGN Volume (7d)</div>
-                    <div class="kpi-value" id="volNgn" style="margin-top:4px;"><span class="skel skel-line" style="width:120px;height:24px;display:inline-block"></span></div>
-                </div>
-                <div class="card panel" style="background:var(--bg);padding:14px 16px;">
-                    <div class="label" style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">USD Volume (7d)</div>
-                    <div class="kpi-value" id="volUsd" style="margin-top:4px;"><span class="skel skel-line" style="width:120px;height:24px;display:inline-block"></span></div>
-                </div>
-            </div>
-            <div class="chart-wrap h-260"><canvas id="chartActivity" aria-label="Transaction activity chart"></canvas></div>
-        </div>
-
-        <!-- ═══ Revenue chart ═══ -->
-        <div class="section-title">Revenue <span class="hint">Platform fees &amp; markup, not customer volume</span></div>
-        <div class="card panel">
-            <div class="panel-head"><h3>📊 Revenue Trend (12 months)</h3></div>
-            <div class="chart-wrap h-220"><canvas id="chartRevenue" aria-label="Revenue chart"></canvas></div>
-        </div>
-
-        <!-- ═══ Service performance ═══ -->
-        <div class="section-title">Service Performance</div>
-        <div class="card panel">
-            <div class="panel-head"><h3>📦 Services</h3><span class="hint">Only services with activity in the selected range</span></div>
-            <div class="table-scroll">
-                <table class="data-table" aria-label="Service performance">
-                    <thead><tr><th>Service</th><th>Orders</th><th>Successful</th><th>Pending</th><th>Failed</th><th>Volume</th><th>Revenue</th><th>Success Rate</th></tr></thead>
-                    <tbody id="servicePerfBody"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- ═══ Platform Health (providers + webhooks side by side) ═══ -->
-        <div class="section-title">Platform Health</div>
-        <div class="grid cols-2">
+        <!-- ═══ Charts row: Transaction Activity | Revenue Trend | System Health ═══ -->
+        <div class="row-3col">
             <div class="card panel">
-                <div class="panel-head"><h3>🔌 Providers</h3><span class="hint">Live status only</span></div>
-                <div id="providerList"></div>
+                <div class="panel-head">
+                    <h3><i class="fas fa-chart-column" aria-hidden="true"></i> Transaction Activity</h3>
+                    <div class="chart-legend" aria-hidden="true"><span class="lg-dot vol"></span>Volume</div>
+                </div>
+                <div class="chart-wrap h-220"><canvas id="chartActivity" aria-label="Transaction activity chart"></canvas></div>
             </div>
             <div class="card panel">
-                <div class="panel-head"><h3>🪝 Webhook Activity</h3><a class="link" href="/admin/webhooks">View all →</a></div>
-                <div class="table-scroll" style="max-height:340px">
-                    <table class="data-table" aria-label="Recent webhooks">
-                        <thead><tr><th>Provider</th><th>Event</th><th>Status</th><th>Reference</th><th>Received</th></tr></thead>
-                        <tbody id="webhookBody"></tbody>
-                    </table>
+                <div class="panel-head">
+                    <h3><i class="fas fa-chart-line" aria-hidden="true"></i> Revenue Trend</h3>
+                    <span class="hint">Last 7 days</span>
+                </div>
+                <div class="chart-wrap h-220"><canvas id="chartRevenue" aria-label="Revenue chart"></canvas></div>
+            </div>
+            <div class="card panel system-health-card">
+                <div class="panel-head"><h3><i class="fas fa-heart-pulse" aria-hidden="true"></i> System Health</h3></div>
+                <div id="systemHealthBody">
+                    <div class="skel" style="height:32px;border-radius:8px;margin-bottom:8px"></div>
+                    <div class="skel" style="height:32px;border-radius:8px;margin-bottom:8px"></div>
+                    <div class="skel" style="height:32px;border-radius:8px"></div>
                 </div>
             </div>
         </div>
 
-        <!-- ═══ Needs attention ═══ -->
-        <div class="section-title">Needs Attention</div>
-        <div class="card panel">
-            <div class="panel-head"><h3>🚨 Operational Alerts</h3></div>
-            <div id="attnList"></div>
+        <!-- ═══ Needs Attention strip ═══ -->
+        <div class="card panel needs-attention" id="needsAttentionCard">
+            <div class="na-head">
+                <h3><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Needs Attention <span class="na-count" id="naCount">0</span></h3>
+                <button class="na-dismiss" id="naDismiss" aria-label="Dismiss needs attention"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="attn-strip" id="attnList"></div>
         </div>
 
-        <!-- ═══ Recent transactions ═══ -->
-        <div class="section-title">Recent Transactions</div>
-        <div class="card panel">
-            <div class="panel-head"><h3>💳 Recent Transactions</h3><a class="link" href="/admin/transactions">View all →</a></div>
-            <div class="table-scroll">
-                <table class="data-table" aria-label="Recent transactions">
-                    <thead><tr><th>Reference</th><th>Customer</th><th>Type</th><th>Amount</th><th>Currency</th><th>Status</th><th>Date</th></tr></thead>
-                    <tbody id="recentTransactionsBody"></tbody>
-                </table>
+        <!-- ═══ Recent Activity + Top Services ═══ -->
+        <div class="row-activity">
+            <div class="card panel">
+                <div class="panel-head activity-head">
+                    <div class="tabs" role="tablist" aria-label="Recent activity">
+                        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="tx">Recent Transactions</button>
+                        <button class="tab-btn" role="tab" aria-selected="false" data-tab="dep">Recent Deposits</button>
+                        <button class="tab-btn" role="tab" aria-selected="false" data-tab="users">New Users</button>
+                    </div>
+                    <a class="link" id="recentViewAll" href="/admin/transactions">View all <i class="fas fa-arrow-right" style="font-size:9px"></i></a>
+                </div>
+                <div class="tab-panel active" id="tab-tx">
+                    <div class="table-scroll">
+                        <table class="data-table" aria-label="Recent transactions">
+                            <thead><tr><th>REFERENCE</th><th>CUSTOMER</th><th>TYPE</th><th>AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead>
+                            <tbody id="recentTransactionsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-panel" id="tab-dep">
+                    <div class="table-scroll">
+                        <table class="data-table" aria-label="Recent deposits">
+                            <thead><tr><th>CUSTOMER</th><th>REFERENCE</th><th>AMOUNT</th><th>METHOD</th><th>STATUS</th><th>TIME</th></tr></thead>
+                            <tbody id="moneyMovementBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-panel" id="tab-users">
+                    <div class="table-scroll">
+                        <table class="data-table" aria-label="Recent users">
+                            <thead><tr><th>USER</th><th>LOCATION</th><th>REGISTERED</th><th>STATUS</th></tr></thead>
+                            <tbody id="recentUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="card panel">
+                <div class="panel-head"><h3><i class="fas fa-chart-simple" aria-hidden="true"></i> Top Services</h3><a class="link" href="/admin/reports">View all <i class="fas fa-arrow-right" style="font-size:9px"></i></a></div>
+                <div id="topServicesBody">
+                    <div class="skel" style="height:36px;border-radius:8px;margin-bottom:6px"></div>
+                    <div class="skel" style="height:36px;border-radius:8px;margin-bottom:6px"></div>
+                    <div class="skel" style="height:36px;border-radius:8px"></div>
+                </div>
             </div>
         </div>
 
-        <!-- ═══ Recent deposits ═══ -->
-        <div class="section-title">Recent Deposits</div>
-        <div class="card panel">
-            <div class="panel-head"><h3>📥 Recent Deposits</h3><a class="link" href="/admin/deposits">View all →</a></div>
-            <div class="table-scroll">
-                <table class="data-table" aria-label="Recent deposits">
-                    <thead><tr><th>Customer</th><th>Reference</th><th>Amount</th><th>Currency</th><th>Method</th><th>Status</th><th>Time</th></tr></thead>
-                    <tbody id="moneyMovementBody"></tbody>
-                </table>
-            </div>
+        <!-- ═══ Provider Health ═══ -->
+        <div class="card panel provider-health-card">
+            <div class="panel-head"><h3><i class="fas fa-server" aria-hidden="true"></i> Provider Health</h3><a class="link" href="/admin/providers">View all <i class="fas fa-arrow-right" style="font-size:9px"></i></a></div>
+            <div class="provider-grid" id="providerList"></div>
         </div>
 
-        <!-- ═══ Failed orders ═══ -->
-        <div class="section-title">Failed Orders</div>
-        <div class="card panel">
-            <div class="panel-head"><h3>⚠️ Failed Orders</h3><a class="link" href="/admin/orders?status=failed">View all →</a></div>
+        <!-- ═══ Failed Orders ═══ -->
+        <div class="card panel" style="margin-top:14px">
+            <div class="panel-head"><h3><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Failed Orders</h3><a class="link" href="/admin/orders?status=failed">View all <i class="fas fa-arrow-right" style="font-size:9px"></i></a></div>
             <div class="table-scroll">
                 <table class="data-table" aria-label="Recent failed orders">
-                    <thead><tr><th>Order</th><th>Customer</th><th>Service</th><th>Amount</th><th>Provider</th><th>Reason</th><th>Time</th></tr></thead>
+                    <thead><tr><th>ORDER</th><th>CUSTOMER</th><th>SERVICE</th><th>AMOUNT</th><th>PROVIDER</th><th>REASON</th><th>TIME</th></tr></thead>
                     <tbody id="failedOrdersBody"></tbody>
                 </table>
             </div>
         </div>
 
-        <!-- ═══ Recent users ═══ -->
-        <div class="section-title">Recent Users</div>
-        <div class="card panel">
-            <div class="panel-head"><h3>👤 New Users</h3><a class="link" href="/admin/users">View all →</a></div>
+        <!-- ═══ Webhooks ═══ -->
+        <div class="card panel" style="margin-top:14px">
+            <div class="panel-head"><h3><i class="fas fa-plug" aria-hidden="true"></i> Webhook Activity</h3><a class="link" href="/admin/webhooks">View all <i class="fas fa-arrow-right" style="font-size:9px"></i></a></div>
             <div class="table-scroll">
-                <table class="data-table" aria-label="Recent users">
-                    <thead><tr><th>User</th><th>Location</th><th>Registered</th><th>Status</th></tr></thead>
-                    <tbody id="recentUsersBody"></tbody>
+                <table class="data-table" aria-label="Recent webhooks">
+                    <thead><tr><th>PROVIDER</th><th>EVENT</th><th>STATUS</th><th>REFERENCE</th><th>RECEIVED</th></tr></thead>
+                    <tbody id="webhookBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══ Service Performance ═══ -->
+        <div class="card panel" style="margin-top:14px">
+            <div class="panel-head"><h3><i class="fas fa-chart-bar" aria-hidden="true"></i> Service Performance</h3><span class="hint">Only services with activity in the selected range</span></div>
+            <div class="table-scroll">
+                <table class="data-table" aria-label="Service performance">
+                    <thead><tr><th>SERVICE</th><th>ORDERS</th><th>SUCCESSFUL</th><th>PENDING</th><th>FAILED</th><th>VOLUME</th><th>REVENUE</th><th>SUCCESS RATE</th></tr></thead>
+                    <tbody id="servicePerfBody"></tbody>
                 </table>
             </div>
         </div>
 
         <!-- ═══ Quick actions ═══ -->
-        <div class="section-title">Quick Actions</div>
-        <div class="card panel">
-            <div class="qa-grid" id="quickActions"></div>
-        </div>
+        <div class="section-title" style="margin-top:20px">Quick Actions</div>
+        <div class="card panel"><div class="qa-grid" id="quickActions"></div></div>
 
         <!-- ═══ Footer ═══ -->
         <div class="dash-footer">
@@ -652,9 +302,7 @@ table.data-table tbody tr:last-child td{border-bottom:none}
                 <span>Last updated: <strong id="footerLastUpdated">—</strong></span>
                 <span>System status: <strong id="footerSystemStatus">—</strong></span>
             </div>
-            <div class="right">
-                <span id="footerCache">—</span>
-            </div>
+            <div class="right"><span id="footerCache">—</span></div>
         </div>
 
     </div>
@@ -665,1255 +313,38 @@ table.data-table tbody tr:last-child td{border-bottom:none}
 <div class="drawer-scrim" id="drawerScrim"></div>
 <aside class="detail-drawer" id="detailDrawer" role="dialog" aria-modal="true" aria-labelledby="ddTitle">
     <div class="dd-head">
-        <div class="dd-ic" id="ddIcon" aria-hidden="true">📄</div>
+        <div class="dd-ic" id="ddIcon" aria-hidden="true"><i class="fas fa-file"></i></div>
         <div class="dd-titles"><h2 id="ddTitle">Detail</h2><div class="dd-sub" id="ddSub"></div></div>
-        <button class="dd-close" id="ddClose" aria-label="Close">✕</button>
+        <button class="dd-close" id="ddClose" aria-label="Close"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="dd-body" id="ddBody"></div>
 </aside>
 
-<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+<!-- ═══ Confirm modal ═══ -->
+<div class="modal-scrim" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal">
+        <div class="modal-head">
+            <div class="mic" id="confirmIcon"><i class="fas fa-triangle-exclamation"></i></div>
+            <h3 id="confirmTitle">Confirm</h3>
+        </div>
+        <div class="modal-body" id="confirmBody"></div>
+        <div class="modal-foot">
+            <button class="modal-btn" id="confirmCancel" type="button">Cancel</button>
+            <button class="modal-btn danger" id="confirmOk" type="button">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-stack" id="toastStack" role="status" aria-live="polite"></div>
 
 <nav class="mnav" aria-label="Mobile navigation">
-    <a href="/admin/dashboard" class="mni active"><i class="fas fa-home"></i><span>Home</span></a>
-    <a href="/admin/users" class="mni"><i class="fas fa-users"></i><span>Users</span></a>
+    <a href="/admin/dashboard" class="mni active"><i class="fas fa-house"></i><span>Home</span></a>
+    <a href="/admin/users" class="mni"><i class="fas fa-user"></i><span>Users</span></a>
     <a href="/admin/deposits" class="mni"><i class="fas fa-wallet"></i><span>Deposits</span></a>
-    <a href="/admin/orders?status=failed" class="mni"><i class="fas fa-triangle-exclamation"></i><span>Alerts</span></a>
-    <a href="/admin/settings" class="mni"><i class="fas fa-cog"></i><span>Settings</span></a>
+    <a href="/admin/orders?status=failed" class="mni"><i class="fas fa-bell"></i><span>Alerts</span><span class="mnav-badge" id="mnavAlertsBadge">0</span></a>
+    <button class="mni" id="mnavMore" type="button"><i class="fas fa-ellipsis"></i><span>More</span></button>
 </nav>
 
-<script>
-'use strict';
-
-/* ════════════════════════════════════════════════════════════════════
-   MilesSpace Admin Dashboard — frontend
-   ────────────────────────────────────────────────────────────────────
-   Principles:
-     • Every number comes from a real API. No fabricated data.
-     • Loading / Loaded / Empty / Unavailable / Error — always distinct.
-     • Financial values are passed through as strings; formatted for
-       display only. No frontend financial computation.
-     • Every KPI click carries the current date range forward.
-     • Withdrawals and Online Now are entirely absent.
-     • Transactions display username + email (handles both response
-       shapes: { user: {...} } and { user_name, user_email }).
-   ════════════════════════════════════════════════════════════════════ */
-
-// ─── Endpoint registry ──────────────────────────────────────────
-const API = {
-    stats:                    '/api/admin/stats',
-    loginsToday:              '/api/admin/logins/today',
-    activity:                 '/api/admin/recent-activity',
-    recentUsers:              '/api/admin/users/recent',
-    userDetailBase:           '/api/admin/users',
-    recentTransactions:       '/api/admin/transactions/recent',
-    recentDeposits:           '/api/admin/deposits/recent',
-    failedOrders:             '/api/admin/orders/failed/recent',
-    webhooks:                 '/api/admin/webhooks/recent',
-    servicePerformance:       '/api/admin/services/performance',
-    providerHealth:           '/api/admin/providers/health',
-    needsAttention:           '/api/admin/needs-attention',
-    charts:                   '/api/admin/charts',
-    health:                   '/api/admin/health',
-    notifications:            '/api/admin/notifications/recent',
-    me:                       '/api/admin/me',
-    reconciliationExceptions: '/api/admin/reconciliation/exceptions/count'
-};
-
-// ─── Destinations ───────────────────────────────────────────────
-const ROUTES = {
-    users:            '/admin/users',
-    deposits:         '/admin/deposits',
-    transactions:     '/admin/transactions',
-    failedOrders:     '/admin/orders?status=failed',
-    pendingOrders:    '/admin/orders?status=pending',
-    orders:           '/admin/orders',
-    revenue:          '/admin/revenue',
-    ledger:           '/admin/ledger',
-    reconciliation:   '/admin/reconciliation',
-    providers:        '/admin/providers',
-    webhooks:         '/admin/webhooks',
-    reports:          '/admin/reports',
-    crypto:           '/admin/crypto',
-    giftCards:        '/admin/sellgift',
-    airtime:          '/admin/airtime-data',
-    esim:             '/admin/esim',
-    virtualSms:       '/admin/virtual-sms',
-    boost:            '/admin/boost',
-    marketplace:      '/admin/marketplace-products',
-    bills:            '/admin/bills',
-    support:          '/admin/support'
-};
-
-// ─── Config ─────────────────────────────────────────────────────
-const CONFIG = {
-    DEFAULT_CACHE_WINDOW_MS: 60000
-};
-
-// ─── State ──────────────────────────────────────────────────────
-const State = {
-    range: { key: 'today', from: null, to: null, label: 'Today', detail: '' },
-    stats: null,
-    chartRefs: { activity: null, revenue: null },
-    endpointStatus: {},
-    autoRefreshMs: 0,
-    autoRefreshHandle: null,
-    inFlight: new Set(),
-    lastSuccessfulLoadAt: null,
-    systemHealth: null
-};
-
-/* ════════════════════════════════════════════════════════════════════
-   FORMATTERS — display-only
-   ════════════════════════════════════════════════════════════════════ */
-const CURRENCY_SYMBOLS = { NGN: '₦', USD: '$', GHS: 'GH₵', KES: 'KSh', ZAR: 'R', XOF: 'CFA', XAF: 'FCFA', TZS: 'TSh', EGP: 'E£' };
-
-function formatMoney(value, currency) {
-    const ccy = String(currency || '').toUpperCase();
-    if (value === null || value === undefined || value === '') return null;
-    const n = Number(value);
-    if (!Number.isFinite(n)) return null;
-    const formatted = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return (CURRENCY_SYMBOLS[ccy] || (ccy ? ccy + ' ' : '')) + formatted;
-}
-function formatNumber(n) {
-    if (n === null || n === undefined || n === '') return null;
-    const num = Number(n);
-    if (!Number.isFinite(num)) return null;
-    return num.toLocaleString('en-US');
-}
-function getInitials(name) {
-    if (!name) return 'U';
-    return String(name).split(/\s+/).map(w => w[0]).filter(Boolean).join('').toUpperCase().slice(0, 2) || 'U';
-}
-function timeAgo(iso) {
-    if (!iso) return '—';
-    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (s < 0) return 'just now';
-    if (s < 60) return 'just now';
-    if (s < 3600) return Math.floor(s / 60) + 'm ago';
-    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
-    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
-    return Math.floor(s / 604800) + 'w ago';
-}
-function formatDateTime(iso) {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-function formatDateShort(iso) {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-function escapeHtml(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-}
-function showToast(msg, type = 'info') {
-    const stack = document.getElementById('toastStack');
-    if (!stack) return;
-    const el = document.createElement('div');
-    el.className = 'toast';
-    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    el.innerHTML = `<span aria-hidden="true">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(msg)}</span>`;
-    stack.appendChild(el);
-    setTimeout(() => el.remove(), 3200);
-}
-function toggleNavGroup(head) {
-    const g = head.closest('.nav-group');
-    g.classList.toggle('collapsed');
-    head.setAttribute('aria-expanded', String(!g.classList.contains('collapsed')));
-    try { localStorage.setItem('navgroup:' + g.dataset.group, g.classList.contains('collapsed') ? 'collapsed' : 'open'); } catch (e) {}
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   USER RESOLUTION FOR TRANSACTION ROWS
-   ────────────────────────────────────────────────────────────────────
-   Different backends shape the "who" fields differently. We accept
-   every shape this codebase has ever produced:
-
-     shape A (new): { user: { id, username, email } }
-     shape B (old): { user_name, user_email }
-     shape C (raw): { profiles: { username, email } }
-
-   Returns { username, email, id } — always populated with a fallback.
-   ════════════════════════════════════════════════════════════════════ */
-function getTxUser(t) {
-    if (!t) return { username: 'Unknown user', email: '', id: null };
-
-    // Shape A
-    if (t.user && typeof t.user === 'object') {
-        const u = t.user;
-        const username = u.username
-            || (u.email ? String(u.email).split('@')[0] : null)
-            || null;
-        if (username) return { username, email: u.email || '', id: u.id || null };
-    }
-
-    // Shape B
-    if (t.user_name || t.user_email) {
-        const username = t.user_name
-            || (t.user_email ? String(t.user_email).split('@')[0] : null)
-            || 'Unknown user';
-        return { username, email: t.user_email || '', id: t.user_id || null };
-    }
-
-    // Shape C
-    if (t.profiles && typeof t.profiles === 'object') {
-        const p = t.profiles;
-        const username = p.username
-            || (p.email ? String(p.email).split('@')[0] : null)
-            || 'Unknown user';
-        return { username, email: p.email || '', id: t.user_id || null };
-    }
-
-    // Fallback: at least show a user id if we have one
-    if (t.user_id) {
-        return { username: 'User ' + String(t.user_id).slice(0, 8), email: '', id: t.user_id };
-    }
-
-    return { username: 'Unknown user', email: '', id: null };
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   DATE RANGE
-   ════════════════════════════════════════════════════════════════════ */
-
-function rangeFor(key, customFrom, customTo) {
-    const now = new Date();
-    const OFFSET_MS = 60 * 60 * 1000;   // WAT = UTC+1 (no DST)
-
-    const startOfWatDay = (d) => {
-        const local = new Date(d.getTime() + OFFSET_MS);
-        const y = local.getUTCFullYear();
-        const m = local.getUTCMonth();
-        const day = local.getUTCDate();
-        return new Date(Date.UTC(y, m, day, 0, 0, 0) - OFFSET_MS);
-    };
-    const endOfWatDay = (d) => {
-        const start = startOfWatDay(d);
-        return new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
-    };
-
-    switch (key) {
-        case 'today': {
-            const from = startOfWatDay(now);
-            const to = endOfWatDay(now);
-            return { from: from.toISOString(), to: to.toISOString(), label: 'Today', detail: formatDateShort(from.toISOString()) };
-        }
-        case 'yesterday': {
-            const y = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            const from = startOfWatDay(y);
-            const to = endOfWatDay(y);
-            return { from: from.toISOString(), to: to.toISOString(), label: 'Yesterday', detail: formatDateShort(from.toISOString()) };
-        }
-        case '7d': {
-            const from = startOfWatDay(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000));
-            const to = endOfWatDay(now);
-            return { from: from.toISOString(), to: to.toISOString(), label: 'Last 7 days', detail: `${formatDateShort(from.toISOString())} – ${formatDateShort(to.toISOString())}` };
-        }
-        case '30d': {
-            const from = startOfWatDay(new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000));
-            const to = endOfWatDay(now);
-            return { from: from.toISOString(), to: to.toISOString(), label: 'Last 30 days', detail: `${formatDateShort(from.toISOString())} – ${formatDateShort(to.toISOString())}` };
-        }
-        case 'month': {
-            const local = new Date(now.getTime() + OFFSET_MS);
-            const y = local.getUTCFullYear(), m = local.getUTCMonth();
-            const from = new Date(Date.UTC(y, m, 1, 0, 0, 0) - OFFSET_MS);
-            const to = endOfWatDay(now);
-            return { from: from.toISOString(), to: to.toISOString(), label: 'This month', detail: `${formatDateShort(from.toISOString())} – ${formatDateShort(to.toISOString())}` };
-        }
-        case 'lastmonth': {
-            const local = new Date(now.getTime() + OFFSET_MS);
-            const y = local.getUTCFullYear(), m = local.getUTCMonth();
-            const from = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0) - OFFSET_MS);
-            const to = new Date(Date.UTC(y, m, 1, 0, 0, 0) - OFFSET_MS - 1);
-            return { from: from.toISOString(), to: to.toISOString(), label: 'Last month', detail: `${formatDateShort(from.toISOString())} – ${formatDateShort(to.toISOString())}` };
-        }
-        case 'custom': {
-            if (!customFrom || !customTo) return rangeFor('today');
-            const from = startOfWatDay(new Date(customFrom));
-            const to = endOfWatDay(new Date(customTo));
-            if (from > to) return rangeFor('today');
-            return { from: from.toISOString(), to: to.toISOString(), label: 'Custom', detail: `${formatDateShort(from.toISOString())} – ${formatDateShort(to.toISOString())}` };
-        }
-        default:
-            return rangeFor('today');
-    }
-}
-
-function applyRange(key, opts = {}) {
-    const r = rangeFor(key, opts.customFrom, opts.customTo);
-    State.range = { key, ...r };
-    document.getElementById('rangeLabelText').textContent = r.label;
-    document.getElementById('rangeLabelDetail').textContent = r.detail;
-    document.querySelectorAll('#rangeSelect .range-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.range === key);
-    });
-    document.getElementById('customRange').classList.toggle('show', key === 'custom');
-}
-
-function withRange(url) {
-    if (!url) return url;
-    const sep = url.includes('?') ? '&' : '?';
-    const { from, to } = State.range;
-    const params = new URLSearchParams();
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
-    return url + sep + params.toString();
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   SAFE FETCH
-   ════════════════════════════════════════════════════════════════════ */
-async function safeFetch(url, options = {}, requestKey) {
-    if (requestKey) {
-        if (State.inFlight.has(requestKey)) return { ok: false, reason: 'duplicate' };
-        State.inFlight.add(requestKey);
-    }
-    try {
-        const res = await AdminSession.fetch(url, options);
-        if (res.status === 404) { State.endpointStatus[url] = 'missing'; return { ok: false, reason: 'not_implemented', status: 404 }; }
-        if (res.status === 401 || res.status === 403) { State.endpointStatus[url] = 'error'; return { ok: false, reason: 'unauthorized', status: res.status }; }
-        if (!res.ok) { State.endpointStatus[url] = 'error'; return { ok: false, reason: 'http_error', status: res.status }; }
-        let json;
-        try { json = await res.json(); } catch (e) { return { ok: false, reason: 'invalid_response', status: res.status }; }
-        if (!json || json.success === false) { State.endpointStatus[url] = 'error'; return { ok: false, reason: 'api_error', error: json?.error }; }
-        State.endpointStatus[url] = 'ok';
-        return { ok: true, data: (json.data !== undefined ? json.data : json), raw: json };
-    } catch (e) {
-        State.endpointStatus[url] = 'error';
-        return { ok: false, reason: 'network_error' };
-    } finally {
-        if (requestKey) State.inFlight.delete(requestKey);
-    }
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   STATE RENDERERS
-   ════════════════════════════════════════════════════════════════════ */
-function unavailableMessage(reason) {
-    switch (reason) {
-        case 'unauthorized':      return 'Your admin session has expired.';
-        case 'not_implemented':   return 'Endpoint not available on this server.';
-        case 'invalid_response':  return 'The server returned an unexpected response.';
-        case 'network_error':     return 'Network error — check your connection.';
-        case 'http_error':        return 'Server error. Check the server logs.';
-        case 'api_error':         return 'The API returned an error.';
-        default:                  return 'Data unavailable.';
-    }
-}
-function renderUnavailable(container, message, onRetry) {
-    if (!container) return;
-    const btnId = 'retry-' + Math.random().toString(36).slice(2, 8);
-    container.innerHTML = `<div class="unavailable-box">
-        <span class="ic" aria-hidden="true">⚠️</span>
-        <div class="msg">Data unavailable</div>
-        <div class="sub">${escapeHtml(message)}</div>
-        ${onRetry ? `<button id="${btnId}" type="button">Retry</button>` : ''}
-    </div>`;
-    if (onRetry) document.getElementById(btnId)?.addEventListener('click', onRetry);
-}
-function renderTableSkeleton(tbody, cols, rows = 4) {
-    if (!tbody) return;
-    let html = '';
-    for (let i = 0; i < rows; i++) {
-        html += '<tr class="skel-row">' + Array.from({ length: cols }).map(() => `<td><span class="skel skel-line" style="width:${60 + Math.random() * 30}%;display:inline-block;"></span></td>`).join('') + '</tr>';
-    }
-    tbody.innerHTML = html;
-}
-function renderTableUnavailable(tbody, cols, message, onRetry) {
-    if (!tbody) return;
-    const btnId = 'retry-' + Math.random().toString(36).slice(2, 8);
-    tbody.innerHTML = `<tr><td colspan="${cols}"><div class="unavailable-box"><span class="ic" aria-hidden="true">⚠️</span><div class="msg">Data unavailable</div><div class="sub">${escapeHtml(message)}</div>${onRetry ? `<button id="${btnId}" type="button">Retry</button>` : ''}</div></td></tr>`;
-    if (onRetry) document.getElementById(btnId)?.addEventListener('click', onRetry);
-}
-function renderTableEmpty(tbody, cols, message) {
-    if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--text-faint);padding:26px;">${escapeHtml(message)}</td></tr>`;
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   DRAWER
-   ════════════════════════════════════════════════════════════════════ */
-function openDrawer({ icon, title, sub, bodyHtml }) {
-    document.getElementById('ddIcon').textContent = icon || '📄';
-    document.getElementById('ddTitle').textContent = title || 'Detail';
-    document.getElementById('ddSub').textContent = sub || '';
-    document.getElementById('ddBody').innerHTML = bodyHtml || '';
-    document.getElementById('detailDrawer').classList.add('open');
-    document.getElementById('drawerScrim').classList.add('show');
-}
-function closeDrawer() {
-    document.getElementById('detailDrawer').classList.remove('open');
-    document.getElementById('drawerScrim').classList.remove('show');
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   KPI CARDS — 12 cards, no "Online Now"
-   ════════════════════════════════════════════════════════════════════ */
-function kpiCard({ icon, color, label, value, currency, desc, route, onClick, unavailable, unavailableReason }) {
-    const el = document.createElement('div');
-    const isClickable = !!(route || onClick);
-    el.className = 'kpi-card' + (isClickable ? ' clickable' : '');
-    if (isClickable) {
-        el.setAttribute('role', 'button');
-        el.setAttribute('tabindex', '0');
-        el.setAttribute('aria-label', label);
-    }
-    let valueHtml;
-    if (unavailable) {
-        valueHtml = `<span class="kpi-value unavailable" title="${escapeHtml(unavailableReason || 'Data unavailable')}">Unavailable</span>`;
-    } else if (currency) {
-        const money = formatMoney(value, currency);
-        valueHtml = money ? `<span class="kpi-value">${money}</span>` : `<span class="kpi-value unavailable">—</span>`;
-    } else {
-        const num = formatNumber(value);
-        valueHtml = num !== null ? `<span class="kpi-value">${num}</span>` : `<span class="kpi-value unavailable">—</span>`;
-    }
-    el.innerHTML = `
-        <div class="kpi-top"><div class="kpi-icon ${color}">${icon}</div></div>
-        <div>${valueHtml}</div>
-        <div class="kpi-label">${escapeHtml(label)}</div>
-        <div class="kpi-desc">${escapeHtml(desc || '')}</div>
-        ${isClickable ? `<div class="kpi-hint">Click for details →</div>` : ''}`;
-    if (isClickable) {
-        const go = () => {
-            if (onClick) onClick();
-            else window.location.href = withRange(route);
-        };
-        el.addEventListener('click', go);
-        el.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
-        });
-    }
-    return el;
-}
-
-function renderKpis(stats) {
-    const grid = document.getElementById('kpiGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    const s = stats || {};
-    const meta = s._meta || {};
-
-    const cards = [
-        kpiCard({
-            icon: '👥', color: 'blue', label: 'Total Users',
-            value: s.totalUsers,
-            desc: 'All-time registered accounts',
-            route: ROUTES.users,
-            unavailable: meta.users_total === false
-        }),
-        kpiCard({
-            icon: '📊', color: 'purple', label: 'Active Today',
-            value: s.activeToday,
-            desc: 'Unique users with activity today',
-            route: ROUTES.users + '?activity=today',
-            unavailable: meta.users_active_today === false
-        }),
-        kpiCard({
-            icon: '🔐', color: 'blue', label: 'Logins Today',
-            value: s.loginsToday,
-            desc: 'Distinct users who started a session',
-            onClick: openLoginsTodayDrawer,
-            unavailable: meta.users_logins_today === false
-        }),
-        kpiCard({
-            icon: '👤', color: 'purple', label: 'New Users',
-            value: s.newUsersToday,
-            desc: 'Registered today',
-            route: ROUTES.users + '?created=today',
-            unavailable: meta.users_new_today === false
-        }),
-        kpiCard({
-            icon: '💰', color: 'gold', label: 'NGN Wallet Liabilities',
-            value: s.walletBalance?.ngn, currency: 'NGN',
-            desc: 'Customer wallet balances (not revenue)',
-            route: ROUTES.ledger + '?currency=NGN',
-            unavailable: meta.wallet_ngn_liability === false
-        }),
-        kpiCard({
-            icon: '💵', color: 'usd', label: 'USD Wallet Liabilities',
-            value: s.walletBalance?.usd, currency: 'USD',
-            desc: 'Customer USD wallet balances',
-            route: ROUTES.ledger + '?currency=USD',
-            unavailable: meta.wallet_usd_liability === false
-        }),
-        kpiCard({
-            icon: '📥', color: 'blue', label: 'Deposits Today',
-            value: s.deposits?.today?.count,
-            desc: s.deposits?.today?.ngn
-                ? `${formatMoney(s.deposits.today.ngn, 'NGN') || ''} in NGN`
-                : 'Number of deposits today',
-            route: ROUTES.deposits,
-            unavailable: meta.deposits_today === false
-        }),
-        kpiCard({
-            icon: '💳', color: 'purple', label: 'Transactions Today',
-            value: s.transactions?.today?.count,
-            desc: `${s.transactions?.completed ?? '—'} completed · ${s.transactions?.pending ?? '—'} pending · ${s.transactions?.failed ?? '—'} failed`,
-            route: ROUTES.transactions,
-            unavailable: meta.transactions_today === false
-        }),
-        kpiCard({
-            icon: '📈', color: 'gold', label: 'Revenue Today (NGN)',
-            value: s.revenue?.today?.ngn, currency: 'NGN',
-            desc: 'Platform fees & markup',
-            route: ROUTES.revenue,
-            unavailable: meta.revenue_today_ngn === false
-        }),
-        kpiCard({
-            icon: '📈', color: 'usd', label: 'Revenue Today (USD)',
-            value: s.revenue?.today?.usd, currency: 'USD',
-            desc: 'Platform fees & markup',
-            route: ROUTES.revenue,
-            unavailable: meta.revenue_today_usd === false
-        }),
-        kpiCard({
-            icon: '⏳', color: 'gold', label: 'Pending Deposits',
-            value: s.pending?.deposits,
-            desc: 'Awaiting provider confirmation',
-            route: ROUTES.deposits + '?status=pending',
-            unavailable: s.pending?.deposits == null
-        }),
-        kpiCard({
-            icon: '❌', color: 'red', label: 'Failed Orders Today',
-            value: s.transactions?.failed,
-            desc: 'Requires investigation',
-            route: ROUTES.failedOrders,
-            unavailable: meta.transactions_today === false
-        })
-    ];
-    cards.forEach(c => grid.appendChild(c));
-
-    // Sidebar badges
-    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v == null ? '0' : String(v); };
-    setText('usersBadge', formatNumber(s.totalUsers) ?? 0);
-    setText('supportBadge', s.support?.open ?? 0);
-    setText('notifCount', s.notifications?.unread ?? 0);
-    setText('notifSidebarBadge', s.notifications?.unread ?? 0);
-}
-function renderKpiSkeleton() {
-    const grid = document.getElementById('kpiGrid');
-    if (!grid) return;
-    grid.innerHTML = Array.from({ length: 12 }).map(() => `<div class="kpi-card skel-kpi"><div class="skel skel-line"></div><div class="skel skel-line"></div><div class="skel skel-line" style="width:50%;"></div></div>`).join('');
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   MONEY OVERVIEW
-   ════════════════════════════════════════════════════════════════════ */
-function renderMoneyOverview(stats) {
-    const el = document.getElementById('moneyOverview');
-    if (!el) return;
-
-    const s = stats || {};
-    const meta = s._meta || {};
-    const available = (v) => v !== null && v !== undefined && v !== '';
-
-    const cards = [
-        {
-            label: 'NGN Customer Wallets',
-            amount: available(s.walletBalance?.ngn) ? formatMoney(s.walletBalance.ngn, 'NGN') : null,
-            sub: 'Ledger liability (not revenue)',
-            route: ROUTES.ledger + '?currency=NGN',
-            available: meta.wallet_ngn_liability !== false
-        },
-        {
-            label: 'USD Customer Wallets',
-            amount: available(s.walletBalance?.usd) ? formatMoney(s.walletBalance.usd, 'USD') : null,
-            sub: 'Ledger liability',
-            route: ROUTES.ledger + '?currency=USD',
-            available: meta.wallet_usd_liability !== false
-        },
-        {
-            label: 'Deposits (period)',
-            amount: available(s.deposits?.today?.count) ? `${formatNumber(s.deposits.today.count)} deposits` : null,
-            sub: available(s.deposits?.today?.ngn) ? `${formatMoney(s.deposits.today.ngn, 'NGN')} NGN` : 'Count',
-            route: ROUTES.deposits,
-            available: meta.deposits_today !== false
-        },
-        {
-            label: 'Revenue (Today NGN)',
-            amount: available(s.revenue?.today?.ngn) ? formatMoney(s.revenue.today.ngn, 'NGN') : null,
-            sub: 'Platform fees & markup',
-            route: ROUTES.revenue,
-            available: meta.revenue_today_ngn !== false
-        }
-    ];
-
-    el.innerHTML = cards.map(c => `
-        <div class="money-card clickable" role="button" tabindex="0" onclick="window.location.href='${escapeHtml(withRange(c.route))}'">
-            <div class="label">${escapeHtml(c.label)}</div>
-            <div class="amount">${c.available && c.amount ? escapeHtml(c.amount) : '<span class="unavailable" style="font-size:14px;color:var(--text-faint);font-weight:600">Unavailable</span>'}</div>
-            <div class="sub">${escapeHtml(c.sub)}</div>
-        </div>`).join('');
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   CHARTS
-   ════════════════════════════════════════════════════════════════════ */
-function themeColors() {
-    const dark = document.documentElement.classList.contains('dark');
-    return {
-        grid: dark ? 'rgba(255,255,255,.06)' : 'rgba(15,76,92,.06)',
-        text: dark ? '#93aab1' : '#5b7480',
-        navy: dark ? '#3fb6d3' : '#0f4c5c',
-        gold: '#f5a623',
-        usd: '#0891b2'
-    };
-}
-function destroyChart(key) {
-    if (State.chartRefs[key]) { try { State.chartRefs[key].destroy(); } catch (e) {} State.chartRefs[key] = null; }
-}
-
-async function loadCharts() {
-    const activityWrap = document.getElementById('chartActivity')?.parentElement;
-    const revenueWrap = document.getElementById('chartRevenue')?.parentElement;
-    const { ok, data, reason } = await safeFetch(API.charts, {}, 'charts');
-
-    if (!ok || !data) {
-        if (activityWrap) renderUnavailable(activityWrap, unavailableMessage(reason), loadCharts);
-        if (revenueWrap) renderUnavailable(revenueWrap, unavailableMessage(reason), loadCharts);
-        ['volNgn','volUsd'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = 'Unavailable'; });
-        return;
-    }
-
-    const tc = themeColors();
-    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-    const weekly = data.weeklyRevenue?.data;
-    if (Array.isArray(weekly) && weekly.length === 7) {
-        destroyChart('activity');
-        const canvas = document.getElementById('chartActivity');
-        if (canvas) {
-            State.chartRefs.activity = new Chart(canvas.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: days,
-                    datasets: [{
-                        label: 'Volume (NGN)',
-                        data: weekly.map(v => Number(v) || 0),
-                        backgroundColor: tc.gold + '80',
-                        borderColor: tc.gold,
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => formatMoney(ctx.parsed.y, 'NGN') || '—' } } },
-                    scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } }
-                }
-            });
-        }
-        const ngnTotal = weekly.reduce((a, b) => a + (Number(b) || 0), 0);
-        const ngnEl = document.getElementById('volNgn');
-        if (ngnEl) ngnEl.textContent = formatMoney(ngnTotal, 'NGN') || '—';
-    } else if (activityWrap) {
-        renderUnavailable(activityWrap, 'Weekly activity not returned by backend.', loadCharts);
-    }
-    const usdTotal = (data.revenueUSD || []).slice(-7).reduce((a, b) => a + (Number(b) || 0), 0);
-    const usdEl = document.getElementById('volUsd');
-    if (usdEl) usdEl.textContent = formatMoney(usdTotal, 'USD') || '—';
-
-    const revNgn = Array.isArray(data.revenue) ? data.revenue : null;
-    if (revNgn && revNgn.length === 12) {
-        destroyChart('revenue');
-        const canvas = document.getElementById('chartRevenue');
-        if (canvas) {
-            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            const now = new Date();
-            const labels = [];
-            for (let i = 0; i < 12; i++) {
-                const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
-                labels.push(months[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2));
-            }
-            State.chartRefs.revenue = new Chart(canvas.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Revenue NGN',
-                        data: revNgn.map(v => Number(v) || 0),
-                        borderColor: tc.navy,
-                        backgroundColor: tc.navy + '20',
-                        tension: 0.35,
-                        fill: true,
-                        borderWidth: 2,
-                        pointRadius: 3,
-                        pointBackgroundColor: tc.navy
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => formatMoney(ctx.parsed.y, 'NGN') || '—' } } },
-                    scales: { x: { grid: { display: false }, ticks: { color: tc.text } }, y: { grid: { color: tc.grid }, ticks: { color: tc.text } } }
-                }
-            });
-        }
-    } else if (revenueWrap) {
-        renderUnavailable(revenueWrap, 'Revenue series not returned by backend.', loadCharts);
-    }
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   SERVICE PERFORMANCE
-   ════════════════════════════════════════════════════════════════════ */
-async function loadServicePerformance() {
-    const tbody = document.getElementById('servicePerfBody');
-    renderTableSkeleton(tbody, 8);
-    const { ok, data, reason } = await safeFetch(API.servicePerformance, {}, 'svc');
-
-    if (!ok || !Array.isArray(data)) {
-        renderTableUnavailable(tbody, 8, unavailableMessage(reason), loadServicePerformance);
-        return;
-    }
-    if (!data.length) {
-        renderTableEmpty(tbody, 8, 'No service activity in this period');
-        return;
-    }
-
-    tbody.innerHTML = data.map(r => {
-        const route = r.route ? withRange(r.route) : '';
-        const rowAttr = route ? ` class="row-clickable" onclick="window.location.href='${escapeHtml(route)}'"` : '';
-        return `<tr${rowAttr}>
-            <td><strong>${escapeHtml(r.label || r.service || '—')}</strong></td>
-            <td>${formatNumber(r.orders) ?? '—'}</td>
-            <td>${formatNumber(r.completed) ?? '—'}</td>
-            <td>${formatNumber(r.pending) ?? '—'}</td>
-            <td>${formatNumber(r.failed) ?? '—'}</td>
-            <td>${formatMoney(r.volumeNgn, 'NGN') || '—'} · ${formatMoney(r.volumeUsd, 'USD') || '—'}</td>
-            <td>${formatMoney(r.revenueNgn, 'NGN') || '—'} · ${formatMoney(r.revenueUsd, 'USD') || '—'}</td>
-            <td>${r.successRate != null ? Number(r.successRate).toFixed(1) + '%' : '—'}</td>
-        </tr>`;
-    }).join('');
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   PROVIDERS
-   ════════════════════════════════════════════════════════════════════ */
-async function loadProviderHealth() {
-    const el = document.getElementById('providerList');
-    if (!el) return;
-    el.innerHTML = Array.from({ length: 3 }).map(() => `<div class="skel" style="height:52px;border-radius:10px;margin-bottom:8px;"></div>`).join('');
-    const { ok, data, reason } = await safeFetch(API.providerHealth, {}, 'providers');
-    if (!ok || !Array.isArray(data) || !data.length) {
-        renderUnavailable(el, unavailableMessage(reason), loadProviderHealth);
-        return;
-    }
-    el.innerHTML = data.map(p => {
-        const cls = p.status === 'operational' ? 'operational'
-            : p.status === 'degraded' ? 'degraded'
-            : p.status === 'unavailable' ? 'unavailable'
-            : p.status === 'not_configured' ? 'not_configured'
-            : 'unknown';
-        const badgeCls = p.status === 'operational' ? 'success'
-            : p.status === 'degraded' ? 'warn'
-            : p.status === 'unavailable' ? 'danger'
-            : 'neutral';
-        return `<div class="provider-row">
-            <div class="pname"><span class="status-dot-lg ${cls}"></span>${escapeHtml(p.name || p.key || '')}</div>
-            <div><span class="badge ${badgeCls}">${escapeHtml(String(p.status || 'unknown').replace(/_/g, ' '))}</span></div>
-            <div class="pdim">${p.lastSuccess ? `Last success ${timeAgo(p.lastSuccess)}` : 'No recent success'}</div>
-            <div class="pdim">${p.recentCount != null ? `${p.recentCount} today` : '—'}</div>
-            <div class="pdim">${p.configured ? 'Configured' : 'Not configured'}</div>
-        </div>`;
-    }).join('');
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   NEEDS ATTENTION
-   ════════════════════════════════════════════════════════════════════ */
-async function loadNeedsAttention() {
-    const el = document.getElementById('attnList');
-    if (!el) return;
-    el.innerHTML = Array.from({ length: 2 }).map(() => `<div class="skel" style="height:48px;border-radius:10px;margin-bottom:8px;"></div>`).join('');
-    const { ok, data, reason } = await safeFetch(API.needsAttention, {}, 'attn');
-    if (!ok) {
-        renderUnavailable(el, unavailableMessage(reason), loadNeedsAttention);
-        return;
-    }
-    if (!Array.isArray(data) || !data.length) {
-        el.innerHTML = `<div class="attn-empty">✅ All systems are operating normally</div>`;
-        return;
-    }
-    el.innerHTML = data.map(a => {
-        const route = a.route ? withRange(a.route) : '';
-        const click = route ? ` onclick="window.location.href='${escapeHtml(route)}'"` : '';
-        return `<div class="attn-item"${click}>
-            <div class="aic" aria-hidden="true">⚠️</div>
-            <div class="body">
-                <div class="title">${escapeHtml(a.title || '')}</div>
-                <div class="desc">${escapeHtml(a.description || '')}</div>
-                ${a.count != null ? `<div class="count">${a.count} item${a.count === 1 ? '' : 's'} · View →</div>` : ''}
-            </div>
-        </div>`;
-    }).join('');
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   RECENT TABLES
-   ════════════════════════════════════════════════════════════════════ */
-function statusBadgeClass(status) {
-    const s = String(status || '').toLowerCase();
-    if (['completed','success','successful','delivered'].includes(s)) return 'success';
-    if (['failed','cancelled','reversed','expired'].includes(s)) return 'danger';
-    if (['pending','processing','confirming','partially_paid'].includes(s)) return 'warn';
-    if (s === 'manual_review') return 'purple';
-    return 'neutral';
-}
-
-async function loadRecentTransactions() {
-    const tbody = document.getElementById('recentTransactionsBody');
-    renderTableSkeleton(tbody, 7);
-    const { ok, data, reason } = await safeFetch(API.recentTransactions + '?limit=12', {}, 'rx-tx');
-    if (!ok) { renderTableUnavailable(tbody, 7, unavailableMessage(reason), loadRecentTransactions); return; }
-
-    // Backend may return { transactions: [...] } or an array.
-    const rows = Array.isArray(data?.transactions) ? data.transactions
-               : Array.isArray(data) ? data
-               : [];
-    if (!rows.length) { renderTableEmpty(tbody, 7, 'No transactions yet'); return; }
-
-    tbody.innerHTML = rows.map(t => {
-        const ccy = (t.currency || '').toUpperCase();
-        const amt = formatMoney(t.amount, ccy);
-        const who = getTxUser(t);
-        const route = withRange(ROUTES.transactions + '?ref=' + encodeURIComponent(t.reference || ''));
-        return `<tr class="row-clickable" onclick="window.location.href='${escapeHtml(route)}'">
-            <td class="mono" style="font-size:10.6px;">${escapeHtml(t.reference || '—')}</td>
-            <td>
-                <div class="cell-user">
-                    <div class="av">${escapeHtml(getInitials(who.username))}</div>
-                    <div class="meta">
-                        <strong>${escapeHtml(who.username)}</strong>
-                        ${who.email ? `<span>${escapeHtml(who.email)}</span>` : ''}
-                    </div>
-                </div>
-            </td>
-            <td>${escapeHtml(t.type_label || t.type || '—')}</td>
-            <td>${amt || '—'}</td>
-            <td><span class="badge ${ccy === 'USD' ? 'info' : 'neutral'}">${escapeHtml(ccy || '—')}</span></td>
-            <td><span class="badge ${statusBadgeClass(t.status)}">${escapeHtml(t.status || 'pending')}</span></td>
-            <td title="${escapeHtml(formatDateTime(t.created_at))}">${timeAgo(t.created_at)}</td>
-        </tr>`;
-    }).join('');
-}
-
-async function loadRecentDeposits() {
-    const tbody = document.getElementById('moneyMovementBody');
-    renderTableSkeleton(tbody, 7);
-    const { ok, data, reason } = await safeFetch(API.recentDeposits + '?limit=15', {}, 'rx-dep');
-    if (!ok) { renderTableUnavailable(tbody, 7, unavailableMessage(reason), loadRecentDeposits); return; }
-    const rows = Array.isArray(data) ? data : [];
-    if (!rows.length) { renderTableEmpty(tbody, 7, 'No deposits during this period'); return; }
-    tbody.innerHTML = rows.map(m => {
-        const ccy = (m.walletCurrency || '').toUpperCase();
-        const amt = formatMoney(m.walletAmount, ccy) || formatMoney(m.paymentAmount, m.paymentCurrency);
-        const route = withRange(ROUTES.deposits);
-        return `<tr class="row-clickable" onclick="window.location.href='${escapeHtml(route)}'">
-            <td>${escapeHtml(m.customer || '—')}</td>
-            <td class="mono" style="font-size:10.6px;">${escapeHtml(m.reference || '—')}</td>
-            <td>${amt || '—'}</td>
-            <td><span class="badge ${ccy === 'USD' ? 'info' : 'neutral'}">${escapeHtml(ccy || '—')}</span></td>
-            <td>${escapeHtml(m.method || '—')}</td>
-            <td><span class="badge ${statusBadgeClass(m.status)}">${escapeHtml(m.status || '—')}</span></td>
-            <td title="${escapeHtml(formatDateTime(m.created_at))}">${timeAgo(m.created_at)}</td>
-        </tr>`;
-    }).join('');
-}
-
-async function loadFailedOrders() {
-    const tbody = document.getElementById('failedOrdersBody');
-    renderTableSkeleton(tbody, 7);
-    const { ok, data, reason } = await safeFetch(API.failedOrders, {}, 'rx-fail');
-    if (!ok) { renderTableUnavailable(tbody, 7, unavailableMessage(reason), loadFailedOrders); return; }
-    const rows = Array.isArray(data) ? data : [];
-    if (!rows.length) { renderTableEmpty(tbody, 7, 'No failed orders'); return; }
-    tbody.innerHTML = rows.map(o => {
-        const route = withRange(ROUTES.failedOrders);
-        return `<tr class="row-clickable" onclick="window.location.href='${escapeHtml(route)}'">
-            <td class="mono" style="font-size:10.6px;">${escapeHtml(o.orderRef || o.id || '—')}</td>
-            <td>${escapeHtml(o.customer || '—')}</td>
-            <td>${escapeHtml(o.service || '—')}</td>
-            <td>${formatMoney(o.amount, o.currency) || '—'}</td>
-            <td>${escapeHtml(o.provider || '—')}</td>
-            <td style="max-width:200px;">${escapeHtml(o.reason || '—')}</td>
-            <td title="${escapeHtml(formatDateTime(o.created_at))}">${timeAgo(o.created_at)}</td>
-        </tr>`;
-    }).join('');
-}
-
-async function loadWebhooks() {
-    const tbody = document.getElementById('webhookBody');
-    renderTableSkeleton(tbody, 5);
-    const { ok, data, reason } = await safeFetch(API.webhooks + '?limit=8', {}, 'rx-wh');
-    if (!ok) { renderTableUnavailable(tbody, 5, unavailableMessage(reason), loadWebhooks); return; }
-    const rows = Array.isArray(data) ? data : [];
-    if (!rows.length) { renderTableEmpty(tbody, 5, 'No webhook activity'); return; }
-    tbody.innerHTML = rows.map(w => `
-        <tr class="row-clickable" onclick="window.location.href='${escapeHtml(withRange(ROUTES.webhooks))}'">
-            <td>${escapeHtml(w.provider || '—')}</td>
-            <td>${escapeHtml(w.event || '—')}</td>
-            <td><span class="badge ${statusBadgeClass(w.status)}">${escapeHtml(w.status || '—')}</span></td>
-            <td class="mono" style="font-size:10.6px;">${escapeHtml(w.reference || '—')}</td>
-            <td title="${escapeHtml(formatDateTime(w.received_at))}">${timeAgo(w.received_at)}</td>
-        </tr>`).join('');
-}
-
-async function loadRecentUsers() {
-    const tbody = document.getElementById('recentUsersBody');
-    renderTableSkeleton(tbody, 4);
-    const { ok, data, reason } = await safeFetch(API.recentUsers + '?limit=6', {}, 'rx-users');
-    if (!ok) { renderTableUnavailable(tbody, 4, unavailableMessage(reason), loadRecentUsers); return; }
-    const users = Array.isArray(data) ? data : [];
-    if (!users.length) { renderTableEmpty(tbody, 4, 'No new users during this period'); return; }
-    tbody.innerHTML = users.map(u => {
-        const name = u.username || u.email || 'User';
-        const status = u.status || 'active';
-        return `<tr class="row-clickable" onclick="openUserDetailDrawer('${escapeHtml(u.id)}')">
-            <td><div class="cell-user"><div class="av">${escapeHtml(getInitials(name))}</div><div class="meta"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(u.email || '')}</span></div></div></td>
-            <td>${escapeHtml(u.last_location || 'N/A')}</td>
-            <td>${timeAgo(u.created_at)}</td>
-            <td><span class="badge ${status === 'active' ? 'success' : status === 'suspended' ? 'danger' : 'warn'}">${escapeHtml(status)}</span></td>
-        </tr>`;
-    }).join('');
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   DRAWER: Logins Today
-   ════════════════════════════════════════════════════════════════════ */
-async function openLoginsTodayDrawer() {
-    openDrawer({ icon: '🔐', title: 'Logins Today', sub: 'Distinct users who started a session', bodyHtml: `<div class="dd-empty">Loading…</div>` });
-    const { ok, data, reason } = await safeFetch(API.loginsToday + '?limit=100', {}, 'logins-today');
-    if (!ok || !data) {
-        document.getElementById('ddBody').innerHTML = `<div class="dd-empty">${escapeHtml(unavailableMessage(reason))}</div>`;
-        return;
-    }
-    const users = Array.isArray(data.users) ? data.users : [];
-    const count = data.count ?? users.length;
-    const deviceBreakdown = data.deviceBreakdown || {};
-
-    const renderRow = (u) => `
-        <div class="dd-user-item" role="button" tabindex="0" onclick="openUserDetailDrawer('${escapeHtml(u.user_id)}')">
-            <div class="av">${escapeHtml(getInitials(u.username || u.email || 'U'))}</div>
-            <div class="meta">
-                <strong>${escapeHtml(u.username || u.email || 'User')}${u.role === 'admin' || u.role === 'super_admin' ? ' 👑' : ''}</strong>
-                <span>${escapeHtml(u.email || '')}</span>
-            </div>
-            <div class="rt">${escapeHtml(timeAgo(u.first_session_at))}</div>
-        </div>`;
-
-    document.getElementById('ddBody').innerHTML = `
-        <div class="dd-stat-grid">
-            <div class="dd-stat"><div class="k">Unique Users</div><div class="v">${count}</div></div>
-            <div class="dd-stat"><div class="k">Window</div><div class="v" style="font-size:12px">${data.from ? escapeHtml(formatDateShort(data.from)) : '—'}</div></div>
-        </div>
-        <div class="dd-section">
-            <div class="dd-section-title">Device Breakdown</div>
-            ${Object.keys(deviceBreakdown).length
-                ? Object.entries(deviceBreakdown).map(([k, v]) => `<div class="dd-field"><span class="k">${escapeHtml(k)}</span><span class="v">${v} session(s)</span></div>`).join('')
-                : '<div class="dd-empty">No device data available.</div>'}
-        </div>
-        <div class="dd-section">
-            <div class="dd-section-title">Users (${users.length})</div>
-            ${users.length ? users.map(renderRow).join('') : '<div class="dd-empty">No logins recorded today.</div>'}
-        </div>`;
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   DRAWER: User Detail
-   ════════════════════════════════════════════════════════════════════ */
-async function openUserDetailDrawer(userId) {
-    if (!userId) return;
-    openDrawer({ icon: '👤', title: 'User Detail', sub: 'Loading…', bodyHtml: `<div class="dd-empty">Loading user…</div>` });
-    const { ok, data, reason } = await safeFetch(`${API.userDetailBase}/${encodeURIComponent(userId)}/detail`, {}, 'user-detail-' + userId);
-    if (!ok || !data) {
-        document.getElementById('ddBody').innerHTML = `<div class="dd-empty">${escapeHtml(unavailableMessage(reason))}</div>`;
-        return;
-    }
-    const u = data.user || data;
-    document.getElementById('ddTitle').textContent = u.username || u.email || 'User';
-    document.getElementById('ddSub').textContent = u.email || userId;
-
-    const wallet = data.wallet || {};
-    const stats = data.stats || {};
-    const recentTx = data.recent_transactions || [];
-
-    document.getElementById('ddBody').innerHTML = `
-        <div class="dd-stat-grid">
-            <div class="dd-stat"><div class="k">NGN Wallet (Ledger)</div><div class="v">${formatMoney(wallet.ngn, 'NGN') || '—'}</div></div>
-            <div class="dd-stat"><div class="k">USD Wallet (Ledger)</div><div class="v">${formatMoney(wallet.usd, 'USD') || '—'}</div></div>
-        </div>
-        <div class="dd-section">
-            <div class="dd-section-title">Profile</div>
-            <div class="dd-field"><span class="k">Username</span><span class="v">${escapeHtml(u.username || '—')}</span></div>
-            <div class="dd-field"><span class="k">Email</span><span class="v">${escapeHtml(u.email || '—')}</span></div>
-            <div class="dd-field"><span class="k">Phone</span><span class="v">${escapeHtml(u.phone || '—')}</span></div>
-            <div class="dd-field"><span class="k">Role</span><span class="v">${escapeHtml(u.role || 'user')}</span></div>
-            <div class="dd-field"><span class="k">Status</span><span class="v"><span class="badge ${statusBadgeClass(u.status)}">${escapeHtml(u.status || 'active')}</span></span></div>
-            <div class="dd-field"><span class="k">Registered</span><span class="v">${escapeHtml(formatDateTime(u.created_at))}</span></div>
-        </div>
-        <div class="dd-section">
-            <div class="dd-section-title">Activity</div>
-            <div class="dd-field"><span class="k">Total Transactions</span><span class="v">${formatNumber(stats.total_transactions) ?? 0}</span></div>
-            <div class="dd-field"><span class="k">Completed</span><span class="v">${formatNumber(stats.completed) ?? 0}</span></div>
-            <div class="dd-field"><span class="k">Pending</span><span class="v">${formatNumber(stats.pending) ?? 0}</span></div>
-            <div class="dd-field"><span class="k">Failed</span><span class="v">${formatNumber(stats.failed) ?? 0}</span></div>
-        </div>
-        <div class="dd-section">
-            <div class="dd-section-title">Recent Transactions (${recentTx.length})</div>
-            ${recentTx.length
-                ? recentTx.slice(0, 6).map(t => `<div class="dd-field"><span class="k">${escapeHtml(t.type_label || t.type || '')}</span><span class="v">${formatMoney(t.amount, t.currency) || '—'} · ${timeAgo(t.created_at)}</span></div>`).join('')
-                : '<div class="dd-empty">No transactions.</div>'}
-        </div>
-        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="refresh-btn" onclick="window.location.href='${escapeHtml(ROUTES.users)}?id=${encodeURIComponent(u.id || userId)}'">Open Full Profile →</button>
-            <button class="refresh-btn" onclick="window.location.href='${escapeHtml(ROUTES.transactions)}?user=${encodeURIComponent(u.id || userId)}'">View Transactions →</button>
-        </div>`;
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   QUICK ACTIONS
-   ════════════════════════════════════════════════════════════════════ */
-const QUICK_ACTIONS = [
-    { icon: '💳', label: 'Transactions', desc: 'All transactions', url: ROUTES.transactions },
-    { icon: '📥', label: 'Deposits', desc: 'View deposits', url: ROUTES.deposits },
-    { icon: '👥', label: 'Users', desc: 'Manage users', url: ROUTES.users },
-    { icon: '🧮', label: 'Orders', desc: 'All orders', url: ROUTES.orders },
-    { icon: '🔄', label: 'Reconciliation', desc: 'Provider vs ledger', url: ROUTES.reconciliation },
-    { icon: '🔌', label: 'Providers', desc: 'Provider health', url: ROUTES.providers },
-    { icon: '🪝', label: 'Webhooks', desc: 'Webhook activity', url: ROUTES.webhooks },
-    { icon: '📄', label: 'Reports', desc: 'Export reports', url: ROUTES.reports }
-];
-function renderQuickActions() {
-    const grid = document.getElementById('quickActions');
-    if (!grid) return;
-    grid.innerHTML = '';
-    QUICK_ACTIONS.forEach(a => {
-        const el = document.createElement('div');
-        el.className = 'qa-card';
-        el.setAttribute('role', 'button');
-        el.setAttribute('tabindex', '0');
-        el.innerHTML = `<span class="qa-ic" aria-hidden="true">${a.icon}</span><span class="qa-title">${escapeHtml(a.label)}</span><span class="qa-desc">${escapeHtml(a.desc)}</span>`;
-        const go = () => window.location.href = withRange(a.url);
-        el.addEventListener('click', go);
-        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
-        grid.appendChild(el);
-    });
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   ADMIN PROFILE
-   ════════════════════════════════════════════════════════════════════ */
-async function loadAdminProfile() {
-    const { ok, data } = await safeFetch(API.me, {}, 'me');
-    if (!ok || !data?.user) return;
-    const user = data.user;
-    const name = user.username || user.email?.split('@')[0] || 'Admin';
-    const role = user.role || 'admin';
-    const initials = getInitials(name);
-    document.getElementById('adminName').textContent = name;
-    document.getElementById('adminRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-    document.getElementById('adminAvatar').textContent = initials;
-    document.getElementById('chipName').textContent = name;
-    document.getElementById('chipRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
-    document.getElementById('chipAvatar').textContent = initials;
-}
-function updateLastUpdated() {
-    State.lastSuccessfulLoadAt = new Date();
-    const text = `Updated ${timeAgo(State.lastSuccessfulLoadAt.toISOString())}`;
-    document.getElementById('lastUpdated').textContent = text;
-    const footer = document.getElementById('footerLastUpdated');
-    if (footer) footer.textContent = formatDateTime(State.lastSuccessfulLoadAt.toISOString());
-    const liveDot = document.getElementById('liveDot');
-    const liveLabel = document.getElementById('liveDotLabel');
-    if (liveDot) liveDot.classList.remove('off');
-    if (liveLabel) liveLabel.textContent = 'Live data';
-}
-function markConnectionIssue() {
-    const liveDot = document.getElementById('liveDot');
-    const liveLabel = document.getElementById('liveDotLabel');
-    if (liveDot) liveDot.classList.add('off');
-    if (liveLabel) liveLabel.textContent = 'Unable to update';
-    const footer = document.getElementById('footerSystemStatus');
-    if (footer) footer.textContent = 'Unable to update';
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   SYSTEM HEALTH
-   ════════════════════════════════════════════════════════════════════ */
-async function loadSystemHealth() {
-    const { ok, data } = await safeFetch(API.health, {}, 'health');
-    const footer = document.getElementById('footerSystemStatus');
-    if (!ok || !data) {
-        if (footer) footer.textContent = 'Unavailable';
-        return;
-    }
-    State.systemHealth = data;
-    if (footer) footer.textContent = data.status === 'operational' ? 'Operational' : (data.status || 'Unknown');
-    const cache = document.getElementById('footerCache');
-    if (cache) cache.textContent = `${data.database_health || 'unknown'} · ${data.db_latency || '—'}`;
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   MASTER LOAD
-   ════════════════════════════════════════════════════════════════════ */
-async function loadAll({ skeletons = true } = {}) {
-    if (skeletons) renderKpiSkeleton();
-
-    const { ok, data: stats, reason } = await safeFetch(API.stats, {}, 'stats');
-
-    if (!ok) {
-        markConnectionIssue();
-        renderUnavailable(document.getElementById('kpiGrid'), unavailableMessage(reason), () => loadAll({ skeletons: true }));
-        return false;
-    }
-
-    State.stats = stats;
-    renderKpis(stats);
-    renderMoneyOverview(stats);
-    updateLastUpdated();
-
-    await Promise.allSettled([
-        loadServicePerformance(),
-        loadProviderHealth(),
-        loadNeedsAttention(),
-        loadFailedOrders(),
-        loadRecentDeposits(),
-        loadWebhooks(),
-        loadRecentTransactions(),
-        loadRecentUsers(),
-        loadCharts()
-    ]);
-    return true;
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   AUTO-REFRESH
-   ════════════════════════════════════════════════════════════════════ */
-function setAutoRefresh(ms) {
-    State.autoRefreshMs = Number(ms) || 0;
-    if (State.autoRefreshHandle) { clearInterval(State.autoRefreshHandle); State.autoRefreshHandle = null; }
-    if (State.autoRefreshMs > 0) {
-        State.autoRefreshHandle = setInterval(() => {
-            if (document.hidden) return;
-            loadAll({ skeletons: false });
-            loadSystemHealth();
-        }, State.autoRefreshMs);
-    }
-}
-
-/* ════════════════════════════════════════════════════════════════════
-   INIT
-   ════════════════════════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-    if (!AdminSession.getToken()) { AdminSession.redirectToLogin(); return; }
-
-    applyRange('today');
-
-    document.getElementById('hamburger')?.addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('open');
-        document.getElementById('scrim').classList.toggle('show');
-    });
-    document.getElementById('scrim')?.addEventListener('click', () => {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('scrim').classList.remove('show');
-    });
-    document.getElementById('sbToggleDesktop')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
-    document.getElementById('sbCollapseBtn')?.addEventListener('click', () => document.getElementById('appRoot').classList.toggle('sb-collapsed'));
-
-    document.getElementById('darkToggle')?.addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        document.getElementById('darkToggle').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
-        destroyChart('activity');
-        destroyChart('revenue');
-        loadCharts();
-    });
-
-    document.getElementById('adminChip')?.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to logout?')) await AdminSession.logout();
-    });
-
-    document.getElementById('rangeSelect')?.addEventListener('click', (e) => {
-        const btn = e.target.closest('.range-btn');
-        if (!btn) return;
-        const key = btn.dataset.range;
-        if (key === 'custom') {
-            document.getElementById('customRange').classList.add('show');
-            applyRange('custom', {
-                customFrom: document.getElementById('customFrom').value,
-                customTo: document.getElementById('customTo').value
-            });
-        } else {
-            document.getElementById('customRange').classList.remove('show');
-            applyRange(key);
-        }
-        loadAll({ skeletons: true });
-    });
-    document.getElementById('customApply')?.addEventListener('click', () => {
-        applyRange('custom', {
-            customFrom: document.getElementById('customFrom').value,
-            customTo: document.getElementById('customTo').value
-        });
-        loadAll({ skeletons: true });
-    });
-
-    document.getElementById('autoRefresh')?.addEventListener('change', (e) => {
-        setAutoRefresh(e.target.value);
-    });
-
-    document.getElementById('refreshBtn')?.addEventListener('click', (e) => {
-        const btn = e.currentTarget;
-        if (btn.disabled) return;
-        btn.disabled = true;
-        btn.classList.add('spinning');
-        Promise.allSettled([
-            loadAll({ skeletons: false }),
-            loadSystemHealth()
-        ]).finally(() => {
-            btn.disabled = false;
-            btn.classList.remove('spinning');
-            showToast('Dashboard refreshed', 'success');
-        });
-    });
-
-    document.getElementById('ddClose')?.addEventListener('click', closeDrawer);
-    document.getElementById('drawerScrim')?.addEventListener('click', closeDrawer);
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeDrawer();
-    });
-
-    try {
-        document.querySelectorAll('.nav-group').forEach(g => {
-            const saved = localStorage.getItem('navgroup:' + g.dataset.group);
-            if (saved === 'collapsed') g.classList.add('collapsed');
-            if (saved === 'open') g.classList.remove('collapsed');
-        });
-    } catch (e) {}
-
-    loadAdminProfile();
-    loadAll({ skeletons: true });
-    loadSystemHealth();
-    renderQuickActions();
-});
-
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden) return;
-    loadAll({ skeletons: false });
-});
-
-window.addEventListener('beforeunload', () => {
-    destroyChart('activity');
-    destroyChart('revenue');
-});
-
-// Expose for inline handlers
-window.openUserDetailDrawer = openUserDetailDrawer;
-window.openLoginsTodayDrawer = openLoginsTodayDrawer;
-window.toggleNavGroup = toggleNavGroup;
-</script>
+<script src="/js/admin-dashboard.js?v=2025-v6"></script>
 </body>
 </html>
