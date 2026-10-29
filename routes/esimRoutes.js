@@ -2,12 +2,20 @@
 // Mounted at: /api/esim
 // Webhook mounted separately at: /api/webhooks/dtone/esim
 //
+// PRICING AUTHORITY:
+//   Every customer-facing price is recomputed from admin settings
+//   on each request via adminSettingsService:
+//     • esim_markup_pct_usd / esim_markup_pct_ngn → markup
+//     • usd_to_ngn                               → FX
+//     • service_esim_enabled                     → feature gate
+//     • esim_min_ngn / esim_max_ngn              → per-order limits
+//   There is no trust in any `selling_price_*` column anywhere.
+//
 // BALANCE SOURCE: profiles.wallet_ngn / wallet_usd
 //   (matches /api/auth/me, /api/wallet/me, and the dashboard)
 //
 // HISTORY: reads esim_transactions, returns FULL detail per row
 //   (QR, activation code, LPA string, serial, ICCID, install links)
-//   so the user can see every eSIM they've purchased on the page.
 
 const express = require('express');
 const router = express.Router();
@@ -16,13 +24,13 @@ const bcrypt = require('bcrypt');
 const QRCode = require('qrcode');
 const { supabaseAdmin } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
-const { LedgerService, AdminConfigService } = require('../services/ledgerService');
+const { LedgerService } = require('../services/ledgerService');
+const adminSettings = require('../services/adminSettingsService');
 const emailService = require('../services/emailService');
 const dtoneService = require('../services/dtoneService');
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────
 const SERVICE_FEE_PCT = 0.02;
-const VENDOR_MARKUP_PCT = 0.15;
 const CACHE_TTL = 5 * 60 * 1000;
 const MAX_RECONCILE_ATTEMPTS = 20;
 const MAX_AGE_MINUTES = 26 * 60;
@@ -44,6 +52,97 @@ const cache = {
 function num(v) {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
+}
+
+function makeErr(code, message, status = 400, extra = {}) {
+    const e = new Error(message);
+    e.status = status;
+    e.code = code;
+    Object.assign(e, extra);
+    return e;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  PRICING — resolved from admin settings
+// ════════════════════════════════════════════════════════════════════════
+//
+// Compute the customer price for one plan. Uses the same integer-cent
+// math as every other markup surface so the display, the preflight,
+// and the debit can never disagree.
+//
+// Given a wholesale USD amount, returns { priceUsd, priceNgn, feeUsd,
+// totalUsd, totalNgn, usdToNgn, markupUsd, markupNgn }.
+async function resolveEsimPricing({ wholesaleUsd }) {
+    const cost = Number(wholesaleUsd);
+    if (!Number.isFinite(cost) || cost <= 0) {
+        throw makeErr('PROVIDER_COST_MISSING',
+            'Wholesale price is not configured for this plan.', 503);
+    }
+
+    // Markup is admin-controlled, USD and NGN tracked separately.
+    const calcUsd = await adminSettings.calculatePrice({
+        service: 'esim',
+        currency: 'USD',
+        wholesaleAmount: cost.toFixed(2)
+    });
+    const priceUsd = Number(calcUsd.customerPrice);
+    const markupUsd = calcUsd.markup;
+
+    // FX from admin settings.
+    const usdToNgn = await adminSettings.getRate('USD', 'NGN');
+    if (!Number.isFinite(usdToNgn) || usdToNgn <= 0) {
+        throw makeErr('RATE_NOT_CONFIGURED',
+            'USD→NGN rate is not configured.', 503);
+    }
+
+    // NGN price from its own admin markup, then reconciled with FX.
+    // This mirrors how the plan list is displayed.
+    const calcNgn = await adminSettings.calculatePrice({
+        service: 'esim',
+        currency: 'NGN',
+        wholesaleAmount: (cost * usdToNgn).toFixed(2)
+    });
+    const priceNgn = Number(calcNgn.customerPrice);
+    const markupNgn = calcNgn.markup;
+
+    // Service fee (2%) is applied on top of the marked-up price, then
+    // rounded to two decimals exactly like the customer sees it.
+    const feeUsd = Number((priceUsd * SERVICE_FEE_PCT).toFixed(2));
+    const totalUsd = Number((priceUsd + feeUsd).toFixed(2));
+    const totalNgn = Number((priceNgn + (priceNgn * SERVICE_FEE_PCT)).toFixed(2));
+
+    return {
+        priceUsd,
+        priceNgn,
+        feeUsd,
+        totalUsd,
+        totalNgn,
+        usdToNgn,
+        markupUsd,
+        markupNgn
+    };
+}
+
+async function assertWithinLimits({ totalNgn, totalUsd, usdToNgn }) {
+    const minNgn = Number(await adminSettings.getRaw('esim_min_ngn'));
+    const maxNgn = Number(await adminSettings.getRaw('esim_max_ngn'));
+
+    // The user picks a currency; enforce against the NGN equivalent
+    // so the same limit works for both wallets.
+    const ngnEquivalent = Number.isFinite(totalNgn)
+        ? totalNgn
+        : Number(totalUsd) * usdToNgn;
+
+    if (Number.isFinite(minNgn) && minNgn > 0 && ngnEquivalent < minNgn) {
+        throw makeErr('BELOW_MIN_LIMIT',
+            `Minimum eSIM order is ₦${minNgn.toFixed(2)}.`,
+            400, { min_ngn: minNgn });
+    }
+    if (Number.isFinite(maxNgn) && maxNgn > 0 && ngnEquivalent > maxNgn) {
+        throw makeErr('ABOVE_MAX_LIMIT',
+            `Maximum eSIM order is ₦${maxNgn.toFixed(2)}.`,
+            400, { max_ngn: maxNgn });
+    }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -206,9 +305,6 @@ async function generateEsimQr(lpaString, reference) {
 
 // ════════════════════════════════════════════════════════════════════════
 //  GET /me
-//
-//  Reads the SAME balance as the dashboard — profiles.wallet_*.
-//  Ledger is used only as a fallback when profiles is zero.
 // ════════════════════════════════════════════════════════════════════════
 router.get('/me', authMiddleware, async (req, res) => {
     try {
@@ -228,7 +324,6 @@ router.get('/me', authMiddleware, async (req, res) => {
         let walletNgn = num(user.wallet_ngn);
         let walletUsd = num(user.wallet_usd);
 
-        // Ledger fallback — only if profiles is zero.
         if (walletNgn === 0 || walletUsd === 0) {
             try {
                 const balances = await LedgerService.getAllBalances(user.id);
@@ -260,10 +355,6 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // ════════════════════════════════════════════════════════════════════════
 //  GET /history
-//
-//  Returns FULL eSIM detail per row so the user sees every purchase
-//  they've made — including QR, activation code, LPA, serial, ICCID,
-//  install links, and delivery/email status.
 // ════════════════════════════════════════════════════════════════════════
 router.get('/history', authMiddleware, async (req, res) => {
     try {
@@ -290,7 +381,6 @@ router.get('/history', authMiddleware, async (req, res) => {
 
         if (error) {
             if (error.code === '42P01') {
-                // Table missing — return empty rather than 500.
                 return res.json({ success: true, data: [] });
             }
             throw error;
@@ -302,19 +392,16 @@ router.get('/history', authMiddleware, async (req, res) => {
             externalId: t.dtone_external_id,
             providerTransactionId: t.provider_transaction_id,
 
-            // Destination
             countryIso2: t.country_iso2,
             countryIso3: t.country_iso3,
             countryName: t.country_name,
             countryFlag: t.country_flag,
 
-            // Plan
             planName: t.plan_name,
             dataAmount: t.data_display,
             dataMb: t.data_mb,
             validityDays: t.validity_days,
 
-            // Pricing
             priceUsd: num(t.price_usd),
             feeUsd: num(t.fee_usd),
             totalUsd: num(t.total_usd),
@@ -323,7 +410,6 @@ router.get('/history', authMiddleware, async (req, res) => {
             debitAmount: num(t.debit_amount),
             exchangeRate: num(t.exchange_rate),
 
-            // Status
             status: t.status,
             deliveryStatus: t.delivery_status,
             emailStatus: t.email_status,
@@ -331,7 +417,6 @@ router.get('/history', authMiddleware, async (req, res) => {
             refundStatus: t.refund_status,
             failureReason: t.failure_reason || null,
 
-            // Delivery data — user needs this to install
             qrCodeUrl: t.qr_code_url || null,
             activationCode: t.activation_code || null,
             lpaString: t.lpa_string || null,
@@ -344,13 +429,11 @@ router.get('/history', authMiddleware, async (req, res) => {
             androidUniversalLink: t.android_universal_link || null,
             instructions: t.instructions || null,
 
-            // Diagnostics
             deliveryAttempts: t.delivery_attempts || 0,
             lastDeliveryError: t.last_delivery_error || null,
             emailAttempts: t.email_attempts || 0,
             lastEmailError: t.last_email_error || null,
 
-            // Timestamps
             createdAt: t.created_at,
             updatedAt: t.updated_at,
             completedAt: t.completed_at,
@@ -406,7 +489,7 @@ router.get('/countries', authMiddleware, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  GET /plans
+//  GET /plans — prices computed live from admin settings
 // ════════════════════════════════════════════════════════════════════════
 router.get('/plans', authMiddleware, async (req, res) => {
     const type = String(req.query.type || '').toLowerCase();
@@ -429,20 +512,37 @@ router.get('/plans', authMiddleware, async (req, res) => {
     }
 
     try {
-        const cached = cache.plans.get(queryKey);
-        if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-            return res.json({ success: true, data: cached.data });
+        // Feature gate — admin can turn off eSIM entirely.
+        const enabled = await adminSettings.isServiceEnabled('esim');
+        if (!enabled) {
+            return res.json({
+                success: true,
+                data: [],
+                enabled: false,
+                reason: 'ESIM_DISABLED'
+            });
         }
 
-        const settings = await AdminConfigService.getSettings();
-        const usdToNgn = parseFloat(settings.usd_to_ngn) || 1600;
+        const cached = cache.plans.get(queryKey);
+        if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+            return res.json({ success: true, data: cached.data, enabled: true });
+        }
+
+        const usdToNgn = await adminSettings.getRate('USD', 'NGN');
+        if (!Number.isFinite(usdToNgn) || usdToNgn <= 0) {
+            return res.status(503).json({
+                success: false,
+                error: 'USD→NGN rate is not configured.',
+                code: 'RATE_NOT_CONFIGURED'
+            });
+        }
 
         let rawProducts;
         try {
             rawProducts = await dtoneService.getEsimProducts(providerKey);
         } catch (e) {
             console.warn(`⚠️ DT One getEsimProducts failed for ${providerKey}:`, e.message);
-            if (cached?.data) return res.json({ success: true, data: cached.data });
+            if (cached?.data) return res.json({ success: true, data: cached.data, enabled: true });
             return res.status(503).json({
                 success: false,
                 error: 'eSIM plans are temporarily unavailable.',
@@ -450,51 +550,58 @@ router.get('/plans', authMiddleware, async (req, res) => {
             });
         }
 
-        const plans = rawProducts
-            .map(p => {
-                let wholesaleUsd = null, wholesaleNgn = null;
-
+        // Every plan's price is computed via the same adminSettings math
+        // the debit path uses.
+        const plans = [];
+        for (const p of rawProducts) {
+            try {
+                // Normalize wholesale to USD for the pricing call.
+                let wholesaleUsd;
                 if (p.wholesaleCurrency === 'USD') {
                     wholesaleUsd = p.wholesaleAmount;
-                    wholesaleNgn = +(p.wholesaleAmount * usdToNgn).toFixed(2);
                 } else if (p.wholesaleCurrency === 'NGN') {
-                    wholesaleNgn = p.wholesaleAmount;
-                    wholesaleUsd = +(p.wholesaleAmount / usdToNgn).toFixed(2);
+                    wholesaleUsd = p.wholesaleAmount / usdToNgn;
                 } else {
-                    return null;
+                    continue;
                 }
+                if (!Number.isFinite(wholesaleUsd) || wholesaleUsd <= 0) continue;
 
-                const priceUsd = +(wholesaleUsd * (1 + VENDOR_MARKUP_PCT)).toFixed(2);
-                const priceNgn = +(wholesaleNgn * (1 + VENDOR_MARKUP_PCT)).toFixed(2);
+                const priced = await resolveEsimPricing({ wholesaleUsd });
 
-                return {
+                plans.push({
                     productId: p.productId,
                     planName: p.planName,
                     description: p.description,
                     dataAmount: p.dataDisplay,
                     dataMb: p.dataMb,
                     validityDays: p.validityDays,
-                    priceUsd,
-                    priceNgn,
+                    priceUsd: priced.priceUsd,
+                    priceNgn: priced.priceNgn,
+                    totalUsd: priced.totalUsd,
+                    totalNgn: priced.totalNgn,
                     coverageType: p.coverageType,
                     coverageLabel: p.coverageLabel,
                     isGlobal: p.isGlobal,
                     isRegional: p.isRegional
-                };
-            })
-            .filter(Boolean)
-            .sort((a, b) => {
-                const order = { country: 0, regional: 1, global: 2 };
-                const diff = (order[a.coverageType] ?? 0) - (order[b.coverageType] ?? 0);
-                if (diff !== 0) return diff;
-                return a.priceUsd - b.priceUsd;
-            });
+                });
+            } catch (err) {
+                console.warn('[ESIM /plans] price resolve failed for', p.productId, err.message);
+            }
+        }
+
+        plans.sort((a, b) => {
+            const order = { country: 0, regional: 1, global: 2 };
+            const diff = (order[a.coverageType] ?? 0) - (order[b.coverageType] ?? 0);
+            if (diff !== 0) return diff;
+            return a.priceUsd - b.priceUsd;
+        });
 
         cache.plans.set(queryKey, { data: plans, timestamp: Date.now() });
 
         res.json({
             success: true,
             data: plans,
+            enabled: true,
             meta: { query: queryKey, usdToNgn, count: plans.length }
         });
     } catch (error) {
@@ -508,8 +615,8 @@ router.get('/plans', authMiddleware, async (req, res) => {
 // ════════════════════════════════════════════════════════════════════════
 router.get('/rates', authMiddleware, async (req, res) => {
     try {
-        const settings = await AdminConfigService.getSettings();
-        res.json({ success: true, data: { usdToNgn: parseFloat(settings.usd_to_ngn) || 1600 } });
+        const usdToNgn = await adminSettings.getRate('USD', 'NGN');
+        res.json({ success: true, data: { usdToNgn } });
     } catch {
         res.json({ success: true, data: { usdToNgn: 1600 } });
     }
@@ -588,34 +695,48 @@ router.post('/purchase', authMiddleware, async (req, res) => {
     let providerTransactionId = null;
 
     try {
-        const [{ data: profile }, settings] = await Promise.all([
-            supabaseAdmin
-                .from('profiles')
-                .select('id, username, email, wallet_ngn, wallet_usd')
-                .eq('id', userId)
-                .single(),
-            AdminConfigService.getSettings()
-        ]);
+        // 1. Feature gate.
+        await adminSettings.assertServiceEnabled('esim');
+
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('id, username, email, wallet_ngn, wallet_usd')
+            .eq('id', userId)
+            .single();
 
         if (!profile) return res.status(404).json({ success: false, error: 'User not found' });
 
-        const usdToNgn = parseFloat(settings.usd_to_ngn) || 1600;
+        // 2. FX from admin settings.
+        const usdToNgn = await adminSettings.getRate('USD', 'NGN');
+        if (!Number.isFinite(usdToNgn) || usdToNgn <= 0) {
+            return res.status(503).json({
+                success: false,
+                error: 'USD→NGN rate is not configured.',
+                code: 'RATE_NOT_CONFIGURED'
+            });
+        }
+
         const email = (deliveryEmail || profile.email || '').trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             return res.status(400).json({ success: false, error: 'Valid delivery email is required' });
         }
 
-        const planInfo = await lookupEsimPlan(destination, productId, usdToNgn);
+        // 3. Fetch the plan and compute the customer price.
+        const planInfo = await lookupEsimPlan(destination, productId);
         if (!planInfo) {
             return res.status(404).json({ success: false, error: 'Plan not found or unavailable' });
         }
 
-        const priceUsd = +planInfo.priceUsd.toFixed(2);
-        const feeUsd = +(priceUsd * SERVICE_FEE_PCT).toFixed(2);
-        const totalUsd = +(priceUsd + feeUsd).toFixed(2);
-        const totalNgn = +(totalUsd * usdToNgn).toFixed(2);
+        const priced = await resolveEsimPricing({ wholesaleUsd: planInfo.wholesaleUsd });
 
-        // Read wallet — prefer profiles (same as dashboard), fall back to ledger.
+        // 4. Enforce limits.
+        await assertWithinLimits({
+            totalUsd: priced.totalUsd,
+            totalNgn: priced.totalNgn,
+            usdToNgn: priced.usdToNgn
+        });
+
+        // 5. Read wallet — prefer profiles, fall back to ledger.
         let walletUsd = num(profile.wallet_usd);
         let walletNgn = num(profile.wallet_ngn);
         if (walletUsd === 0 || walletNgn === 0) {
@@ -631,35 +752,39 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         let debitCurrency, debitAmount;
 
         if (currency === 'USD') {
-            if (walletUsd < totalUsd) {
+            if (walletUsd < priced.totalUsd) {
                 return res.status(400).json({
                     success: false, code: 'INSUFFICIENT_BALANCE',
-                    error: `Insufficient USD. Required: $${totalUsd.toFixed(2)}, Available: $${walletUsd.toFixed(2)}`,
-                    data: { requiredUsd: totalUsd, availableUsd: walletUsd }
+                    error: `Insufficient USD. Required: $${priced.totalUsd.toFixed(2)}, Available: $${walletUsd.toFixed(2)}`,
+                    data: { requiredUsd: priced.totalUsd, availableUsd: walletUsd }
                 });
             }
-            debitCurrency = 'USD'; debitAmount = totalUsd;
+            debitCurrency = 'USD'; debitAmount = priced.totalUsd;
         } else if (currency === 'NGN') {
-            if (walletNgn < totalNgn) {
+            if (walletNgn < priced.totalNgn) {
                 return res.status(400).json({
                     success: false, code: 'INSUFFICIENT_BALANCE',
-                    error: `Insufficient NGN. Required: ₦${totalNgn.toFixed(2)}, Available: ₦${walletNgn.toFixed(2)}`,
-                    data: { requiredNgn: totalNgn, availableNgn: walletNgn }
+                    error: `Insufficient NGN. Required: ₦${priced.totalNgn.toFixed(2)}, Available: ₦${walletNgn.toFixed(2)}`,
+                    data: { requiredNgn: priced.totalNgn, availableNgn: walletNgn }
                 });
             }
-            debitCurrency = 'NGN'; debitAmount = totalNgn;
+            debitCurrency = 'NGN'; debitAmount = priced.totalNgn;
         } else {
-            if (walletUsd >= totalUsd) { debitCurrency = 'USD'; debitAmount = totalUsd; }
-            else if (walletNgn >= totalNgn) { debitCurrency = 'NGN'; debitAmount = totalNgn; }
+            if (walletUsd >= priced.totalUsd) { debitCurrency = 'USD'; debitAmount = priced.totalUsd; }
+            else if (walletNgn >= priced.totalNgn) { debitCurrency = 'NGN'; debitAmount = priced.totalNgn; }
             else {
                 return res.status(400).json({
                     success: false, code: 'INSUFFICIENT_BALANCE',
-                    error: `Insufficient balance. Required: $${totalUsd.toFixed(2)} or ₦${totalNgn.toFixed(2)}`,
-                    data: { requiredUsd: totalUsd, availableUsd: walletUsd, requiredNgn: totalNgn, availableNgn: walletNgn }
+                    error: `Insufficient balance. Required: $${priced.totalUsd.toFixed(2)} or ₦${priced.totalNgn.toFixed(2)}`,
+                    data: {
+                        requiredUsd: priced.totalUsd, availableUsd: walletUsd,
+                        requiredNgn: priced.totalNgn, availableNgn: walletNgn
+                    }
                 });
             }
         }
 
+        // 6. Create order with freshly-computed prices + FX.
         orderId = crypto.randomUUID();
         const reference = 'ESIM-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
 
@@ -681,11 +806,11 @@ router.post('/purchase', authMiddleware, async (req, res) => {
                 data_mb: planInfo.dataMb || 0,
                 validity_days: planInfo.validityDays,
                 wholesale_usd: planInfo.wholesaleUsd || 0,
-                price_usd: priceUsd,
-                fee_usd: feeUsd,
-                total_usd: totalUsd,
-                exchange_rate: usdToNgn,
-                price_ngn: totalNgn,
+                price_usd: priced.priceUsd,
+                fee_usd: priced.feeUsd,
+                total_usd: priced.totalUsd,
+                exchange_rate: priced.usdToNgn,
+                price_ngn: priced.totalNgn,
                 debit_currency: debitCurrency,
                 debit_amount: debitAmount,
                 delivery_email: email,
@@ -834,6 +959,18 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             } catch (cleanupErr) {
                 console.error('❌ Cleanup failed:', cleanupErr.message);
             }
+        }
+
+        // If the error has a status/code from adminSettings, surface it.
+        if (error.status && error.code) {
+            return res.status(error.status).json({
+                success: false,
+                error: error.message,
+                code: error.code,
+                min_ngn: error.min_ngn,
+                max_ngn: error.max_ngn,
+                service: error.service
+            });
         }
 
         return res.status(500).json({ success: false, error: error.message || 'Failed to create eSIM order' });
@@ -1307,7 +1444,9 @@ async function refundEsimOrder(userId, orderId, reason) {
     }
 }
 
-async function lookupEsimPlan(destination, productId, usdToNgn) {
+// Look up the plan on DT One, return wholesale + metadata. Does NOT
+// compute the customer price — the caller does that from admin settings.
+async function lookupEsimPlan(destination, productId) {
     try {
         const providerKey = destination.type === 'global' ? 'GLOBAL' : destination.code;
         const products = await dtoneService.getEsimProducts(providerKey);
@@ -1319,18 +1458,19 @@ async function lookupEsimPlan(destination, productId, usdToNgn) {
             ? allCountries.find(c => c.iso3 === destination.iso3) || { iso3: destination.iso3, iso2: '', name: destination.iso3 }
             : { iso3: '', iso2: '', name: 'Global' };
 
-        let wholesaleUsd = null, wholesaleNgn = null;
+        // Normalize wholesale to USD; the caller converts to NGN
+        // using the admin-configured rate.
+        let wholesaleUsd;
         if (p.wholesaleCurrency === 'USD') {
-            wholesaleUsd = p.wholesaleAmount;
-            wholesaleNgn = +(p.wholesaleAmount * usdToNgn).toFixed(2);
+            wholesaleUsd = Number(p.wholesaleAmount);
         } else if (p.wholesaleCurrency === 'NGN') {
-            wholesaleNgn = p.wholesaleAmount;
-            wholesaleUsd = +(p.wholesaleAmount / usdToNgn).toFixed(2);
+            const usdToNgn = await adminSettings.getRate('USD', 'NGN');
+            wholesaleUsd = Number(p.wholesaleAmount) / usdToNgn;
         } else {
             return null;
         }
 
-        const priceUsd = +(wholesaleUsd * (1 + VENDOR_MARKUP_PCT)).toFixed(2);
+        if (!Number.isFinite(wholesaleUsd) || wholesaleUsd <= 0) return null;
 
         return {
             productId: p.productId,
@@ -1338,9 +1478,7 @@ async function lookupEsimPlan(destination, productId, usdToNgn) {
             dataDisplay: p.dataDisplay,
             dataMb: p.dataMb,
             validityDays: p.validityDays,
-            priceUsd,
             wholesaleUsd,
-            wholesaleNgn,
             countryIso2: countryMeta.iso2 || '',
             countryName: p.countryName || countryMeta.name || destination.code,
             countryFlag: null

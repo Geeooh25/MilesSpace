@@ -1,13 +1,19 @@
 // routes/giftcardRoutes.js
 // Gift Card Routes — MilesSpace
 //
-// PERFORMANCE & RELIABILITY (this pass):
+// PERFORMANCE & RELIABILITY:
 //   • Fast first-page response: returns cache immediately (fresh or stale).
 //   • Cold-cache fast-start: waits for the first validated page, not the full catalog.
 //   • Single-flight rebuild: concurrent requests share one refresh promise.
 //   • Stale-while-revalidate: serves stale cache for up to 15 minutes while refreshing.
 //   • Failed refreshes never erase the last-known-good catalog.
 //   • Explicit X-Cache / X-Cache-Stale / X-Response-Ms headers for diagnosis.
+//
+// PRICING AUTHORITY (post-hardening):
+//   • usd_to_ngn               → adminSettings.getRate('USD','NGN')
+//   • giftcard_markup_pct_usd  → adminSettings.calculatePrice({ service: 'giftcard', currency: 'USD' })
+//   • giftcard_markup_pct_ngn  → adminSettings.calculatePrice({ service: 'giftcard', currency: 'NGN' })
+//   • service_giftcards_enabled → adminSettings.isServiceEnabled('giftcards')
 //
 // SAFETY (unchanged):
 //   • Idempotency-Key required on purchase.
@@ -26,8 +32,8 @@ const { supabaseAdmin } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
 const { requirePermission, PERMISSIONS } = require('../middleware/adminAuth');
 const dtoneService = require('../services/dtoneService');
-const { LedgerService, AdminConfigService } = require('../services/ledgerService');
-const { computePrice } = require('../services/pricingService');
+const { LedgerService } = require('../services/ledgerService');
+const adminSettings = require('../services/adminSettingsService');
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  CONFIG
@@ -38,18 +44,13 @@ const MAX_QUANTITY = 1;
 const DEFAULT_PAGE_SIZE = 100;
 const MAX_PAGE_SIZE = 500;
 
-// Fresh cache: fast path, no refresh triggered
-const CATALOG_FRESH_TTL_MS = 10 * 60 * 1000;      // 10 min
-// Stale cache: serve stale + trigger background refresh
-const CATALOG_STALE_TTL_MS = 15 * 60 * 1000;      // 15 min beyond fresh
-// Absolute max age: refuse to serve beyond this
-const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;   // 24 h
+const CATALOG_FRESH_TTL_MS = 10 * 60 * 1000;
+const CATALOG_STALE_TTL_MS = 15 * 60 * 1000;
+const CATALOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-// Cold-start priority: wait only for these pages before responding
 const FIRST_PAGE_LIMIT = 2;
 const FIRST_PAGE_TIMEOUT_MS = 10000;
 
-// Full rebuild limits (bounded)
 const CATALOG_MAX_PAGES = 50;
 const CATALOG_PER_PAGE = 100;
 const PER_PAGE_TIMEOUT_MS = 10000;
@@ -70,6 +71,11 @@ const CRITICAL_COLUMNS = new Set([
     'email_status', 'voucher_code', 'voucher_serial',
     'completed_at', 'refunded_at', 'failed_at'
 ]);
+
+// Fallbacks — used only if adminSettings is unreachable or uninitialised.
+const DEFAULT_USD_TO_NGN   = 1600;
+const DEFAULT_MARKUP_USD   = 0.1570;
+const DEFAULT_MARKUP_NGN   = 0.1570;
 
 const FX_TO_USD = {
     USD: 1,
@@ -181,6 +187,72 @@ function normalizeWholesaleToNgn(amount, currency, usdToNgn) {
     return null;
 }
 
+// Compute customer-facing prices using the SAME integer-cent math
+// that adminSettings.calculatePrice uses. Given a wholesale NGN
+// amount, we derive price NGN and price USD from the admin markup
+// and admin FX so display and debit agree.
+function computeCustomerPrice({ wholesaleNgn, usdToNgn, markupNgn, markupUsd }) {
+    const wholesale = Number(wholesaleNgn);
+    if (!Number.isFinite(wholesale) || wholesale <= 0) {
+        return { priceNgn: null, priceUsd: null };
+    }
+
+    // NGN price: wholesale + admin NGN markup.
+    const priceNgn = +(wholesale * (1 + markupNgn)).toFixed(2);
+
+    // USD price: derive from wholesale USD × admin USD markup.
+    const wholesaleUsd = wholesale / usdToNgn;
+    const priceUsd = +(wholesaleUsd * (1 + markupUsd)).toFixed(2);
+
+    return { priceNgn, priceUsd };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ADMIN SETTINGS HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function getGiftcardPricingConfig() {
+    // Feature gate — admin can turn gift cards off entirely.
+    let enabled = false;
+    try {
+        enabled = await adminSettings.isServiceEnabled('giftcards');
+    } catch { enabled = false; }
+
+    let usdToNgn = DEFAULT_USD_TO_NGN;
+    try {
+        const rate = await adminSettings.getRate('USD', 'NGN');
+        if (Number.isFinite(rate) && rate > 0) usdToNgn = rate;
+    } catch { /* fall through */ }
+
+    // Markups — read via calculatePrice so the arithmetic matches what
+    // the admin page displays. calculatePrice returns .markup which is
+    // the decimal (e.g. 0.1570). We use it directly.
+    let markupUsd = DEFAULT_MARKUP_USD;
+    let markupNgn = DEFAULT_MARKUP_NGN;
+
+    try {
+        const calcUsd = await adminSettings.calculatePrice({
+            service: 'giftcard',
+            currency: 'USD',
+            wholesaleAmount: '1.00'
+        });
+        const m = Number(calcUsd.markup);
+        if (Number.isFinite(m) && m >= 0 && m <= 1) markupUsd = m;
+    } catch { /* fall through */ }
+
+    try {
+        const calcNgn = await adminSettings.calculatePrice({
+            service: 'giftcard',
+            currency: 'NGN',
+            wholesaleAmount: usdToNgn.toFixed(2)
+        });
+        const m = Number(calcNgn.markup);
+        if (Number.isFinite(m) && m >= 0 && m <= 1) markupNgn = m;
+    } catch { /* fall through */ }
+
+    return { enabled, usdToNgn, markupUsd, markupNgn };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  CACHE — Stale-While-Revalidate
 // ═══════════════════════════════════════════════════════════════════════════
@@ -196,9 +268,7 @@ const productCache = {
     lastTruncated: false,
     lastTruncationReason: null,
     lastError: null,
-    // Single-flight promise for the in-progress rebuild
     buildPromise: null,
-    // First-page ready signal for cold-start
     firstPageResolvers: []
 };
 
@@ -228,10 +298,10 @@ function invalidateGiftCardCatalog() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PRODUCT NORMALIZATION (unchanged from original)
+//  PRODUCT NORMALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
+function normalizeProduct(p, pricingConfig, rejections = null) {
     const reject = (reason) => {
         if (rejections) rejections.set(reason, (rejections.get(reason) || 0) + 1);
         return null;
@@ -275,14 +345,20 @@ function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
         p.wholesaleCurrency || p.prices?.wholesale?.unit || ''
     ).toUpperCase();
 
-    const wholesaleNgn = normalizeWholesaleToNgn(wholesaleAmount, wholesaleCurrency, usdToNgn);
+    const wholesaleNgn = normalizeWholesaleToNgn(wholesaleAmount, wholesaleCurrency, pricingConfig.usdToNgn);
     if (!Number.isFinite(wholesaleNgn) || wholesaleNgn <= 0) {
         return reject(`no_wholesale:${wholesaleCurrency || 'unknown'}`);
     }
 
-    const pricing = computePrice(wholesaleNgn, usdToNgn, markupPct);
-    if (!Number.isFinite(pricing.priceNgn) || pricing.priceNgn <= 0) return reject('bad_price_ngn');
-    if (!Number.isFinite(pricing.priceUsd) || pricing.priceUsd <= 0) return reject('bad_price_usd');
+    const priced = computeCustomerPrice({
+        wholesaleNgn,
+        usdToNgn: pricingConfig.usdToNgn,
+        markupNgn: pricingConfig.markupNgn,
+        markupUsd: pricingConfig.markupUsd
+    });
+
+    if (!Number.isFinite(priced.priceNgn) || priced.priceNgn <= 0) return reject('bad_price_ngn');
+    if (!Number.isFinite(priced.priceUsd) || priced.priceUsd <= 0) return reject('bad_price_usd');
 
     const countryIso = String(
         p.countryIso || p.operator?.country?.iso_code || p.country?.iso_code || ''
@@ -297,7 +373,7 @@ function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
         p.countryName || p.operator?.country?.name || p.country?.name || countryIso || 'Global'
     ).trim() || 'Global';
 
-    const wholesaleUsd = wholesaleNgn / (usdToNgn || 1600);
+    const wholesaleUsd = wholesaleNgn / (pricingConfig.usdToNgn || DEFAULT_USD_TO_NGN);
 
     return {
         productId, name,
@@ -311,8 +387,8 @@ function normalizeProduct(p, usdToNgn, markupPct, rejections = null) {
         logo: p.logo || null,
         description: p.description || null,
         instructions: p.instructions || null,
-        priceUsd: pricing.priceUsd,
-        priceNgn: pricing.priceNgn,
+        priceUsd: priced.priceUsd,
+        priceNgn: priced.priceNgn,
         wholesaleNgn: +wholesaleNgn.toFixed(4),
         wholesaleUsd: +wholesaleUsd.toFixed(4),
         productType: p.productType || 'FIXED_VALUE_PIN_PURCHASE'
@@ -349,12 +425,6 @@ function deriveCountriesFromProducts(products) {
 //  CATALOG BUILDER — Single-flight
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Kick off a single catalog rebuild. Safe to call concurrently:
- * only the first caller starts the build; all others share it.
- *
- * Resolves with the productCache object (which is mutated in place).
- */
 function triggerCatalogRebuild() {
     if (productCache.buildPromise) {
         return productCache.buildPromise;
@@ -363,14 +433,26 @@ function triggerCatalogRebuild() {
     productCache.buildPromise = (async () => {
         const startTs = Date.now();
         try {
-            const settings = await AdminConfigService.getSettings();
-            const usdToNgn = Number(settings?.usd_to_ngn) || 1600;
-            const markupPctRaw = Number(settings?.giftcard_markup_pct);
-            const markupPct = Number.isFinite(markupPctRaw) && markupPctRaw >= 0
-                ? markupPctRaw : 0.1570;
+            // Read pricing config from admin settings.
+            const pricingConfig = await getGiftcardPricingConfig();
+
+            // If the service has been turned off by the admin, do not
+            // rebuild the catalog — treat the cache as empty.
+            if (!pricingConfig.enabled) {
+                console.warn('⚠️ [GIFTCARDS] Service disabled in admin settings — catalog rebuild skipped');
+                productCache.products = [];
+                productCache.builtAt = Date.now();
+                productCache.lastError = 'SERVICE_DISABLED';
+                for (const r of productCache.firstPageResolvers) {
+                    try { r(productCache); } catch {}
+                }
+                productCache.firstPageResolvers = [];
+                return productCache;
+            }
 
             console.log(
-                `📦 [GIFTCARDS] Building catalog — up to ${CATALOG_MAX_PAGES} pages × ${CATALOG_PER_PAGE}`
+                `📦 [GIFTCARDS] Building catalog — up to ${CATALOG_MAX_PAGES} pages × ${CATALOG_PER_PAGE}` +
+                ` (markup USD=${pricingConfig.markupUsd}, NGN=${pricingConfig.markupNgn}, FX=${pricingConfig.usdToNgn})`
             );
 
             const result = await dtoneService.getGiftCardProducts(null, {
@@ -388,7 +470,7 @@ function triggerCatalogRebuild() {
             const products = [];
             const rejections = new Map();
             for (const p of rawList) {
-                const normalized = normalizeProduct(p, usdToNgn, markupPct, rejections);
+                const normalized = normalizeProduct(p, pricingConfig, rejections);
                 if (normalized) products.push(normalized);
             }
             products.sort(sortProductList);
@@ -400,8 +482,6 @@ function triggerCatalogRebuild() {
             const gotProducts = products.length > 0;
 
             if (gotProducts) {
-                // Always accept a fresh catalog, even if truncated — we mark
-                // it as truncated so consumers can display the right hint.
                 productCache.products = products;
                 productCache.builtAt = Date.now();
                 productCache.lastBuildDurationMs = Date.now() - startTs;
@@ -419,7 +499,6 @@ function triggerCatalogRebuild() {
                     ` in ${productCache.lastBuildDurationMs}ms`
                 );
             } else if (hadPrevious) {
-                // Refuse to overwrite a good catalog with an empty one.
                 productCache.lastError = 'Rebuild returned 0 products — kept previous catalog';
                 console.warn('⚠️ [GIFTCARDS] Rebuild returned 0 — keeping last-known-good');
             } else {
@@ -429,7 +508,6 @@ function triggerCatalogRebuild() {
                 console.warn('⚠️ [GIFTCARDS] First build returned 0 products');
             }
 
-            // Fire any waiting cold-start resolvers
             for (const r of productCache.firstPageResolvers) {
                 try { r(productCache); } catch {}
             }
@@ -442,7 +520,6 @@ function triggerCatalogRebuild() {
             if (productCache.products.length) {
                 console.warn('⚠️ [GIFTCARDS] Keeping previous catalog after failure');
             }
-            // Resolve cold-start waiters so they don't hang.
             for (const r of productCache.firstPageResolvers) {
                 try { r(productCache); } catch {}
             }
@@ -456,27 +533,18 @@ function triggerCatalogRebuild() {
     return productCache.buildPromise;
 }
 
-/**
- * Wait for the first usable catalog entry point.
- * - If cache is HIT: returns immediately.
- * - If cache is STALE: returns immediately, triggers background refresh.
- * - If cache is MISS: triggers a rebuild and waits for it (bounded by FIRST_PAGE_TIMEOUT_MS).
- */
 async function ensureCatalogReady() {
     const state = cacheState();
 
     if (state === 'HIT') return { state, served: 'fresh' };
 
     if (state === 'STALE') {
-        // Serve stale immediately, refresh in background
         triggerCatalogRebuild().catch(() => {});
         return { state, served: 'stale' };
     }
 
-    // MISS or EXPIRED — must build
     const buildPromise = triggerCatalogRebuild();
 
-    // Wait for the build, bounded so we don't hang forever
     const timeout = new Promise((resolve) =>
         setTimeout(() => resolve({ timedOut: true }), FIRST_PAGE_TIMEOUT_MS)
     );
@@ -484,9 +552,6 @@ async function ensureCatalogReady() {
     const result = await Promise.race([buildPromise, timeout]);
 
     if (result?.timedOut) {
-        // Build is still running in the background. If there's
-        // *any* product data (even from a very old previous build),
-        // serve it as best-effort stale.
         if (productCache.products.length > 0) {
             return { state: 'STALE', served: 'timeout_partial' };
         }
@@ -676,7 +741,6 @@ router.get('/wallet/balances', authMiddleware, async (req, res) => {
 router.get('/giftcards/countries', authMiddleware, async (req, res) => {
     const startTs = Date.now();
 
-    // Ensure catalog is at least partially available so we can derive countries
     if (!countryCache.countries.length) {
         try {
             await ensureCatalogReady();
@@ -690,7 +754,6 @@ router.get('/giftcards/countries', authMiddleware, async (req, res) => {
         return res.json({ success: true, data: countryCache.countries });
     }
 
-    // Fall back to a direct country fetch
     try {
         const raw = await dtoneService.getCountries('GIFT_CARD');
         const list = Array.isArray(raw) ? raw : [];
@@ -731,7 +794,6 @@ router.get('/giftcards/products', authMiddleware, async (req, res) => {
         const search = String(req.query.search || '').trim().toLowerCase();
         const country = String(req.query.country || '').toUpperCase() || null;
 
-        // Wait for cache readiness (may return immediately if HIT/STALE)
         const ready = await ensureCatalogReady();
 
         const safeList = (productCache.products || []).filter((p) => {
@@ -949,6 +1011,17 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
     });
 
     try {
+        // ─── Feature gate ────────────────────────────────────────
+        let serviceEnabled = false;
+        try { serviceEnabled = await adminSettings.isServiceEnabled('giftcards'); } catch { serviceEnabled = false; }
+        if (!serviceEnabled) {
+            return res.status(503).json({
+                success: false,
+                error: 'Gift cards are currently unavailable.',
+                code: 'SERVICE_DISABLED'
+            });
+        }
+
         const { data: existing, error: existingErr } = await supabaseAdmin
             .from('giftcard_transactions')
             .select('id, reference, status, request_fingerprint')
@@ -1036,8 +1109,10 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
 
         await atomicResetPinAttempts(userId);
 
-        // Server-side re-validation of the product and its current price.
-        // Never trust a client-supplied price.
+        // ─── Server-side re-validation of product + price ─────────
+        // Rebuild ensures the price reflects the CURRENT admin settings
+        // (markup + FX). A catalog cached for up to 10 minutes could
+        // carry a stale price, so we re-derive here.
         await ensureCatalogReady();
         const product = (productCache.products || []).find(
             (p) => String(p.productId) === String(productId)
@@ -1059,8 +1134,38 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        const totalUsd = +(product.priceUsd * qty).toFixed(2);
-        const totalNgn = +(product.priceNgn * qty).toFixed(2);
+        // Re-read admin pricing config right before the debit so a
+        // markup or FX change between catalog rebuild and now is caught.
+        const pricingConfig = await getGiftcardPricingConfig();
+        if (!pricingConfig.enabled) {
+            return res.status(503).json({
+                success: false,
+                error: 'Gift cards are currently unavailable.',
+                code: 'SERVICE_DISABLED'
+            });
+        }
+
+        // Recompute the customer price from the wholesale using the
+        // admin-config markup and FX. Never trust the cached priceUsd/
+        // priceNgn for the actual debit — only the wholesale is trusted.
+        const recomputed = computeCustomerPrice({
+            wholesaleNgn: product.wholesaleNgn,
+            usdToNgn: pricingConfig.usdToNgn,
+            markupNgn: pricingConfig.markupNgn,
+            markupUsd: pricingConfig.markupUsd
+        });
+
+        if (!Number.isFinite(recomputed.priceUsd) || recomputed.priceUsd <= 0 ||
+            !Number.isFinite(recomputed.priceNgn) || recomputed.priceNgn <= 0) {
+            return res.status(500).json({
+                success: false,
+                error: 'Pricing calculation failed',
+                code: 'PRICING_ERROR'
+            });
+        }
+
+        const totalUsd = +(recomputed.priceUsd * qty).toFixed(2);
+        const totalNgn = +(recomputed.priceNgn * qty).toFixed(2);
 
         if (!Number.isFinite(totalUsd) || totalUsd <= 0) {
             return res.status(500).json({
@@ -1087,7 +1192,7 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             face_currency: product.currency,
             quantity: qty,
             wholesale_usd: product.wholesaleUsd,
-            price_usd: product.priceUsd,
+            price_usd: recomputed.priceUsd,
             fee_usd: 0,
             total_usd: totalUsd,
             price_ngn: totalNgn,
@@ -1100,7 +1205,16 @@ router.post('/giftcards/purchase', authMiddleware, async (req, res) => {
             delivery_status: 'pending',
             email_status: 'pending',
             reconciliation_attempts: 0,
-            metadata: { product_snapshot: product }
+            metadata: {
+                product_snapshot: product,
+                pricing_snapshot: {
+                    usd_to_ngn: pricingConfig.usdToNgn,
+                    markup_usd: pricingConfig.markupUsd,
+                    markup_ngn: pricingConfig.markupNgn,
+                    price_usd: recomputed.priceUsd,
+                    price_ngn: recomputed.priceNgn
+                }
+            }
         };
 
         const { data: order, error: insertErr } = await supabaseAdmin
@@ -1510,8 +1624,6 @@ router.post('/webhooks/dtone/giftcard', express.json({ limit: '1mb' }), async (r
 });
 
 // ─── Startup: warm the cache ─────────────────────────────────────────────
-// Kick off a background catalog build 2 seconds after module load.
-// This means the very first customer request almost always hits a warm cache.
 setTimeout(() => {
     triggerCatalogRebuild()
         .then(() => console.log('✅ [GIFTCARDS] Warm-up complete'))

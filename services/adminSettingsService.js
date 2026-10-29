@@ -1,71 +1,11 @@
 // services/adminSettingsService.js
 // ─────────────────────────────────────────────────────────────────
 // MILESSPACE SETTINGS — SINGLE SOURCE OF TRUTH
-//
-// This file is the ONLY authority for:
-//   • reading/writing app_config settings
-//   • validating and normalizing setting values
-//   • FX rates and rate history
-//   • service pricing markups
-//   • deposit fees
-//   • wallet/deposit limits
-//   • service enable/disable gates
-//   • provider enable/disable gates
-//   • emergency operation gates
-//   • maintenance mode
-//   • audit logging
-//   • health reporting
-//
-// It does NOT:
-//   • touch ledger_accounts, transactions, wallet balances
-//   • call providers
-//   • price historical transactions
-//
-// Sections in this file, in order:
-//   1.  Registry (KEY_REGISTRY)
-//   2.  Section map (SECTION_KEYS)
-//   3.  Service registry (SERVICE_REGISTRY)
-//   4.  Provider registry (PROVIDER_REGISTRY)
-//   5.  Defaults
-//   6.  Validation & normalization
-//   7.  Cache
-//   8.  Reads
-//   9.  Writes (patch, reset)
-//   10. Pricing (calculatePrice)
-//   11. FX (getRate, snapshot)
-//   12. Services (isServiceEnabled, assertServiceEnabled)
-//   13. Providers (isProviderEnabled, assertProviderEnabled)
-//   14. Emergency (isOperationAllowed, assertOperationAllowed)
-//   15. Audit & rate history
-//   16. Health
-//   17. Exports
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
 
 const { supabaseAdmin } = require('../db/supabase');
-
-// ═════════════════════════════════════════════════════════════════
-// 1. KEY_REGISTRY — every writable setting
-// ═════════════════════════════════════════════════════════════════
-//
-// shape:
-//   'value'    — free string (length-capped)
-//   'email'    — validated email
-//   'url'      — validated URL
-//   'int'      — integer, min/max
-//   'decimal'  — number, decimals, min/max
-//   'percent'  — number stored as decimal (15.7 → 0.157); decimals: 4
-//   'boolean'  — strict true/false
-//   'enum'     — one of values
-//   'currency' — 3-letter ISO
-//
-// flags:
-//   section     — which UI section this belongs to
-//   financial   — pricing/FX/fee key; audit failure is fatal
-//   dangerous   — requires a reason; supersensitive
-//   secretRef   — env var name; never stored in DB, only rendered as
-//                 "configured / not configured"
 
 const KEY_REGISTRY = Object.freeze({
     // ─── General ─────────────────────────────────────────────
@@ -81,17 +21,19 @@ const KEY_REGISTRY = Object.freeze({
     maintenance_message:  { shape: 'value',   section: 'general', maxLength: 500,
                             default: 'MilesSpace is currently undergoing scheduled maintenance. Please try again later.' },
 
-    // ─── FX rates ────────────────────────────────────────────
+    // ─── Primary FX Rates ────────────────────────────────────
     usd_to_ngn: { shape: 'decimal', section: 'rates', default: '1600', min: 1, max: 1_000_000, decimals: 2, financial: true, dangerous: true },
-    ghs_to_ngn: { shape: 'decimal', section: 'rates', default: '0',    min: 0, max: 1_000_000, decimals: 4, financial: true, dangerous: true },
-    kes_to_ngn: { shape: 'decimal', section: 'rates', default: '0',    min: 0, max: 1_000_000, decimals: 4, financial: true, dangerous: true },
-    zar_to_ngn: { shape: 'decimal', section: 'rates', default: '0',    min: 0, max: 1_000_000, decimals: 4, financial: true, dangerous: true },
-    xof_to_ngn: { shape: 'decimal', section: 'rates', default: '0',    min: 0, max: 1_000_000, decimals: 6, financial: true, dangerous: true },
-    xaf_to_ngn: { shape: 'decimal', section: 'rates', default: '0',    min: 0, max: 1_000_000, decimals: 6, financial: true, dangerous: true },
-    tzs_to_ngn: { shape: 'decimal', section: 'rates', default: '0',    min: 0, max: 1_000_000, decimals: 4, financial: true, dangerous: true },
-    egp_to_ngn: { shape: 'decimal', section: 'rates', default: '0',    min: 0, max: 1_000_000, decimals: 4, financial: true, dangerous: true },
-
     giftcard_wholesale_currency: { shape: 'currency', section: 'rates', default: 'NGN' },
+
+    // ─── Deposit Exchange Rates (USD per 1 Local Unit) ───────
+    deposit_rate_NGN: { shape: 'decimal', section: 'fees', default: '0.000625', min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
+    deposit_rate_GHS: { shape: 'decimal', section: 'fees', default: '0.083',    min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
+    deposit_rate_KES: { shape: 'decimal', section: 'fees', default: '0.0077',   min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
+    deposit_rate_ZAR: { shape: 'decimal', section: 'fees', default: '0.054',    min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
+    deposit_rate_XOF: { shape: 'decimal', section: 'fees', default: '0.0016',   min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
+    deposit_rate_XAF: { shape: 'decimal', section: 'fees', default: '0.0016',   min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
+    deposit_rate_TZS: { shape: 'decimal', section: 'fees', default: '0.0004',   min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
+    deposit_rate_EGP: { shape: 'decimal', section: 'fees', default: '0.0204',   min: 0, max: 10_000, decimals: 8, financial: true, dangerous: true },
 
     // ─── Fees ────────────────────────────────────────────────
     deposit_fee_flat_ngn: { shape: 'decimal', section: 'fees', default: '50',   min: 0, max: 100_000,     decimals: 2, financial: true },
@@ -109,8 +51,6 @@ const KEY_REGISTRY = Object.freeze({
     boost_markup_pct:         { shape: 'percent', section: 'pricing', default: '0.1800', min: 0, max: 0.90, decimals: 4, financial: true },
     marketplace_markup_pct:   { shape: 'percent', section: 'pricing', default: '0.2000', min: 0, max: 0.90, decimals: 4, financial: true },
     virtual_sms_markup_pct:   { shape: 'percent', section: 'pricing', default: '0.1500', min: 0, max: 0.90, decimals: 4, financial: true },
-    crypto_markup_pct:        { shape: 'percent', section: 'pricing', default: '0.0800', min: 0, max: 0.90, decimals: 4, financial: true },
-    cashback_rate_pct:        { shape: 'percent', section: 'pricing', default: '0.0500', min: 0, max: 0.50, decimals: 4, financial: true },
 
     // ─── Wallet & deposits ───────────────────────────────────
     min_deposit_ngn:         { shape: 'decimal', section: 'wallet', default: '1000',    min: 0, max: 1_000_000_000, decimals: 2, financial: true },
@@ -190,9 +130,33 @@ const KEY_REGISTRY = Object.freeze({
     config_version: { shape: 'int', section: 'internal', default: '1', min: 1, max: 9_999_999_999 }
 });
 
-// ═════════════════════════════════════════════════════════════════
-// 2. SECTION_KEYS — which keys each UI section owns
-// ═════════════════════════════════════════════════════════════════
+// ─── SUPER ADMIN ONLY SETTINGS ───────────────────────────────────
+// These keys are restricted. Non-super-admins cannot read or write
+// them, and the UI disables them for anyone who isn't super_admin.
+const SUPER_ADMIN_ONLY_KEYS = new Set([
+    // General (branding & maintenance)
+    'platform_name',
+    'company_name',
+    'support_email',
+    'support_phone',
+    'website_url',
+    'default_currency',
+    'timezone',
+    'maintenance_mode',
+    'maintenance_message',
+
+    // Rates
+    'usd_to_ngn',
+    'giftcard_wholesale_currency',
+
+    // Deposit exchange rates
+    'deposit_rate_NGN', 'deposit_rate_GHS', 'deposit_rate_KES', 'deposit_rate_ZAR',
+    'deposit_rate_XOF', 'deposit_rate_XAF', 'deposit_rate_TZS', 'deposit_rate_EGP',
+
+    // Emergency
+    'emergency_stop_deposits', 'emergency_stop_purchases',
+    'emergency_stop_provider_requests', 'emergency_stop_wallet_mutations'
+]);
 
 const SECTION_KEYS = (() => {
     const map = {};
@@ -203,10 +167,6 @@ const SECTION_KEYS = (() => {
     }
     return Object.freeze(map);
 })();
-
-// ═════════════════════════════════════════════════════════════════
-// 3. SERVICE_REGISTRY — every service actually in the repo
-// ═════════════════════════════════════════════════════════════════
 
 const SERVICE_REGISTRY = Object.freeze({
     giftcards:    { label: 'Gift Cards',       enabledKey: 'service_giftcards_enabled' },
@@ -221,14 +181,6 @@ const SERVICE_REGISTRY = Object.freeze({
     withdrawals:  { label: 'Withdrawals',      enabledKey: 'service_withdrawals_enabled' },
     kyc:          { label: 'KYC',              enabledKey: 'service_kyc_enabled' }
 });
-
-// ═════════════════════════════════════════════════════════════════
-// 4. PROVIDER_REGISTRY — providers actually in the repo
-// ═════════════════════════════════════════════════════════════════
-//
-// secretEnv: the env var(s) that must be present. Values are NEVER
-// read into app_config or returned to the frontend — only the
-// boolean "configured" flag is derived from process.env here.
 
 const PROVIDER_REGISTRY = Object.freeze({
     kora: {
@@ -262,15 +214,7 @@ const PROVIDER_REGISTRY = Object.freeze({
     }
 });
 
-// ═════════════════════════════════════════════════════════════════
-// 5. DEFAULTS
-// ═════════════════════════════════════════════════════════════════
-
 const ALL_KEYS = Object.keys(KEY_REGISTRY);
-
-// ═════════════════════════════════════════════════════════════════
-// 6. VALIDATION & NORMALIZATION
-// ═════════════════════════════════════════════════════════════════
 
 function validationError(code, message, extra = {}) {
     const e = new Error(message);
@@ -329,8 +273,6 @@ function normalize(key, rawValue) {
             if (!Number.isFinite(n)) {
                 throw validationError('INVALID_PERCENT', `${key} must be a number`, { key });
             }
-            // Frontend sends 15.7 to mean 15.7%. Values > 1 are treated as percent.
-            // Values ≤ 1 are already decimals. This is the documented rule.
             if (n > 1) n = n / 100;
             if (n < spec.min || n > spec.max) {
                 throw validationError('OUT_OF_RANGE', `${key} must be between ${spec.min} and ${spec.max} (as a decimal)`, { key, min: spec.min, max: spec.max });
@@ -384,7 +326,6 @@ function normalize(key, rawValue) {
     }
 }
 
-// Cross-field validation. Throws on the first violation.
 function validateCrossField(mergedPatch) {
     const num = (k) => {
         const v = mergedPatch[k];
@@ -410,17 +351,8 @@ function validateCrossField(mergedPatch) {
     cmp('boost_min_ngn',           'boost_max_ngn',                'Boost range');
 }
 
-// ═════════════════════════════════════════════════════════════════
-// 7. CACHE
-// ═════════════════════════════════════════════════════════════════
-
 const CACHE_TTL_MS = 45 * 1000;
-
-const _cache = {
-    raw: null,          // { key: storedStringValue }
-    fetchedAt: 0,
-    promise: null
-};
+const _cache = { raw: null, fetchedAt: 0, promise: null };
 
 function invalidateCache() {
     _cache.raw = null;
@@ -428,33 +360,15 @@ function invalidateCache() {
 }
 
 async function readRawFromDb() {
-    const { data, error } = await supabaseAdmin
-        .from('app_config')
-        .select('key, value')
-        .in('key', ALL_KEYS);
-
-    if (error) {
-        const e = new Error(`Failed to read app_config: ${error.message}`);
-        e.status = 503;
-        e.code = 'SETTINGS_READ_FAILED';
-        throw e;
-    }
-
+    const { data, error } = await supabaseAdmin.from('app_config').select('key, value').in('key', ALL_KEYS);
+    if (error) throw new Error(`Failed to read app_config: ${error.message}`);
     const raw = {};
     for (const row of data || []) raw[row.key] = row.value;
     return raw;
 }
 
-/**
- * Returns the raw app_config map, filling in registry defaults for
- * keys that don't exist yet. Defaults here are for DISPLAY and
- * FIRST-RUN seeding only. Once a financial key exists in the DB,
- * it is never silently replaced by its default.
- */
 async function getRawCached({ force = false } = {}) {
-    if (!force && _cache.raw && (Date.now() - _cache.fetchedAt) < CACHE_TTL_MS) {
-        return _cache.raw;
-    }
+    if (!force && _cache.raw && (Date.now() - _cache.fetchedAt) < CACHE_TTL_MS) return _cache.raw;
     if (_cache.promise) return _cache.promise;
 
     _cache.promise = (async () => {
@@ -475,32 +389,16 @@ async function getRawCached({ force = false } = {}) {
     return _cache.promise;
 }
 
-// ═════════════════════════════════════════════════════════════════
-// 8. READS
-// ═════════════════════════════════════════════════════════════════
-
 function displayValue(spec, raw) {
     switch (spec.shape) {
-        case 'boolean': {
-            return raw === true || raw === 'true' || raw === '1' || raw === 1;
-        }
-        case 'int': {
-            const n = parseInt(raw, 10);
-            return Number.isFinite(n) ? n : parseInt(spec.default, 10);
-        }
+        case 'boolean': return raw === true || raw === 'true' || raw === '1' || raw === 1;
+        case 'int': return Number.isFinite(parseInt(raw, 10)) ? parseInt(raw, 10) : parseInt(spec.default, 10);
         case 'decimal':
-        case 'percent': {
-            const n = Number(raw);
-            return Number.isFinite(n) ? n : Number(spec.default);
-        }
-        default:
-            return raw == null ? '' : raw;
+        case 'percent': return Number.isFinite(Number(raw)) ? Number(raw) : Number(spec.default);
+        default: return raw == null ? '' : raw;
     }
 }
 
-/**
- * Flat object keyed by setting name, with JS-typed values.
- */
 async function getAllSettings() {
     const raw = await getRawCached();
     const out = {};
@@ -510,9 +408,6 @@ async function getAllSettings() {
     return out;
 }
 
-/**
- * Sectioned object keyed by section name.
- */
 async function getSettingsBySectionAll() {
     const flat = await getAllSettings();
     const out = {};
@@ -526,18 +421,12 @@ async function getSettingsBySectionAll() {
 
 async function getSection(section) {
     const all = await getSettingsBySectionAll();
-    if (!all[section]) {
-        const e = new Error(`Unknown section: ${section}`);
-        e.status = 404;
-        e.code = 'UNKNOWN_SECTION';
-        throw e;
-    }
+    if (!all[section]) throw Object.assign(new Error(`Unknown section: ${section}`), { status: 404, code: 'UNKNOWN_SECTION' });
     return all[section];
 }
 
 async function getRaw(key) {
-    const spec = KEY_REGISTRY[key];
-    if (!spec) return undefined;
+    if (!KEY_REGISTRY[key]) return undefined;
     const raw = await getRawCached();
     return raw[key];
 }
@@ -545,13 +434,7 @@ async function getRaw(key) {
 async function getNumber(key) {
     const v = await getRaw(key);
     const n = Number(v);
-    if (!Number.isFinite(n)) {
-        const e = new Error(`Setting ${key} is not a finite number`);
-        e.status = 503;
-        e.code = 'CONFIG_NOT_READY';
-        e.key = key;
-        throw e;
-    }
+    if (!Number.isFinite(n)) throw Object.assign(new Error(`Setting ${key} is not a finite number`), { status: 503, code: 'CONFIG_NOT_READY' });
     return n;
 }
 
@@ -565,22 +448,10 @@ async function getString(key) {
     return v == null ? '' : String(v);
 }
 
-// ═════════════════════════════════════════════════════════════════
-// 9. WRITES
-// ═════════════════════════════════════════════════════════════════
-
 async function readStoredRaw(keys) {
     if (!keys.length) return {};
-    const { data, error } = await supabaseAdmin
-        .from('app_config')
-        .select('key, value')
-        .in('key', keys);
-    if (error) {
-        const e = new Error(`Failed to read app_config: ${error.message}`);
-        e.status = 503;
-        e.code = 'SETTINGS_READ_FAILED';
-        throw e;
-    }
+    const { data, error } = await supabaseAdmin.from('app_config').select('key, value').in('key', keys);
+    if (error) throw new Error(`Failed to read app_config: ${error.message}`);
     const out = {};
     for (const row of data || []) out[row.key] = row.value;
     return out;
@@ -588,11 +459,12 @@ async function readStoredRaw(keys) {
 
 function buildContext(req, { reason = null } = {}) {
     return {
-        adminId:    req?.adminContext?.id    || null,
+        adminId: req?.adminContext?.id || null,
         adminEmail: req?.adminContext?.email || null,
-        ip:         req?.ip || req?.headers?.['x-forwarded-for'] || null,
-        userAgent:  req?.headers?.['user-agent'] || null,
-        reason:     reason ? String(reason).slice(0, 500) : null
+        isSuperAdmin: !!req?.adminContext?.isSuperAdmin,
+        ip: req?.ip || req?.headers?.['x-forwarded-for'] || null,
+        userAgent: req?.headers?.['user-agent'] || null,
+        reason: reason ? String(reason).slice(0, 500) : null
     };
 }
 
@@ -600,42 +472,40 @@ function requiresReason(keys) {
     return keys.some(k => KEY_REGISTRY[k]?.financial || KEY_REGISTRY[k]?.dangerous);
 }
 
-/**
- * patchSettings(patch, ctx)
- *
- *   patch — { key: rawValue, ... }
- *   ctx   — { adminId, adminEmail, ip, userAgent, reason }
- *
- * Returns { updated: [key], unchanged: [key] }.
- * Throws on the first validation error. No partial writes for invalid input.
- */
 async function patchSettings(patch, ctx = {}) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
         throw validationError('INVALID_PATCH', 'patch must be an object');
     }
 
-    // Strip non-settings control fields.
     const clean = {};
     for (const [k, v] of Object.entries(patch)) {
         if (k === 'reason') continue;
         clean[k] = v;
     }
-    if (!Object.keys(clean).length) {
-        throw validationError('EMPTY_PATCH', 'No settings to update');
-    }
+    if (!Object.keys(clean).length) throw validationError('EMPTY_PATCH', 'No settings to update');
 
-    // 1. Normalize every key.
+    // ─── SUPER ADMIN RESTRICTION ─────────────────────────────────────
+    const isSuperAdmin = !!ctx.isSuperAdmin;
+    if (!isSuperAdmin) {
+        const restrictedKeys = Object.keys(clean).filter(k => SUPER_ADMIN_ONLY_KEYS.has(k));
+        if (restrictedKeys.length > 0) {
+            throw Object.assign(
+                new Error(`Only Super Admins are allowed to change: ${restrictedKeys.join(', ')}`),
+                { status: 403, code: 'SUPER_ADMIN_REQUIRED', keys: restrictedKeys }
+            );
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────
+
     const normalized = {};
     for (const [key, rawValue] of Object.entries(clean)) {
         normalized[key] = normalize(key, rawValue);
     }
 
-    // 2. Cross-field validation against existing values.
     const existing = await getRawCached();
     const merged = { ...existing, ...normalized };
     validateCrossField(merged);
 
-    // 3. Reason required for financial/dangerous keys.
     const touchedKeys = Object.keys(normalized);
     if (requiresReason(touchedKeys)) {
         if (!ctx.reason || String(ctx.reason).trim().length < 3) {
@@ -643,7 +513,6 @@ async function patchSettings(patch, ctx = {}) {
         }
     }
 
-    // 4. Diff against stored values.
     const stored = await readStoredRaw(touchedKeys);
     const now = new Date().toISOString();
     const toWrite = [];
@@ -660,43 +529,23 @@ async function patchSettings(patch, ctx = {}) {
         changed.push(key);
     }
 
-    if (!toWrite.length) {
-        return { updated: [], unchanged };
-    }
+    if (!toWrite.length) return { updated: [], unchanged };
 
-    // 5. Bump config version when any key changes.
     const currentVersion = Number(existing.config_version || '1');
     const nextVersion = String(currentVersion + 1);
-    const versionRow = {
-        key: 'config_version',
-        value: nextVersion,
-        updated_at: now,
-        previous_value: String(currentVersion)
-    };
     const payload = [
         ...toWrite.map(r => ({ key: r.key, value: r.value, updated_at: r.updated_at })),
         { key: 'config_version', value: nextVersion, updated_at: now }
     ];
 
-    // 6. Write first, then audit. If audit fails for a financial key,
-    //    we roll back by restoring the previous values.
-    const { error: writeError } = await supabaseAdmin
-        .from('app_config')
-        .upsert(payload, { onConflict: 'key' });
+    const { error: writeError } = await supabaseAdmin.from('app_config').upsert(payload, { onConflict: 'key' });
 
-    if (writeError) {
-        const e = new Error(`Failed to write app_config: ${writeError.message}`);
-        e.status = 503;
-        e.code = 'SETTINGS_WRITE_FAILED';
-        throw e;
-    }
+    if (writeError) throw new Error(`Failed to write app_config: ${writeError.message}`);
 
-    // 7. Audit. Financial-key audit failures roll back the write.
     const auditOk = await writeAudit(toWrite, ctx);
     const touchesFinancial = toWrite.some(r => KEY_REGISTRY[r.key]?.financial);
 
     if (!auditOk && touchesFinancial) {
-        // Roll back.
         const rollbackRows = toWrite
             .filter(r => r.previous_value !== null)
             .map(r => ({ key: r.key, value: r.previous_value, updated_at: new Date().toISOString() }));
@@ -706,66 +555,33 @@ async function patchSettings(patch, ctx = {}) {
             console.error('[adminSettings] rollback after audit failure failed:', rbErr.message);
         }
         invalidateCache();
-        const e = new Error('Audit logging failed. Financial settings change was rolled back.');
-        e.status = 500;
-        e.code = 'AUDIT_FAILED_ROLLBACK';
-        throw e;
+        throw Object.assign(new Error('Audit logging failed. Financial settings change was rolled back.'), { status: 500, code: 'AUDIT_FAILED_ROLLBACK' });
     }
 
-    // 8. Rate history for FX/markup keys.
     await writeRateHistory(toWrite, ctx);
-
-    // 9. Invalidate cache so the next read sees the new values.
     invalidateCache();
 
-    // 10. Return.
-    return {
-        updated: changed,
-        unchanged,
-        version: nextVersion
-    };
+    return { updated: changed, unchanged, version: nextVersion };
 }
 
 async function resetSection(section, ctx = {}) {
-    if (!SECTION_KEYS[section]) {
-        const e = new Error(`Unknown section: ${section}`);
-        e.status = 404;
-        e.code = 'UNKNOWN_SECTION';
-        throw e;
-    }
+    if (!SECTION_KEYS[section]) throw Object.assign(new Error(`Unknown section: ${section}`), { status: 404, code: 'UNKNOWN_SECTION' });
     const patch = {};
     for (const key of SECTION_KEYS[section]) {
         const spec = KEY_REGISTRY[key];
-        if (!spec) continue;
-        // Send the registry default as the raw target. patchSettings will
-        // normalize it, so a string like 'true' becomes 'true' and
-        // '0.1570' stays a decimal.
-        patch[key] = spec.default;
+        if (spec) patch[key] = spec.default;
     }
     return patchSettings(patch, { ...ctx, reason: ctx.reason || `Reset ${section}` });
 }
 
 async function resetAll(ctx = {}) {
-    // Guard at route layer too, but enforce here as well.
     const patch = {};
     for (const [key, spec] of Object.entries(KEY_REGISTRY)) {
-        if (key === 'config_version') continue; // never reset the counter itself
+        if (key === 'config_version') continue;
         patch[key] = spec.default;
     }
     return patchSettings(patch, { ...ctx, reason: ctx.reason || 'Reset all settings' });
 }
-
-// ═════════════════════════════════════════════════════════════════
-// 10. PRICING
-// ═════════════════════════════════════════════════════════════════
-//
-// calculatePrice({
-//   service: 'giftcard',        // must match a suffix in the registry
-//   currency: 'NGN' | 'USD',
-//   wholesaleAmount: 10000      // in the given currency
-// })
-//
-// Returns decimal strings for all money fields.
 
 function toCents(v) {
     const s = String(v);
@@ -785,24 +601,11 @@ async function getMarkup(service, currency) {
     const cur = String(currency || '').toUpperCase() === 'NGN' ? 'ngn' : 'usd';
     const dualKey = `${svc}_markup_pct_${cur}`;
     const singleKey = `${svc}_markup_pct`;
+    let key = KEY_REGISTRY[dualKey] ? dualKey : (KEY_REGISTRY[singleKey] ? singleKey : null);
 
-    let key = null;
-    if (KEY_REGISTRY[dualKey]) key = dualKey;
-    else if (KEY_REGISTRY[singleKey]) key = singleKey;
-
-    if (!key) {
-        const e = new Error(`No markup configured for service=${svc} currency=${cur}`);
-        e.status = 400;
-        e.code = 'MARKUP_NOT_CONFIGURED';
-        throw e;
-    }
+    if (!key) throw Object.assign(new Error(`No markup configured for service=${svc} currency=${cur}`), { status: 400, code: 'MARKUP_NOT_CONFIGURED' });
     const n = await getNumber(key);
-    if (n < 0 || n > 1) {
-        const e = new Error(`Markup for ${svc}/${cur} is out of range: ${n}`);
-        e.status = 503;
-        e.code = 'MARKUP_INVALID';
-        throw e;
-    }
+    if (n < 0 || n > 1) throw Object.assign(new Error(`Markup for ${svc}/${cur} is out of range: ${n}`), { status: 503, code: 'MARKUP_INVALID' });
     return n;
 }
 
@@ -813,61 +616,18 @@ async function getRate(sourceCurrency, targetCurrency) {
 
     if (src === 'USD' && tgt === 'NGN') {
         const n = await getNumber('usd_to_ngn');
-        if (!(n > 0)) {
-            const e = new Error('usd_to_ngn is not configured');
-            e.status = 503;
-            e.code = 'RATE_NOT_CONFIGURED';
-            throw e;
-        }
-        return n;
-    }
-
-    if (tgt === 'NGN') {
-        const key = `${src.toLowerCase()}_to_ngn`;
-        if (!KEY_REGISTRY[key]) {
-            const e = new Error(`No configured rate from ${src} to NGN`);
-            e.status = 400;
-            e.code = 'RATE_NOT_CONFIGURED';
-            throw e;
-        }
-        const n = await getNumber(key);
-        if (!(n > 0)) {
-            const e = new Error(`${key} is not configured`);
-            e.status = 503;
-            e.code = 'RATE_NOT_CONFIGURED';
-            throw e;
-        }
+        if (!(n > 0)) throw Object.assign(new Error('usd_to_ngn is not configured'), { status: 503, code: 'RATE_NOT_CONFIGURED' });
         return n;
     }
 
     const e = new Error(`Unsupported rate pair: ${src} -> ${tgt}`);
-    e.status = 400;
-    e.code = 'RATE_NOT_CONFIGURED';
+    e.status = 400; e.code = 'RATE_NOT_CONFIGURED';
     throw e;
 }
 
-/**
- * Calculates the customer-facing price for a wholesale amount.
- *
- *   customerPrice = wholesale * (1 + markup)
- *
- * Uses integer cents for the arithmetic so the result matches what
- * Postgres NUMERIC would produce. All amounts are returned as
- * 2-decimal strings.
- */
 async function calculatePrice({ service, currency = 'NGN', wholesaleAmount }) {
-    if (!service) {
-        const e = new Error('service is required');
-        e.status = 400;
-        e.code = 'INVALID_INPUT';
-        throw e;
-    }
-    if (wholesaleAmount === undefined || wholesaleAmount === null) {
-        const e = new Error('wholesaleAmount is required');
-        e.status = 400;
-        e.code = 'INVALID_INPUT';
-        throw e;
-    }
+    if (!service) throw Object.assign(new Error('service is required'), { status: 400, code: 'INVALID_INPUT' });
+    if (wholesaleAmount === undefined || wholesaleAmount === null) throw Object.assign(new Error('wholesaleAmount is required'), { status: 400, code: 'INVALID_INPUT' });
 
     const cur = String(currency).toUpperCase();
     const wholesaleCents = toCents(wholesaleAmount);
@@ -877,31 +637,20 @@ async function calculatePrice({ service, currency = 'NGN', wholesaleAmount }) {
     const customerCents = (wholesaleCents * (10_000n + markupBps)) / 10_000n;
     const profitCents   = customerCents - wholesaleCents;
 
-    const wholesaleStr = fromCents(wholesaleCents);
-    const customerStr  = fromCents(customerCents);
-    const profitStr    = fromCents(profitCents);
-
-    const version = Number(await getRaw('config_version') || '1');
-
     return {
         service: service,
         currency: cur,
-        wholesaleAmount: wholesaleStr,
+        wholesaleAmount: fromCents(wholesaleCents),
         markup,
-        customerPrice: customerStr,
-        profit: profitStr,
-        pricingVersion: version
+        customerPrice: fromCents(customerCents),
+        profit: fromCents(profitCents),
+        pricingVersion: Number(await getRaw('config_version') || '1')
     };
 }
 
 async function getFee(type) {
     const t = String(type || '').toLowerCase();
-    if (t !== 'deposit') {
-        const e = new Error(`Unknown fee type: ${type}`);
-        e.status = 400;
-        e.code = 'INVALID_FEE_TYPE';
-        throw e;
-    }
+    if (t !== 'deposit') throw Object.assign(new Error(`Unknown fee type: ${type}`), { status: 400, code: 'INVALID_FEE_TYPE' });
     return {
         flatNgn:  fromCents(toCents(await getRaw('deposit_fee_flat_ngn'))),
         pct:      Number(await getRaw('deposit_fee_pct')),
@@ -913,25 +662,11 @@ async function getFee(type) {
 async function getLimit(service, type) {
     const svc = String(service || '').toLowerCase();
     const t = String(type || '').toLowerCase();
-    if (t !== 'min' && t !== 'max') {
-        const e = new Error(`Limit type must be 'min' or 'max'`);
-        e.status = 400;
-        e.code = 'INVALID_LIMIT_TYPE';
-        throw e;
-    }
+    if (t !== 'min' && t !== 'max') throw Object.assign(new Error(`Limit type must be 'min' or 'max'`), { status: 400, code: 'INVALID_LIMIT_TYPE' });
     const key = `${svc}_${t === 'min' ? 'min' : 'max'}_ngn`;
-    if (!KEY_REGISTRY[key]) {
-        const e = new Error(`No limit configured for service=${svc} type=${t}`);
-        e.status = 400;
-        e.code = 'LIMIT_NOT_CONFIGURED';
-        throw e;
-    }
+    if (!KEY_REGISTRY[key]) throw Object.assign(new Error(`No limit configured for service=${svc} type=${t}`), { status: 400, code: 'LIMIT_NOT_CONFIGURED' });
     return fromCents(toCents(await getRaw(key)));
 }
-
-// ═════════════════════════════════════════════════════════════════
-// 11. FX HISTORY
-// ═════════════════════════════════════════════════════════════════
 
 const RATE_HISTORY_KEYS = new Set(
     Object.entries(KEY_REGISTRY)
@@ -960,11 +695,7 @@ async function writeRateHistory(rows, ctx) {
 }
 
 async function getRateHistory({ key = null, limit = 100 } = {}) {
-    let q = supabaseAdmin
-        .from('fx_rate_history')
-        .select('id, key, previous_value, new_value, changed_by, changed_by_email, reason, changed_at')
-        .order('changed_at', { ascending: false })
-        .limit(Math.min(Number(limit) || 100, 500));
+    let q = supabaseAdmin.from('fx_rate_history').select('*').order('changed_at', { ascending: false }).limit(Math.min(Number(limit) || 100, 500));
     if (key) q = q.eq('key', key);
 
     const { data, error } = await q;
@@ -973,25 +704,16 @@ async function getRateHistory({ key = null, limit = 100 } = {}) {
     const adminIds = [...new Set((data || []).map(r => r.changed_by).filter(Boolean))];
     let adminsById = {};
     if (adminIds.length) {
-        const { data: profiles } = await supabaseAdmin
-            .from('profiles')
-            .select('id, username, email')
-            .in('id', adminIds);
+        const { data: profiles } = await supabaseAdmin.from('profiles').select('id, username, email').in('id', adminIds);
         (profiles || []).forEach(p => { adminsById[p.id] = p; });
     }
 
     return (data || []).map(r => ({
         ...r,
         changed_by_username: adminsById[r.changed_by]?.username || null,
-        changed_by_display:  adminsById[r.changed_by]?.username
-                             || r.changed_by_email
-                             || 'Unknown'
+        changed_by_display: adminsById[r.changed_by]?.username || r.changed_by_email || 'Unknown'
     }));
 }
-
-// ═════════════════════════════════════════════════════════════════
-// 12. SERVICES
-// ═════════════════════════════════════════════════════════════════
 
 async function isServiceEnabled(service) {
     const entry = SERVICE_REGISTRY[String(service || '').toLowerCase()];
@@ -1002,36 +724,17 @@ async function isServiceEnabled(service) {
 async function assertServiceEnabled(service) {
     const svc = String(service || '').toLowerCase();
     const entry = SERVICE_REGISTRY[svc];
-    if (!entry) {
-        const e = new Error(`Unknown service: ${svc}`);
-        e.status = 400;
-        e.code = 'UNKNOWN_SERVICE';
-        throw e;
-    }
-    if (!(await getBoolean(entry.enabledKey))) {
-        const e = new Error(`${entry.label} is currently unavailable.`);
-        e.status = 503;
-        e.code = 'SERVICE_DISABLED';
-        e.service = svc;
-        throw e;
-    }
+    if (!entry) throw Object.assign(new Error(`Unknown service: ${svc}`), { status: 400, code: 'UNKNOWN_SERVICE' });
+    if (!(await getBoolean(entry.enabledKey))) throw Object.assign(new Error(`${entry.label} is currently unavailable.`), { status: 503, code: 'SERVICE_DISABLED', service: svc });
 }
 
 async function getServiceStatusAll() {
     const out = {};
     for (const [key, entry] of Object.entries(SERVICE_REGISTRY)) {
-        out[key] = {
-            key,
-            label: entry.label,
-            enabled: await getBoolean(entry.enabledKey)
-        };
+        out[key] = { key, label: entry.label, enabled: await getBoolean(entry.enabledKey) };
     }
     return out;
 }
-
-// ═════════════════════════════════════════════════════════════════
-// 13. PROVIDERS
-// ═════════════════════════════════════════════════════════════════
 
 function isProviderConfigured(providerKey) {
     const entry = PROVIDER_REGISTRY[providerKey];
@@ -1041,41 +744,17 @@ function isProviderConfigured(providerKey) {
 
 async function isProviderEnabled(provider) {
     const entry = PROVIDER_REGISTRY[String(provider || '').toLowerCase()];
-    if (!entry) return false;
-    if (!isProviderConfigured(provider)) return false;
+    if (!entry || !isProviderConfigured(provider)) return false;
     return getBoolean(entry.enabledKey);
 }
 
 async function assertProviderEnabled(provider) {
     const key = String(provider || '').toLowerCase();
     const entry = PROVIDER_REGISTRY[key];
-    if (!entry) {
-        const e = new Error(`Unknown provider: ${key}`);
-        e.status = 400;
-        e.code = 'UNKNOWN_PROVIDER';
-        throw e;
-    }
-    if (!isProviderConfigured(key)) {
-        const e = new Error(`${entry.label} is not configured.`);
-        e.status = 503;
-        e.code = 'PROVIDER_NOT_CONFIGURED';
-        e.provider = key;
-        throw e;
-    }
-    if (await getBoolean(entry.maintenanceKey)) {
-        const e = new Error(`${entry.label} is in maintenance.`);
-        e.status = 503;
-        e.code = 'PROVIDER_MAINTENANCE';
-        e.provider = key;
-        throw e;
-    }
-    if (!(await getBoolean(entry.enabledKey))) {
-        const e = new Error(`${entry.label} is disabled.`);
-        e.status = 503;
-        e.code = 'PROVIDER_DISABLED';
-        e.provider = key;
-        throw e;
-    }
+    if (!entry) throw Object.assign(new Error(`Unknown provider: ${key}`), { status: 400, code: 'UNKNOWN_PROVIDER' });
+    if (!isProviderConfigured(key)) throw Object.assign(new Error(`${entry.label} is not configured.`), { status: 503, code: 'PROVIDER_NOT_CONFIGURED', provider: key });
+    if (await getBoolean(entry.maintenanceKey)) throw Object.assign(new Error(`${entry.label} is in maintenance.`), { status: 503, code: 'PROVIDER_MAINTENANCE', provider: key });
+    if (!(await getBoolean(entry.enabledKey))) throw Object.assign(new Error(`${entry.label} is disabled.`), { status: 503, code: 'PROVIDER_DISABLED', provider: key });
 }
 
 async function getProviderStatusAll() {
@@ -1093,15 +772,11 @@ async function getProviderStatusAll() {
     return out;
 }
 
-// ═════════════════════════════════════════════════════════════════
-// 14. EMERGENCY OPERATION GATES
-// ═════════════════════════════════════════════════════════════════
-
 const OPERATION_KEYS = Object.freeze({
-    deposit:          'emergency_stop_deposits',
-    purchase:         'emergency_stop_purchases',
+    deposit: 'emergency_stop_deposits',
+    purchase: 'emergency_stop_purchases',
     provider_request: 'emergency_stop_provider_requests',
-    wallet_mutation:  'emergency_stop_wallet_mutations'
+    wallet_mutation: 'emergency_stop_wallet_mutations'
 });
 
 async function isOperationAllowed(operation) {
@@ -1116,40 +791,27 @@ async function isOperationAllowed(operation) {
 async function assertOperationAllowed(operation) {
     if (await isOperationAllowed(operation)) return;
     const op = String(operation || '').toLowerCase();
-    const e = new Error(
-        op === 'maintenance'
-            ? 'Platform is in maintenance mode.'
-            : `Operation '${op}' is currently blocked by an emergency control.`
-    );
-    e.status = 503;
-    e.code = 'OPERATION_BLOCKED';
-    e.operation = op;
+    const e = new Error(op === 'maintenance' ? 'Platform is in maintenance mode.' : `Operation '${op}' is currently blocked by an emergency control.`);
+    e.status = 503; e.code = 'OPERATION_BLOCKED'; e.operation = op;
     throw e;
 }
-
-// ═════════════════════════════════════════════════════════════════
-// 15. AUDIT
-// ═════════════════════════════════════════════════════════════════
 
 async function writeAudit(rows, ctx) {
     try {
         const auditRows = rows.map(r => ({
-            admin_id:    ctx.adminId || null,
+            admin_id: ctx.adminId || null,
             admin_email: ctx.adminEmail || null,
-            action:      'setting_change',
+            action: 'setting_change',
             target_type: 'app_config',
-            target_id:   r.key,
-            before:      { value: r.previous_value },
-            after:       { value: r.value },
-            ip_address:  ctx.ip || null,
-            user_agent:  ctx.userAgent || null,
-            created_at:  new Date().toISOString()
+            target_id: r.key,
+            before: { value: r.previous_value },
+            after: { value: r.value },
+            ip_address: ctx.ip || null,
+            user_agent: ctx.userAgent || null,
+            created_at: new Date().toISOString()
         }));
         const { error } = await supabaseAdmin.from('settings_audit').insert(auditRows);
-        if (error) {
-            console.error('[adminSettings] audit insert failed:', error.message);
-            return false;
-        }
+        if (error) { console.error('[adminSettings] audit insert failed:', error.message); return false; }
         return true;
     } catch (e) {
         console.error('[adminSettings] audit insert exception:', e.message);
@@ -1158,136 +820,30 @@ async function writeAudit(rows, ctx) {
 }
 
 async function getAudit({ limit = 100 } = {}) {
-    const { data, error } = await supabaseAdmin
-        .from('settings_audit')
-        .select('id, admin_id, admin_email, action, target_type, target_id, before, after, ip_address, user_agent, created_at')
-        .order('created_at', { ascending: false })
-        .limit(Math.min(Number(limit) || 100, 500));
+    const { data, error } = await supabaseAdmin.from('settings_audit').select('*').order('created_at', { ascending: false }).limit(Math.min(Number(limit) || 100, 500));
     if (error) throw error;
     return data || [];
 }
 
-// ═════════════════════════════════════════════════════════════════
-// 16. HEALTH
-// ═════════════════════════════════════════════════════════════════
-
 async function getHealth() {
-    const out = {
-        database: 'unknown',
-        rates: 'unknown',
-        fees: 'unknown',
-        services: 'unknown',
-        providers: 'unknown'
-    };
-
-    // Database read.
-    try {
-        await readRawFromDb();
-        out.database = 'ok';
-    } catch {
-        out.database = 'unavailable';
-    }
-
-    if (out.database !== 'ok') {
-        return out;
-    }
-
-    // Rates.
-    try {
-        const usd = await getNumber('usd_to_ngn');
-        out.rates = usd > 0 ? 'configured' : 'invalid';
-    } catch {
-        out.rates = 'missing';
-    }
-
-    // Fees.
-    try {
-        const fee = await getFee('deposit');
-        out.fees = (fee.flatNgn !== null && fee.minNgn !== null && fee.maxNgn !== null) ? 'configured' : 'missing';
-    } catch {
-        out.fees = 'missing';
-    }
-
-    // Services — at least one enabled.
-    try {
-        const svc = await getServiceStatusAll();
-        const enabled = Object.values(svc).filter(s => s.enabled).length;
-        out.services = enabled > 0 ? 'ok' : 'all-disabled';
-    } catch {
-        out.services = 'unknown';
-    }
-
-    // Providers — reported as configured/enabled but never as "healthy".
-    try {
-        const prov = await getProviderStatusAll();
-        const configured = Object.values(prov).filter(p => p.configured).length;
-        out.providers = configured > 0 ? 'partial' : 'none-configured';
-    } catch {
-        out.providers = 'unknown';
-    }
-
+    const out = { database: 'unknown', rates: 'unknown', fees: 'unknown', services: 'unknown', providers: 'unknown' };
+    try { await readRawFromDb(); out.database = 'ok'; } catch { out.database = 'unavailable'; }
+    if (out.database !== 'ok') return out;
+    try { const usd = await getNumber('usd_to_ngn'); out.rates = usd > 0 ? 'configured' : 'invalid'; } catch { out.rates = 'missing'; }
+    try { const fee = await getFee('deposit'); out.fees = (fee.flatNgn !== null && fee.minNgn !== null && fee.maxNgn !== null) ? 'configured' : 'missing'; } catch { out.fees = 'missing'; }
+    try { const svc = await getServiceStatusAll(); out.services = Object.values(svc).filter(s => s.enabled).length > 0 ? 'ok' : 'all-disabled'; } catch { out.services = 'unknown'; }
+    try { const prov = await getProviderStatusAll(); out.providers = Object.values(prov).filter(p => p.configured).length > 0 ? 'partial' : 'none-configured'; } catch { out.providers = 'unknown'; }
     return out;
 }
 
-// ═════════════════════════════════════════════════════════════════
-// 17. EXPORTS
-// ═════════════════════════════════════════════════════════════════
-
 module.exports = {
-    // Registries
-    KEY_REGISTRY,
-    SECTION_KEYS,
-    SERVICE_REGISTRY,
-    PROVIDER_REGISTRY,
-    ALL_KEYS,
-    RATE_HISTORY_KEYS,
-
-    // Validation
-    normalize,
-
-    // Cache
-    invalidateCache,
-
-    // Reads
-    getAllSettings,
-    getSettingsBySectionAll,
-    getSection,
-    getRaw,
-    getNumber,
-    getBoolean,
-    getString,
-
-    // Writes
-    patchSettings,
-    resetSection,
-    resetAll,
-
-    // Pricing
-    getMarkup,
-    getRate,
-    calculatePrice,
-    getFee,
-    getLimit,
-
-    // Services
-    isServiceEnabled,
-    assertServiceEnabled,
-    getServiceStatusAll,
-
-    // Providers
-    isProviderEnabled,
-    assertProviderEnabled,
-    getProviderStatusAll,
-    isProviderConfigured,
-
-    // Emergency
-    isOperationAllowed,
-    assertOperationAllowed,
-
-    // Audit / history
-    getRateHistory,
-    getAudit,
-
-    // Health
-    getHealth
+    KEY_REGISTRY, SECTION_KEYS, SERVICE_REGISTRY, PROVIDER_REGISTRY, ALL_KEYS, RATE_HISTORY_KEYS, SUPER_ADMIN_ONLY_KEYS,
+    normalize, invalidateCache,
+    getAllSettings, getSettingsBySectionAll, getSection, getRaw, getNumber, getBoolean, getString,
+    patchSettings, resetSection, resetAll,
+    getMarkup, getRate, calculatePrice, getFee, getLimit,
+    isServiceEnabled, assertServiceEnabled, getServiceStatusAll,
+    isProviderEnabled, assertProviderEnabled, getProviderStatusAll, isProviderConfigured,
+    isOperationAllowed, assertOperationAllowed,
+    getRateHistory, getAudit, getHealth
 };

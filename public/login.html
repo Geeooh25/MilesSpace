@@ -264,6 +264,37 @@
       }
     }
   </style>
+  <script>
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const res = await fetch('/api/public-settings');
+        const json = await res.json();
+        if (json.success && json.data) {
+            const s = json.data;
+            
+            // Update all elements with these IDs
+            if (s.platform_name) {
+                document.querySelectorAll('.brand-name, .tb-brand, .logo h1').forEach(el => {
+                    // Only replace the text, keep the span (e.g. Miles<span>Space</span>)
+                    if (el.innerHTML.includes('<span>')) {
+                        // If you have a styled logo, leave it. Otherwise:
+                        // el.innerHTML = s.platform_name;
+                    } else {
+                        el.textContent = s.platform_name;
+                    }
+                });
+            }
+            
+            if (s.support_email) {
+                document.querySelectorAll('a[href^="mailto:"]').forEach(el => {
+                    el.href = `mailto:${s.support_email}`;
+                    el.textContent = s.support_email;
+                });
+            }
+        }
+    } catch (e) {}
+});
+</script>
   <script src="/js/miles-widget.js" defer></script>
   <script src="/js/session.js" defer></script>
 </head>

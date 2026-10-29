@@ -87,7 +87,7 @@ html.dark .icon-btn{background:rgba(255,255,255,.04);color:#dff0f2}
 html.dark .filters input,html.dark .filters select{background:rgba(255,255,255,.04);color:var(--text)}
 .filters input[type="search"]{flex:1 1 260px;min-width:220px}
 
-.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);font-family:inherit;transition:background var(--transition)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--white);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--navy);font-family:inherit;transition:background var(--transition);text-decoration:none}
 html.dark .btn{background:rgba(255,255,255,.04);color:#dff0f2}
 .btn:hover:not(:disabled){background:var(--gold-soft);color:var(--navy-deep)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
@@ -139,7 +139,7 @@ html.dark .pagination button{background:rgba(255,255,255,.04);color:#dff0f2}
 .provider-card .metric{display:flex;justify-content:space-between;padding:6px 0;font-size:12.5px;border-bottom:1px dashed var(--border)}
 .provider-card .metric:last-child{border-bottom:none}
 .provider-card .metric .k{color:var(--text-dim);font-weight:600}
-.provider-card .metric .v{font-weight:700}
+.provider-card .metric .v{font-weight:700;text-align:right}
 .provider-card .btn-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
 
 .drawer-scrim{position:fixed;inset:0;background:rgba(5,15,20,.5);backdrop-filter:blur(2px);z-index:300;opacity:0;pointer-events:none;transition:opacity 220ms ease}
@@ -289,7 +289,6 @@ html.dark .modal .body textarea,html.dark .modal .body input,html.dark .modal .b
             </div>
         </div>
 
-        <!-- KPI cards -->
         <div class="kpi-grid">
             <div class="kpi"><div class="lbl">Total</div><div class="val" id="kpi-total">—</div></div>
             <div class="kpi"><div class="lbl">Active numbers</div><div class="val" id="kpi-active" style="color:var(--success)">—</div></div>
@@ -305,7 +304,6 @@ html.dark .modal .body textarea,html.dark .modal .body input,html.dark .modal .b
             <div class="kpi"><div class="lbl">Today's profit</div><div class="val" id="kpi-profit">—</div></div>
         </div>
 
-        <!-- Provider -->
         <div class="card">
             <h3>Provider</h3>
             <div id="providerGrid">
@@ -313,7 +311,14 @@ html.dark .modal .body textarea,html.dark .modal .body input,html.dark .modal .b
             </div>
         </div>
 
-        <!-- Orders -->
+        <div class="card">
+            <h3>Pricing context</h3>
+            <div class="hint">Read live from Admin → Settings. These are the exact inputs used to price every Virtual SMS order.</div>
+            <div id="pricingContext">
+                <div class="provider-card"><div class="empty-state"><span class="ic">⏳</span>Loading…</div></div>
+            </div>
+        </div>
+
         <div class="card">
             <h3>Virtual SMS orders</h3>
             <div class="filters">
@@ -419,6 +424,7 @@ const API = {
     reveal:          id => `/api/admin/virtual-sms/orders/${encodeURIComponent(id)}/reveal`,
     providerHealth:  '/api/admin/virtual-sms/provider/health',
     providerTest:    '/api/admin/virtual-sms/provider/health-check',
+    settings:        '/api/admin/settings',
     me:              '/api/admin/me'
 };
 
@@ -584,6 +590,75 @@ async function loadProvider() {
     });
 }
 
+// ─── Pricing context ────────────────────────────────────────────
+// Reads the SAME keys the user-facing virtual-router.js consumes:
+//   • service_virtual_sms_enabled
+//   • virtual_sms_markup_pct  (decimal stored as 0.1500)
+//   • usd_to_ngn
+//   • virtual_sms_min_ngn / virtual_sms_max_ngn
+async function loadPricingContext() {
+    const el = document.getElementById('pricingContext');
+    if (!el) return;
+    el.innerHTML = `<div class="provider-card"><div class="empty-state"><span class="ic">⏳</span>Loading…</div></div>`;
+
+    const { ok, data, error } = await api(API.settings);
+    if (!ok) {
+        el.innerHTML = `<div class="provider-card"><div class="unavailable-box">${escapeHtml(error || 'Could not load settings.')}</div></div>`;
+        return;
+    }
+
+    const sections = data?.data?.sections || {};
+    const version  = data?.data?.version || 1;
+
+    const pricing = sections.pricing || {};
+    const rates   = sections.rates   || {};
+    const limits  = sections.limits  || {};
+    const svc     = sections.services || {};
+
+    const markupRaw = Number(pricing.virtual_sms_markup_pct ?? 0);
+    const markupPct = Number.isFinite(markupRaw) ? (markupRaw * 100).toFixed(2) : '—';
+    const usdToNgn  = Number(rates.usd_to_ngn ?? 0);
+    const minNgn    = Number(limits.virtual_sms_min_ngn ?? 0);
+    const maxNgn    = Number(limits.virtual_sms_max_ngn ?? 0);
+    const enabled   = svc.service_virtual_sms_enabled === true;
+
+    const fmtNgn = (v) => Number.isFinite(v) ? '₦' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+    const fmtRate = (v) => Number.isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+
+    el.innerHTML = `
+        <div class="provider-card">
+            <div class="head">
+                <div>
+                    <h4>Effective pricing</h4>
+                    <div class="sub">Applied to every Virtual SMS rent</div>
+                </div>
+                <div>
+                    <span class="status-dot-lg ${enabled ? 'operational' : 'unreachable'}"></span>
+                    <strong>${enabled ? 'Live' : 'Disabled'}</strong>
+                </div>
+            </div>
+            <div class="metric"><span class="k">Service enabled</span>
+                <span class="v" style="color:${enabled ? 'var(--success)' : 'var(--danger)'}">
+                    ${enabled ? '✓ Yes' : '✗ Disabled'}
+                </span></div>
+            <div class="metric"><span class="k">Markup on wholesale</span>
+                <span class="v">${markupPct}%</span></div>
+            <div class="metric"><span class="k">USD → NGN rate</span>
+                <span class="v">${fmtRate(usdToNgn)}</span></div>
+            <div class="metric"><span class="k">Min order (NGN)</span>
+                <span class="v">${fmtNgn(minNgn)}</span></div>
+            <div class="metric"><span class="k">Max order (NGN)</span>
+                <span class="v">${fmtNgn(maxNgn)}</span></div>
+            <div class="metric"><span class="k">Config version</span>
+                <span class="v">${escapeHtml(String(version))}</span></div>
+            <div class="btn-row">
+                <a class="btn" href="/admin/settings.html#pricing">
+                    <i class="fas fa-sliders"></i> Edit in Settings
+                </a>
+            </div>
+        </div>`;
+}
+
 // ─── Orders ──────────────────────────────────────────────────────
 function buildOrdersQuery() {
     const q = new URLSearchParams();
@@ -700,7 +775,6 @@ function renderOrder(payload) {
 
     const actions = buildActions(o);
 
-    // SMS / OTP block (top-of-drawer emphasis when present).
     const smsBlock = o.has_sms_code
         ? `<div class="sms-code-box">
                <div>
@@ -1120,7 +1194,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ordersNext')?.addEventListener('click', () => { if (State.page < State.totalPages) { State.page++; loadOrders(); } });
 
     document.getElementById('refreshBtn')?.addEventListener('click', () => {
-        loadOverview(); loadProvider(); loadOrders();
+        loadOverview();
+        loadProvider();
+        loadPricingContext();
+        loadOrders();
         showToast('Refreshed', 'success');
     });
 
@@ -1139,10 +1216,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAdminProfile();
     loadOverview();
     loadProvider();
+    loadPricingContext();
     loadOrders();
 });
 
 window.loadOrders = loadOrders;
+window.loadPricingContext = loadPricingContext;
 </script>
 </body>
 </html>

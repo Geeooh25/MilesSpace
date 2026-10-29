@@ -4,6 +4,10 @@
 // Business logic lives in services/boostService.js and
 // services/boostSyncService.js. This file is pass-through.
 //
+// PRICING AUTHORITY:
+//   Every price is computed inside boostService from adminSettings.
+//   This route never computes a price itself — it only forwards.
+//
 // User routes require authMiddleware. Admin routes are in
 // routes/admin/boostAdminRoutes.js.
 // ─────────────────────────────────────────────────────────────────
@@ -13,7 +17,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
-const { supabaseAdmin } = require('../db/supabase');   // ← THE FIX
+const { supabaseAdmin } = require('../db/supabase');
 const boostService = require('../services/boostService');
 const syncService  = require('../services/boostSyncService');
 
@@ -26,19 +30,32 @@ function fail(res, err) {
     const body = { success: false, error: err?.message || 'Boost request failed.', code };
     if (err?.required) body.required = err.required;
     if (err?.balance)  body.balance  = err.balance;
+    if (err?.min_ngn !== undefined) body.min_ngn = err.min_ngn;
+    if (err?.max_ngn !== undefined) body.max_ngn = err.max_ngn;
+    if (err?.service) body.service = err.service;
     if (err?.allowed_transitions) body.allowed_transitions = err.allowed_transitions;
     res.status(status).json(body);
 }
 
 // ─── Config ──────────────────────────────────────────────────────
-
+//
+// Returns the current admin-configured rate, markup, and enable
+// state so the frontend can show the correct numbers and disable
+// the buy UI when boost is turned off.
 router.get('/config', async (req, res) => {
     try {
-        const [usdRate, markup] = await Promise.all([
+        const [usdRate, markup, enabled] = await Promise.all([
             boostService.getUsdToNgnRate(),
-            boostService.getDefaultMarkup()
+            boostService.getDefaultMarkup(),
+            boostService.isBoostServiceEnabled()
         ]);
-        ok(res, { config: { usd_to_ngn: usdRate, markup_percent: markup * 100 } });
+        ok(res, {
+            config: {
+                usd_to_ngn: usdRate,
+                markup_percent: markup * 100,
+                service_enabled: enabled
+            }
+        });
     } catch (err) { fail(res, err); }
 });
 
@@ -167,7 +184,6 @@ router.get('/orders/:orderRef', authMiddleware, async (req, res) => {
             });
         }
 
-        // Refresh from provider if still active.
         const active = ['pending', 'processing', 'in_progress', 'partial', 'provider_unknown'];
         if (active.includes(String(order.status))) {
             try { await syncService.syncBoostOrder(order); } catch (_) {}
