@@ -27,6 +27,7 @@ const cookieParser = require('cookie-parser');
 
 require('dotenv').config();
 
+
 // ─── SHARED SERVICES (used by background reconciliation loops) ───
 const { supabaseAdmin } = require('./db/supabase');
 const korapayService    = require('./services/korapayService');
@@ -54,7 +55,8 @@ console.log('✅ All required environment variables are set');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
-
+const maintenanceGuard = require('./middleware/maintenance');
+app.use(maintenanceGuard);
 // ─── TRUST PROXY ─────────────────────────────────────────────────
 app.set('trust proxy', 1);
 
@@ -283,7 +285,6 @@ const walletRoutes         = safeRequire('./routes/wallet/index');
 const bankRoutes           = safeRequire('./routes/bankRoutes');
 const nowPaymentsRoutes    = safeRequire('./routes/wallet/nowpayments');
 
-const beneficiaryRoutes    = require('./routes/wallet/beneficiaries');
 const userSettingsRoutes   = safeRequire('./routes/userSettingsRoutes');
 const virtualRoutes        = require('./routes/virtual-router');
 const esimRoutes           = require('./routes/esimRoutes');
@@ -306,7 +307,6 @@ safeMount(app, '/api', giftCardRoutes);
 safeMount(app, '/api/presence', presenceRoutes);
 safeMount(app, '/api/banks', bankRoutes);
 safeMount(app, '/api/wallet', walletRoutes);
-safeMount(app, '/api/wallet/beneficiaries', beneficiaryRoutes);
 safeMount(app, '/api/wallet/nowpayments', nowPaymentsRoutes);
 safeMount(app, '/api/user', userSettingsRoutes);
 safeMount(app, '/api/ticker', tickerRoutes);
@@ -315,7 +315,7 @@ safeMount(app, '/api/ticker', tickerRoutes);
 
 app.use('/api/virtual', virtualRoutes);
 console.log('  ✅ /api/virtual → loaded');
-
+app.use('/api', require('./routes/publicSettings'));
 app.use('/api/esim', esimRoutes);
 console.log('  ✅ /api/esim → loaded');
 
@@ -388,14 +388,15 @@ app.use('/api/admin', require('./routes/admin/meRoutes'));
 app.use('/api/admin', require('./routes/admin/permissionsRoutes'));
 app.use('/api/admin', require('./routes/admin/stepUpRoutes'));
 console.log('  ✅ /api/admin (me, permissions, step-up) → loaded');
-
+app.use('/api/admin', require('./routes/admin/providerAdminRoutes'));
+console.log('  ✅ /api/admin (providers) → loaded');
 if (marketplaceRoutes)   safeMount(app, '/api/admin', marketplaceRoutes);
 
 if (giftcardAdminRoutes) app.use('/api/admin', giftcardAdminRoutes);
 if (adminUserRoutes)     app.use('/api/admin', adminUserRoutes);
 if (auditLogRoutes)      app.use('/api/admin', auditLogRoutes);
 if (messageRoutes)       app.use('/api/messages', messageRoutes);
-
+0-
 console.log('\n✅ All API routes mounted');
 
 // ═══════════════════════════════════════════════════════════════════

@@ -110,14 +110,11 @@ html.dark .topbar{background:rgba(18,38,44,.85)}
 .filter-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
 .filter-actions .hint{font-size:11px;color:var(--text-faint);margin-left:auto}
 
-/* ─── The two-column region ───
-   Uses explicit height so both columns align and neither can push
-   the other off-screen. Inside, each card scrolls independently. */
+/* ─── The two-column region ─── */
 .workspace{
   display:grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap:14px;
-  /* Fills the remaining viewport height. */
   height: calc(100vh - var(--topbar-h) - 220px);
   min-height: 460px;
 }
@@ -129,9 +126,9 @@ html.dark .topbar{background:rgba(18,38,44,.85)}
 .card-head .sub{font-size:11px;color:var(--text-dim);margin-top:2px}
 .card-body{padding:12px 14px;flex:1;min-height:0;overflow-y:auto}
 
-/* ─── Table (primary column) ─── */
+/* ─── Table ─── */
 .table-scroll{flex:1;min-height:0;overflow:auto}
-table{width:100%;border-collapse:collapse;font-size:12.4px;min-width:840px}
+table{width:100%;border-collapse:collapse;font-size:12.4px;min-width:1050px} /* widened for Reason */
 thead th{text-align:left;padding:10px 12px;color:var(--text-dim);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2}
 tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
 tbody tr{cursor:pointer;outline:none}
@@ -307,24 +304,24 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <nav class="nav-scroll">
         <div class="nav-label">Overview</div>
-        <a href="/admin/dashboard" class="nav-item"><span class="ic">📊</span>Dashboard</a>
+        <a href="/admin/dashboard.html" class="nav-item"><span class="ic">📊</span>Dashboard</a>
         <div class="nav-label">Customers</div>
-        <a href="/admin/users" class="nav-item"><span class="ic">👥</span>Users</a>
-        <a href="/admin/support" class="nav-item"><span class="ic">💬</span>Support</a>
+        <a href="/admin/users.html" class="nav-item"><span class="ic">👥</span>Users</a>
+        <a href="/admin/support.html" class="nav-item"><span class="ic">💬</span>Support</a>
         <div class="nav-label">Money</div>
-        <a href="/admin/transactions" class="nav-item"><span class="ic">💳</span>Transactions</a>
-        <a href="/admin/deposits" class="nav-item"><span class="ic">📥</span>Deposits</a>
-        <a href="/admin/ledger" class="nav-item"><span class="ic">📒</span>Ledger</a>
-        <a href="/admin/refunds" class="nav-item"><span class="ic">↩️</span>Refunds</a>
-        <a href="/admin/reconciliation" class="nav-item"><span class="ic">🔄</span>Reconciliation</a>
+        <a href="/admin/transactions.html" class="nav-item"><span class="ic">💳</span>Transactions</a>
+        <a href="/admin/deposits.html" class="nav-item"><span class="ic">📥</span>Deposits</a>
+        <a href="/admin/ledger.html" class="nav-item"><span class="ic">📒</span>Ledger</a>
+        <a href="/admin/refunds.html" class="nav-item"><span class="ic">↩️</span>Refunds</a>
+        <a href="/admin/reconciliation.html" class="nav-item"><span class="ic">🔄</span>Reconciliation</a>
         <div class="nav-label">Operations</div>
-        <a href="/admin/orders" class="nav-item"><span class="ic">🧮</span>Orders</a>
-        <a href="/admin/providers" class="nav-item"><span class="ic">🔌</span>Providers</a>
-        <a href="/admin/webhooks" class="nav-item"><span class="ic">🪝</span>Webhooks</a>
+        <a href="/admin/orders.html" class="nav-item"><span class="ic">🧮</span>Orders</a>
+        <a href="/admin/providers.html" class="nav-item"><span class="ic">🔌</span>Providers</a>
+        <a href="/admin/webhooks.html" class="nav-item"><span class="ic">🪝</span>Webhooks</a>
         <div class="nav-label">System</div>
-        <a href="/admin/audit" class="nav-item active"><span class="ic">📋</span>Audit Log</a>
-        <a href="/admin/settings" class="nav-item"><span class="ic">⚙️</span>Settings</a>
-    </nav>
+        <a href="/admin/audit.html" class="nav-item active"><span class="ic">📋</span>Audit Log</a>
+        <a href="/admin/settings.html" class="nav-item"><span class="ic">⚙️</span>Settings</a>
+    </nav>  
     <div class="sidebar-foot">
         <div class="av" id="adminAvatar">DA</div>
         <div style="min-width:0;overflow:hidden">
@@ -469,13 +466,14 @@ tbody tr:last-child td{border-bottom:none}
                                 <th>Action</th>
                                 <th>Category</th>
                                 <th>Target</th>
+                                <th>Reason</th>
                                 <th>Severity</th>
                                 <th>Result</th>
                                 <th>Duration</th>
                             </tr>
                         </thead>
                         <tbody id="rows">
-                            <tr><td colspan="8"><div class="empty"><span class="ic">⏳</span><strong>Loading…</strong></div></td></tr>
+                            <tr><td colspan="9"><div class="empty"><span class="ic">⏳</span><strong>Loading…</strong></div></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -702,7 +700,7 @@ function renderTimeline(entries) {
 function renderRows(entries) {
     const tb = $('#rows');
     if (!entries.length) {
-        tb.innerHTML = `<tr><td colspan="8"><div class="empty"><span class="ic">📭</span><strong>No audit entries match those filters.</strong><span>Try widening the time range or clearing filters.</span></div></td></tr>`;
+        tb.innerHTML = `<tr><td colspan="9"><div class="empty"><span class="ic">📭</span><strong>No audit entries match those filters.</strong><span>Try widening the time range or clearing filters.</span></div></td></tr>`;
         return;
     }
     tb.innerHTML = entries.map(e => `
@@ -720,6 +718,11 @@ function renderRows(entries) {
             <td>
                 <div class="cell-main">${esc(e.target_type || '—')}</div>
                 <div class="cell-dim mono">${esc(shortId(e.target_id))}</div>
+            </td>
+            <td>
+                <div class="cell-dim" style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px;" title="${esc(e.reason || '')}">
+                    ${esc(e.reason || '—')}
+                </div>
             </td>
             <td><span class="sev-dot ${esc(e.severity)}"></span><span class="badge ${esc(e.severity)}">${esc(e.severity)}</span></td>
             <td>
@@ -804,14 +807,14 @@ function applyAdmins(admins) {
 
 async function loadList() {
     const tb = $('#rows');
-    tb.innerHTML = `<tr><td colspan="8"><div class="empty"><span class="ic">⏳</span><strong>Loading…</strong></div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="9"><div class="empty"><span class="ic">⏳</span><strong>Loading…</strong></div></td></tr>`;
 
     const { ok, data, reason, error } = await api(API.list + '?' + buildQuery(true));
     if (!ok) {
         const msg = reason === 'forbidden' ? 'You do not have permission to view the audit log.'
                   : reason === 'unauthorized' ? 'Your session has expired.'
                   : error || 'Unable to load audit log.';
-        tb.innerHTML = `<tr><td colspan="8"><div class="empty"><span class="ic">⚠️</span><strong>${esc(msg)}</strong></div></td></tr>`;
+        tb.innerHTML = `<tr><td colspan="9"><div class="empty"><span class="ic">⚠️</span><strong>${esc(msg)}</strong></div></td></tr>`;
         return;
     }
     state.count = data.count || 0;

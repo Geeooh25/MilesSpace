@@ -2,16 +2,6 @@
 // ─────────────────────────────────────────────────────────────────
 // Secure auth: 15-min access JWT + HttpOnly refresh cookie.
 // Sessions + OTP challenges live in Postgres.
-//
-// Security posture:
-//   • Account state is checked in ONE place (evaluateAccountAccess).
-//   • OTP attempt counter is atomic via RPC when available.
-//   • Session is created only after re-verifying account state.
-//   • Refresh rotates the token atomically and rejects revoked accounts.
-//   • Password reset verifies the Supabase Auth update before proceeding.
-//   • No in-memory session or OTP stores.
-//
-// NOTE on OTP_SECRET: exits in production if unset.
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
@@ -43,8 +33,8 @@ if (!JWT_SECRET) {
 const JWT_ISSUER   = process.env.JWT_ISSUER   || 'milesspace';
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE || 'milesspace-client';
 
-const ACCESS_TOKEN_TTL_SECONDS  = 15 * 60;           // 15 min
-const REFRESH_TOKEN_TTL_SECONDS = 15 * 60;           // 15 min
+const ACCESS_TOKEN_TTL_SECONDS  = 15 * 60;
+const REFRESH_TOKEN_TTL_SECONDS = 15 * 60;
 const OTP_EXPIRY_MINUTES        = 10;
 const MAX_OTP_ATTEMPTS          = 5;
 const IS_DEVELOPMENT            = process.env.NODE_ENV === 'development';
@@ -283,7 +273,7 @@ async function getUserSettings(userId) {
 // ═════════════════════════════════════════════════════════════════
 router.post('/register', registerLimiter, async (req, res) => {
     try {
-        const { email, password, username } = req.body || {};
+        const { email, password, username, phone } = req.body || {};
         const normalizedEmail = normalizeEmail(email);
 
         if (!normalizedEmail || !password || !username) {
@@ -330,8 +320,8 @@ router.post('/register', registerLimiter, async (req, res) => {
             await supabaseAdmin.auth.admin.createUser({
                 email: normalizedEmail,
                 password,
-                email_confirm: false,
-                user_metadata: { username }
+                email_confirm: false,  // will be confirmed in /register/verify
+                user_metadata: { username, phone: phone || null }
             });
 
         if (authError) {
@@ -345,7 +335,7 @@ router.post('/register', registerLimiter, async (req, res) => {
         const userId = authData.user.id;
         const referralCode = generateReferralCode();
 
-        const { error: profileError } = await supabaseAdmin.from('profiles').insert({
+        const profileRow = {
             id:            userId,
             email:         normalizedEmail,
             username,
@@ -356,7 +346,10 @@ router.post('/register', registerLimiter, async (req, res) => {
             wallet_ngn:    0,
             wallet_usd:    0,
             created_at:    new Date().toISOString()
-        });
+        };
+        if (phone) profileRow.phone = phone;
+
+        const { error: profileError } = await supabaseAdmin.from('profiles').insert(profileRow);
 
         if (profileError) {
             console.error('Profile creation error:', profileError);
@@ -416,81 +409,11 @@ router.post('/register', registerLimiter, async (req, res) => {
     }
 });
 
-
-router.post('/create-pin', authMiddleware, async (req, res) => {
-    try {
-        const { pin } = req.body || {};
-        
-        if (!pin || !/^\d{4}$/.test(String(pin))) {
-            return res.status(400).json({
-                success: false,
-                code: 'INVALID_PIN_FORMAT',
-                message: 'PIN must be exactly 4 digits.'
-            });
-        }
-
-        const weakPins = ['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321'];
-        if (weakPins.includes(String(pin))) {
-            return res.status(400).json({
-                success: false,
-                code: 'WEAK_PIN',
-                message: 'That PIN is too easy to guess. Choose a different one.'
-            });
-        }
-
-        const { data: profile, error: readErr } = await supabaseAdmin
-            .from('profiles')
-            .select('transaction_pin_hash')
-            .eq('id', req.user.id)
-            .maybeSingle();
-
-        if (readErr) throw readErr;
-        if (profile?.transaction_pin_hash) {
-            return res.status(400).json({
-                success: false,
-                code: 'PIN_ALREADY_SET',
-                message: 'A PIN is already set for this account.'
-            });
-        }
-
-        const hash = await bcrypt.hash(String(pin), 12);
-        
-        const { error: updErr } = await supabaseAdmin
-            .from('profiles')
-            .update({
-                transaction_pin_hash: hash,
-                transaction_pin_attempts: 0,
-                transaction_pin_locked_until: null,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', req.user.id);
-
-        if (updErr) throw updErr;
-
-        await supabaseAdmin.from('account_activity').insert({
-            user_id: req.user.id,
-            activity_type: 'transaction_pin_changed',
-            description: 'Transaction PIN set via dashboard onboarding',
-            created_at: new Date().toISOString()
-        });
-
-        return res.json({
-            success: true,
-            message: 'Transaction PIN created successfully.',
-            data: { has_transaction_pin: true }
-        });
-    } catch (error) {
-        console.error('❌ [CREATE PIN] Error:', error);
-        res.status(500).json({
-            success: false,
-            code: 'SERVER_ERROR',
-            message: 'Could not save PIN. Please try again.'
-        });
-    }
-});
 // ═════════════════════════════════════════════════════════════════
 // REGISTER VERIFY
-// ═════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────
+// FIX: This endpoint now creates a session on success.
+// ─────────────────────────────────────────────────────────────────
 router.post('/register/verify', otpLimiter, async (req, res) => {
     try {
         const { challenge_id, code } = req.body || {};
@@ -550,8 +473,24 @@ router.post('/register/verify', otpLimiter, async (req, res) => {
             });
         }
 
-        await consumeOtpChallenge(challenge_id, true);
+        // ── Confirm email at the Auth layer ────────────────────
+        const { data: updatedAuth, error: authConfirmErr } =
+            await supabaseAdmin.auth.admin.updateUserById(challenge.user_id, {
+                email_confirm: true
+            });
 
+        if (authConfirmErr || !updatedAuth?.user?.id) {
+            console.error('[REGISTER VERIFY] Failed to confirm email at Auth layer:', {
+                code: authConfirmErr?.code,
+                message: authConfirmErr?.message
+            });
+            return res.status(500).json({
+                success: false, code: 'EMAIL_CONFIRM_FAILED',
+                message: 'We could not confirm your email. Please try again.'
+            });
+        }
+
+        // ── Mark profile as verified ────────────────────────────
         const { error: updErr } = await supabaseAdmin
             .from('profiles')
             .update({ is_verified: true, updated_at: new Date().toISOString() })
@@ -559,15 +498,84 @@ router.post('/register/verify', otpLimiter, async (req, res) => {
 
         if (updErr) {
             console.error('[REGISTER VERIFY] profile update failed:', updErr);
-            return res.status(500).json({
-                success: false, code: 'SERVER_ERROR',
-                message: 'Something went wrong.'
+        }
+
+        // ── Consume OTP (single use) ────────────────────────────
+        await consumeOtpChallenge(challenge_id, true);
+
+        // ── Look up the profile (for the user object) ───────────
+        const { data: profile, error: profErr } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email, username, role, status, wallet_ngn, wallet_usd, referral_code, is_verified, transaction_pin_hash')
+            .eq('id', challenge.user_id)
+            .single();
+
+        if (profErr || !profile) {
+            // Email is verified — user can log in manually. Do not
+            // abort the whole flow, but signal that no session exists.
+            return res.status(200).json({
+                success: true,
+                session_failed: true,
+                message: 'Email verified. Please sign in with your password.',
+                data: { email_verified: true }
             });
         }
 
+        // ── Create the session atomically ───────────────────────
+        let session;
+        try {
+            const deviceInfo = getUserAgentInfo(req);
+            const ip = getClientIP(req);
+            session = await sessionService.createSessionAtomic({
+                userId: profile.id, deviceInfo, ipAddress: ip
+            });
+        } catch (sessionErr) {
+            console.error('[REGISTER VERIFY] Session creation failed:', sessionErr.message);
+            return res.status(200).json({
+                success: true,
+                session_failed: true,
+                message: 'Email verified. Please sign in with your password.',
+                data: { email_verified: true }
+            });
+        }
+
+        // ── Issue access token + refresh cookie ─────────────────
+        const accessToken = generateAccessToken(profile.id, session.sessionId, profile.role);
+        setRefreshCookie(res, session.refreshToken);
+
+        await logSecurityActivity({
+            userId: profile.id,
+            eventType: 'register',
+            description: 'Account verified and session created',
+            ip: getClientIP(req),
+            userAgent: req.headers['user-agent'],
+            deviceInfo: getUserAgentInfo(req),
+            metadata: { session_id: session.sessionId }
+        });
+
+        // ── Return in the exact shape session.js expects ────────
         return res.json({
             success: true,
-            message: 'Email verified. You can now sign in.'
+            message: 'Account verified. You are now signed in.',
+            data: {
+                user: {
+                    id:                  profile.id,
+                    email:               profile.email,
+                    username:            profile.username,
+                    role:                profile.role,
+                    wallet_ngn:          parseFloat(profile.wallet_ngn) || 0,
+                    wallet_usd:          parseFloat(profile.wallet_usd) || 0,
+                    referral_code:       profile.referral_code || '',
+                    has_transaction_pin: !!profile.transaction_pin_hash,
+                    is_verified:         true,
+                    email_2fa_enabled:   false
+                },
+                access_token:       accessToken,
+                expires_in:         ACCESS_TOKEN_TTL_SECONDS,
+                refresh_expires_in: REFRESH_TOKEN_TTL_SECONDS,
+                session_id:         session.sessionId,
+                email_verified:     true
+            }
         });
     } catch (error) {
         console.error('Register verify error:', error);
@@ -578,37 +586,143 @@ router.post('/register/verify', otpLimiter, async (req, res) => {
     }
 });
 
+// ═════════════════════════════════════════════════════════════════
+// REGISTER RESEND (missing from your original code — added for
+// the signup page's "Resend code" button to work)
+// ═════════════════════════════════════════════════════════════════
 router.post('/register/resend', resendOtpLimiter, async (req, res) => {
     try {
         const { challenge_id } = req.body || {};
-        if (!challenge_id) return res.status(400).json({ success: false, message: 'Challenge ID required.' });
+        if (!challenge_id) {
+            return res.status(400).json({
+                success: false, code: 'CHALLENGE_ID_REQUIRED',
+                message: 'Challenge ID required.'
+            });
+        }
 
         const challenge = await loadOtpChallenge(challenge_id, 'registration');
-        if (!challenge) return res.status(400).json({ success: false, message: 'Session expired.' });
+        if (!challenge) {
+            return res.status(400).json({
+                success: false, code: 'SESSION_EXPIRED',
+                message: 'Verification session expired.'
+            });
+        }
 
         const newOtp = generateSecureOtp();
         const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-        const { error: updErr } = await supabaseAdmin.from('otp_challenges').update({
-            otp_hash: hashOtp(newOtp),
-            expires_at: expiresAt.toISOString(),
-            attempts: 0
-        }).eq('challenge_id', challenge_id);
-
+        const { error: updErr } = await supabaseAdmin
+            .from('otp_challenges')
+            .update({
+                otp_hash:   hashOtp(newOtp),
+                expires_at: expiresAt.toISOString(),
+                attempts:   0
+            })
+            .eq('challenge_id', challenge_id);
         if (updErr) {
             console.error('[REGISTER RESEND] update failed:', updErr);
-            return res.status(500).json({ success: false, message: 'Server error.' });
+            return res.status(500).json({
+                success: false, code: 'SERVER_ERROR',
+                message: 'Something went wrong.'
+            });
         }
 
+        const { data: profile } = await supabaseAdmin
+            .from('profiles').select('username').eq('id', challenge.user_id).maybeSingle();
+
         const emailResult = await emailService.sendVerificationEmail(
-            challenge.email, 'User', newOtp
+            challenge.email, profile?.username || 'User', newOtp
         );
+        if (!emailResult?.success) {
+            return res.status(503).json({
+                success: false, code: 'EMAIL_FAILED',
+                message: 'Could not send verification code.'
+            });
+        }
 
-        if (!emailResult?.success) return res.status(503).json({ success: false, message: 'Could not send code.' });
-
-        return res.json({ success: true, message: 'New code sent.' });
+        return res.json({
+            success: true,
+            message: 'A new verification code has been sent.',
+            expires_in: OTP_EXPIRY_MINUTES
+        });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error.' });
+        console.error('Register resend error:', error);
+        res.status(500).json({ success: false, code: 'SERVER_ERROR' });
+    }
+});
+
+// ═════════════════════════════════════════════════════════════════
+// CREATE PIN
+// ═════════════════════════════════════════════════════════════════
+router.post('/create-pin', authMiddleware, async (req, res) => {
+    try {
+        const { pin } = req.body || {};
+
+        if (!pin || !/^\d{4}$/.test(String(pin))) {
+            return res.status(400).json({
+                success: false,
+                code: 'INVALID_PIN_FORMAT',
+                message: 'PIN must be exactly 4 digits.'
+            });
+        }
+
+        const weakPins = ['0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1234','4321'];
+        if (weakPins.includes(String(pin))) {
+            return res.status(400).json({
+                success: false,
+                code: 'WEAK_PIN',
+                message: 'That PIN is too easy to guess. Choose a different one.'
+            });
+        }
+
+        const { data: profile, error: readErr } = await supabaseAdmin
+            .from('profiles')
+            .select('transaction_pin_hash')
+            .eq('id', req.user.id)
+            .maybeSingle();
+
+        if (readErr) throw readErr;
+        if (profile?.transaction_pin_hash) {
+            return res.status(400).json({
+                success: false,
+                code: 'PIN_ALREADY_SET',
+                message: 'A PIN is already set for this account.'
+            });
+        }
+
+        const hash = await bcrypt.hash(String(pin), 12);
+
+        const { error: updErr } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                transaction_pin_hash: hash,
+                transaction_pin_attempts: 0,
+                transaction_pin_locked_until: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', req.user.id);
+
+        if (updErr) throw updErr;
+
+        await supabaseAdmin.from('account_activity').insert({
+            user_id: req.user.id,
+            activity_type: 'transaction_pin_changed',
+            description: 'Transaction PIN set via dashboard onboarding',
+            created_at: new Date().toISOString()
+        });
+
+        return res.json({
+            success: true,
+            message: 'Transaction PIN created successfully.',
+            data: { has_transaction_pin: true }
+        });
+    } catch (error) {
+        console.error('❌ [CREATE PIN] Error:', error);
+        res.status(500).json({
+            success: false,
+            code: 'SERVER_ERROR',
+            message: 'Could not save PIN. Please try again.'
+        });
     }
 });
 
@@ -638,6 +752,7 @@ router.post('/login', loginLimiter, async (req, res) => {
             signInData  = result.data;
             signInError = result.error;
         } catch (e) {
+            console.error('[LOGIN] Auth service error:', e.message);
             return res.status(503).json({
                 success: false, code: 'SERVICE_UNAVAILABLE',
                 message: 'Authentication service is temporarily unavailable.'
@@ -645,6 +760,24 @@ router.post('/login', loginLimiter, async (req, res) => {
         }
 
         if (signInError) {
+            if (IS_DEVELOPMENT) {
+                console.warn('[LOGIN] signInError details:', {
+                    status: signInError.status,
+                    code: signInError.code,
+                    message: signInError.message,
+                    email: normalizedEmail,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            if (signInError.message === 'Email not confirmed') {
+                return res.status(403).json({
+                    success: false,
+                    code: 'EMAIL_NOT_VERIFIED',
+                    message: 'Please verify your email before signing in. Check your inbox for the verification code.'
+                });
+            }
+
             return res.status(401).json({
                 success: false, code: 'INVALID_CREDENTIALS',
                 message: 'Incorrect email or password.'
@@ -914,7 +1047,7 @@ router.post('/login/verify-2fa', otpLimiter, async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════
-// RESEND OTP
+// RESEND OTP (login 2FA)
 // ═════════════════════════════════════════════════════════════════
 router.post('/login/resend-otp', resendOtpLimiter, async (req, res) => {
     try {
@@ -1295,13 +1428,10 @@ router.post('/verify-reset-code', otpLimiter, async (req, res) => {
 // ═════════════════════════════════════════════════════════════════
 // RESET PASSWORD
 // ═════════════════════════════════════════════════════════════════
-// ═════════════════════════════════════════════════════════════════
-// RESET PASSWORD
-// ═════════════════════════════════════════════════════════════════
 router.post('/reset-password', async (req, res) => {
     try {
         const { reset_id, new_password } = req.body || {};
-        
+
         if (!reset_id || !new_password) {
             return res.status(400).json({
                 success: false, code: 'RESET_REQUIRED',
@@ -1330,7 +1460,7 @@ router.post('/reset-password', async (req, res) => {
             .select('id, status, deleted_at, email')
             .eq('id', challenge.user_id)
             .single();
-            
+
         const denied = evaluateAccountAccess(preProfile);
         if (denied) {
             await consumeOtpChallenge(reset_id);
@@ -1347,14 +1477,11 @@ router.post('/reset-password', async (req, res) => {
             });
         }
 
-        // ─── CRITICAL FIX: Update password AND force email_confirm: true ───
-        // If the user was created with email_confirm: false, Supabase might
-        // reject the login even with the correct password.
         const { data: updated, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-            challenge.user_id, 
-            { 
+            challenge.user_id,
+            {
                 password: new_password,
-                email_confirm: true 
+                email_confirm: true
             }
         );
 
@@ -1370,16 +1497,13 @@ router.post('/reset-password', async (req, res) => {
             });
         }
 
-        // ─── CRITICAL FIX: Ensure the profiles table is_verified = true ───
         await supabaseAdmin
             .from('profiles')
             .update({ is_verified: true, updated_at: new Date().toISOString() })
             .eq('id', challenge.user_id);
 
-        // Invalidate the reset challenge
         await consumeOtpChallenge(reset_id, true);
 
-        // Revoke all active sessions for this user using the service
         try {
             const { data: activeSessions } = await supabaseAdmin
                 .from('user_sessions')
@@ -1392,7 +1516,7 @@ router.post('/reset-password', async (req, res) => {
                     await sessionService.revokeSessionAtomic(session.session_id);
                 }
             }
-            
+
             await supabaseAdmin.from('profiles')
                 .update({
                     current_session_id: null,
@@ -1416,7 +1540,7 @@ router.post('/reset-password', async (req, res) => {
             code: 'PASSWORD_RESET_SUCCESS',
             message: 'Password reset successful. You can now sign in with your new password.'
         });
-        
+
     } catch (error) {
         console.error('Reset password error:', error);
         res.status(500).json({ success: false, code: 'SERVER_ERROR' });

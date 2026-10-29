@@ -77,6 +77,14 @@ const ACTIONS = Object.freeze({
     // ─── Settings ────────────────────────────────────────────────
     SETTING_CHANGE:            { action: 'setting_change',                 category: 'settings',         severity: 'high',     actorType: 'admin', strict: true },
     SETTING_READ:              { action: 'setting_read',                   category: 'settings',         severity: 'low',      actorType: 'admin' },
+    
+    // Specific granular settings actions (used by routes/adminSettings.js)
+    SETTINGS_UPDATE:           { action: 'settings.update',                category: 'settings',         severity: 'high',     actorType: 'admin', strict: true },
+    SETTINGS_UPDATE_FAILED:    { action: 'settings.update_failed',         category: 'settings',         severity: 'medium',   actorType: 'admin', strict: true },
+    SETTINGS_RESET_SECTION:    { action: 'settings.reset_section',         category: 'settings',         severity: 'critical', actorType: 'admin', strict: true },
+    SETTINGS_RESET_SEC_FAILED: { action: 'settings.reset_section_failed',  category: 'settings',         severity: 'medium',   actorType: 'admin', strict: true },
+    SETTINGS_RESET_ALL:        { action: 'settings.reset_all',             category: 'settings',         severity: 'critical', actorType: 'admin', strict: true },
+    SETTINGS_RESET_ALL_FAILED: { action: 'settings.reset_all_failed',      category: 'settings',         severity: 'medium',   actorType: 'admin', strict: true },
 
     // ─── Reports / Export ───────────────────────────────────────
     REPORT_EXPORT:             { action: 'report.export',                  category: 'reports',          severity: 'medium',   actorType: 'admin' },

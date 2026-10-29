@@ -1,4 +1,17 @@
 // routes/wallet/koraDeposits.js
+// ─────────────────────────────────────────────────────────────────
+// KoraPay deposit routes.
+//
+// PRICING AUTHORITY:
+//   All rate/fee math is delegated to fxRateService, which itself
+//   reads admin settings. No pricing logic here.
+//
+// ADMIN SETTINGS USED (indirectly, via fxRateService):
+//   • deposit_rate_<CCY>            — customer rate (1 unit CCY = X USD)
+//   • deposit_fee_flat_ngn / _pct / _min_ngn / _max_ngn — NGN fee
+//
+// SCHEMA: unchanged.
+// ─────────────────────────────────────────────────────────────────
 
 'use strict';
 
@@ -12,6 +25,7 @@ const IdempotencyService = require('../../services/idempotencyService');
 const korapayService     = require('../../services/korapayService');
 const fxService          = require('../../services/fxRateService');
 const depositService     = require('../../services/depositService');
+const adminSettings      = require('../../services/adminSettingsService');
 
 // ─── GET /api/wallet/deposit-currencies ────────────────────
 router.get('/deposit-currencies', authMiddleware, async (req, res) => {
@@ -23,27 +37,43 @@ router.get('/deposit-currencies', authMiddleware, async (req, res) => {
 
         if (error) throw error;
 
-        const all = (data || []).map(c => ({
-            code: c.code,
-            display_name: c.display_name,
-            symbol: c.symbol,
-            country: c.country,
-            enabled: !!c.is_enabled,
-            min_amount: Number(c.min_amount),
-            max_amount: Number(c.max_amount),
-            wallet_currency: c.wallet_currency,
-            customer_rate: c.customer_rate != null ? Number(c.customer_rate) : null,
-            rate_type: c.rate_type,
-            deposit_fee_type: c.deposit_fee_type,
-            deposit_fee: Number(c.deposit_fee || 0),
-            minor_unit: Number(c.minor_unit || 2)
+        // Enrich each row with the CURRENT admin-settings rate, so
+        // the frontend shows the correct number even if the legacy
+        // customer_rate column is stale.
+        const enriched = await Promise.all((data || []).map(async (c) => {
+            const code = String(c.code || '').toUpperCase();
+            let effectiveRate = c.customer_rate != null ? Number(c.customer_rate) : null;
+
+            if (code !== 'NGN') {
+                try {
+                    const raw = await adminSettings.getRaw(`deposit_rate_${code}`);
+                    const n = Number(raw);
+                    if (Number.isFinite(n) && n > 0) effectiveRate = n;
+                } catch { /* fall through */ }
+            }
+
+            return {
+                code: c.code,
+                display_name: c.display_name,
+                symbol: c.symbol,
+                country: c.country,
+                enabled: !!c.is_enabled,
+                min_amount: Number(c.min_amount),
+                max_amount: Number(c.max_amount),
+                wallet_currency: c.wallet_currency,
+                customer_rate: effectiveRate,
+                rate_type: c.rate_type,
+                deposit_fee_type: c.deposit_fee_type,
+                deposit_fee: Number(c.deposit_fee || 0),
+                minor_unit: Number(c.minor_unit || 2)
+            };
         }));
 
         return res.json({
             success: true,
             default_currency: 'NGN',
-            currencies: all.filter(c => c.enabled),
-            all_currencies: all
+            currencies: enriched.filter(c => c.enabled),
+            all_currencies: enriched
         });
     } catch (e) {
         console.error('[DEPOSIT] currencies error:', e.message);
@@ -55,7 +85,7 @@ router.get('/deposit-currencies', authMiddleware, async (req, res) => {
 router.post('/deposits/quote', express.json(), authMiddleware, async (req, res) => {
     try {
         const { currency, amount } = req.body || {};
-        
+
         let cleanAmount = amount;
         if (typeof cleanAmount === 'string') cleanAmount = Number(cleanAmount.replace(/,/g, '').trim());
 
@@ -76,7 +106,8 @@ router.post('/deposits/quote', express.json(), authMiddleware, async (req, res) 
             return res.status(400).json({ success: false, error: `Maximum deposit for ${currency} is ${cfg.max_amount}`, code: 'AMOUNT_TOO_HIGH' });
         }
 
-        const b = fxService.computeDepositBreakdown(cfg, amtNum);
+        // Now async (reads admin settings for fee + rate).
+        const b = await fxService.computeDepositBreakdown(cfg, amtNum);
 
         return res.json({
             success: true,
@@ -106,7 +137,6 @@ router.post('/deposits/kora/initialize', express.json(), authMiddleware, async (
         const userId = req.user.id;
         const { currency, amount, idempotency_key } = req.body || {};
 
-        // Strict Number Parsing
         let cleanAmount = amount;
         if (typeof cleanAmount === 'string') cleanAmount = Number(cleanAmount.replace(/,/g, '').trim());
 
@@ -146,7 +176,8 @@ router.post('/deposits/kora/initialize', express.json(), authMiddleware, async (
             return res.status(400).json({ success: false, error: `Maximum deposit for ${currency} is ${cfg.max_amount}`, code: 'AMOUNT_TOO_HIGH' });
         }
 
-        const breakdown = fxService.computeDepositBreakdown(cfg, amtNum);
+        // Now async (reads admin settings for fee + rate).
+        const breakdown = await fxService.computeDepositBreakdown(cfg, amtNum);
         const { reference: rateReference } = await fxService.lockDepositRate({ cfg, paymentAmount: amtNum, breakdown });
 
         const deposit = await depositService.createDepositRequest({
@@ -181,7 +212,7 @@ router.post('/deposits/kora/initialize', express.json(), authMiddleware, async (
             });
         } catch (koraErr) {
             console.error('[KORA INIT] Kora rejected payload:', koraErr.provider || koraErr.message);
-            
+
             await supabaseAdmin
                 .from('deposit_requests')
                 .update({
@@ -192,7 +223,7 @@ router.post('/deposits/kora/initialize', express.json(), authMiddleware, async (
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', deposit.id);
-                
+
             return res.status(502).json({ success: false, error: 'Payment provider initialization failed', code: 'KORA_INITIALIZATION_FAILED' });
         }
 
@@ -221,7 +252,7 @@ router.post('/deposits/kora/initialize', express.json(), authMiddleware, async (
                 status:                 'pending'
             },
             checkout_url: koraResult.checkout_url,
-            public_key: process.env.KORA_PUBLIC_KEY 
+            public_key: process.env.KORA_PUBLIC_KEY
         };
 
         await IdempotencyService.save(userId, idempotency_key, 'kora_deposit_initialize', responsePayload);
@@ -310,8 +341,6 @@ router.post(
 
             if (!valid) {
                 await markKoraEvent(eventRowId, { status: 'failed', error: 'INVALID_SIGNATURE' });
-                // Return 200 so Korapay stops retrying an invalid payload,
-                // but the failure is now recorded and visible.
                 return res.status(200).json({ received: true });
             }
 
@@ -354,10 +383,6 @@ router.post(
                 return res.status(200).json({ received: true, completed: true });
             }
 
-            // ─── DO NOT return 200 here ───
-            // If the deposit did not complete, we want to know why and we want
-            // Korapay to retry. Log the reason and return 500 so the retry
-            // will re-enter this function and surface the same failure again.
             console.error('[KORA WEBHOOK] completeKoraDeposit failed:', result.reason, result);
             await markKoraEvent(eventRowId, {
                 status: 'failed',

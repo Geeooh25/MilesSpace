@@ -2,34 +2,19 @@
 // ─────────────────────────────────────────────────────────────────
 // ADMIN AUTHENTICATION ROUTER
 //
-//   POST /api/admin/login                (password step)
-//   POST /api/admin/login/mfa            (second factor)
-//   GET  /api/admin/session
-//   POST /api/admin/refresh
-//   POST /api/admin/logout
-//
-// Changes vs. the previous version, keyed to the code review:
-//
-//   #4  Refresh path now revalidates the underlying DB session
-//       through the same helper `/api/admin/session` uses. A JWT
-//       refresh cannot revive a revoked/expired DB session.
-//   #5  Presence is NOT used here. Nothing in this file imports
-//       admin-presence.
-//   #9  401 vs 403 semantics documented and enforced: auth failures
-//       return 401 with SESSION_* codes; authorization failures
-//       return 403 with PERMISSION_* / ADMIN_REQUIRED codes.
-//   #11 No raw Supabase error reaches the client. All DB errors are
-//       logged server-side and replaced with a stable, safe message.
-//   #12 Session load is a single helper. Both /session and /refresh
-//       go through `loadAndValidateAdminSession()`. No duplicated
-//       validation logic.
-//   #15 Login returns a `returnTo` value in the response body when
-//       the caller sent one, but the frontend is still authoritative
-//       for the actual redirect (see redirectAfterLogin()).
-//   #16 The access token and refresh token are both single-use on
-//       refresh: the old session row is revoked, a new one created.
-//       Postgres enforces one active session per user via RPC.
+// Production hardening:
+//   • Requires ADMIN_REFRESH_TOKEN_SECRET in production.
+//   • jwt.verify() pins issuer, audience, HS256.
+//   • Refresh rotation uses a single atomic RPC
+//     (admin_rotate_session_atomic).
+//   • MFA is required for EVERY admin role.
+//   • Cache-Control: no-store on every auth response.
+//   • Generic error bodies only — no internal DB errors leaked.
+//   • Setup token has NO `sid` and NO `admin_sessions` row.
+//   • "Email not confirmed" maps to 403 EMAIL_NOT_VERIFIED.
 // ─────────────────────────────────────────────────────────────────
+
+'use strict';
 
 const express = require('express');
 const router = express.Router();
@@ -41,26 +26,34 @@ const totp = require('../services/totpService');
 const mfaSvc = require('../services/adminMfaService');
 const emailSvc = require('../services/emailService');
 
+// ─── Config ─────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
     console.error('❌ CRITICAL: JWT_SECRET must be set and at least 32 chars.');
     process.exit(1);
 }
-const ADMIN_REFRESH_SECRET = process.env.ADMIN_REFRESH_TOKEN_SECRET
-    || crypto.createHmac('sha256', JWT_SECRET).update('admin-refresh-v1').digest('hex');
+
+let ADMIN_REFRESH_SECRET;
+if (process.env.NODE_ENV === 'production') {
+    ADMIN_REFRESH_SECRET = process.env.ADMIN_REFRESH_TOKEN_SECRET;
+    if (!ADMIN_REFRESH_SECRET || ADMIN_REFRESH_SECRET.length < 32) {
+        console.error('❌ CRITICAL: ADMIN_REFRESH_TOKEN_SECRET is required in production.');
+        process.exit(1);
+    }
+} else {
+    ADMIN_REFRESH_SECRET = process.env.ADMIN_REFRESH_TOKEN_SECRET
+        || crypto.createHmac('sha256', JWT_SECRET).update('admin-refresh-v1').digest('hex');
+}
 
 const ADMIN_TOKEN_EXPIRY = process.env.ADMIN_TOKEN_EXPIRY || '1h';
 const ADMIN_REFRESH_TOKEN_EXPIRY = process.env.ADMIN_REFRESH_TOKEN_EXPIRY || '7d';
 const ADMIN_SESSION_DURATION_MS = 60 * 60 * 1000;
+const ADMIN_SETUP_TOKEN_TTL = '15m';
 
 const JWT_ISSUER   = 'milespace-admin';
 const JWT_AUDIENCE = 'milespace-admin-api';
 
-// Roles that MUST have MFA enrolled before they can sign in.
-const MFA_REQUIRED_ROLES = new Set(['super_admin']);
-
-// ─── Helpers ─────────────────────────────────────────────────────
-
+// ─── Helpers ────────────────────────────────────────────────────
 function getClientIp(req) {
     return req.ip
         || (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
@@ -72,6 +65,10 @@ function getUserAgent(req) {
 }
 function newSessionId() { return crypto.randomUUID(); }
 
+function setNoStore(res) {
+    try { res.setHeader('Cache-Control', 'no-store'); } catch (_) {}
+}
+
 const PROFILE_AUTH_COLUMNS = [
     'id', 'email', 'username', 'role', 'status', 'deleted_at',
     'avatar_url', 'phone', 'created_at',
@@ -82,9 +79,7 @@ const PROFILE_AUTH_COLUMNS = [
     'mfa_enabled_at'
 ].join(', ');
 
-// Roles that can access the admin panel.
 const ADMIN_ROLES = new Set(['admin', 'super_admin', 'finance', 'operations', 'support', 'auditor', 'read_only']);
-const FULL_ADMIN_ROLES = new Set(['admin', 'super_admin']);
 
 async function logAdminActivity({ admin_id, action, details, ip, user_agent, severity = 'info' }) {
     try {
@@ -119,15 +114,6 @@ function notifyAdmin({ profile, action, targetType, targetId, detail, ip, userAg
     });
 }
 
-// Never let a raw Supabase error leave the process.
-function safeDbError(publicCode, publicMessage, err, context) {
-    if (err) console.error(`[ADMIN AUTH] ${context || 'db'} error:`, err.message || err);
-    const e = new Error(publicMessage || 'Something went wrong. Please try again.');
-    e.status = 503;
-    e.code = publicCode || 'SERVICE_UNAVAILABLE';
-    return e;
-}
-
 function buildUserShape(profile, role) {
     return {
         id: profile.id,
@@ -140,8 +126,7 @@ function buildUserShape(profile, role) {
     };
 }
 
-// ─── JWT sign/verify ─────────────────────────────────────────────
-
+// ─── JWT sign/verify ────────────────────────────────────────────
 function signAccessToken(payload) {
     return jwt.sign(payload, JWT_SECRET, {
         expiresIn: ADMIN_TOKEN_EXPIRY,
@@ -173,13 +158,7 @@ function verifyRefreshToken(token) {
     });
 }
 
-// ─── Session load + validate (single authority) ─────────────────
-// Used by BOTH /session and /refresh so refresh can never revive a
-// session the DB has revoked/expired. Returns either
-//   { ok: true, profile, role, sessionId }
-// or
-//   { ok: false, status, code, message }
-
+// ─── Session load + validate ────────────────────────────────────
 async function loadAndValidateAdminSession(decoded) {
     if (!decoded || !decoded.id || !decoded.sid) {
         return { ok: false, status: 401, code: 'INVALID_SESSION', message: 'Session is invalid.' };
@@ -224,7 +203,6 @@ async function loadAndValidateAdminSession(decoded) {
 }
 
 // ─── Atomic session creation RPC ────────────────────────────────
-
 async function createAdminSession({ profile, role, ip, userAgent }) {
     const sessionId = newSessionId();
     const now = new Date();
@@ -251,11 +229,15 @@ async function createAdminSession({ profile, role, ip, userAgent }) {
         throw e;
     }
 
-    return { sessionId: sessionId, accessToken: accessToken, refreshToken: refreshToken, sessionExpiresAt: sessionExpiresAt };
+    return {
+        sessionId: sessionId,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        sessionExpiresAt: sessionExpiresAt
+    };
 }
 
-// ─── Rate limiters ───────────────────────────────────────────────
-
+// ─── Rate limiters ──────────────────────────────────────────────
 const adminLoginIpLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, max: 20,
     standardHeaders: true, legacyHeaders: false,
@@ -294,13 +276,18 @@ const adminMfaLimiter = rateLimit({
 });
 
 // ─── Password verification ──────────────────────────────────────
-
 async function verifyAdminCredentials(email, password) {
     const result = await withRetry(
         function () { return supabase.auth.signInWithPassword({ email: email, password: password }); },
         2, 800
     );
-    if (result && result.error) return { ok: false, reason: 'INVALID_CREDENTIALS' };
+    if (result && result.error) {
+        const msg = String(result.error.message || '');
+        if (/email not confirmed/i.test(msg)) {
+            return { ok: false, reason: 'EMAIL_NOT_CONFIRMED', detail: result.error };
+        }
+        return { ok: false, reason: 'INVALID_CREDENTIALS', detail: result.error };
+    }
     if (!result || !result.data || !result.data.user) return { ok: false, reason: 'AUTH_SERVICE_ERROR' };
     return { ok: true, user: result.data.user };
 }
@@ -308,8 +295,9 @@ async function verifyAdminCredentials(email, password) {
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/admin/login
 // ═══════════════════════════════════════════════════════════════
-
 router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async function (req, res) {
+    setNoStore(res);
+
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
     const rawEmail = req.body && req.body.email;
@@ -334,11 +322,7 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async funct
 
         if (profileErr) {
             console.error('[ADMIN LOGIN] profile lookup failed:', profileErr.message);
-            return res.status(503).json({
-                success: false,
-                code: 'AUTH_SERVICE_UNAVAILABLE',
-                error: 'Authentication service temporarily unavailable.'
-            });
+            return res.status(503).json({ success: false, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Authentication service temporarily unavailable.' });
         }
 
         if (!profile) {
@@ -370,6 +354,14 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async funct
             return res.status(503).json({ success: false, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Authentication service temporarily unavailable. Please try again.' });
         }
         if (!verify.ok) {
+            if (verify.reason === 'EMAIL_NOT_CONFIRMED') {
+                await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: 'email_not_confirmed' }, ip: ip, user_agent: userAgent, severity: 'warning' });
+                return res.status(403).json({
+                    success: false,
+                    code: 'EMAIL_NOT_VERIFIED',
+                    error: 'Your email address has not been confirmed yet. Please contact your administrator.'
+                });
+            }
             await logAdminActivity({ admin_id: profile.id, action: 'login_failed', details: { reason: verify.reason }, ip: ip, user_agent: userAgent, severity: 'warning' });
             return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', error: 'Invalid email or password.' });
         }
@@ -378,56 +370,48 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async funct
             && !!profile.mfa_secret_encrypted
             && !!profile.mfa_enabled_at;
 
-        if (MFA_REQUIRED_ROLES.has(role) && !mfaEnabled) {
-            await logAdminActivity({
-                admin_id: profile.id,
-                action: 'login_failed',
-                details: { reason: 'mfa_required_not_enrolled', role: role },
-                ip: ip, user_agent: userAgent, severity: 'high'
-            });
-            return res.status(403).json({
-                success: false,
-                code: 'MFA_REQUIRED_NOT_ENROLLED',
-                error: 'This role requires two-factor authentication. Please enroll and try again.'
-            });
-        }
+        // ─── RESTRICTED SETUP SESSION (MFA not yet enabled) ────
+        // The setup token is NOT a session token. It has no `sid`
+        // because it does not correspond to a row in admin_sessions.
+        // The `type` field is the only thing that distinguishes it.
+        if (!mfaEnabled) {
+            const setupToken = jwt.sign(
+                {
+                    id: profile.id,
+                    type: 'admin_setup',
+                    purpose: 'mfa_enrollment'
+                },
+                JWT_SECRET,
+                {
+                    expiresIn: ADMIN_SETUP_TOKEN_TTL,
+                    algorithm: 'HS256',
+                    issuer: JWT_ISSUER,
+                    audience: JWT_AUDIENCE,
+                    jwtid: crypto.randomUUID()
+                }
+            );
 
-        if (mfaEnabled) {
-            const challengeSessionId = newSessionId();
-            const mfaToken = mfaSvc.issueChallengeToken(profile.id, challengeSessionId);
-            await logAdminActivity({ admin_id: profile.id, action: 'mfa_challenge_issued', details: { role: role }, ip: ip, user_agent: userAgent, severity: 'info' });
+            await logAdminActivity({ admin_id: profile.id, action: 'mfa_setup_required', details: { role: role }, ip: ip, user_agent: userAgent, severity: 'info' });
+
             return res.json({
                 success: true,
-                message: 'Password accepted. Enter your 6-digit code.',
-                data: { mfa_required: true, mfa_token: mfaToken }
+                message: 'Password accepted. Please set up two-factor authentication.',
+                data: {
+                    setup_required: true,
+                    setup_token: setupToken
+                }
             });
         }
 
-        let session;
-        try {
-            session = await createAdminSession({ profile: profile, role: role, ip: ip, userAgent: userAgent });
-        } catch (e) {
-            console.error('[ADMIN LOGIN] session persist failed:', e.message);
-            return res.status(e.status || 500).json({ success: false, code: e.code || 'SESSION_CREATION_FAILED', error: e.message });
-        }
-
-        await logAdminActivity({ admin_id: profile.id, action: 'login_success', details: { role: role, mfa: false }, ip: ip, user_agent: userAgent, severity: 'info' });
-        notifyAdmin({ profile: profile, action: 'ADMIN_LOGIN_NEW_DEVICE', detail: { role: role, mfa: false }, ip: ip, userAgent: userAgent });
+        // ─── STANDARD MFA CHALLENGE ───────────────────────────
+        const challengeSessionId = newSessionId();
+        const mfaToken = mfaSvc.issueChallengeToken(profile.id, challengeSessionId);
+        await logAdminActivity({ admin_id: profile.id, action: 'mfa_challenge_issued', details: { role: role }, ip: ip, user_agent: userAgent, severity: 'info' });
 
         return res.json({
             success: true,
-            message: 'Login successful',
-            data: {
-                user: buildUserShape(profile, role),
-                token: session.accessToken,
-                refreshToken: session.refreshToken,
-                expiresIn: ADMIN_TOKEN_EXPIRY,
-                sessionId: session.sessionId,
-                dashboardUrl: '/admin/dashboard.html',
-                // Optional hint for the client. The frontend still
-                // validates this against /admin/* before using it.
-                returnTo: returnTo
-            }
+            message: 'Password accepted. Enter your 6-digit code.',
+            data: { mfa_required: true, mfa_token: mfaToken }
         });
     } catch (err) {
         console.error('[ADMIN LOGIN] unexpected error:', err);
@@ -438,8 +422,9 @@ router.post('/login', adminLoginIpLimiter, adminLoginAccountLimiter, async funct
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/admin/login/mfa
 // ═══════════════════════════════════════════════════════════════
-
 router.post('/login/mfa', adminMfaLimiter, async function (req, res) {
+    setNoStore(res);
+
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
     const body = req.body || {};
@@ -562,8 +547,8 @@ router.post('/login/mfa', adminMfaLimiter, async function (req, res) {
 // ═══════════════════════════════════════════════════════════════
 //  GET /api/admin/session
 // ═══════════════════════════════════════════════════════════════
-
 router.get('/session', async function (req, res) {
+    setNoStore(res);
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -606,14 +591,10 @@ router.get('/session', async function (req, res) {
 });
 
 // ═══════════════════════════════════════════════════════════════
-//  POST /api/admin/refresh
-//
-//  Revalidates BOTH the refresh JWT and the underlying DB session
-//  before issuing a new access token. A refresh cannot revive a
-//  session the DB has revoked or expired.
+//  POST /api/admin/refresh  (atomic rotation)
 // ═══════════════════════════════════════════════════════════════
-
 router.post('/refresh', adminRefreshLimiter, async function (req, res) {
+    setNoStore(res);
     try {
         const refresh_token = (req.body && req.body.refresh_token) || null;
         if (!refresh_token) {
@@ -633,8 +614,6 @@ router.post('/refresh', adminRefreshLimiter, async function (req, res) {
             return res.status(401).json({ success: false, code: 'INVALID_TOKEN_TYPE', error: 'Invalid token type.' });
         }
 
-        // Same validation path as /session. If the DB session was
-        // revoked or has expired, refresh fails with the same code.
         const check = await loadAndValidateAdminSession(decoded);
         if (!check.ok) {
             return res.status(check.status).json({ success: false, code: check.code, error: check.message });
@@ -643,23 +622,31 @@ router.post('/refresh', adminRefreshLimiter, async function (req, res) {
         const role = check.role;
         const profile = check.profile;
 
-        // Rotate: revoke the old session, create a fresh one atomically.
-        try {
-            await supabaseAdmin.rpc('admin_revoke_session_atomic', {
-                p_user_id: profile.id,
-                p_session_id: decoded.sid,
-                p_reason: 'refresh_rotate'
-            });
-        } catch (revokeErr) {
-            console.warn('[ADMIN REFRESH] old session revoke failed (continuing):', revokeErr.message);
-        }
+        const newSid = newSessionId();
+        const now = new Date();
+        const sessionExpiresAt = new Date(now.getTime() + ADMIN_SESSION_DURATION_MS);
 
-        let session;
-        try {
-            session = await createAdminSession({ profile: profile, role: role, ip: getClientIp(req), userAgent: getUserAgent(req) });
-        } catch (e) {
-            console.error('[ADMIN REFRESH] new session create failed:', e.message);
-            return res.status(e.status || 500).json({ success: false, code: e.code || 'SESSION_UPDATE_FAILED', error: e.message });
+        const newAccessToken = signAccessToken({ id: profile.id, sid: newSid, role: role, type: 'admin' });
+        const newRefreshToken = signRefreshToken({ id: profile.id, sid: newSid, type: 'admin_refresh' });
+
+        const { data: rpcData, error: rpcErr } = await supabaseAdmin.rpc('admin_rotate_session_atomic', {
+            p_user_id: profile.id,
+            p_old_session_id: decoded.sid,
+            p_new_session_id: newSid,
+            p_ip: getClientIp(req),
+            p_user_agent: getUserAgent(req),
+            p_expires_at: sessionExpiresAt.toISOString(),
+            p_last_login: now.toISOString()
+        });
+
+        if (rpcErr || !rpcData || rpcData.success === false) {
+            const msg = (rpcErr && rpcErr.message) || (rpcData && rpcData.error) || 'unknown error';
+            console.error('[ADMIN REFRESH] atomic rotate failed:', msg);
+            return res.status(409).json({
+                success: false,
+                code: 'SESSION_ROTATION_FAILED',
+                error: 'Your session could not be refreshed. Please sign in again.'
+            });
         }
 
         await logAdminActivity({
@@ -674,10 +661,10 @@ router.post('/refresh', adminRefreshLimiter, async function (req, res) {
         return res.json({
             success: true,
             data: {
-                access_token: session.accessToken,
-                refresh_token: session.refreshToken,
+                access_token: newAccessToken,
+                refresh_token: newRefreshToken,
                 expiresIn: ADMIN_TOKEN_EXPIRY,
-                sessionId: session.sessionId
+                sessionId: newSid
             }
         });
     } catch (err) {
@@ -689,8 +676,8 @@ router.post('/refresh', adminRefreshLimiter, async function (req, res) {
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/admin/logout
 // ═══════════════════════════════════════════════════════════════
-
 router.post('/logout', async function (req, res) {
+    setNoStore(res);
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -729,3 +716,4 @@ router.post('/logout', async function (req, res) {
 });
 
 module.exports = router;
+module.exports.createAdminSession = createAdminSession;

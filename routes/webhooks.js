@@ -19,9 +19,7 @@ const router = express.Router();
 const webhookService = require('../services/webhookService');
 const providerFactory = require('../services/providers/providerFactory');
 
-// Raw body capture for HMAC verification. The default JSON parser
-// upstream has already consumed the body — we stash the raw buffer
-// from req.body via a bodyParser on this router.
+// Raw body capture for HMAC verification.
 router.use(express.raw({ type: '*/*', limit: '2mb' }));
 
 router.post('/:provider', async (req, res) => {
@@ -34,11 +32,21 @@ router.post('/:provider', async (req, res) => {
 
     // req.body is the raw Buffer here; parse JSON ourselves.
     let payload = null;
-    const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : (typeof req.body === 'string' ? req.body : null);
+    let rawBody = null;
+
+    if (req.body instanceof Buffer) {
+        rawBody = req.body.toString('utf8');
+    } else if (typeof req.body === 'string') {
+        rawBody = req.body;
+    } else if (req.body && typeof req.body === 'object') {
+        // ⚠️ WARNING: This means express.json() ran before express.raw().
+        // Signature verification may fail. Check server.js middleware order.
+        payload = req.body;
+        console.warn('[webhook] req.body is already parsed. Raw body is unavailable for signature verification.');
+    }
+
     if (rawBody) {
         try { payload = JSON.parse(rawBody); } catch { payload = null; }
-    } else if (req.body && typeof req.body === 'object') {
-        payload = req.body;
     }
 
     if (!payload || typeof payload !== 'object') {

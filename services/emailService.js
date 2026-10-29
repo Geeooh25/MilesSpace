@@ -5,7 +5,7 @@
 // SCOPE — this file sends:
 //   • Registration OTP         → sendRegistrationOTP
 //   • Login 2FA OTP            → send2FAEmail (aliases: sendOTPEmail, sendLoginOTP)
-//   • Email verification       → sendVerificationEmail (same template as registration)
+//   • Email verification       → sendVerificationEmail
 //   • Password reset OTP       → sendPasswordResetOTP
 //   • Login alert              → sendLoginAlert
 //   • Deposit / payment        → sendDepositConfirmation
@@ -13,16 +13,6 @@
 //   • Gift card delivery/fail  → sendGiftCardDeliveryEmail / sendGiftCardFailureEmail
 //   • Admin security alert     → sendAdminSecurityAlert
 //   • Support ticket updates   → sendSupportTicketUpdate
-//
-// NOT SENT (removed from prior versions):
-//   • Welcome email
-//   • Crypto delivery
-//   • Gift order confirmation (superseded by gift card delivery)
-//   • Withdrawal confirmation
-//   • Cashback reward
-//
-// If any route still imports a removed function, that route must be updated.
-// Search the codebase before deploying.
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
@@ -30,33 +20,58 @@
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const adminSettings = require('./adminSettingsService');
+
+// ═══ BRANDING CACHE ═══
+// We cache the brand settings for 60 seconds to avoid hammering the
+// database on every single email sent during a bulk operation.
+let _brandCache = null;
+let _brandCacheAt = 0;
+const BRAND_CACHE_MS = 60 * 1000;
+
+async function getBrandConfig() {
+    if (_brandCache && (Date.now() - _brandCacheAt) < BRAND_CACHE_MS) {
+        return _brandCache;
+    }
+
+    let platformName = 'MilesSpace';
+    let supportEmail = process.env.SUPPORT_EMAIL || 'support@milesspace.com';
+    let siteUrl      = (process.env.SITE_URL || 'https://milesspace-public.vercel.app').replace(/\/+$/, '');
+
+    try {
+        const name = await adminSettings.getRaw('platform_name');
+        if (name) platformName = String(name);
+
+        const email = await adminSettings.getRaw('support_email');
+        if (email) supportEmail = String(email);
+
+        const url = await adminSettings.getRaw('website_url');
+        if (url) siteUrl = String(url).replace(/\/+$/, '');
+    } catch (e) {
+        console.warn('[EMAIL] Failed to read brand settings, using fallbacks:', e.message);
+    }
+
+    _brandCache = { platformName, supportEmail, siteUrl };
+    _brandCacheAt = Date.now();
+    return _brandCache;
+}
 
 // ═══ CONFIG (read once) ═══
 const EMAIL_USER      = process.env.EMAIL_USER || '';
 const EMAIL_PASS      = process.env.EMAIL_PASS || '';
 const EMAIL_FROM      = process.env.EMAIL_FROM || EMAIL_USER;
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'MilesSpace';
-const SITE_URL        = (process.env.SITE_URL || 'https://milesspace-public.vercel.app').replace(/\/+$/, '');
-const SUPPORT_EMAIL   = process.env.SUPPORT_EMAIL || 'support@milesspace.com';
 const IS_DEVELOPMENT  = process.env.NODE_ENV === 'development';
 
 // ═══ CLOUDINARY LOGO CONFIG ═══
-// We construct the Cloudinary URL here. If the environment variable
-// is missing, it falls back to the hardcoded production URL.
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
 
 function getCloudinaryEmailLogo() {
-    // If a specific LOGO_URL is set in .env, use it.
     if (process.env.LOGO_URL) return process.env.LOGO_URL;
-    
-    // If Cloudinary is configured, build the URL dynamically.
     if (CLOUDINARY_CLOUD_NAME) {
-        // f_auto (format) and q_auto (quality) make it load instantly in email clients
-        return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_150/v1/milesspace-logo.png`;
+        return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_150/v1/milespace-logo.png`;
     }
-    
-    // Ultimate fallback
-    return `${SITE_URL}/images/miles.png`;
+    return `https://milesspace-public.vercel.app/images/miles.png`; // Static fallback
 }
 
 const LOGO_URL = getCloudinaryEmailLogo();
@@ -228,18 +243,10 @@ async function sendEmail(to, subject, html) {
 
 // ═══════════════════════════════════════════════════════════════════
 //  TEMPLATE LOADER
-//
-//  Supported syntax:
-//    {{ key }}          — replaced with data[key], HTML-escaped
-//    {{#if key}} ... {{/if}}   — included only if data[key] is truthy
-//
-//  Unknown placeholders are left as-is and a warning is logged. The
-//  build should fail on this — do not silently ship unresolved keys.
 // ═══════════════════════════════════════════════════════════════════
 
 const TEMPLATE_DIR = path.join(__dirname, '..', 'templates', 'emails');
 
-// Declared per-template so the loader can warn about missing variables.
 const REQUIRED_VARS = {
     '2fa-code': ['userName', 'loginTimeUtc', 'otp', 'otpExpiryMinutes'],
     'verification': ['userName', 'otp'],
@@ -261,26 +268,22 @@ function loadTemplate(templateName, data = {}) {
         return generateFallbackTemplate(templateName, data);
     }
 
-    // Warn if a required variable is missing.
     const required = REQUIRED_VARS[templateName] || [];
     const missing = required.filter((k) => data[k] == null || data[k] === '');
     if (missing.length) {
         console.warn(`[EMAIL] template "${templateName}" missing vars:`, missing);
     }
 
-    // 1. Conditionals: {{#if key}}...{{/if}}
     html = html.replace(
         /{{#if\s+(\w+)\s*}}([\s\S]*?){{\/if}}/g,
         (_, key, body) => (data[key] ? body : '')
     );
 
-    // 2. Simple placeholders: {{ key }}
     html = html.replace(/{{\s*(\w+)\s*}}/g, (match, key) => {
-        if (!(key in data)) return match; // leave for the check below
+        if (!(key in data)) return match;
         return escapeHtml(data[key]);
     });
 
-    // 3. Any remaining {{ ... }} is an unresolved placeholder.
     const leftover = html.match(/{{\s*\w+\s*}}/g);
     if (leftover) {
         console.warn(`[EMAIL] unresolved placeholders in "${templateName}":`, leftover);
@@ -294,20 +297,17 @@ function loadTemplate(templateName, data = {}) {
 
 // ═══════════════════════════════════════════════════════════════════
 //  FALLBACK TEMPLATES
-//
-//  Used only when a template file is missing. Kept minimal on purpose:
-//  if these fire, the deployment is broken and you should notice.
 // ═══════════════════════════════════════════════════════════════════
 
 function generateFallbackTemplate(type, data) {
-    const safeTitle = escapeHtml(data.title || 'MilesSpace');
-    const safeBody  = escapeHtml(data.message || 'Please check your MilesSpace account.');
+    const safeTitle = escapeHtml(data.title || 'Notification');
+    const safeBody  = escapeHtml(data.message || 'Please check your account.');
 
     return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f6f8;padding:40px 20px;margin:0;">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:40px 32px;">
-    <img src="${LOGO_URL}" alt="MilesSpace" style="height:40px;margin-bottom:20px;display:block;" />
+    <img src="${LOGO_URL}" alt="Logo" style="height:40px;margin-bottom:20px;display:block;" />
     <h2 style="color:#0c3d4a;margin:0 0 12px;font-size:20px;font-weight:700;">${safeTitle}</h2>
     <p style="color:#4a6070;font-size:15px;line-height:1.6;margin:0 0 20px;">${safeBody}</p>
     ${data.otp ? `
@@ -317,7 +317,7 @@ function generateFallbackTemplate(type, data) {
       </div>
     ` : ''}
     <p style="color:#92a8b4;font-size:12px;text-align:center;margin:24px 0 0;">
-      © ${new Date().getFullYear()} MilesSpace
+      © ${new Date().getFullYear()} ${escapeHtml(data.platformName || 'MilesSpace')}
     </p>
   </div>
 </body></html>`;
@@ -327,26 +327,25 @@ function generateFallbackTemplate(type, data) {
 //  AUTH EMAILS
 // ═══════════════════════════════════════════════════════════════════
 
-// Registration OTP uses the same "verification" template as email
-// verification. The two features are one contract from the customer's
-// point of view: "here is a code to confirm your email".
 async function sendRegistrationOTP(email, username, otp) {
+    const brand = await getBrandConfig();
+    
     const html = loadTemplate('verification', {
         userName: username || 'there',
         otp: otp,
-        verificationUrl: `${SITE_URL}/verify`,
+        verificationUrl: `${brand.siteUrl}/verify`,
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
-    return sendEmail(email, '🔐 Verify your MilesSpace account', html);
+    return sendEmail(email, `🔐 Verify your ${brand.platformName} account`, html);
 }
 
-// Canonical 2FA email. Data contract is explicit:
-//   userName, loginTimeUtc, device, browser, os, location, ipAddress, otp
 async function send2FAEmail(email, username, otp, deviceInfo = {}, location = 'Unknown', ipAddress = 'Unknown') {
+    const brand = await getBrandConfig();
     const loginTimeUtc = formatUtcTimestamp(new Date());
 
     let deviceDisplay  = 'Unknown Device';
@@ -383,45 +382,51 @@ async function send2FAEmail(email, username, otp, deviceInfo = {}, location = 'U
         otp,
         otpExpiryMinutes: 10,
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
-    return sendEmail(email, '🔐 Verification Needed — MilesSpace', html);
+    return sendEmail(email, `🔐 Verification Needed — ${brand.platformName}`, html);
 }
 
-// Same contract as send2FAEmail. Kept as its own function because some
-// callers (registration verification flow) name it differently.
 async function sendVerificationEmail(email, username, code) {
+    const brand = await getBrandConfig();
+    
     const html = loadTemplate('verification', {
         userName: username || 'there',
         otp: code,
-        verificationUrl: `${SITE_URL}/verify`,
+        verificationUrl: `${brand.siteUrl}/verify`,
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
-    return sendEmail(email, 'Verify Your Email — MilesSpace', html);
+    return sendEmail(email, `Verify Your Email — ${brand.platformName}`, html);
 }
 
 async function sendPasswordResetOTP(email, username, code) {
+    const brand = await getBrandConfig();
+    
     const html = loadTemplate('password-reset', {
         userName: username || 'User',
         otp: code,
         otpExpiryMinutes: 10,
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
-    return sendEmail(email, 'Reset Your Password — MilesSpace', html);
+    return sendEmail(email, `Reset Your Password — ${brand.platformName}`, html);
 }
 
 async function sendLoginAlert(email, username, deviceInfo = {}, location = 'Unknown', ipAddress = 'Unknown', occurredAt = null) {
+    const brand = await getBrandConfig();
     const loginTimeUtc = formatUtcTimestamp(occurredAt || new Date());
 
     let deviceDisplay = 'Unknown Device';
@@ -449,14 +454,15 @@ async function sendLoginAlert(email, username, deviceInfo = {}, location = 'Unkn
         os: deviceInfo?.os || 'Unknown',
         location: displayLocation,
         ipAddress: displayIp,
-        secureAccountUrl: `${SITE_URL}/settings`,
+        secureAccountUrl: `${brand.siteUrl}/settings`,
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
-    return sendEmail(email, '🛡️ New Login Detected — MilesSpace', html);
+    return sendEmail(email, `🛡️ New Login Detected — ${brand.platformName}`, html);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -475,6 +481,8 @@ async function sendDepositConfirmation({
     fxSource,
     completedAt
 }) {
+    const brand = await getBrandConfig();
+    
     const sourceStr   = `${sourceCurrency} ${Number(sourceAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const creditedStr = formatAmountForCurrency(creditedAmount, targetCurrency);
     const rateStr     = `1 ${sourceCurrency} = ${currencySymbol(targetCurrency)}${Number(fxRate).toFixed(4)}`;
@@ -489,10 +497,11 @@ async function sendDepositConfirmation({
         total: creditedStr,
         reference: internalReference,
         date: dateStr,
-        viewTransactionUrl: `${SITE_URL}/history`,
+        viewTransactionUrl: `${brand.siteUrl}/history`,
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
@@ -504,6 +513,8 @@ async function sendDepositConfirmation({
 // ═══════════════════════════════════════════════════════════════════
 
 async function sendEsimDeliveryEmail(data) {
+    const brand = await getBrandConfig();
+    
     const {
         email, username, reference, countryName, planName,
         dataDisplay, validityDays, totalUsd,
@@ -526,8 +537,9 @@ async function sendEsimDeliveryEmail(data) {
         matchingId: matchingId || '',
         instructions: instructions || '',
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
@@ -535,6 +547,8 @@ async function sendEsimDeliveryEmail(data) {
 }
 
 async function sendEsimFailureEmail(data) {
+    const brand = await getBrandConfig();
+    
     const { email, username, reference, countryName, planName, amountUsd, reason, refunded } = data;
 
     const html = loadTemplate('esim-failure', {
@@ -546,8 +560,9 @@ async function sendEsimFailureEmail(data) {
         reason: reason || 'The order could not be completed by the provider.',
         refunded: refunded ? '1' : '',
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
@@ -559,6 +574,8 @@ async function sendEsimFailureEmail(data) {
 // ═══════════════════════════════════════════════════════════════════
 
 async function sendGiftCardDeliveryEmail(data) {
+    const brand = await getBrandConfig();
+    
     const {
         email, username, reference, cardName,
         faceValue, currency, voucherCode, voucherSerial, instructions
@@ -574,8 +591,9 @@ async function sendGiftCardDeliveryEmail(data) {
         voucherSerial: voucherSerial || '',
         instructions: instructions || '',
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
@@ -583,6 +601,8 @@ async function sendGiftCardDeliveryEmail(data) {
 }
 
 async function sendGiftCardFailureEmail(data) {
+    const brand = await getBrandConfig();
+    
     const { email, username, reference, cardName, faceValue, currency, reason, refunded } = data;
 
     const html = loadTemplate('giftcard-failure', {
@@ -593,8 +613,9 @@ async function sendGiftCardFailureEmail(data) {
         reason: reason || 'The provider declined this purchase.',
         refunded: refunded ? '1' : '',
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
@@ -606,6 +627,8 @@ async function sendGiftCardFailureEmail(data) {
 // ═══════════════════════════════════════════════════════════════════
 
 async function sendSupportTicketUpdate(data) {
+    const brand = await getBrandConfig();
+    
     const { email, username, action, ticketId, subject, status, category, message } = data;
 
     const html = loadTemplate('support-ticket', {
@@ -617,14 +640,15 @@ async function sendSupportTicketUpdate(data) {
         category: category || 'General',
         message: message || '',
         createdAt: formatUtcTimestamp(new Date()),
-        viewTicketUrl: `${SITE_URL}/support`,
+        viewTicketUrl: `${brand.siteUrl}/support`,
         logoUrl: LOGO_URL,
-        supportEmail: SUPPORT_EMAIL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
-    return sendEmail(email, `Support ticket ${action || 'updated'} — MilesSpace`, html);
+    return sendEmail(email, `Support ticket ${action || 'updated'} — ${brand.platformName}`, html);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -636,6 +660,7 @@ async function sendAdminSecurityAlert({
     detail = null, ipAddress = null, userAgent = null, when = null
 }) {
     if (!email) return { success: false, error: 'No email provided' };
+    const brand = await getBrandConfig();
 
     const eventTime = formatUtcTimestamp(when || new Date());
 
@@ -667,13 +692,15 @@ async function sendAdminSecurityAlert({
         detailJson: detail ? JSON.stringify(detail, null, 2) : '',
         ipAddress: ipAddress || '',
         userAgent: userAgent ? parseUserAgentForDisplay(userAgent) : '',
-        settingsUrl: `${SITE_URL}/admin/settings`,
+        settingsUrl: `${brand.siteUrl}/admin/settings`,
         logoUrl: LOGO_URL,
-        siteUrl: SITE_URL,
+        supportEmail: brand.supportEmail,
+        platformName: brand.platformName,
+        siteUrl: brand.siteUrl,
         currentYear: new Date().getFullYear()
     });
 
-    return sendEmail(email, `🔐 ${title} — MilesSpace Admin`, html);
+    return sendEmail(email, `🔐 ${title} — ${brand.platformName} Admin`, html);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -686,7 +713,7 @@ function getStatus() {
         from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
         provider: 'Gmail SSL (port 465)',
         isDevelopment: IS_DEVELOPMENT,
-        logoUrl: LOGO_URL, // Helpful for debugging
+        logoUrl: LOGO_URL, 
         credentials: {
             user: EMAIL_USER ? '✅ Set' : '❌ Missing',
             pass: EMAIL_PASS ? '✅ Set' : '❌ Missing'
@@ -710,7 +737,7 @@ module.exports = {
     // Auth
     sendRegistrationOTP,
     send2FAEmail,
-    sendOTPEmail: send2FAEmail,   // alias — callers using this name keep working
+    sendOTPEmail: send2FAEmail,   // alias
     sendLoginOTP: send2FAEmail,   // alias
     sendVerificationEmail,
     sendPasswordResetOTP,
@@ -730,12 +757,4 @@ module.exports = {
 
     // Admin
     sendAdminSecurityAlert
-
-    // REMOVED — do not re-add without auditing call sites:
-    //   sendWelcomeEmail
-    //   sendCryptoDeliveryEmail
-    //   sendGiftOrderConfirmation
-    //   sendWithdrawalConfirmation
-    //   sendCashbackReward
-    //   sendPaymentReceived  (superseded by sendDepositConfirmation)
 };

@@ -1,166 +1,227 @@
-// routes/virtual-router.js - COMPLETE PRODUCTION-READY VERSION
-// ALL FEATURES:
-// 1. ✅ Country listing with search
-// 2. ✅ Services with prices (USD/NGN)
-// 3. ✅ Multi-currency payment (NGN/USD)
-// 4. ✅ Wallet balance check (NGN/USD)
-// 5. ✅ Atomic wallet debit
-// 6. ✅ Provider activation with orderId
-// 7. ✅ Idempotency protection
-// 8. ✅ Definite provider failures → refund
-// 9. ✅ Correct cancellation (setStatus status=8)
-// 10. ✅ Correct retry (setStatus status=3)
-// 11. ✅ Order history with pagination
-// 12. ✅ Active rental recovery
-// 13. ✅ SMS status polling
-// 14. ✅ Order events audit log
-// 15. ✅ Reconciliation-ready
-// 16. ✅ Admin settings (app_config)
+// routes/virtual-router.js
+// ─────────────────────────────────────────────────────────────────
+// USER-FACING Virtual SMS ROUTER.
+//
+// PRICING AUTHORITY:
+//   The customer price is ALWAYS recomputed from admin settings
+//   (adminSettingsService) on every request. The catalogue row
+//   only provides the provider's wholesale USD cost. There is
+//   no "selling_price_*" trust anywhere in this file.
+//
+// MONEY RULES:
+//   • Debit before the provider call, via LedgerService.
+//   • Provider definite failure → refund via LedgerService.
+//   • Provider ambiguous failure → leave processing; scheduler resolves.
+//
+// GATES ENFORCED HERE (all from admin settings):
+//   • service_virtual_sms_enabled       → whole-feature on/off
+//   • usd_to_ngn                        → FX for NGN pricing
+//   • virtual_sms_markup_pct            → customer markup
+//   • virtual_sms_min_ngn / _max_ngn    → per-order limits (NGN equiv)
+// ─────────────────────────────────────────────────────────────────
+
+'use strict';
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
+
 const { supabaseAdmin } = require('../db/supabase');
 const { authMiddleware } = require('../middleware/auth');
 const { LedgerService } = require('../services/ledgerService');
-const crypto = require('crypto');
+const adminSettings = require('../services/adminSettingsService');
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────
 const VSMS_BASE = 'https://api.virtualsms.de/stubs/handler_api';
 const VSMS_API_KEY = process.env.VSMS_API_KEY || '';
 const PROVIDER_TIMEOUT = 15000;
 const CACHE_TTL = 5 * 60 * 1000;
-const RECONCILIATION_INTERVAL = 2 * 60 * 1000;
 
 // ─── IN-MEMORY CACHE ────────────────────────────────────────────────────
+// Country + service catalogue caches. NOT settings — settings are
+// always read via adminSettingsService so an admin change takes
+// effect immediately (up to its own 45s cache, invalidated on write).
 const cache = {
     countries: { data: null, timestamp: 0 },
     services: new Map(),
-    settings: { data: null, timestamp: 0 },
     ttl: CACHE_TTL
 };
 
-// ─── GET SETTINGS (WITH FALLBACK) ──────────────────────────────────────
-async function getSettings() {
-    if (cache.settings.data && (Date.now() - cache.settings.timestamp) < CACHE_TTL) {
-        return cache.settings.data;
-    }
-
-    try {
-        const { data, error } = await supabaseAdmin
-            .from('app_config')
-            .select('key, value');
-
-        if (error) {
-            console.warn('⚠️ [VSMS] Database settings error:', error.message);
-            return getFallbackSettings();
-        }
-
-        const settings = {};
-        (data || []).forEach(item => {
-            settings[item.key] = item.value;
-        });
-
-        // Ensure required settings exist
-        const defaults = {
-            usd_to_ngn: '1600',
-            boost_markup: '18',
-            gift_card_markup: '10',
-            virtual_sms_markup: '15',
-            marketplace_markup: '20',
-            cashback_rate: '5',
-            min_redeem: '50',
-            max_redeem: '100000',
-            virtual_sms_enabled: 'true',
-            virtual_sms_cheap_threshold: '2.00',
-            virtual_sms_cheap_markup: '2.50',
-            virtual_sms_expensive_markup: '1.50',
-            virtual_sms_min_price_usd: '0.50',
-            virtual_sms_max_price_usd: '100',
-            virtual_sms_auto_refund: 'true',
-            virtual_sms_refund_window_minutes: '20',
-            virtual_sms_cancel_window_minutes: '5',
-            virtual_sms_default_validity_minutes: '20'
-        };
-
-        for (const [key, defaultValue] of Object.entries(defaults)) {
-            if (!settings[key]) {
-                settings[key] = defaultValue;
-            }
-        }
-
-        cache.settings.data = settings;
-        cache.settings.timestamp = Date.now();
-        return settings;
-
-    } catch (error) {
-        console.error('❌ [VSMS] Settings error:', error.message);
-        return getFallbackSettings();
-    }
+// ─── ERROR HELPERS ─────────────────────────────────────────────────────
+function makeErr(code, message, status = 400, extra = {}) {
+    const e = new Error(message);
+    e.status = status;
+    e.code = code;
+    Object.assign(e, extra);
+    return e;
 }
 
-function getFallbackSettings() {
-    const fallback = {
-        usd_to_ngn: '1600',
-        boost_markup: '18',
-        gift_card_markup: '10',
-        virtual_sms_markup: '15',
-        marketplace_markup: '20',
-        cashback_rate: '5',
-        min_redeem: '50',
-        max_redeem: '100000',
-        virtual_sms_enabled: 'true',
-        virtual_sms_cheap_threshold: '2.00',
-        virtual_sms_cheap_markup: '2.50',
-        virtual_sms_expensive_markup: '1.50',
-        virtual_sms_min_price_usd: '0.50',
-        virtual_sms_max_price_usd: '100',
-        virtual_sms_auto_refund: 'true',
-        virtual_sms_refund_window_minutes: '20',
-        virtual_sms_cancel_window_minutes: '5',
-        virtual_sms_default_validity_minutes: '20'
+function sendErr(res, err) {
+    if (res.headersSent) return;
+    const status = err?.status || 500;
+    const code = err?.code || 'VIRTUAL_SMS_ERROR';
+    const message = err?.message || 'Virtual SMS request failed.';
+    const body = { success: false, error: message, code };
+    if (err?.min_ngn !== undefined) body.min_ngn = err.min_ngn;
+    if (err?.max_ngn !== undefined) body.max_ngn = err.max_ngn;
+    if (err?.service) body.service = err.service;
+
+    if (status >= 500) {
+        console.error('[VIRTUAL SMS]', code, message);
+    }
+    res.status(status).json(body);
+}
+
+// ─── PRICING ────────────────────────────────────────────────────────────
+// Compute the customer price for one catalogue row. Uses the SAME
+// integer-cent math as virtualSmsService so the display and debit
+// can never disagree.
+async function resolvePrice({ providerCostUsd }) {
+    const wholesaleUsd = Number(providerCostUsd);
+    if (!Number.isFinite(wholesaleUsd) || wholesaleUsd <= 0) {
+        throw makeErr('PROVIDER_COST_MISSING',
+            'Provider cost is not configured for this service.', 503);
+    }
+
+    const calcUsd = await adminSettings.calculatePrice({
+        service: 'virtual_sms',
+        currency: 'USD',
+        wholesaleAmount: wholesaleUsd.toFixed(2)
+    });
+
+    const priceUsd = Number(calcUsd.customerPrice);
+    if (!Number.isFinite(priceUsd) || priceUsd <= 0) {
+        throw makeErr('PRICE_COMPUTE_FAILED',
+            'Computed USD price is invalid.', 503);
+    }
+
+    const usdToNgn = await adminSettings.getRate('USD', 'NGN');
+    if (!Number.isFinite(usdToNgn) || usdToNgn <= 0) {
+        throw makeErr('RATE_NOT_CONFIGURED',
+            'USD→NGN rate is not configured.', 503);
+    }
+
+    const priceNgn = Number((priceUsd * usdToNgn).toFixed(2));
+
+    return {
+        priceUsd,
+        priceNgn,
+        wholesaleUsd,
+        usdToNgn,
+        markup: calcUsd.markup
     };
-
-    cache.settings.data = fallback;
-    cache.settings.timestamp = Date.now();
-    console.warn('⚠️ [VSMS] Using fallback settings (usd_to_ngn: 1600)');
-    return fallback;
 }
 
-// ─── PRICE CALCULATION ──────────────────────────────────────────────────
-function calculatePrice(providerCost, settings) {
-    const cost = parseFloat(providerCost) || 0;
-    const rate = parseFloat(settings.usd_to_ngn) || 1600;
-    const cheapThreshold = parseFloat(settings.virtual_sms_cheap_threshold) || 2.00;
-    const cheapMarkup = parseFloat(settings.virtual_sms_cheap_markup) || 2.50;
-    const expensiveMarkup = parseFloat(settings.virtual_sms_expensive_markup) || 1.50;
+async function assertWithinLimits({ chargeAmount, chargeCurrency, usdToNgn }) {
+    const minNgn = Number(await adminSettings.getRaw('virtual_sms_min_ngn'));
+    const maxNgn = Number(await adminSettings.getRaw('virtual_sms_max_ngn'));
 
-    const markup = cost < cheapThreshold ? cheapMarkup : expensiveMarkup;
-    const usd = cost <= 0 ? 0 : +(cost * markup).toFixed(2);
-    const ngn = +(usd * rate).toFixed(2);
-    return { usd, ngn, rate, markup };
+    const ngnEquivalent = String(chargeCurrency).toUpperCase() === 'USD'
+        ? Number(chargeAmount) * usdToNgn
+        : Number(chargeAmount);
+
+    if (Number.isFinite(minNgn) && minNgn > 0 && ngnEquivalent < minNgn) {
+        throw makeErr('BELOW_MIN_LIMIT',
+            `Minimum order for Virtual SMS is ₦${minNgn.toFixed(2)}.`,
+            400, { min_ngn: minNgn });
+    }
+    if (Number.isFinite(maxNgn) && maxNgn > 0 && ngnEquivalent > maxNgn) {
+        throw makeErr('ABOVE_MAX_LIMIT',
+            `Maximum order for Virtual SMS is ₦${maxNgn.toFixed(2)}.`,
+            400, { max_ngn: maxNgn });
+    }
 }
 
-// ─── IDEMPOTENCY CHECK ──────────────────────────────────────────────────
-async function checkIdempotency(userId, idempotencyKey) {
-    if (!idempotencyKey) return null;
+// ─── PROVIDER FETCHER ──────────────────────────────────────────────────
+// Same behaviour as the old file: throttle, retries, timeout, body
+// capture. Only thing changed is that we never leak api_key.
+let lastRequest = 0;
 
-    const { data, error } = await supabaseAdmin
-        .from('virtual_sms_orders')
-        .select('id, status, created_at')
-        .eq('user_id', userId)
-        .eq('idempotency_key', idempotencyKey)
-        .maybeSingle();
+async function fetchProvider(params, retries = 2) {
+    const now = Date.now();
+    if (now - lastRequest < 1500) {
+        await new Promise(r => setTimeout(r, 1500 - (now - lastRequest)));
+    }
+    lastRequest = Date.now();
 
-    if (error) return null;
-    return data;
+    const url = new URL(VSMS_BASE);
+    url.searchParams.append('api_key', VSMS_API_KEY);
+    for (const [k, v] of Object.entries(params)) {
+        url.searchParams.append(k, String(v));
+    }
+    const redactedUrl = url.toString().replace(VSMS_API_KEY || '__NOKEY__', 'REDACTED');
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
+
+        try {
+            const response = await fetch(url.toString(), {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'MilesSpace/1.0'
+                }
+            });
+            clearTimeout(timeout);
+
+            const bodyText = await response.text();
+            let body;
+            try { body = JSON.parse(bodyText); } catch { body = bodyText; }
+
+            if (!response.ok) {
+                const error = new Error(`VirtualSMS HTTP ${response.status}`);
+                error.providerStatus = response.status;
+                error.providerBody = body;
+                error.providerUrl = redactedUrl;
+
+                console.error('[VSMS] provider error', {
+                    status: response.status, body, url: redactedUrl
+                });
+
+                if (response.status >= 400 && response.status < 500) throw error;
+
+                if (attempt < retries) {
+                    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                    continue;
+                }
+                throw error;
+            }
+
+            return body;
+
+        } catch (error) {
+            clearTimeout(timeout);
+            if (error.providerStatus && error.providerStatus >= 400 && error.providerStatus < 500) {
+                throw error;
+            }
+            if (attempt >= retries) {
+                console.error('[VSMS] provider request failed', {
+                    message: error.message,
+                    status: error.providerStatus || null,
+                    body: error.providerBody || null
+                });
+                throw error;
+            }
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+    }
+    throw new Error('PROVIDER_TIMEOUT');
 }
 
-// ─── MAP PROVIDER FAILURE ──────────────────────────────────────────────
+// ─── CANCEL / RETRY ────────────────────────────────────────────────────
+async function cancelWithProvider(activationId) {
+    return await fetchProvider({ action: 'setStatus', id: activationId, status: 8 });
+}
+async function retryWithProvider(activationId) {
+    return await fetchProvider({ action: 'setStatus', id: activationId, status: 3 });
+}
+
+// ─── FAILURE MAPPING ───────────────────────────────────────────────────
 function mapProviderFailure(error) {
-    const body = String(error.providerBody || '').trim();
-    const status = error.providerStatus || 0;
+    const body = String(error?.providerBody || '').trim();
+    const status = error?.providerStatus || 0;
 
-    // HTTP 4xx are definite failures
     if (status >= 400 && status < 500) {
         if (status === 429) {
             return { code: 'RATE_LIMITED', message: 'Provider is rate limiting. Please try again.', retryable: true, definiteFailure: false };
@@ -171,7 +232,6 @@ function mapProviderFailure(error) {
         return { code: 'PROVIDER_ERROR', message: 'Service temporarily unavailable.', retryable: false, definiteFailure: true };
     }
 
-    // Provider response codes
     switch (body) {
         case 'NO_NUMBERS':
             return { code: 'NO_NUMBERS', message: 'No numbers are currently available for this service.', retryable: false, definiteFailure: true, updateInventory: true };
@@ -190,125 +250,20 @@ function mapProviderFailure(error) {
     }
 }
 
-// ════════════════════════════════════════════════════════════════════════
-//  PROVIDER FETCHER WITH RESPONSE BODY CAPTURE
-// ════════════════════════════════════════════════════════════════════════
-
-let lastRequest = 0;
-
-async function fetchProvider(params, retries = 2) {
-    const now = Date.now();
-    if (now - lastRequest < 1500) {
-        await new Promise(r => setTimeout(r, 1500 - (now - lastRequest)));
-    }
-    lastRequest = Date.now();
-
-    const url = new URL(VSMS_BASE);
-    url.searchParams.append('api_key', VSMS_API_KEY);
-    for (const [k, v] of Object.entries(params)) {
-        url.searchParams.append(k, String(v));
-    }
-
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT);
-
-        try {
-            const response = await fetch(url.toString(), {
-                signal: controller.signal,
-                headers: {
-                    'Accept': 'application/json, text/plain, */*',
-                    'User-Agent': 'MilesSpace/1.0'
-                }
-            });
-            clearTimeout(timeout);
-
-            const bodyText = await response.text();
-            let body;
-            try {
-                body = JSON.parse(bodyText);
-            } catch {
-                body = bodyText;
-            }
-
-            if (!response.ok) {
-                const error = new Error(`VirtualSMS HTTP ${response.status}`);
-                error.providerStatus = response.status;
-                error.providerBody = body;
-                error.providerUrl = url.toString().replace(VSMS_API_KEY, 'REDACTED');
-
-                console.error('❌ [VSMS] Provider error:', {
-                    status: response.status,
-                    body: body,
-                    url: error.providerUrl
-                });
-
-                if (response.status >= 400 && response.status < 500) {
-                    throw error;
-                }
-
-                if (attempt < retries) {
-                    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-                    continue;
-                }
-                throw error;
-            }
-
-            return body;
-
-        } catch (error) {
-            clearTimeout(timeout);
-            if (error.providerStatus && error.providerStatus >= 400 && error.providerStatus < 500) {
-                throw error;
-            }
-            if (attempt >= retries) {
-                console.error('❌ [VSMS] Provider request failed:', {
-                    message: error.message,
-                    status: error.providerStatus || null,
-                    body: error.providerBody || null
-                });
-                throw error;
-            }
-            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-        }
-    }
-    throw new Error('PROVIDER_TIMEOUT');
-}
-
-// ─── CANCEL AND RETRY HELPERS ──────────────────────────────────────────
-
-async function cancelWithProvider(activationId) {
-    return await fetchProvider({
-        action: 'setStatus',
-        id: activationId,
-        status: 8
-    });
-}
-
-async function retryWithProvider(activationId) {
-    return await fetchProvider({
-        action: 'setStatus',
-        id: activationId,
-        status: 3
-    });
-}
-
-// ─── ORDER EVENT LOGGER ────────────────────────────────────────────────
+// ─── EVENT LOGGING ─────────────────────────────────────────────────────
 async function logOrderEvent(orderId, eventType, data = {}) {
     try {
-        await supabaseAdmin
-            .from('virtual_sms_order_events')
-            .insert({
-                order_id: orderId,
-                event_type: eventType,
-                old_status: data.oldStatus || null,
-                new_status: data.newStatus || null,
-                message: data.message || null,
-                provider_response: data.providerResponse || null,
-                metadata: data.metadata || {}
-            });
+        await supabaseAdmin.from('virtual_sms_order_events').insert({
+            order_id: orderId,
+            event_type: eventType,
+            old_status: data.oldStatus || null,
+            new_status: data.newStatus || null,
+            message: data.message || null,
+            provider_response: data.providerResponse || null,
+            metadata: data.metadata || {}
+        });
     } catch (error) {
-        console.warn('⚠️ Failed to log order event:', error.message);
+        console.warn('[VSMS] failed to log order event:', error.message);
     }
 }
 
@@ -336,7 +291,7 @@ router.get('/countries', async (req, res) => {
                     id: c.id,
                     eng: c.name,
                     flag: c.flag || '🌐',
-                    blocked: c.blocked || false,
+                    blocked: false,
                     block_reason: c.block_reason || null
                 };
             });
@@ -350,7 +305,7 @@ router.get('/countries', async (req, res) => {
             const countries = {};
             const entries = [];
 
-            for (const [name, c] of Object.entries(data)) {
+            for (const [name, c] of Object.entries(data || {})) {
                 if (c.visible === 1 || c.visible === '1' || c.visible === true) {
                     const id = parseInt(c.id);
                     const eng = c.eng || name;
@@ -383,194 +338,214 @@ router.get('/countries', async (req, res) => {
             cache.countries.timestamp = Date.now();
             return res.json(countries);
         } catch (providerError) {
-            if (cache.countries.data) {
-                return res.json(cache.countries.data);
-            }
+            if (cache.countries.data) return res.json(cache.countries.data);
             throw providerError;
         }
 
     } catch (error) {
-        console.error('❌ GET /countries error:', error.message);
+        console.error('[VSMS] GET /countries error:', error.message);
         if (cache.countries.data) return res.json(cache.countries.data);
         res.status(500).json({ success: false, error: 'Failed to load countries' });
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  GET /api/virtual/services-with-prices
+//  GET /api/virtual/services-with-prices?country=XXX
 // ════════════════════════════════════════════════════════════════════════
 
 router.get('/services-with-prices', async (req, res) => {
-    const countryId = req.query.country;
-    if (!countryId) {
-        return res.status(400).json({ success: false, error: 'country parameter required' });
-    }
-
-    if (parseInt(countryId) === 0 || parseInt(countryId) === 12) {
-        return res.json({ success: true, services: [], blocked: true });
-    }
-
     try {
-        const cached = cache.services.get(String(countryId));
-        if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-            return res.json({ success: true, services: cached.data });
+        // Feature gate — admin can turn off Virtual SMS entirely.
+        const enabled = await adminSettings.isServiceEnabled('virtual_sms');
+        if (!enabled) {
+            return res.json({
+                success: true,
+                services: [],
+                enabled: false,
+                reason: 'VIRTUAL_SMS_DISABLED'
+            });
         }
 
+        const countryId = parseInt(req.query.country);
+        if (!Number.isFinite(countryId) || countryId <= 0) {
+            return res.status(400).json({ success: false, error: 'country parameter required' });
+        }
+
+        if (countryId === 12) {
+            return res.json({ success: true, services: [], blocked: true });
+        }
+
+        const cached = cache.services.get(String(countryId));
+        if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+            return res.json({ success: true, services: cached.data, enabled: true });
+        }
+
+        // Pull catalogue. provider_cost_usd is the ONLY money field
+        // we trust from this table; the rest is ignored.
         const { data: dbServices, error } = await supabaseAdmin
             .from('virtual_sms_services')
-            .select('service_code, service_name, available_count, selling_price_usd, selling_price_ngn, provider_cost_usd')
-            .eq('country_id', parseInt(countryId))
+            .select('service_code, service_name, available_count, provider_cost_usd')
+            .eq('country_id', countryId)
             .eq('enabled', true)
             .gt('available_count', 0)
             .order('service_name', { ascending: true });
 
+        let rawServices = [];
         if (!error && dbServices && dbServices.length > 0) {
-            const services = dbServices.map(s => ({
+            rawServices = dbServices.map(s => ({
                 code: s.service_code,
                 name: s.service_name,
                 count: s.available_count,
-                sellingUSD: parseFloat(s.selling_price_usd) || 0,
-                sellingNGN: parseFloat(s.selling_price_ngn) || 0,
-                cost: parseFloat(s.provider_cost_usd) || 0,
-                available: true
+                cost: parseFloat(s.provider_cost_usd) || 0
             }));
-            cache.services.set(String(countryId), { data: services, timestamp: Date.now() });
-            return res.json({ success: true, services });
-        }
+        } else {
+            // Fallback: hit the provider, then upsert the catalogue
+            // with the wholesale cost only.
+            try {
+                const [svcData, priceData] = await Promise.all([
+                    fetchProvider({ action: 'getServicesList', country: countryId }),
+                    fetchProvider({ action: 'getPrices', country: countryId })
+                ]);
 
-        try {
-            const settings = await getSettings();
-            const [svcData, priceData] = await Promise.all([
-                fetchProvider({ action: 'getServicesList', country: countryId }),
-                fetchProvider({ action: 'getPrices', country: countryId })
-            ]);
+                let list = [];
+                if (Array.isArray(svcData)) list = svcData;
+                else if (svcData?.services) list = svcData.services;
+                else if (typeof svcData === 'object') {
+                    list = Object.entries(svcData)
+                        .filter(([k]) => !['success', 'error', 'status'].includes(k))
+                        .map(([code, info]) => ({ code, name: info?.name || code }));
+                }
 
-            let rawServices = [];
-            if (Array.isArray(svcData)) rawServices = svcData;
-            else if (svcData?.services) rawServices = svcData.services;
-            else if (typeof svcData === 'object') {
-                rawServices = Object.entries(svcData)
-                    .filter(([k]) => !['success', 'error', 'status'].includes(k))
-                    .map(([code, info]) => ({ code, name: info?.name || code }));
-            }
+                const prices = priceData?.[String(countryId)] || priceData || {};
 
-            const prices = priceData?.[String(countryId)] || priceData || {};
-
-            const services = rawServices
-                .map(s => {
+                rawServices = list.map(s => {
                     const code = s.code || '';
                     const price = prices[code] || {};
-                    const count = parseInt(price.count || 0);
-                    const cost = parseFloat(price.cost || 0);
-                    if (count <= 0 || cost <= 0) return null;
-                    const calculated = calculatePrice(cost, settings);
                     return {
                         code,
                         name: s.name || code.toUpperCase(),
-                        count,
-                        sellingUSD: calculated.usd,
-                        sellingNGN: calculated.ngn,
-                        cost: cost,
-                        available: true
+                        count: parseInt(price.count || 0),
+                        cost: parseFloat(price.cost || 0)
                     };
-                })
-                .filter(Boolean)
-                .sort((a, b) => a.name.localeCompare(b.name));
+                }).filter(r => r.code && r.count > 0 && r.cost > 0);
 
-            if (services.length > 0) {
-                const entries = services.map(s => ({
-                    country_id: parseInt(countryId),
-                    service_code: s.code,
-                    service_name: s.name,
-                    provider_cost_usd: parseFloat(prices[s.code]?.cost || 0),
-                    selling_price_usd: s.sellingUSD,
-                    selling_price_ngn: s.sellingNGN,
-                    available_count: s.count,
-                    enabled: true,
-                    last_synced_at: new Date().toISOString()
-                }));
-                await supabaseAdmin.from('virtual_sms_services').upsert(entries, { onConflict: 'country_id,service_code' });
+                if (rawServices.length > 0) {
+                    const entries = rawServices.map(s => ({
+                        country_id: countryId,
+                        service_code: s.code,
+                        service_name: s.name,
+                        provider_cost_usd: s.cost,
+                        // selling_price_* are kept for backwards
+                        // compatibility with any raw SQL reader; they
+                        // are NOT used by this router.
+                        available_count: s.count,
+                        enabled: true,
+                        last_synced_at: new Date().toISOString()
+                    }));
+                    await supabaseAdmin
+                        .from('virtual_sms_services')
+                        .upsert(entries, { onConflict: 'country_id,service_code' });
+                }
+            } catch (providerError) {
+                if (cached?.data?.length > 0) {
+                    return res.json({ success: true, services: cached.data, enabled: true });
+                }
+                throw providerError;
             }
-
-            cache.services.set(String(countryId), { data: services, timestamp: Date.now() });
-            return res.json({ success: true, services });
-
-        } catch (providerError) {
-            const cached = cache.services.get(String(countryId));
-            if (cached && cached.data && cached.data.length > 0) {
-                return res.json({ success: true, services: cached.data });
-            }
-            throw providerError;
         }
+
+        // Compute the customer price for every row.
+        const services = [];
+        for (const row of rawServices) {
+            try {
+                const priced = await resolvePrice({ providerCostUsd: row.cost });
+                services.push({
+                    code: row.code,
+                    name: row.name,
+                    count: row.count,
+                    sellingUSD: priced.priceUsd,
+                    sellingNGN: priced.priceNgn,
+                    cost: priced.wholesaleUsd,
+                    markup: priced.markup,
+                    usd_to_ngn: priced.usdToNgn,
+                    available: true
+                });
+            } catch (err) {
+                // Skip rows whose cost is broken so the whole catalogue
+                // does not fail because of one bad row.
+                console.warn('[VSMS] price resolve failed for', row.code, err.message);
+            }
+        }
+
+        cache.services.set(String(countryId), { data: services, timestamp: Date.now() });
+        return res.json({ success: true, services, enabled: true });
 
     } catch (error) {
-        console.error(`❌ GET /services-with-prices error:`, error.message);
-        const cached = cache.services.get(String(countryId));
-        if (cached && cached.data && cached.data.length > 0) {
-            return res.json({ success: true, services: cached.data });
+        console.error('[VSMS] GET /services-with-prices error:', error.message);
+        const cached = cache.services.get(String(req.query.country));
+        if (cached?.data?.length > 0) {
+            return res.json({ success: true, services: cached.data, enabled: true });
         }
-        res.json({ success: true, services: [] });
+        return res.json({ success: true, services: [], enabled: true });
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  POST /api/virtual/order - Rent a number
+//  POST /api/virtual/order — Rent a number
 // ════════════════════════════════════════════════════════════════════════
 
 router.post('/order', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { country, service, currency = 'NGN' } = req.body;
+        const { country, service, currency = 'NGN' } = req.body || {};
 
         if (!country || !service) {
             return res.status(400).json({ success: false, error: 'country and service are required' });
         }
 
-        // ─── Block USA ──────────────────────────────────────────────────
-        if (parseInt(country) === 0 || parseInt(country) === 12) {
+        const countryId = parseInt(country);
+        if (!Number.isFinite(countryId) || countryId <= 0) {
+            return res.status(400).json({ success: false, error: 'Invalid country' });
+        }
+        if (countryId === 12) {
             return res.status(400).json({ success: false, error: 'United States is not supported', code: 'COUNTRY_BLOCKED' });
         }
 
-        // ─── Get settings ──────────────────────────────────────────────
-        const settings = await getSettings();
+        // 1. Feature gate.
+        await adminSettings.assertServiceEnabled('virtual_sms');
 
-        // ─── Get service price ─────────────────────────────────────────
-        let priceUsd = 0, priceNgn = 0, serviceName = service;
-        let providerCost = 0;
-
-        // Check database first
+        // 2. Fetch catalogue row — cost only, no trusted price.
+        let providerCost = 0, serviceName = service;
         const { data: serviceData } = await supabaseAdmin
             .from('virtual_sms_services')
-            .select('service_name, selling_price_usd, selling_price_ngn, available_count, provider_cost_usd')
-            .eq('country_id', parseInt(country))
+            .select('service_name, available_count, provider_cost_usd')
+            .eq('country_id', countryId)
             .eq('service_code', service)
             .eq('enabled', true)
             .maybeSingle();
 
-        if (serviceData && serviceData.available_count > 0) {
-            priceUsd = parseFloat(serviceData.selling_price_usd) || 0;
-            priceNgn = parseFloat(serviceData.selling_price_ngn) || 0;
+        if (serviceData && serviceData.available_count > 0 && Number(serviceData.provider_cost_usd) > 0) {
+            providerCost = Number(serviceData.provider_cost_usd);
             serviceName = serviceData.service_name || service;
-            providerCost = parseFloat(serviceData.provider_cost_usd) || 0;
         } else {
-            // Fallback to provider
+            // Fallback to provider — one round trip.
             try {
                 const [svcData, priceData] = await Promise.all([
-                    fetchProvider({ action: 'getServicesList', country }),
-                    fetchProvider({ action: 'getPrices', country })
+                    fetchProvider({ action: 'getServicesList', country: countryId }),
+                    fetchProvider({ action: 'getPrices', country: countryId })
                 ]);
 
-                let rawServices = [];
-                if (Array.isArray(svcData)) rawServices = svcData;
-                else if (svcData?.services) rawServices = svcData.services;
+                let list = [];
+                if (Array.isArray(svcData)) list = svcData;
+                else if (svcData?.services) list = svcData.services;
 
-                const found = rawServices.find(s => s.code === service);
+                const found = list.find(s => s.code === service);
                 if (!found) {
                     return res.status(400).json({ success: false, error: 'Service not found', code: 'SERVICE_NOT_FOUND' });
                 }
 
                 serviceName = found.name || service;
-                const prices = priceData?.[String(country)] || priceData || {};
+                const prices = priceData?.[String(countryId)] || priceData || {};
                 const price = prices[service] || {};
                 const count = parseInt(price.count || 0);
                 const cost = parseFloat(price.cost || 0);
@@ -578,11 +553,7 @@ router.post('/order', authMiddleware, async (req, res) => {
                 if (count <= 0 || cost <= 0) {
                     return res.status(400).json({ success: false, error: 'No numbers available', code: 'NO_INVENTORY' });
                 }
-
                 providerCost = cost;
-                const calculated = calculatePrice(cost, settings);
-                priceUsd = calculated.usd;
-                priceNgn = calculated.ngn;
             } catch (providerError) {
                 return res.status(503).json({
                     success: false,
@@ -592,40 +563,37 @@ router.post('/order', authMiddleware, async (req, res) => {
             }
         }
 
-        if (priceUsd <= 0 || priceNgn <= 0) {
-            return res.status(400).json({ success: false, error: 'Invalid price for this service', code: 'INVALID_PRICE' });
-        }
+        // 3. Compute customer price from admin settings — the one
+        //    authoritative step.
+        const priced = await resolvePrice({ providerCostUsd: providerCost });
 
-        // ─── Determine which currency to charge ────────────────────────
-        let chargeAmount, chargeCurrency;
-        if (currency === 'USD' && priceUsd > 0) {
-            chargeAmount = priceUsd;
-            chargeCurrency = 'USD';
-        } else {
-            chargeAmount = priceNgn;
-            chargeCurrency = 'NGN';
-        }
+        const chargeCurrency = currency === 'USD' ? 'USD' : 'NGN';
+        const chargeAmount = chargeCurrency === 'USD' ? priced.priceUsd : priced.priceNgn;
 
-        if (chargeAmount <= 0) {
-            return res.status(400).json({ success: false, error: 'Invalid charge amount', code: 'INVALID_PRICE' });
-        }
+        // 4. Limits.
+        await assertWithinLimits({
+            chargeAmount,
+            chargeCurrency,
+            usdToNgn: priced.usdToNgn
+        });
 
-        // ─── Check idempotency ──────────────────────────────────────────
+        // 5. Idempotency.
         const idempotencyKey = req.headers['idempotency-key'] ||
             crypto.randomUUID?.() ||
             `${userId}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
 
-        const existingOrder = await checkIdempotency(userId, idempotencyKey);
-        if (existingOrder) {
+        const existing = await checkIdempotency(userId, idempotencyKey);
+        if (existing) {
             return res.status(409).json({
                 success: false,
                 error: 'Duplicate request detected',
                 code: 'DUPLICATE_REQUEST',
-                data: { orderId: existingOrder.id, status: existingOrder.status }
+                data: { orderId: existing.id, status: existing.status }
             });
         }
 
-        // ─── Check wallet balance ────────────────────────────────────────
+        // 6. Wallet pre-check (defence in depth — LedgerService is
+        //    still the authority at debit time).
         const { data: profile, error: profileError } = await supabaseAdmin
             .from('profiles')
             .select('wallet_ngn, wallet_usd')
@@ -638,24 +606,16 @@ router.post('/order', authMiddleware, async (req, res) => {
 
         const walletNgn = parseFloat(profile.wallet_ngn) || 0;
         const walletUsd = parseFloat(profile.wallet_usd) || 0;
+        const available = chargeCurrency === 'USD' ? walletUsd : walletNgn;
 
-        console.log(`💰 [WALLET] NGN: ₦${walletNgn}, USD: $${walletUsd}, Charging: ${chargeCurrency} ${chargeAmount}`);
-
-        let hasBalance = false;
-        if (chargeCurrency === 'USD') {
-            hasBalance = walletUsd >= chargeAmount;
-        } else {
-            hasBalance = walletNgn >= chargeAmount;
-        }
-
-        if (!hasBalance) {
+        if (available < chargeAmount) {
             return res.status(400).json({
                 success: false,
-                error: `Insufficient ${chargeCurrency} balance. Required: ${chargeCurrency === 'USD' ? '$' : '₦'}${chargeAmount.toFixed(2)}, Available: ${chargeCurrency === 'USD' ? '$' : '₦'}${(chargeCurrency === 'USD' ? walletUsd : walletNgn).toFixed(2)}`,
+                error: `Insufficient ${chargeCurrency} balance. Required: ${chargeCurrency === 'USD' ? '$' : '₦'}${chargeAmount.toFixed(2)}, Available: ${chargeCurrency === 'USD' ? '$' : '₦'}${available.toFixed(2)}`,
                 code: 'INSUFFICIENT_BALANCE',
                 data: {
                     required: chargeAmount,
-                    available: chargeCurrency === 'USD' ? walletUsd : walletNgn,
+                    available,
                     currency: chargeCurrency,
                     wallet_ngn: walletNgn,
                     wallet_usd: walletUsd
@@ -663,7 +623,7 @@ router.post('/order', authMiddleware, async (req, res) => {
             });
         }
 
-        // ─── Create order ──────────────────────────────────────────────
+        // 7. Create order row.
         const expiresAt = new Date(Date.now() + 20 * 60 * 1000);
         const orderId = crypto.randomUUID();
 
@@ -672,37 +632,49 @@ router.post('/order', authMiddleware, async (req, res) => {
             .insert({
                 id: orderId,
                 user_id: userId,
-                country_id: parseInt(country),
+                country_id: countryId,
                 service_code: service,
                 service_name: serviceName,
-                price_usd: priceUsd,
-                price_ngn: priceNgn,
-                provider_cost_usd: providerCost,
+                price_usd: priced.priceUsd,
+                price_ngn: priced.priceNgn,
+                provider_cost_usd: priced.wholesaleUsd,
+                exchange_rate: priced.usdToNgn,
                 charge_currency: chargeCurrency,
                 charge_amount: chargeAmount,
-                exchange_rate: parseFloat(settings.usd_to_ngn) || 1600,
                 status: 'pending',
                 idempotency_key: idempotencyKey,
                 expires_at: expiresAt.toISOString(),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                metadata: { source: 'api', currency_selected: currency }
+                metadata: {
+                    source: 'api',
+                    currency_selected: currency,
+                    markup_applied: priced.markup
+                }
             })
             .select()
             .single();
 
         if (orderError) {
-            console.error('❌ Order creation error:', orderError);
+            console.error('[VSMS] order create error:', orderError);
             return res.status(500).json({ success: false, error: 'Failed to create order', code: 'ORDER_CREATE_FAILED' });
         }
 
         await logOrderEvent(orderId, 'order_created', {
             newStatus: 'pending',
             message: 'Order created',
-            metadata: { country, service, priceUsd, priceNgn, chargeCurrency, chargeAmount }
+            metadata: {
+                country: countryId,
+                service,
+                priceUsd: priced.priceUsd,
+                priceNgn: priced.priceNgn,
+                markup: priced.markup,
+                chargeCurrency,
+                chargeAmount
+            }
         });
 
-        // ─── Debit wallet ──────────────────────────────────────────────
+        // 8. Debit via LedgerService.
         let debitResult;
         try {
             debitResult = await LedgerService.debitWallet(
@@ -714,29 +686,16 @@ router.post('/order', authMiddleware, async (req, res) => {
                     order_id: orderId,
                     service: 'virtual_sms',
                     service_code: service,
-                    country_id: country,
-                    price_usd: priceUsd,
-                    price_ngn: priceNgn,
+                    country_id: countryId,
+                    price_usd: priced.priceUsd,
+                    price_ngn: priced.priceNgn,
                     charge_currency: chargeCurrency,
                     charge_amount: chargeAmount
                 }
             );
 
-            if (!debitResult?.success) {
+            if (!debitResult?.success || !debitResult.transaction_id) {
                 throw new Error('Wallet debit failed');
-            }
-
-            console.log(`💳 [LEDGER] Debit result:`, {
-                success: debitResult.success,
-                transaction_id: debitResult.transaction_id,
-                reference: debitResult.reference,
-                amount: debitResult.amount,
-                currency: chargeCurrency
-            });
-
-            if (!debitResult.transaction_id) {
-                console.error('❌ No transaction_id in debit result:', debitResult);
-                throw new Error('Debit result missing transaction_id');
             }
 
             await supabaseAdmin
@@ -760,8 +719,7 @@ router.post('/order', authMiddleware, async (req, res) => {
             });
 
         } catch (debitError) {
-            console.error('❌ Wallet debit error:', debitError);
-
+            console.error('[VSMS] debit error:', debitError);
             await supabaseAdmin
                 .from('virtual_sms_orders')
                 .update({
@@ -778,29 +736,21 @@ router.post('/order', authMiddleware, async (req, res) => {
             });
         }
 
-        // ─── Call provider ─────────────────────────────────────────────
-        let providerResult;
+        // 9. Call provider.
         let providerError = null;
-
         try {
-            console.log(`📡 [VSMS] Calling getNumberV2 for service ${service}, country ${country}`);
-            console.log(`📡 [VSMS] Order ID: ${orderId}, Transaction ID: ${debitResult.transaction_id}`);
-
-            providerResult = await fetchProvider({
+            const providerResult = await fetchProvider({
                 action: 'getNumberV2',
-                service: service,
-                country: country,
-                orderId: orderId
+                service,
+                country: countryId,
+                orderId
             });
 
             const activationId = String(providerResult.activationId || providerResult.id || '');
             const phoneNumber = providerResult.phoneNumber || providerResult.phone || '';
 
-            if (!activationId || !phoneNumber) {
-                throw new Error('INVALID_PROVIDER_RESPONSE');
-            }
+            if (!activationId || !phoneNumber) throw new Error('INVALID_PROVIDER_RESPONSE');
 
-            // ─── SUCCESS: Update order to active ──────────────────────
             const { error: updateError } = await supabaseAdmin
                 .from('virtual_sms_orders')
                 .update({
@@ -814,8 +764,7 @@ router.post('/order', authMiddleware, async (req, res) => {
                 .eq('id', orderId);
 
             if (updateError) {
-                console.error('❌ Failed to update order:', updateError);
-                // Don't refund - provider already succeeded
+                console.error('[VSMS] failed to persist activation:', updateError);
                 return res.status(500).json({
                     success: false,
                     error: 'Provider activated but database update failed. Support notified.',
@@ -834,14 +783,14 @@ router.post('/order', authMiddleware, async (req, res) => {
 
             return res.json({
                 success: true,
-                orderId: orderId,
-                activationId: activationId,
-                phoneNumber: phoneNumber,
+                orderId,
+                activationId,
+                phoneNumber,
                 expiresAt: expiresAt.toISOString(),
-                priceUsd: priceUsd,
-                priceNgn: priceNgn,
-                chargeCurrency: chargeCurrency,
-                chargeAmount: chargeAmount,
+                priceUsd: priced.priceUsd,
+                priceNgn: priced.priceNgn,
+                chargeCurrency,
+                chargeAmount,
                 service: serviceName,
                 status: 'active',
                 transaction: {
@@ -852,19 +801,16 @@ router.post('/order', authMiddleware, async (req, res) => {
 
         } catch (error) {
             providerError = error;
-            console.error('❌ Provider error:', error.message);
+            console.error('[VSMS] provider error:', error.message);
             if (error.providerBody) {
-                console.error('❌ Provider response body:', JSON.stringify(error.providerBody));
+                console.error('[VSMS] provider body:', JSON.stringify(error.providerBody));
             }
         }
 
-        // ─── Handle provider failures ──────────────────────────────────
+        // 10. Handle failures.
         const failure = mapProviderFailure(providerError);
-        console.log(`🔄 [VSMS] Failure mapped:`, failure);
 
-        // ─── Update inventory if NO_NUMBERS ────────────────────────────
         if (failure.code === 'NO_NUMBERS' && failure.updateInventory) {
-            console.log(`🔄 [VSMS] Updating inventory for ${service} in country ${country} to 0`);
             try {
                 await supabaseAdmin
                     .from('virtual_sms_services')
@@ -872,18 +818,14 @@ router.post('/order', authMiddleware, async (req, res) => {
                         available_count: 0,
                         last_synced_at: new Date().toISOString()
                     })
-                    .eq('country_id', parseInt(country))
+                    .eq('country_id', countryId)
                     .eq('service_code', service);
             } catch (invError) {
-                console.warn('⚠️ Failed to update inventory:', invError.message);
+                console.warn('[VSMS] failed to update inventory:', invError.message);
             }
         }
 
-        // ─── DEFINITE FAILURE: Refund the user ────────────────────────
         if (failure.definiteFailure) {
-            console.log(`🔄 [VSMS] Definite failure, refunding user...`);
-            console.log(`🔄 [VSMS] Transaction ID: ${debitResult.transaction_id}`);
-
             try {
                 const refundResult = await LedgerService.refundTransaction(
                     userId,
@@ -891,25 +833,21 @@ router.post('/order', authMiddleware, async (req, res) => {
                     `Virtual SMS failed: ${failure.code} - ${failure.message}`
                 );
 
-                console.log(`✅ [REFUND] Result:`, JSON.stringify(refundResult));
-
                 if (!refundResult?.success && !refundResult?.alreadyRefunded) {
                     throw new Error('Refund failed');
                 }
 
-                const updateData = {
-                    status: 'refunded',
-                    refund_status: 'completed',
-                    refund_transaction_id: refundResult.transaction_id,
-                    refunded_at: new Date().toISOString(),
-                    failure_code: failure.code,
-                    failure_message: failure.message || providerError.message,
-                    updated_at: new Date().toISOString()
-                };
-
                 await supabaseAdmin
                     .from('virtual_sms_orders')
-                    .update(updateData)
+                    .update({
+                        status: 'refunded',
+                        refund_status: 'completed',
+                        refund_transaction_id: refundResult.transaction_id || null,
+                        refunded_at: new Date().toISOString(),
+                        failure_code: failure.code,
+                        failure_message: failure.message || providerError.message,
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', orderId);
 
                 await logOrderEvent(orderId, 'order_refunded', {
@@ -917,7 +855,7 @@ router.post('/order', authMiddleware, async (req, res) => {
                     newStatus: 'refunded',
                     message: `Refunded: ${failure.message}`,
                     metadata: {
-                        refund_transaction_id: refundResult.transaction_id,
+                        refund_transaction_id: refundResult.transaction_id || null,
                         failure_code: failure.code
                     }
                 });
@@ -929,15 +867,13 @@ router.post('/order', authMiddleware, async (req, res) => {
                     data: {
                         orderId,
                         status: 'refunded',
-                        refund_transaction_id: refundResult.transaction_id,
+                        refund_transaction_id: refundResult.transaction_id || null,
                         failure_code: failure.code
                     }
                 });
 
             } catch (refundError) {
-                console.error('❌ Refund error:', refundError);
-                console.error('❌ Refund error stack:', refundError.stack);
-
+                console.error('[VSMS] refund error:', refundError);
                 await supabaseAdmin
                     .from('virtual_sms_orders')
                     .update({
@@ -945,7 +881,6 @@ router.post('/order', authMiddleware, async (req, res) => {
                         failure_code: failure.code,
                         failure_message: failure.message || providerError.message,
                         refund_status: 'failed',
-                        failure_reason: refundError.message,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', orderId);
@@ -959,15 +894,12 @@ router.post('/order', authMiddleware, async (req, res) => {
             }
         }
 
-        // ─── UNCERTAIN FAILURE: Keep as processing ──────────────────────
-        console.log(`🔄 [VSMS] Uncertain failure, marking as processing for reconciliation`);
-
+        // Ambiguous — keep processing, scheduler resolves.
         await supabaseAdmin
             .from('virtual_sms_orders')
             .update({
                 status: 'processing',
                 failure_message: providerError.message || 'Provider request pending',
-                provider_status: 'pending',
                 updated_at: new Date().toISOString()
             })
             .eq('id', orderId);
@@ -979,16 +911,16 @@ router.post('/order', authMiddleware, async (req, res) => {
             metadata: { error: providerError.message }
         });
 
-        res.json({
+        return res.json({
             success: true,
-            orderId: orderId,
+            orderId,
             status: 'processing',
             message: 'Your order is being processed. Please wait.',
             expiresAt: expiresAt.toISOString(),
-            priceUsd: priceUsd,
-            priceNgn: priceNgn,
-            chargeCurrency: chargeCurrency,
-            chargeAmount: chargeAmount,
+            priceUsd: priced.priceUsd,
+            priceNgn: priced.priceNgn,
+            chargeCurrency,
+            chargeAmount,
             transaction: {
                 id: debitResult.transaction_id,
                 reference: debitResult.reference
@@ -996,14 +928,29 @@ router.post('/order', authMiddleware, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ POST /order error:', error);
-        console.error('❌ POST /order error stack:', error.stack);
-        res.status(500).json({ success: false, error: error.message || 'Failed to create order', code: 'ORDER_ERROR' });
+        console.error('[VSMS] POST /order error:', error);
+        return sendErr(res, error);
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  GET /api/virtual/orders - Get user's orders
+//  Idempotency helper
+// ════════════════════════════════════════════════════════════════════════
+
+async function checkIdempotency(userId, idempotencyKey) {
+    if (!idempotencyKey) return null;
+    const { data, error } = await supabaseAdmin
+        .from('virtual_sms_orders')
+        .select('id, status, created_at')
+        .eq('user_id', userId)
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
+    if (error) return null;
+    return data;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  GET /api/virtual/orders
 // ════════════════════════════════════════════════════════════════════════
 
 router.get('/orders', authMiddleware, async (req, res) => {
@@ -1026,7 +973,7 @@ router.get('/orders', authMiddleware, async (req, res) => {
             throw error;
         }
 
-        const countryIds = [...new Set(orders.map(o => o.country_id).filter(Boolean))];
+        const countryIds = [...new Set((orders || []).map(o => o.country_id).filter(Boolean))];
         let countryMap = {};
         if (countryIds.length > 0) {
             const { data: countries } = await supabaseAdmin
@@ -1036,7 +983,7 @@ router.get('/orders', authMiddleware, async (req, res) => {
             (countries || []).forEach(c => { countryMap[c.id] = c.name; });
         }
 
-        const formattedOrders = orders.map(o => ({
+        const formatted = (orders || []).map(o => ({
             id: o.id,
             country: countryMap[o.country_id] || o.country_name || 'Unknown',
             service: o.service_name || o.service_code,
@@ -1055,26 +1002,27 @@ router.get('/orders', authMiddleware, async (req, res) => {
             ledger_transaction_id: o.ledger_transaction_id
         }));
 
-        res.json({ success: true, orders: formattedOrders, pagination: { total: count || 0, limit, offset } });
+        res.json({
+            success: true,
+            orders: formatted,
+            pagination: { total: count || 0, limit, offset }
+        });
 
     } catch (error) {
-        console.error('❌ GET /orders error:', error.message);
+        console.error('[VSMS] GET /orders error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to get orders' });
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  GET /api/virtual/status - Check SMS status
+//  GET /api/virtual/status
 // ════════════════════════════════════════════════════════════════════════
 
 router.get('/status', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.query;
-
-        if (!id) {
-            return res.status(400).json({ success: false, error: 'id is required' });
-        }
+        if (!id) return res.status(400).json({ success: false, error: 'id is required' });
 
         const { data: order, error } = await supabaseAdmin
             .from('virtual_sms_orders')
@@ -1095,15 +1043,12 @@ router.get('/status', authMiddleware, async (req, res) => {
                 sms_received_at: order.sms_received_at
             });
         }
-
         if (order.status === 'completed') {
             return res.json({ success: true, status: 'COMPLETED', code: order.sms_code });
         }
-
-        if (order.status === 'cancelled' || order.status === 'expired' || order.status === 'refunded') {
+        if (['cancelled', 'expired', 'refunded'].includes(order.status)) {
             return res.json({ success: true, status: order.status.toUpperCase(), code: null });
         }
-
         if (!order.activation_id) {
             return res.json({ success: true, status: 'PENDING', code: null });
         }
@@ -1146,28 +1091,25 @@ router.get('/status', authMiddleware, async (req, res) => {
             return res.json({ success: true, status: providerResult.status || 'WAITING', code: null });
 
         } catch (providerError) {
-            console.warn('⚠️ Provider status error:', providerError.message);
+            console.warn('[VSMS] provider status error:', providerError.message);
             return res.json({ success: true, status: 'WAITING', code: null });
         }
 
     } catch (error) {
-        console.error('❌ GET /status error:', error.message);
+        console.error('[VSMS] GET /status error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to check status' });
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  POST /api/virtual/cancel - Cancel rental (FIXED)
+//  POST /api/virtual/cancel
 // ════════════════════════════════════════════════════════════════════════
 
 router.post('/cancel', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { id } = req.body;
-
-        if (!id) {
-            return res.status(400).json({ success: false, error: 'id is required' });
-        }
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ success: false, error: 'id is required' });
 
         const { data: order, error } = await supabaseAdmin
             .from('virtual_sms_orders')
@@ -1176,21 +1118,16 @@ router.post('/cancel', authMiddleware, async (req, res) => {
             .eq('user_id', userId)
             .single();
 
-        if (error || !order) {
-            return res.status(404).json({ success: false, error: 'Order not found' });
-        }
+        if (error || !order) return res.status(404).json({ success: false, error: 'Order not found' });
 
         if (order.status === 'completed') {
             return res.status(400).json({ success: false, error: 'Cannot cancel a completed order', code: 'ORDER_COMPLETED' });
         }
-
-        if (order.status === 'cancelled' || order.status === 'refunded') {
+        if (['cancelled', 'refunded'].includes(order.status)) {
             return res.status(400).json({ success: false, error: 'Order already cancelled/refunded', code: 'ORDER_CANCELLED' });
         }
 
-        const created = new Date(order.created_at);
-        const elapsedMinutes = (Date.now() - created.getTime()) / 60000;
-
+        const elapsedMinutes = (Date.now() - new Date(order.created_at).getTime()) / 60000;
         if (elapsedMinutes < 5) {
             return res.status(400).json({
                 success: false,
@@ -1200,18 +1137,14 @@ router.post('/cancel', authMiddleware, async (req, res) => {
             });
         }
 
-        // ─── Correct cancellation with setStatus ──────────────────────
         let cancelSuccess = false;
         if (order.activation_id) {
             try {
                 const result = await cancelWithProvider(order.activation_id);
-                if (result === 'ACCESS_CANCEL' || result.status === 'ACCESS_CANCEL') {
-                    cancelSuccess = true;
-                } else {
-                    console.warn('⚠️ Cancel response:', result);
-                }
+                cancelSuccess = result === 'ACCESS_CANCEL' || result?.status === 'ACCESS_CANCEL';
+                if (!cancelSuccess) console.warn('[VSMS] cancel response:', result);
             } catch (providerError) {
-                console.error('❌ Provider cancel error:', providerError.message);
+                console.error('[VSMS] provider cancel error:', providerError.message);
                 return res.status(503).json({
                     success: false,
                     error: 'Provider cancellation failed. Please contact support.',
@@ -1230,17 +1163,10 @@ router.post('/cancel', authMiddleware, async (req, res) => {
             });
         }
 
-        // ─── Process refund using creditWallet ────────────────────────
         try {
-            // Use the charged amount and currency
             const refundAmount = parseFloat(order.charge_amount) || parseFloat(order.price_ngn) || 0;
             const refundCurrency = order.charge_currency || 'NGN';
-
-            if (refundAmount <= 0) {
-                throw new Error('Invalid refund amount');
-            }
-
-            console.log(`💸 [CANCEL] Refunding ${refundCurrency} ${refundAmount} for order ${order.id}`);
+            if (refundAmount <= 0) throw new Error('Invalid refund amount');
 
             const creditResult = await LedgerService.creditWallet(
                 userId,
@@ -1255,9 +1181,7 @@ router.post('/cancel', authMiddleware, async (req, res) => {
                 }
             );
 
-            if (!creditResult?.success) {
-                throw new Error('Wallet credit failed');
-            }
+            if (!creditResult?.success) throw new Error('Wallet credit failed');
 
             await supabaseAdmin
                 .from('virtual_sms_orders')
@@ -1278,16 +1202,16 @@ router.post('/cancel', authMiddleware, async (req, res) => {
                 metadata: { refund_transaction_id: creditResult.transaction_id }
             });
 
-            res.json({
+            return res.json({
                 success: true,
                 message: `Order cancelled and refunded ${refundCurrency} ${refundAmount.toFixed(2)}`,
                 refundTransactionId: creditResult.transaction_id,
-                refundAmount: refundAmount,
-                refundCurrency: refundCurrency
+                refundAmount,
+                refundCurrency
             });
 
         } catch (refundError) {
-            console.error('❌ Refund error:', refundError);
+            console.error('[VSMS] refund error:', refundError);
             await supabaseAdmin
                 .from('virtual_sms_orders')
                 .update({
@@ -1299,7 +1223,7 @@ router.post('/cancel', authMiddleware, async (req, res) => {
                 })
                 .eq('id', order.id);
 
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
                 error: 'Order cancelled but refund failed. Support notified.',
                 code: 'REFUND_FAILED'
@@ -1307,23 +1231,20 @@ router.post('/cancel', authMiddleware, async (req, res) => {
         }
 
     } catch (error) {
-        console.error('❌ POST /cancel error:', error.message);
+        console.error('[VSMS] POST /cancel error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to cancel order' });
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  POST /api/virtual/retry - Resend SMS (FIXED)
+//  POST /api/virtual/retry
 // ════════════════════════════════════════════════════════════════════════
 
 router.post('/retry', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { id } = req.body;
-
-        if (!id) {
-            return res.status(400).json({ success: false, error: 'id is required' });
-        }
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ success: false, error: 'id is required' });
 
         const { data: order, error } = await supabaseAdmin
             .from('virtual_sms_orders')
@@ -1332,18 +1253,14 @@ router.post('/retry', authMiddleware, async (req, res) => {
             .eq('user_id', userId)
             .single();
 
-        if (error || !order) {
-            return res.status(404).json({ success: false, error: 'Order not found' });
-        }
+        if (error || !order) return res.status(404).json({ success: false, error: 'Order not found' });
 
-        if (order.status === 'completed' || order.status === 'sms_received') {
+        if (['completed', 'sms_received'].includes(order.status)) {
             return res.status(400).json({ success: false, error: 'SMS already received', code: 'SMS_ALREADY_RECEIVED' });
         }
-
-        if (order.status === 'cancelled' || order.status === 'expired' || order.status === 'refunded') {
+        if (['cancelled', 'expired', 'refunded'].includes(order.status)) {
             return res.status(400).json({ success: false, error: 'Cannot retry a cancelled/expired order', code: 'ORDER_INACTIVE' });
         }
-
         if (!order.activation_id) {
             return res.status(400).json({ success: false, error: 'No activation ID to retry', code: 'NO_ACTIVATION' });
         }
@@ -1355,12 +1272,10 @@ router.post('/retry', authMiddleware, async (req, res) => {
                 message: 'SMS resend requested',
                 providerResponse: result
             });
-
-            res.json({ success: true, message: 'SMS resend requested' });
-
+            return res.json({ success: true, message: 'SMS resend requested' });
         } catch (providerError) {
-            console.error('❌ Retry provider error:', providerError.message);
-            res.status(503).json({
+            console.error('[VSMS] retry provider error:', providerError.message);
+            return res.status(503).json({
                 success: false,
                 error: 'Provider temporarily unavailable',
                 code: 'PROVIDER_UNAVAILABLE'
@@ -1368,13 +1283,13 @@ router.post('/retry', authMiddleware, async (req, res) => {
         }
 
     } catch (error) {
-        console.error('❌ POST /retry error:', error.message);
+        console.error('[VSMS] POST /retry error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to retry SMS' });
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  GET /api/virtual/active - Get active rental
+//  GET /api/virtual/active
 // ════════════════════════════════════════════════════════════════════════
 
 router.get('/active', authMiddleware, async (req, res) => {
@@ -1392,9 +1307,7 @@ router.get('/active', authMiddleware, async (req, res) => {
 
         if (error) throw error;
 
-        if (!order) {
-            return res.json({ success: true, active: false, order: null });
-        }
+        if (!order) return res.json({ success: true, active: false, order: null });
 
         if (order.expires_at && new Date(order.expires_at) < new Date()) {
             await supabaseAdmin
@@ -1434,34 +1347,28 @@ router.get('/active', authMiddleware, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ GET /active error:', error.message);
+        console.error('[VSMS] GET /active error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to get active rental' });
     }
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  GET /api/virtual/me - Current user
+//  GET /api/virtual/me
 // ════════════════════════════════════════════════════════════════════════
 
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-
         const { data: user, error } = await supabaseAdmin
             .from('profiles')
             .select('id, username, email, wallet_ngn, wallet_usd, avatar_url, role, status')
             .eq('id', userId)
             .single();
 
-        if (error || !user) {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
+        if (error || !user) return res.status(404).json({ success: false, error: 'User not found' });
+        if (user.status === 'suspended') return res.status(403).json({ success: false, error: 'Account suspended' });
 
-        if (user.status === 'suspended') {
-            return res.status(403).json({ success: false, error: 'Account suspended' });
-        }
-
-        res.json({
+        return res.json({
             success: true,
             user: {
                 id: user.id,
@@ -1474,9 +1381,8 @@ router.get('/me', authMiddleware, async (req, res) => {
                 isAdmin: user.role === 'admin' || user.role === 'super_admin'
             }
         });
-
     } catch (error) {
-        console.error('❌ GET /me error:', error.message);
+        console.error('[VSMS] GET /me error:', error.message);
         res.status(500).json({ success: false, error: 'Failed to get user info' });
     }
 });
@@ -1485,14 +1391,16 @@ router.get('/me', authMiddleware, async (req, res) => {
 //  GET /api/virtual/health
 // ════════════════════════════════════════════════════════════════════════
 
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
+    let enabled = null;
+    try { enabled = await adminSettings.isServiceEnabled('virtual_sms'); } catch {}
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
+        service_enabled: enabled,
         cache: {
             countries: !!cache.countries.data,
-            services: cache.services.size,
-            settings: !!cache.settings.data
+            services: cache.services.size
         }
     });
 });
@@ -1515,7 +1423,7 @@ function getFlag(name) {
         'colombia': '🇨🇴', 'argentina': '🇦🇷'
     };
     if (!name) return '🌐';
-    const key = name.toLowerCase().trim();
+    const key = String(name).toLowerCase().trim();
     if (map[key]) return map[key];
     for (const [k, v] of Object.entries(map)) {
         if (key.includes(k) || k.includes(key)) return v;

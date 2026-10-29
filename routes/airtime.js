@@ -1,53 +1,20 @@
 // routes/airtime.js
 // PRODUCTION-READY DT ONE AIRTIME ROUTES
 // ─────────────────────────────────────────────────────────────────────────
+// PRICING AUTHORITY (post-hardening):
+//   • FX rate            → adminSettings.getRate('USD','NGN')
+//   • Service fee        → adminSettings.getRaw('deposit_fee_pct')
+//                          (fallback to 0.02 if missing)
+//   • USD min/max        → hardcoded MIN_USD / MAX_USD
+//                          (add `airtime_min_usd` / `airtime_max_usd`
+//                           to KEY_REGISTRY to make these configurable)
+//   • Everything else    → unchanged from the previous revision
+//
 // CUSTOMER FLOW:
-//
-//   Step 1 — Fill form → Proceed
-//     Frontend only. 2% fee. Breakdown shown locally. NO backend call.
-//
-//   Step 2 — Review → Proceed again
-//     GET /me → wallet balances. Display NGN + USD wallet cards.
-//     NO DT One call.
-//
+//   Step 1 — Fill form → Proceed (frontend only)
+//   Step 2 — Review → Proceed (GET /me → wallet balances)
 //   Step 3 — Select wallet → Pay Now → PIN
-//     POST /purchase → atomic debit + DT One create + confirm.
-//     DT One is contacted for the FIRST TIME here.
-//
-// ── FIXES IN THIS REVISION ─────────────────────────────────────────────
-//   A. Nigeria "no networks" bug:
-//        • Reject empty operator/country lists (never cache []).
-//        • Accept every DT One response shape.
-//        • Bump cache keys (v22 for operators, v24 for countries).
-//        • /operators returns 503 with OPERATORS_UNAVAILABLE — not a
-//          misleading empty 200.
-//
-//   B. [CRITICAL] Money-safety hardening:
-//        • Ledger debit is atomic (see LedgerService.debitWallet — the
-//          process_transaction RPC enforces sufficient funds).
-//        • Every refund uses a deterministic refund_reference so a
-//          second call cannot double-credit.
-//        • Refund is only attempted after a definitive provider outcome.
-//        • Webhook refuses to run without DTONE_WEBHOOK_SECRET in prod.
-//        • Idempotency claim is atomic; no silent fallback.
-//        • PIN attempts use the RPC; the non-atomic fallback is removed.
-//
-//   C. [NEW] Preflight endpoint:
-//        • POST /preflight validates country, phone, network, amount,
-//          product availability, min/max, fee, and total — WITHOUT
-//          debiting, writing to the ledger, or contacting DT One's
-//          financial endpoints.
-//        • Frontend calls this before showing the wallet step, so the
-//          user never sees "network unavailable" after being debited.
-//        • Response shape mirrors what /purchase will charge, so the
-//          review screen numbers are guaranteed to match.
-//
-//   D. [NEW] Short-lived product catalog cache (5 min per operator):
-//        • Avoids fetching 50 products on every purchase.
-//        • Deduplicates concurrent identical fetches.
-//        • Purchase still revalidates the amount against the cached
-//          product — stale cache can only cause a safe failure, never a
-//          wrong charge.
+//            POST /purchase → atomic debit + DT One create + confirm
 // ─────────────────────────────────────────────────────────────────────────
 
 const express = require('express');
@@ -64,6 +31,7 @@ const IdempotencyService = require('../services/idempotencyService');
 const dtoneService = require('../services/dtoneService');
 const cacheService = require('../services/cacheService');
 const airtimeReconciliation = require('../services/airtimeReconciliationService');
+const adminSettings = require('../services/adminSettingsService');
 
 countriesLib.registerLocale(require('i18n-iso-countries/langs/en.json'));
 
@@ -85,7 +53,10 @@ countriesLib.registerLocale(require('i18n-iso-countries/langs/en.json'));
         ['dtoneService.confirmTransaction', dtoneService?.confirmTransaction, 'function'],
         ['cacheService', cacheService, 'object'],
         ['airtimeReconciliation', airtimeReconciliation, 'object'],
-        ['airtimeReconciliation.forceReconcileAirtime', airtimeReconciliation?.forceReconcileAirtime, 'function']
+        ['airtimeReconciliation.forceReconcileAirtime', airtimeReconciliation?.forceReconcileAirtime, 'function'],
+        ['adminSettings', adminSettings, 'object'],
+        ['adminSettings.getRate', adminSettings?.getRate, 'function'],
+        ['adminSettings.getRaw', adminSettings?.getRaw, 'function']
     ];
     const missing = checks.filter(([, value, kind]) => typeof value !== kind);
     if (missing.length) {
@@ -95,15 +66,20 @@ countriesLib.registerLocale(require('i18n-iso-countries/langs/en.json'));
     console.log('✅ [airtime] All dependencies verified');
 })();
 
-// ═══ CONFIG ═══
+// ═══ CONFIG (invariant constants only) ═══
 const MAX_PIN_ATTEMPTS       = 4;
 const PIN_LOCK_DURATION      = 60 * 60 * 1000;
-const MILESSPACE_FEE_PERCENT = Number(process.env.MILESSPACE_FEE_PERCENT || 0.02);   // 2%
 const MIN_USD                = 0.5;
 const MAX_USD                = Number(process.env.AIRTIME_MAX_USD || 1000);
 const MAX_PROCESSING_MS      = 25 * 60 * 1000;
 const DTONE_WEBHOOK_SECRET   = process.env.DTONE_WEBHOOK_SECRET || null;
 const IS_PRODUCTION          = process.env.NODE_ENV === 'production';
+
+// Fallback fee — only used if admin settings can't be read.
+const DEFAULT_FEE_PERCENT    = 0.02;
+
+// Fallback FX — only used if admin settings can't be read.
+const DEFAULT_USD_TO_NGN     = 1600;
 
 // [CRITICAL] Refuse to start in production without a webhook secret.
 if (IS_PRODUCTION && !DTONE_WEBHOOK_SECRET) {
@@ -113,10 +89,39 @@ if (IS_PRODUCTION && !DTONE_WEBHOOK_SECRET) {
     );
 }
 
-// ═══ FX TABLE ═══
+// ═══ ADMIN-SETTINGS DRIVEN VALUES ═══
+//
+// These are fetched per-request (cheap — adminSettings caches internally
+// for ~45s and invalidates on write) so an admin change takes effect
+// without a restart.
+
+async function getFeePercent() {
+    try {
+        const raw = await adminSettings.getRaw('deposit_fee_pct');
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
+    } catch (_) { /* fall through */ }
+    return DEFAULT_FEE_PERCENT;
+}
+
+async function getUsdToNgnRate() {
+    try {
+        const rate = await adminSettings.getRate('USD', 'NGN');
+        if (Number.isFinite(rate) && rate > 0) return rate;
+    } catch (_) { /* fall through */ }
+    return DEFAULT_USD_TO_NGN;
+}
+
+// ═══ LOCAL CURRENCY FX TABLE (for provider-product conversion) ═══
+//
+// These are used only when DT One returns a ranged product whose source
+// unit is not USD. They are NOT customer-facing — they only help us
+// translate a USD amount into the provider's native currency for a
+// ranged-source product. The customer price is always driven by the
+// admin-settings FX above.
 const USD_TO_LOCAL = {
     USD: 1,
-    NGN: Number(process.env.MILESSPACE_USD_TO_NGN || 1600),
+    NGN: DEFAULT_USD_TO_NGN,
     GHS: Number(process.env.MILESSPACE_USD_TO_GHS || 15),
     KES: Number(process.env.MILESSPACE_USD_TO_KES || 129),
     ZAR: Number(process.env.MILESSPACE_USD_TO_ZAR || 18),
@@ -148,10 +153,6 @@ const inflightOperators = new Map();
 const swrOperators = new Map();
 const SWR_TTL_MS = 30 * 60 * 1000;
 
-// [NEW] Short-lived per-operator product cache. Key: `${iso3}:${operatorId}`.
-// A stale entry can only cause a SAFE failure (amount no longer in range),
-// never a wrong charge, because /purchase re-validates the amount against
-// the cached product before creating the DT One quote.
 const productCache = new Map();
 const productInflight = new Map();
 const PRODUCT_TTL_MS = 5 * 60 * 1000;
@@ -222,14 +223,9 @@ function getPublicCallbackUrl() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// [FIX-A]  NORMALIZERS — defensive against DT One response shape changes
+// NORMALIZERS
 // ═══════════════════════════════════════════════════════════════════════
 
-/**
- * Accept every shape DT One uses for its operator endpoint:
- *   [...]  |  { data: [...] }  |  { operators: [...] }  |  { results: [...] }
- * Throw on anything else so the caller never caches garbage.
- */
 function normalizeOperatorList(raw) {
     const list = Array.isArray(raw)
         ? raw
@@ -254,11 +250,6 @@ function normalizeOperatorList(raw) {
         }));
 }
 
-/**
- * Accept every ISO-3 field DT One might send:
- *   iso3  |  iso_code  |  country_iso_code  |  code
- * Throw on zero valid countries so we never cache a poisoned empty list.
- */
 function normalizeCountryList(raw) {
     const list = Array.isArray(raw)
         ? raw
@@ -290,12 +281,10 @@ function normalizeCountryList(raw) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// [FIX-A]  CACHED CATALOG — rejects empty, bumps keys, SWR-safe
+// CACHED CATALOG
 // ═══════════════════════════════════════════════════════════════════════
 
 async function getCachedCountries() {
-    // Cache key bumped from v23 → v24 to invalidate any empty-catalog
-    // entries that were written by the old filter that only read `iso3`.
     return await cacheService.getOrSet('dtone_countries_v24', async () => {
         const raw = await dtoneService.getCountries('AIRTIME');
         const normalized = normalizeCountryList(raw);
@@ -323,7 +312,6 @@ async function getCachedOperators(countryIso3) {
         throw new Error(`Invalid ISO-3 country code: ${country}`);
     }
 
-    // Cache key bumped from v21 → v22 to invalidate poisoned NGA entry.
     const key = `dtone_operators_v22_${country}`;
 
     return cacheService.getOrSet(key, async () => {
@@ -331,7 +319,6 @@ async function getCachedOperators(countryIso3) {
         const operators = normalizeOperatorList(raw);
 
         if (operators.length === 0) {
-            // Throw so cacheService does NOT persist an empty list.
             throw new Error(`DT One returned no airtime operators for ${country}`);
         }
 
@@ -367,7 +354,6 @@ async function getCachedOperatorsFast(countryIso3) {
 
     inflightOperators.set(country, promise);
 
-    // Return last-known-good while refreshing in background
     if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
         return cached.data;
     }
@@ -388,9 +374,6 @@ async function getAirtimeProductsForOperator(iso3, operatorId) {
     });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// [NEW]  PRODUCT CACHE — 5-min TTL, dedupes concurrent fetches
-// ═══════════════════════════════════════════════════════════════════════
 async function getCachedAirtimeProducts(iso3, operatorId) {
     const key = `${String(iso3).toUpperCase()}:${String(operatorId)}`;
     const hit = productCache.get(key);
@@ -414,10 +397,7 @@ async function getCachedAirtimeProducts(iso3, operatorId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// [NEW]  PRODUCT SELECTOR — shared by /preflight and /purchase
-// Picks a usable RANGED_VALUE_RECHARGE product for srcAmountUSD and
-// returns everything needed to compute fee/total or validate range.
-// Throws on failure with a stable error code the caller can map.
+// PRODUCT SELECTOR
 // ═══════════════════════════════════════════════════════════════════════
 function selectAirtimeProduct({ products, srcAmountUSD }) {
     if (!Array.isArray(products) || products.length === 0) {
@@ -498,19 +478,21 @@ function selectAirtimeProduct({ products, srcAmountUSD }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// [NEW]  FEE CALCULATOR — single source of truth for fee/total math
-// Mirrors exactly what /purchase will charge.
+// FEE CALCULATOR — uses admin settings for both fee and FX
 // ═══════════════════════════════════════════════════════════════════════
-function computeFeeAndTotal(srcAmountUSD) {
-    const feeUSD   = Number((srcAmountUSD * MILESSPACE_FEE_PERCENT).toFixed(2));
+async function computeFeeAndTotal(srcAmountUSD) {
+    const feePercent = await getFeePercent();
+    const usdToNgn   = await getUsdToNgnRate();
+
+    const feeUSD   = Number((srcAmountUSD * feePercent).toFixed(2));
     const totalUSD = Number((srcAmountUSD + feeUSD).toFixed(2));
-    const usdToNgn = Number(process.env.MILESSPACE_USD_TO_NGN || 1600);
     const totalNgn = Number((totalUSD * usdToNgn).toFixed(2));
-    return { feeUSD, totalUSD, totalNgn, usdToNgn };
+
+    return { feeUSD, totalUSD, totalNgn, usdToNgn, feePercent };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// [CRITICAL] PIN — RPC required, no non-atomic fallback
+// PIN — RPC required, no non-atomic fallback
 // ═══════════════════════════════════════════════════════════════════════
 async function verifyTransactionPin(userId, pin) {
     if (!userId) return { valid: false, error: 'User ID required', code: 'USER_ID_REQUIRED' };
@@ -533,7 +515,6 @@ async function verifyTransactionPin(userId, pin) {
             const mins = Math.ceil((lockUntil.getTime() - Date.now()) / 60000);
             return { valid: false, error: `Try again in ${mins} minute(s).`, code: 'PIN_LOCKED', remaining_minutes: mins, can_reset: true };
         }
-        // Clear the expired lock before comparing
         await supabaseAdmin
             .from('profiles')
             .update({ transaction_pin_attempts: 0, transaction_pin_locked_until: null })
@@ -543,9 +524,6 @@ async function verifyTransactionPin(userId, pin) {
     const isValid = await bcrypt.compare(String(pin), profile.transaction_pin_hash);
 
     if (!isValid) {
-        // [CRITICAL] Use the atomic RPC. If it is missing in production,
-        // refuse the request rather than silently falling back to a
-        // read-modify-write that can be raced.
         let rpcRes = null;
         let rpcError = null;
         try {
@@ -569,7 +547,6 @@ async function verifyTransactionPin(userId, pin) {
                     code: 'PIN_SERVICE_UNAVAILABLE'
                 };
             }
-            // Dev fallback: proceed with a numeric guess so local dev still works.
             rpcRes = { attempts: Number(profile.transaction_pin_attempts || 0) + 1, locked: false };
         }
 
@@ -668,12 +645,7 @@ async function syncAirtimeProviderStatus(transaction) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// [CRITICAL] IDEMPOTENT REFUND
-// Every refund uses a DETERMINISTIC refund_reference so two calls with
-// the same underlying reference cannot double-credit. The ledger itself
-// is expected to reject duplicate credit against the same reference —
-// see LedgerService.creditWallet which forwards `refund_reference` to
-// its RPC, and the unique constraint on ledger_entries.reference.
+// IDEMPOTENT REFUND
 // ═══════════════════════════════════════════════════════════════════════
 async function refundAirtime({ userId, amount, currency, reference, reason, kind }) {
     const refundRef = `REF-${String(kind || 'AT').toUpperCase()}-${reference}`;
@@ -687,8 +659,6 @@ async function refundAirtime({ userId, amount, currency, reference, reason, kind
         );
         return { ok: true, refundReference: refundRef };
     } catch (err) {
-        // Ledger rejects duplicate refunds with a unique-violation. Treat
-        // that as "already refunded" — the money is safe, no double-credit.
         const msg = String(err?.message || '');
         if (msg.includes('duplicate') || msg.includes('23505') || msg.includes('unique')) {
             console.warn(`ℹ️ [AIRTIME] Refund already recorded for ${refundRef} — skipping`);
@@ -703,14 +673,20 @@ async function refundAirtime({ userId, amount, currency, reference, reason, kind
 // ROUTES
 // ═══════════════════════════════════════════════════════════════════════
 
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
+    let feePercent = null;
+    let usdToNgn = null;
+    try { feePercent = await getFeePercent(); } catch {}
+    try { usdToNgn = await getUsdToNgnRate(); } catch {}
+
     res.json({
         success: true,
         status: 'healthy',
         service: 'airtime',
         provider: 'dtone',
         env: dtoneService.env,
-        fee_percent: MILESSPACE_FEE_PERCENT,
+        fee_percent: feePercent,
+        usd_to_ngn: usdToNgn,
         callbackConfigured: Boolean(getPublicCallbackUrl()),
         webhookSignatureRequired: Boolean(DTONE_WEBHOOK_SECRET),
         timestamp: new Date().toISOString()
@@ -732,7 +708,6 @@ router.get('/countries', async (req, res) => {
     }
 });
 
-// ─── [FIX-A] /operators returns 503 on empty, not a misleading 200 ──
 router.get('/operators', async (req, res) => {
     try {
         const { country } = req.query;
@@ -794,16 +769,19 @@ router.get('/operators', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const balances = await LedgerService.getAllBalances(req.user.id);
-        // [NEW] Include usd_to_ngn and fee_percent so the frontend can
-        // display the exact numbers the server will charge. The
-        // frontend no longer hardcodes the rate.
+
+        // [NEW] Read fee and FX from admin settings so the frontend
+        // shows exactly what the server will charge.
+        const feePercent = await getFeePercent();
+        const usdToNgn   = await getUsdToNgnRate();
+
         res.json({
             success: true,
             data: {
                 wallet_ngn: balances.NGN || 0,
                 wallet_usd: balances.USD || 0,
-                usd_to_ngn: Number(process.env.MILESSPACE_USD_TO_NGN || 1600),
-                fee_percent: MILESSPACE_FEE_PERCENT
+                usd_to_ngn: usdToNgn,
+                fee_percent: feePercent
             }
         });
     } catch (error) {
@@ -813,15 +791,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// [NEW] PREFLIGHT — read-only availability + quote check.
-//
-// Validates that a purchase CAN succeed, without touching the ledger or
-// creating any database rows. The frontend calls this BEFORE showing
-// the wallet step. If it fails, the user sees "network unavailable" on
-// the form — no debit, no failed receipt.
-//
-// Response shape mirrors exactly what /purchase will charge, so the
-// review screen numbers are guaranteed to match.
+// PREFLIGHT — read-only availability + quote check
 // ═══════════════════════════════════════════════════════════════════════
 router.post('/preflight', authMiddleware, async (req, res) => {
     try {
@@ -859,7 +829,6 @@ router.post('/preflight', authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Unsupported wallet', code: 'INVALID_WALLET' });
         }
 
-        // Operator must exist in the cached catalog.
         let operators = [];
         try {
             operators = await getCachedOperatorsFast(iso3);
@@ -879,7 +848,6 @@ router.post('/preflight', authMiddleware, async (req, res) => {
             });
         }
 
-        // Product availability — cached.
         let products = [];
         try {
             products = await getCachedAirtimeProducts(iso3, selectedOp.id);
@@ -891,7 +859,6 @@ router.post('/preflight', authMiddleware, async (req, res) => {
             });
         }
 
-        // Validate amount range against the operator's products.
         let selection;
         try {
             selection = selectAirtimeProduct({ products, srcAmountUSD });
@@ -905,7 +872,7 @@ router.post('/preflight', authMiddleware, async (req, res) => {
             });
         }
 
-        const { feeUSD, totalUSD, totalNgn, usdToNgn } = computeFeeAndTotal(srcAmountUSD);
+        const { feeUSD, totalUSD, totalNgn, usdToNgn, feePercent } = await computeFeeAndTotal(srcAmountUSD);
 
         return res.json({
             success: true,
@@ -920,7 +887,7 @@ router.post('/preflight', authMiddleware, async (req, res) => {
                 total_usd: totalUSD,
                 total_ngn: totalNgn,
                 usd_to_ngn: usdToNgn,
-                fee_percent: MILESSPACE_FEE_PERCENT,
+                fee_percent: feePercent,
                 source_currency: selection.sourceCurrency,
                 source_amount: selection.sourceAmountForProvider,
                 needs_conversion: selection.needsConversion,
@@ -953,7 +920,6 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             source_amount_usd, wallet_type, transaction_pin
         } = req.body;
 
-        // ── 1. Basic input validation ──
         if (!idempotencyKey || typeof idempotencyKey !== 'string' || idempotencyKey.length > 128) {
             return res.status(400).json({
                 success: false,
@@ -996,8 +962,8 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Unsupported wallet', code: 'INVALID_WALLET' });
         }
 
-        // ── 2. Recompute fee + total on the server ──
-        const { feeUSD, totalUSD, totalNgn, usdToNgn } = computeFeeAndTotal(srcAmountUSD);
+        // ── 2. Recompute fee + total on the server (admin settings) ──
+        const { feeUSD, totalUSD, totalNgn, usdToNgn } = await computeFeeAndTotal(srcAmountUSD);
 
         const paymentCurrency = walletType;
         const paymentAmount   = walletType === 'USD' ? totalUSD : totalNgn;
@@ -1024,7 +990,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             return res.json({ success: true, already_processed: true, data: idempotentCheck });
         }
 
-        // ── 5. Operator must exist in the cached catalog ──
+        // ── 5. Operator must exist in cached catalog ──
         let operators = [];
         try {
             operators = await getCachedOperatorsFast(iso3);
@@ -1044,7 +1010,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        // ── 6. Early balance feedback (the ledger debit is the real gate) ──
+        // ── 6. Early balance feedback ──
         const balancesBefore = await LedgerService.getAllBalances(userId);
         const balance = walletType === 'USD' ? (balancesBefore.USD || 0) : (balancesBefore.NGN || 0);
         if (balance < paymentAmount) {
@@ -1057,7 +1023,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        // ── 7. Atomic idempotency claim (no silent fallback) ──
+        // ── 7. Atomic idempotency claim ──
         const claimed = await IdempotencyService.claim(
             userId, idempotencyKey, '/api/airtime/purchase',
             { country: iso3, phone: parsed.number, operator_id, amount: srcAmountUSD, wallet_type: walletType }
@@ -1071,7 +1037,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         }
         idempotencyClaimed = true;
 
-        // ── 8. Insert airtime order in 'processing' state ──
+        // ── 8. Insert airtime order ──
         const reference = generateReference();
         const { data: airtimeTx, error: airtimeError } = await supabaseAdmin
             .from('airtime_transactions')
@@ -1108,7 +1074,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
         }
         airtimeTxId = airtimeTx.id;
 
-        // ── 9. Ledger debit (atomic; RPC enforces sufficient funds) ──
+        // ── 9. Ledger debit ──
         try {
             await LedgerService.debitWallet(
                 userId,
@@ -1129,18 +1095,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, error: debitError.message, code: 'DEBIT_FAILED' });
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        //  ★ DT ONE IS CONTACTED FOR THE FIRST TIME HERE ★
-        //  (Since the frontend now calls /preflight, this purchase is
-        //   only reached when we've ALREADY confirmed product availability
-        //   and amount range. So the failure modes below are only:
-        //    - DT One went down in the last 5 minutes
-        //    - The amount drifted outside the product range
-        //    - DT One's quote/confirm failed
-        //   All of which auto-refund and reconcile safely.)
-        // ═══════════════════════════════════════════════════════════════
-
-        // ── 10. Fetch products (cached — 5-min TTL) ──
+        // ── 10. Fetch products ──
         let products = [];
         try {
             products = await getCachedAirtimeProducts(iso3, selectedOp.id);
@@ -1163,18 +1118,12 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             });
         }
 
-        // ── 11. Select a product and validate the amount range ──
+        // ── 11. Select product and validate amount ──
         let selection;
         try {
             selection = selectAirtimeProduct({ products, srcAmountUSD });
         } catch (selErr) {
-            // Map selector errors back to the same stable codes the old
-            // handler returned, so existing frontend error handling works.
             const code = selErr.code || 'NO_PRODUCTS';
-            const isMin = code === 'AMOUNT_BELOW_MIN';
-            const isMax = code === 'AMOUNT_ABOVE_MAX';
-            const isNoProd = code === 'NO_PRODUCTS';
-            const isUnsupported = code === 'RANGED_NOT_SUPPORTED';
 
             const refundReasonMap = {
                 AMOUNT_BELOW_MIN: 'Amount below minimum',
@@ -1237,9 +1186,6 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             );
             const messageUp = String(error.message || '').toUpperCase();
 
-            // [CRITICAL] Ambiguous timeouts must NOT trigger an immediate
-            // refund. Reconciliation owns the resolution when the provider
-            // might have accepted the request.
             const isAmbiguous =
                 error.code === 'PROVIDER_UNKNOWN' ||
                 error.ambiguous === true ||
@@ -1341,7 +1287,7 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             updated_at: new Date().toISOString()
         }).eq('id', airtimeTx.id);
 
-        // ── 13. Confirm the DT One transaction ──
+        // ── 13. Confirm ──
         let confirmResult;
         let providerAmbiguous = false;
         providerConfirmStarted = true;
@@ -1382,8 +1328,6 @@ router.post('/purchase', authMiddleware, async (req, res) => {
             }
         }
 
-        // ── 14. Final status. No synchronous refund here for ambiguous
-        //         states — reconciliation owns that.
         let finalStatus = 'processing';
         if (normalizedProviderStatus.status === 'completed') finalStatus = 'completed';
 
@@ -1436,7 +1380,6 @@ router.post('/purchase', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error('❌ Purchase error:', error.message);
 
-        // Crash rollback: only when we have NOT started the provider call.
         if (airtimeTxId && debitedAmount > 0 && !providerConfirmStarted) {
             try {
                 await refundAirtime({
@@ -1550,7 +1493,6 @@ router.post('/webhook', async (req, res) => {
     try {
         const payload = req.body || {};
 
-        // [CRITICAL] Never accept an unsigned webhook in production.
         if (IS_PRODUCTION && !DTONE_WEBHOOK_SECRET) {
             return res.status(503).json({ success: false, error: 'Webhook not configured' });
         }

@@ -2,16 +2,23 @@
 // ─────────────────────────────────────────────────────────────────
 // Boost — single authority for boost orders, pricing, and refunds.
 //
+// PRICING AUTHORITY:
+//   • The admin settings page is the single source of truth:
+//       boost_markup_pct     → markup
+//       usd_to_ngn           → FX
+//       service_boost_enabled → feature gate
+//       boost_min_ngn / boost_max_ngn → per-order limits
+//   • The `boost_services` row stores the provider's wholesale
+//     USD rate per 1000 units (`provider_rate`) — that number is
+//     the only money field we trust from that table.
+//   • Every customer price is computed via adminSettingsService
+//     on each `placeOrder` call. No local caches of app_config.
+//   • Compute uses integer-cent arithmetic (via calculatePrice)
+//     so display and debit can never disagree.
+//
 // Ledger contract (matches routes/airtime.js and routes/esimRoutes.js):
 //   LedgerService.debitWallet(userId, amount, currency, description, metadata)
 //   LedgerService.creditWallet(userId, amount, currency, description, metadata)
-//
-// The reference/source_id that go to the ledger are DERIVED INSIDE
-// the ledger service from the metadata you pass in. We do NOT pass a
-// "BST-..." string as source_id — the ledger expects a UUID.
-//
-// If your LedgerService signature differs, adjust the two wrapper
-// helpers at the bottom of this file (debitWallet, creditWallet).
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
@@ -19,6 +26,7 @@
 const crypto = require('crypto');
 const { supabaseAdmin } = require('../db/supabase');
 const { LedgerService } = require('./ledgerService');
+const adminSettings = require('./adminSettingsService');
 
 // ─── Constants ───────────────────────────────────────────────────
 
@@ -100,44 +108,61 @@ async function recordAudit({ ctx, action, targetId, before, after, reason }) {
     }
 }
 
-// ─── Config ──────────────────────────────────────────────────────
+// ─── Config (read from admin settings) ───────────────────────────
+//
+// Kept as thin wrappers so the rest of the codebase (routes/boost.js
+// config endpoint, admin page) keeps working unchanged. These now
+// call into adminSettingsService instead of hitting app_config
+// directly, so a change from the admin page takes effect on the
+// next request (subject to adminSettingsService's own short cache).
 
 async function getUsdToNgnRate() {
     try {
-        const { data } = await supabaseAdmin
-            .from('app_config')
-            .select('value')
-            .eq('key', 'usd_to_ngn')
-            .maybeSingle();
-        if (data?.value) {
-            const n = Number(data.value);
-            if (Number.isFinite(n) && n > 0) return n;
-        }
-    } catch (_) {}
+        const rate = await adminSettings.getRate('USD', 'NGN');
+        if (Number.isFinite(rate) && rate > 0) return rate;
+    } catch (_) { /* fall through */ }
+    // Hard fallback so the endpoint never throws if settings are
+    // temporarily unreadable. Matches the pre-existing default.
     return Number(process.env.MILESSPACE_USD_TO_NGN || 1600);
 }
 
 async function getDefaultMarkup() {
+    // `boost_markup_pct` is stored as a decimal (0.1800 = 18%).
+    // Read through adminSettings so the value is the one the admin
+    // actually saved, not a stale local cache.
     try {
-        const { data } = await supabaseAdmin
-            .from('app_config')
-            .select('value')
-            .eq('key', 'boost_markup_pct')
-            .maybeSingle();
-        if (data?.value != null) {
-            const raw = Number(data.value);
-            if (Number.isFinite(raw)) return raw > 1 ? raw / 100 : raw;
-        }
-    } catch (_) {}
+        const raw = await adminSettings.getRaw('boost_markup_pct');
+        const n = Number(raw);
+        if (Number.isFinite(n)) return n > 1 ? n / 100 : n;
+    } catch (_) { /* fall through */ }
     return 0.18;
 }
 
-// ─── Pricing ─────────────────────────────────────────────────────
+async function isBoostServiceEnabled() {
+    try {
+        return await adminSettings.isServiceEnabled('boost');
+    } catch {
+        // Fail closed: if the settings service is unreachable, do not
+        // silently let orders through. The route layer decides what
+        // to do with this.
+        return false;
+    }
+}
 
+// ─── Pricing ─────────────────────────────────────────────────────
+//
+// Uses admin settings for BOTH the markup and the FX. Same math as
+// `calculatePrice({ service: 'boost', ... })` with the two wallet
+// currencies handled side by side.
 async function computePrice({ service, quantity, walletCurrency }) {
-    const usdRate = await getUsdToNgnRate();
-    const defaultMarkup = await getDefaultMarkup();
-    const markupPct = Number(service.markup_percent ?? defaultMarkup);
+    // FX from admin settings — must be positive.
+    const usdRate = await adminSettings.getRate('USD', 'NGN');
+    if (!Number.isFinite(usdRate) || usdRate <= 0) {
+        const e = new Error('USD→NGN rate is not configured.');
+        e.status = 503;
+        e.code = 'RATE_NOT_CONFIGURED';
+        throw e;
+    }
 
     const providerRate = Number(service.provider_rate || 0);
     if (!Number.isFinite(providerRate) || providerRate <= 0) {
@@ -161,13 +186,33 @@ async function computePrice({ service, quantity, walletCurrency }) {
         throw e;
     }
 
+    // Wholesale cost is fixed at provider_rate per 1000 units, in USD.
     const providerCostUsd = (providerRate / 1000) * quantity;
     const providerCostNgn = providerCostUsd * usdRate;
 
+    // Per-service override: if the admin set `custom_price` on the
+    // boost_services row, respect it — the admin explicitly chose that
+    // number and it's not derived from markup. Otherwise, markup from
+    // admin settings.
     const hasCustom = service.custom_price != null && Number(service.custom_price) > 0;
-    const customerUsd = hasCustom
-        ? (Number(service.custom_price) / 1000) * quantity
-        : providerCostUsd * (1 + markupPct);
+
+    let customerUsd, markupUsd, markupNgn;
+    if (hasCustom) {
+        customerUsd = (Number(service.custom_price) / 1000) * quantity;
+        markupUsd = null;
+        markupNgn = null;
+    } else {
+        // calculatePrice uses integer-cent arithmetic; guaranteed to
+        // match the display the admin UI shows.
+        const calcUsd = await adminSettings.calculatePrice({
+            service: 'boost',
+            currency: 'USD',
+            wholesaleAmount: providerCostUsd.toFixed(6)
+        });
+        customerUsd = Number(calcUsd.customerPrice);
+        markupUsd = calcUsd.markup;
+        markupNgn = calcUsd.markup;
+    }
 
     const customerNgn = customerUsd * usdRate;
 
@@ -179,7 +224,7 @@ async function computePrice({ service, quantity, walletCurrency }) {
         quantity,
         currency,
         usdRate,
-        markupPercent: markupPct,
+        markupPercent: markupUsd != null ? markupUsd : (markupNgn || 0),
         providerRate,
         providerCostUsd: providerCostUsd.toFixed(2),
         providerCostNgn: providerCostNgn.toFixed(2),
@@ -191,19 +236,29 @@ async function computePrice({ service, quantity, walletCurrency }) {
     };
 }
 
+// Enforce admin-configured per-order limits (NGN equivalent).
+async function assertWithinBoostLimits({ chargeAmount, walletCurrency, usdRate }) {
+    const minNgn = Number(await adminSettings.getRaw('boost_min_ngn'));
+    const maxNgn = Number(await adminSettings.getRaw('boost_max_ngn'));
+
+    const ngnEquivalent = String(walletCurrency).toUpperCase() === 'USD'
+        ? Number(chargeAmount) * usdRate
+        : Number(chargeAmount);
+
+    if (Number.isFinite(minNgn) && minNgn > 0 && ngnEquivalent < minNgn) {
+        const e = new Error(`Minimum boost order is ₦${minNgn.toFixed(2)}.`);
+        e.status = 400; e.code = 'BELOW_MIN_LIMIT'; e.min_ngn = minNgn;
+        throw e;
+    }
+    if (Number.isFinite(maxNgn) && maxNgn > 0 && ngnEquivalent > maxNgn) {
+        const e = new Error(`Maximum boost order is ₦${maxNgn.toFixed(2)}.`);
+        e.status = 400; e.code = 'ABOVE_MAX_LIMIT'; e.max_ngn = maxNgn;
+        throw e;
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // LEDGER WRAPPERS
-// ─────────────────────────────────────────────────────────────────
-// Two small adapters so boostService always talks to LedgerService
-// with the same argument shape your airtime and eSIM services use.
-//
-// If your LedgerService.debitWallet expects positional args:
-//     debitWallet(userId, amount, currency, description, metadata)
-// Then these wrappers work as-is.
-//
-// If it expects an object:
-//     debitWallet({ userId, amount, currency, description, metadata })
-// Then swap the two lines in each wrapper.
 // ═══════════════════════════════════════════════════════════════════
 
 async function ledgerDebit({ userId, amount, currency, description, metadata }) {
@@ -250,7 +305,10 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         const e = new Error('Invalid wallet.'); e.status = 422; e.code = 'INVALID_WALLET'; throw e;
     }
 
-    // Idempotency
+    // ─── Feature gate ──────────────────────────────────────────────
+    await adminSettings.assertServiceEnabled('boost');
+
+    // ─── Idempotency ───────────────────────────────────────────────
     if (idempotencyKey) {
         const { data: existing } = await supabaseAdmin
             .from('boost_orders')
@@ -263,7 +321,7 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         }
     }
 
-    // Load service
+    // ─── Load service ──────────────────────────────────────────────
     const { data: service, error: svcErr } = await supabaseAdmin
         .from('boost_services')
         .select('*')
@@ -275,9 +333,17 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
         const e = new Error('Service not available.'); e.status = 404; e.code = 'SERVICE_NOT_FOUND'; throw e;
     }
 
+    // ─── Compute price from admin settings ─────────────────────────
     const price = await computePrice({ service, quantity, walletCurrency: currency });
 
-    // Balance check
+    // ─── Enforce admin-configured limits ───────────────────────────
+    await assertWithinBoostLimits({
+        chargeAmount: price.chargeAmount,
+        walletCurrency: currency,
+        usdRate: price.usdRate
+    });
+
+    // ─── Balance check ─────────────────────────────────────────────
     const balances = await LedgerService.getAllBalances(userId);
     const balance = currency === 'USD' ? Number(balances.USD || 0) : Number(balances.NGN || 0);
     const chargeAmount = Number(price.chargeAmount);
@@ -289,9 +355,6 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
     }
 
     // ─── Generate IDs ──────────────────────────────────────────────
-    // orderRef  — human-readable, goes into boost_orders.order_ref
-    // orderId   — real UUID, goes into boost_orders.id AND is used
-    //             as the ledger's sourceId
     const orderRef = buildOrderRef();
     const orderId = crypto.randomUUID();
 
@@ -354,7 +417,6 @@ async function placeOrder({ userId, serviceId, link, quantity, walletType, idemp
     if (insertErr) {
         console.error('[BOOST] order insert failed:', insertErr.message);
 
-        // Refund because we can't record the order.
         try {
             await ledgerCredit({
                 userId,
@@ -964,7 +1026,9 @@ module.exports = {
 
     getUsdToNgnRate,
     getDefaultMarkup,
+    isBoostServiceEnabled,
     computePrice,
+    assertWithinBoostLimits,
 
     placeOrder,
     listOrders,

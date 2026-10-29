@@ -10,7 +10,6 @@
   <link rel="icon" href="/images/miles.png" type="image/png" />
   <link rel="apple-touch-icon" href="/images/miles.png" />
 
-  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="MilesSpace" />
   <meta property="og:title" content="MilesSpace — Digital Wallet & Digital Services" />
@@ -22,7 +21,6 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="MilesSpace — Digital Wallet & Digital Services" />
   <meta name="twitter:description" content="Fund your wallet, buy airtime and data, pay bills, get gift cards, use eSIM and more." />
@@ -30,10 +28,9 @@
 
   <title>Buy Gift Cards · MilesSpace</title>
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <script src="/js/session.js"></script>
@@ -45,10 +42,9 @@
        DESIGN TOKENS
        ═══════════════════════════════════════════════════════════ */
     :root {
-     /* Fonts */
-     --fd: 'Inter', system-ui, sans-serif;
+      --fd: 'Inter', system-ui, sans-serif;
       --fb: 'Inter', system-ui, sans-serif;
-
+      --fm: 'JetBrains Mono', 'Courier New', monospace;
 
       --bg:    #F5F6FB;
       --srf:   #FFFFFF;
@@ -62,6 +58,7 @@
       --p:     #32407A;
       --pm:    #28335f;
       --pl:    #EBEEFC;
+      --pxl:   #f2fafb;
 
       --acc:   #F5A623;
       --acd:   #d98c12;
@@ -73,8 +70,16 @@
       --err:   #D34848;
       --erl:   #FBEAEA;
 
+      --warn:  #f59e0b;
+      --warnl: #fef3c7;
+
+      --ok:    #10b981;
+      --okl:   #d1fae5;
+
       --r:     12px;
       --rl:    16px;
+      --rxl:   20px;
+      --rp:    999px;
       --tr:    .2s cubic-bezier(.4, 0, .2, 1);
       --sw:    250px;
 
@@ -82,10 +87,8 @@
       --safe-t: env(safe-area-inset-top, 0px);
     }
 
-    /* ═══════════════════════════════════════════════════════════
-       RESET & BASE
-       ═══════════════════════════════════════════════════════════ */
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     html, body {
       background: var(--bg);
       color: var(--t1);
@@ -97,10 +100,18 @@
       overflow-x: hidden;
     }
     body.sb-open { overflow: hidden; }
-    a { color: inherit; text-decoration: none; }
-    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; font-size: inherit; }
 
-    /* Prevent iOS auto-zoom: inputs must be >= 16px */
+    a { color: inherit; text-decoration: none; }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: inherit;
+      font-size: inherit;
+    }
+
     input, select, textarea {
       font-family: inherit;
       font-size: 16px;
@@ -163,10 +174,7 @@
       scrollbar-color: var(--bdr) transparent;
       padding-bottom: calc(16px + var(--safe-b));
     }
-    .sidebar.open {
-      transform: none;
-      visibility: visible;
-    }
+    .sidebar.open { transform: none; visibility: visible; }
     .sidebar::-webkit-scrollbar { width: 6px; }
     .sidebar::-webkit-scrollbar-track { background: transparent; }
     .sidebar::-webkit-scrollbar-thumb { background: var(--bdr); border-radius: 6px; }
@@ -384,7 +392,7 @@
       border-radius: 10px;
       background: var(--bg);
       color: var(--t1);
-      font-size: 16px; /* prevents iOS zoom */
+      font-size: 16px;
       transition: var(--tr);
       min-height: 44px;
       scroll-margin-block: 16px;
@@ -418,7 +426,6 @@
     .search-hint { font-size: .75rem; color: var(--t3); padding: 0 4px; margin-bottom: 14px; min-height: 16px; }
     .search-hint strong { color: var(--t1); font-weight: 600; }
 
-    /* ── Country Select ── */
     .country-select { position: relative; flex-shrink: 0; }
     .country-btn {
       display: flex;
@@ -747,23 +754,211 @@
     .step-view.active { display: block; }
 
     /* ═══════════════════════════════════════════════════════════
-       PIN MODAL
+       PIN MODAL — single 4-digit input (shared with other pages)
        ═══════════════════════════════════════════════════════════ */
-    .pin-modal { position: fixed; inset: 0; background: rgba(18, 22, 41, .55); z-index: 950; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .pin-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(18, 22, 41, .55);
+      -webkit-backdrop-filter: blur(7px);
+      backdrop-filter: blur(7px);
+      z-index: 950;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
     .pin-modal.show { display: flex; }
-    .pin-card { background: var(--srf); border-radius: 16px; padding: 28px 26px; max-width: 380px; width: 100%; text-align: center; animation: fadeUp .25s var(--tr); }
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    .pin-icon { width: 54px; height: 54px; border-radius: 50%; background: var(--accl); color: var(--acd); display: grid; place-items: center; margin: 0 auto 14px; font-size: 1.35rem; }
-    .pin-card h3 { font-family: var(--fd); font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; }
-    .pin-card p { font-size: .83rem; color: var(--t3); margin-bottom: 20px; }
-    .pin-input { width: 100%; text-align: center; font-size: 1.8rem; letter-spacing: .6em; padding: 14px 12px 14px 20px; border: 1.5px solid var(--bdr); border-radius: 12px; background: var(--bg); color: var(--t1); margin-bottom: 18px; font-weight: 700; transition: var(--tr); min-height: 52px; scroll-margin-block: 16px; }
-    .pin-input:focus { border-color: var(--acc); background: var(--srf); outline: none; box-shadow: 0 0 0 3px rgba(245, 166, 35, .18); }
-    .pin-input.error { border-color: var(--err); background: var(--erl); animation: shake .35s; }
-    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-    .pin-error { font-size: .78rem; color: var(--err); margin-bottom: 14px; min-height: 18px; font-weight: 500; }
-    .pin-actions { display: flex; gap: 10px; }
-    .pin-actions .btn-primary { flex: 1; margin: 0; }
-    .pin-actions .btn-ghost { flex: 1; margin: 0; }
+
+    .pm-box {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      background: var(--srf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rxl);
+      box-shadow: 0 24px 70px rgba(0,0,0,.18);
+      padding: 24px 22px;
+      animation: pmIn .2s ease;
+      max-height: calc(100vh - 40px);
+      max-height: calc(100dvh - 40px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    @keyframes pmIn {
+      from { opacity: 0; transform: translateY(12px) scale(.98); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .pm-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .pm-title {
+      font-family: var(--fd);
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--t1);
+    }
+    .pm-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--srf2);
+      color: var(--t2);
+      display: grid;
+      place-items: center;
+    }
+    .pm-close:hover { background: var(--erl); color: var(--err); }
+
+    .pm-sub {
+      font-size: .76rem;
+      color: var(--t3);
+      margin-bottom: 18px;
+    }
+
+    .pm-summary {
+      background: var(--srf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rl);
+      padding: 12px 14px;
+      margin-bottom: 18px;
+    }
+    .pm-summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: .78rem;
+      gap: 10px;
+    }
+    .pm-summary-row .pm-k { color: var(--t2); flex-shrink: 0; }
+    .pm-summary-row .pm-v { color: var(--t1); font-weight: 600; text-align: right; word-break: break-word; }
+    .pm-summary-row.total {
+      border-top: 1px dashed var(--bdr);
+      margin-top: 6px;
+      padding-top: 8px;
+    }
+    .pm-summary-row.total .pm-k { color: var(--t1); font-weight: 700; }
+    .pm-summary-row.total .pm-v {
+      font-family: var(--fd);
+      font-weight: 800;
+      color: var(--p);
+    }
+
+    .pm-pin-input {
+      width: 100%;
+      padding: 16px 14px 16px 26px;
+      border: 2px solid var(--bdr);
+      border-radius: 12px;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: .55em;
+      text-align: center;
+      font-family: var(--fm);
+      background: var(--srf2);
+      color: var(--t1);
+      outline: none;
+      transition: var(--tr);
+      min-height: 64px;
+      margin-bottom: 10px;
+      scroll-margin-block: 16px;
+    }
+    .pm-pin-input:focus {
+      border-color: var(--p);
+      background: var(--srf);
+      box-shadow: 0 0 0 3px var(--pl);
+    }
+    .pm-pin-input.error {
+      border-color: var(--err);
+      background: var(--erl);
+      animation: pmShake .35s ease;
+    }
+    @keyframes pmShake {
+      0%, 100% { transform: translateX(0); }
+      25%      { transform: translateX(-6px); }
+      75%      { transform: translateX(6px); }
+    }
+
+    .pm-error {
+      font-size: .74rem;
+      color: var(--err);
+      min-height: 18px;
+      text-align: center;
+      margin-bottom: 12px;
+      opacity: 0;
+      transition: opacity .15s;
+      font-weight: 500;
+    }
+    .pm-error.show { opacity: 1; }
+
+    .pm-insufficient {
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      background: var(--erl);
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: .78rem;
+      color: #991b1b;
+      line-height: 1.5;
+    }
+    .pm-insufficient.show { display: flex; }
+    .pm-insufficient i {
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: var(--err);
+    }
+    .pm-insufficient a {
+      color: var(--err);
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .pm-confirm {
+      width: 100%;
+      padding: 13px;
+      background: var(--p);
+      color: #fff;
+      border-radius: var(--rp);
+      font-weight: 700;
+      font-size: .86rem;
+      border: none;
+      cursor: pointer;
+      transition: var(--tr);
+      min-height: 48px;
+    }
+    .pm-confirm:hover:not(:disabled) { background: var(--pm); }
+    .pm-confirm:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .pm-cancel {
+      width: 100%;
+      padding: 11px;
+      background: none;
+      color: var(--t3);
+      border: none;
+      font-size: .76rem;
+      cursor: pointer;
+      margin-top: 6px;
+      min-height: 40px;
+    }
+    .pm-cancel:hover { color: var(--t1); }
+
+    @media (max-width: 480px) {
+      .pm-pin-input {
+        font-size: 22px;
+        letter-spacing: .45em;
+        padding: 14px 10px 14px 22px;
+        min-height: 58px;
+      }
+    }
 
     /* ═══════════════════════════════════════════════════════════
        HISTORY DRAWER
@@ -840,14 +1035,7 @@
       .wallet-toggle { grid-template-columns: 1fr; }
     }
 
-    /* ═══════════════════════════════════════════════════════════
-       MOBILE KEYBOARD / VIEWPORT FIXES (iPhone Safari)
-       ═══════════════════════════════════════════════════════════ */
-    html {
-      width: 100%;
-      min-height: 100%;
-      -webkit-text-size-adjust: 100%;
-    }
+    html { width: 100%; min-height: 100%; -webkit-text-size-adjust: 100%; }
 
     body {
       width: 100%;
@@ -857,28 +1045,21 @@
       overflow-wrap: anywhere;
     }
 
-    .main {
-      width: 100%;
-      min-width: 0;
-    }
+    .main { width: 100%; min-width: 0; }
 
-    /* All text inputs must be >= 16px to stop iOS auto-zoom */
     .search-input,
     .country-menu .cm-search input,
     .email-input,
-    .pin-input {
+    .pm-pin-input {
       font-size: 16px;
       -webkit-appearance: none;
       appearance: none;
       scroll-margin-block: 16px;
     }
+    .pm-pin-input { font-size: 24px; }
 
-    /* Let the page scroll when the keyboard opens */
-    .wrap {
-      overflow: visible;
-    }
+    .wrap { overflow: visible; }
 
-    /* Ensure lists scroll naturally with touch */
     .gc-list,
     .country-menu,
     .hist-drawer,
@@ -886,7 +1067,6 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* Keep layout calm when keyboard reduces visible viewport */
     @media (max-height: 600px) {
       .country-menu { max-height: 220px; }
       .drawer-body { padding-bottom: 120px; }
@@ -898,7 +1078,6 @@
 
 <div class="ov" id="ov"></div>
 
-<!-- SIDEBAR -->
 <aside class="sidebar" id="sb">
   <div class="sb-brand">
     <div class="sb-lic"><img src="/images/miles.png" alt="MilesSpace" onerror="this.style.display='none'"></div>
@@ -939,14 +1118,12 @@
   </div>
 </aside>
 
-<!-- MAIN CONTENT -->
 <div class="main">
   <header class="topbar">
     <button class="tb-hbg" id="hbg" aria-label="Open menu"><i class="fas fa-bars"></i></button>
     <span class="tb-brand">MilesSpace</span>
     <div class="tb-spacer"></div>
     <div class="tb-right">
-      <!-- This opens the Gift Card History drawer -->
       <button class="tb-icon-btn" id="histBtn" title="Gift Card History" aria-label="Gift Card History"><i class="fas fa-clock-rotate-left"></i></button>
       <a href="notifications.html" class="tb-icon-btn" aria-label="Notifications"><i class="fas fa-bell"></i></a>
       <a href="usersettings.html" class="tb-av" id="tbAv">U</a>
@@ -1003,7 +1180,9 @@
   </div>
 </div>
 
-<!-- DRAWER -->
+<!-- ═══════════════════════════════════════════════════════════
+     DRAWER — gift card purchase
+     ═══════════════════════════════════════════════════════════ -->
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <div class="drawer" id="giftDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
   <div class="drawer-head">
@@ -1013,7 +1192,6 @@
 
   <div class="drawer-body" id="drawerBody">
 
-    <!-- Step: Form -->
     <div class="step-view active" id="stepForm">
       <div class="dr-product">
         <div class="dr-logo" id="drLogo">—</div>
@@ -1076,7 +1254,6 @@
       </div>
     </div>
 
-    <!-- Step: Confirm -->
     <div class="step-view" id="stepConfirm">
       <div class="dr-product">
         <div class="dr-logo" id="cfLogo">—</div>
@@ -1093,7 +1270,6 @@
       <div class="summary-mini"><span>Delivered to</span><span class="v" id="cfEmail">—</span></div>
     </div>
 
-    <!-- Step: Status -->
     <div class="step-view" id="stepStatus">
       <div class="status-panel">
         <div class="status-icon processing" id="statusIcon"><i class="fas fa-circle-notch spin"></i></div>
@@ -1136,18 +1312,44 @@
   </div>
 </div>
 
-<!-- PIN MODAL -->
-<div class="pin-modal" id="pinModal" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
-  <div class="pin-card">
-    <div class="pin-icon"><i class="fas fa-lock"></i></div>
-    <h3 id="pinTitle">Confirm Purchase</h3>
-    <p>Enter your 4-digit transaction PIN to complete this purchase</p>
-    <input class="pin-input" id="pinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" autocomplete="off" aria-label="Transaction PIN" />
-    <div class="pin-error" id="pinError" role="alert"></div>
-    <div class="pin-actions">
-      <button class="btn-ghost" id="pinCancelBtn" type="button">Cancel</button>
-      <button class="btn-primary" id="pinConfirmBtn" type="button">Confirm</button>
+<!-- ═══════════════════════════════════════════════════════════
+     PIN MODAL — single 4-digit input (shared with other pages)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="pin-modal" id="pinModal" role="dialog" aria-modal="true" aria-labelledby="pmTitleText">
+  <div class="pm-box">
+    <div class="pm-head">
+      <h3 class="pm-title" id="pmTitleText">Confirm Purchase</h3>
+      <button type="button" class="pm-close" data-close="pinModal" aria-label="Close">
+        <i class="fas fa-times"></i>
+      </button>
     </div>
+    <p class="pm-sub">Enter your 4-digit transaction PIN to complete this purchase.</p>
+
+    <div class="pm-summary" id="pmSummary"></div>
+
+    <input
+      type="password"
+      id="pmPinInput"
+      class="pm-pin-input"
+      inputmode="numeric"
+      maxlength="4"
+      pattern="\d{4}"
+      autocomplete="off"
+      placeholder="••••"
+      aria-label="Transaction PIN"
+    />
+
+    <p class="pm-error" id="pmError" role="alert"></p>
+
+    <div class="pm-insufficient" id="pmInsufficient" role="alert">
+      <i class="fas fa-circle-exclamation"></i>
+      <span>
+        Insufficient balance? <a id="pmTopUpLink" href="fund.html">Top up your account</a>
+      </span>
+    </div>
+
+    <button type="button" class="pm-confirm" id="pmConfirm" disabled>Confirm Purchase</button>
+    <button type="button" class="pm-cancel" data-close="pinModal">Cancel</button>
   </div>
 </div>
 
@@ -1165,14 +1367,8 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   AUTH MODEL
-   ───────────────────────────────────────────────────────────────────────
-   • Access token lives in memory (managed by /js/session.js).
-   • Refresh token lives in an HttpOnly cookie.
-   • All authenticated requests go through window.userFetch().
-   • User metadata is available via window.getUser().
+   CONFIG
    ═══════════════════════════════════════════════════════════════════════ */
-
 const CONFIG = {
   api: {
     products:        (page = 1, limit = 500) => `/api/giftcards/products?page=${page}&limit=${limit}`,
@@ -1183,13 +1379,13 @@ const CONFIG = {
     balancesFallback:'/api/wallet/me'
   },
   loginPage: 'login.html',
+  fundPage: 'fund.html',
   settingsPage: 'usersettings.html',
   pollIntervalMs: 3000,
   pollMaxAttempts: 40,
   maxQty: 5,
   productsCacheKey: 'mx_giftcard_products_v2',
   legacyCacheKeys: ['mx_giftcard_products_v1'],
-  productsCacheTtlMs: 10 * 60 * 1000,
   productsPageSize: 500,
   productsMaxPages: 20,
   hydrationConcurrency: 3,
@@ -1444,19 +1640,14 @@ function renderUserFromSession() {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PRODUCTS CATALOG
+   PRODUCTS CATALOG — Stale-While-Revalidate
    ══════════════════════════════════════════════════════════════ */
 async function loadProducts() {
-  State.loading = true;
-  State.loadError = false;
-  renderList();
-
   let paintedFromCache = false;
 
   try {
     const cached = JSON.parse(localStorage.getItem(CONFIG.productsCacheKey) || 'null');
-    if (cached && Array.isArray(cached.data) && cached.data.length &&
-        (Date.now() - cached.ts) < CONFIG.productsCacheTtlMs) {
+    if (cached && Array.isArray(cached.data) && cached.data.length) {
       State.products = cached.data;
       buildCountryList();
       State.loading = false;
@@ -1465,6 +1656,12 @@ async function loadProducts() {
       paintedFromCache = true;
     }
   } catch { /* ignore cache errors */ }
+
+  if (!paintedFromCache) {
+    State.loading = true;
+    State.loadError = false;
+    renderList();
+  }
 
   try {
     const firstPage = await apiGet(CONFIG.api.products(1, CONFIG.productsPageSize));
@@ -1995,7 +2192,7 @@ function closeDrawer() {
 
 function goToDrawerStep(step) {
   State.drawerStep = step;
-  $$('.step-view').forEach(v => v.classList.remove('active'));
+  $$('#giftDrawer .step-view').forEach(v => v.classList.remove('active'));
 
   const map = { form: 'stepForm', confirm: 'stepConfirm', status: 'stepStatus' };
   $('#' + map[step]).classList.add('active');
@@ -2071,26 +2268,36 @@ function populateConfirmStep() {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PIN MODAL LOGIC
+   PIN MODAL — single 4-digit input (shared with other pages)
    ══════════════════════════════════════════════════════════════ */
 let _pinResolver = null;
 let _pinBound = false;
+
+function _getFundingUrl(currency) {
+  return String(currency || 'NGN').toUpperCase() === 'USD'
+    ? `${CONFIG.fundPage}?wallet=usd`
+    : `${CONFIG.fundPage}?wallet=ngn`;
+}
 
 function _bindPinOnce() {
   if (_pinBound) return;
   _pinBound = true;
 
   const modal = $('#pinModal');
-  const input = $('#pinInput');
-  const errEl = $('#pinError');
-  const okBtn = $('#pinConfirmBtn');
-  const cancelBtn = $('#pinCancelBtn');
+  const input = $('#pmPinInput');
+  const errEl = $('#pmError');
+  const okBtn = $('#pmConfirm');
+  const cancelBtns = $$('#pinModal [data-close="pinModal"]');
+  const insuffBox = $('#pmInsufficient');
+  const insuffLink = $('#pmTopUpLink');
 
   const closeWith = (value) => {
     modal.classList.remove('show');
     errEl.textContent = '';
-    input.classList.remove('error');
+    errEl.classList.remove('show');
     input.value = '';
+    input.classList.remove('error');
+    if (insuffBox) insuffBox.classList.remove('show');
     const r = _pinResolver;
     _pinResolver = null;
     if (r) r(value);
@@ -2100,19 +2307,22 @@ function _bindPinOnce() {
     const v = input.value.trim();
     if (!/^\d{4}$/.test(v)) {
       input.classList.add('error');
-      errEl.textContent = 'PIN must be 4 digits';
+      errEl.textContent = 'Please enter all 4 digits.';
+      errEl.classList.add('show');
       return;
     }
     closeWith(v);
   };
 
   okBtn.addEventListener('click', submit);
-  cancelBtn.addEventListener('click', () => closeWith(null));
+  cancelBtns.forEach(btn => btn.addEventListener('click', () => closeWith(null)));
 
   input.addEventListener('input', () => {
     input.value = input.value.replace(/\D/g, '').slice(0, 4);
     input.classList.remove('error');
     errEl.textContent = '';
+    errEl.classList.remove('show');
+    okBtn.disabled = input.value.length !== 4;
   });
 
   input.addEventListener('keydown', (e) => {
@@ -2125,26 +2335,54 @@ function _bindPinOnce() {
       closeWith(null);
     }
   });
+
+  insuffLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.location.href = insuffLink.href;
+  });
 }
 
-function _openPinModal({ message = '' } = {}) {
+function _openPinModal({ rows = [], requiredAmount = null, currency = 'USD', errorMessage = '' } = {}) {
   _bindPinOnce();
   const modal = $('#pinModal');
-  const input = $('#pinInput');
-  const errEl = $('#pinError');
+  const input = $('#pmPinInput');
+  const errEl = $('#pmError');
+  const okBtn = $('#pmConfirm');
+  const summaryEl = $('#pmSummary');
+  const insuffBox = $('#pmInsufficient');
+  const insuffLink = $('#pmTopUpLink');
+
+  summaryEl.innerHTML = rows.map(([k, v]) =>
+    `<div class="pm-summary-row"><span class="pm-k">${escapeHtml(k)}</span><span class="pm-v">${escapeHtml(v)}</span></div>`
+  ).join('');
 
   input.value = '';
   input.classList.remove('error');
-  errEl.textContent = message;
-  if (message) input.classList.add('error');
+  errEl.textContent = '';
+  errEl.classList.remove('show');
+  okBtn.disabled = true;
+
+  const bal = Number(State.balances[currency] || 0);
+  const known = Number.isFinite(bal) && bal > 0;
+  const short = requiredAmount != null && known && bal < Number(requiredAmount);
+  insuffBox.classList.toggle('show', short);
+  insuffLink.href = _getFundingUrl(currency);
+
+  if (errorMessage) {
+    errEl.textContent = errorMessage;
+    errEl.classList.add('show');
+    input.classList.add('error');
+  }
+
   modal.classList.add('show');
-  setTimeout(() => input.focus(), 60);
+  setTimeout(() => input.focus(), 100);
 }
 
-function requestPin() {
+function requestPin({ rows = [], requiredAmount = null, currency = 'USD' } = {}) {
   return new Promise((resolve) => {
     _pinResolver = resolve;
-    _openPinModal();
+    _openPinModal({ rows, requiredAmount, currency });
   });
 }
 
@@ -2154,7 +2392,7 @@ function showPinError(message) {
     _pinResolver = null;
     r(null);
   }
-  _openPinModal({ message: message || 'Incorrect PIN.' });
+  _openPinModal({ errorMessage: message || 'Incorrect PIN.' });
 }
 
 function showPinNotSet() {
@@ -2165,20 +2403,16 @@ function showPinNotSet() {
   }
   _bindPinOnce();
   const modal = $('#pinModal');
-  const input = $('#pinInput');
-  const errEl = $('#pinError');
-  const okBtn = $('#pinConfirmBtn');
+  const input = $('#pmPinInput');
+  const errEl = $('#pmError');
+  const okBtn = $('#pmConfirm');
 
   input.value = '';
   input.classList.remove('error');
   errEl.innerHTML = `You haven't set a transaction PIN yet. <a href="${CONFIG.settingsPage}" style="color:var(--err);font-weight:700;text-decoration:underline;">Set one in Settings</a>.`;
+  errEl.classList.add('show');
   okBtn.disabled = true;
   modal.classList.add('show');
-  const reenable = () => {
-    okBtn.disabled = false;
-    modal.removeEventListener('transitionend', reenable);
-  };
-  modal.addEventListener('transitionend', reenable);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2191,7 +2425,26 @@ function _newPurchaseKey() {
 async function submitPurchase() {
   if (State.purchaseInFlight) return;
 
-  const pin = await requestPin();
+  const p = State.selectedProduct;
+  const { unit, total } = computeTotals();
+  const currency = State.currency;
+  const deliverTo = $('#deliveryEmail').value.trim();
+
+  if (!p) { toast('No product selected.', true); return; }
+  if (!deliverTo) { toast('Enter a delivery email.', true); return; }
+
+  const rows = [
+    ['Product', p.name],
+    ['Amount', `${money(unit, currency)} × ${State.quantity}`],
+    ['Total', money(total, currency)],
+    ['Delivered to', deliverTo]
+  ];
+
+  const pin = await requestPin({
+    rows,
+    requiredAmount: total,
+    currency
+  });
   if (!pin) return;
 
   State.purchaseInFlight = true;
@@ -2203,10 +2456,10 @@ async function submitPurchase() {
 
   try {
     const { data } = await apiPost(CONFIG.api.purchase, {
-      productId: State.selectedProduct.productId,
-      countryIso3: String(State.selectedProduct.countryIso || '').toUpperCase(),
+      productId: p.productId,
+      countryIso3: String(p.countryIso || '').toUpperCase(),
       currency: State.currency,
-      deliveryEmail: $('#deliveryEmail').value.trim(),
+      deliveryEmail: deliverTo,
       quantity: State.quantity,
       amount: State.denomAmount,
       pin
@@ -2241,6 +2494,13 @@ async function submitPurchase() {
     } else if (e.code === 'INSUFFICIENT_BALANCE') {
       State.purchaseIdempotencyKey = null;
       toast(e.message || 'Your wallet balance is not enough for this purchase.', true);
+      _openPinModal({
+        rows,
+        requiredAmount: total,
+        currency,
+        errorMessage: e.message || 'Insufficient balance for this purchase.'
+      });
+      $('#pmInsufficient')?.classList.add('show');
     } else if (e.status === 404) {
       State.purchaseIdempotencyKey = null;
       toast('This gift card is no longer available.', true);

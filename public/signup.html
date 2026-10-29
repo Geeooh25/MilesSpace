@@ -240,17 +240,18 @@
 <script>
 'use strict';
 
-// Detect local vs production for API base
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE = isLocalhost ? 'http://localhost:5000/api' : '/api';
 const DASHBOARD_URL = '/dashboard.html';
 
 // ─── State ────────────────────────────────────────────────────────
 let currentRegChallengeId = null;
-let pendingPassword = null;      
-let pendingEmail = null;
 let resendTimer = null;
 let resendCountdown = 60;
+
+// NOTE: pendingPassword and pendingEmail are removed. The backend now
+// creates the session on verification, so the frontend never needs to
+// hold the password after the initial POST.
 
 // ─── DOM refs ─────────────────────────────────────────────────────
 const DOM = {
@@ -428,8 +429,6 @@ document.getElementById('signupForm').addEventListener('submit', async function(
 
     if (res.ok && data.success && data.requires_verification && data.challenge_id) {
       currentRegChallengeId = data.challenge_id;
-      pendingPassword = password;
-      pendingEmail = email;
       DOM.signupForm.style.display = 'none';
       DOM.verifyForm.style.display = 'block';
       DOM.verifyMessage.textContent = '📧 Verification code sent to ' + email;
@@ -494,22 +493,39 @@ document.getElementById('verifyBtn').addEventListener('click', async function() 
     const data = await res.json();
 
     if (res.ok && data.success) {
-      showAlert('verifyAlert', '✅ Account created! Logging you in…', 'ok');
-      toast('Welcome to MilesSpace! 🎉', 'success');
-      
-      // ─── THE FIX: Automatically log them in and go to dashboard ───
-      // The backend sets the HttpOnly refresh cookie during verification.
-      // We call session.js's refresh function to swap that cookie for an in-memory access token.
-      try {
-        if (typeof window.refreshUserToken === 'function') {
-          await window.refreshUserToken();
+      // ── CASE 1: Session created — auto-login succeeds ─────
+      if (data.data && data.data.access_token) {
+        showAlert('verifyAlert', '✅ Account created! Logging you in…', 'ok');
+        toast('Welcome to MilesSpace! 🎉', 'success');
+
+        // Hand the token to session.js — this is the documented
+        // public API. No fallback, no silent failure.
+        if (typeof window.saveUserSession === 'function') {
+          window.saveUserSession(data.data.user);
         }
-        setTimeout(() => { window.location.replace(DASHBOARD_URL); }, 800);
-      } catch (e) {
-        // If auto-login fails, fallback to login page safely
-        console.warn('[verify] Auto-login failed, redirecting to login', e);
-        setTimeout(() => { window.location.replace('/login.html'); }, 800);
+        if (typeof window.setAccessToken === 'function') {
+          window.setAccessToken(data.data.access_token, data.data.expires_in || 900);
+        }
+
+        setTimeout(() => { window.location.replace(DASHBOARD_URL); }, 600);
+        return;
       }
+
+      // ── CASE 2: Session creation failed but email verified ─
+      if (data.session_failed) {
+        showAlert('verifyAlert',
+          '✅ Email verified! Session could not be created automatically. Please sign in with your password.',
+          'ok');
+        toast('Email verified. Please sign in.', 'info');
+        setTimeout(() => { window.location.replace('/login.html'); }, 1500);
+        return;
+      }
+
+      // ── CASE 3: Unknown shape — fail safe ─────────────────
+      showAlert('verifyAlert',
+        'Account verified, but the login session was not established. Please sign in.',
+        'info');
+      setTimeout(() => { window.location.replace('/login.html'); }, 1500);
       return;
     }
 
@@ -567,8 +583,6 @@ function goBackToSignup(e) {
   DOM.signupForm.style.display = 'block';
   DOM.verifyForm.style.display = 'none';
   currentRegChallengeId = null;
-  pendingPassword = null;
-  pendingEmail = null;
   DOM.verifyCode.value = '';
   clearResendTimer();
   hideAlert('verifyAlert');

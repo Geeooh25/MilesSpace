@@ -1,11 +1,10 @@
 /*!
- * MilesSpace Support Widget — v20.0 (iPhone Modal Fix + Desktop Footer Fix)
+ * MilesSpace Support Widget — v21.0 (iPhone Guest Form Fix + Desktop Footer Fix)
  * -----------------------------------------------------------------
  * • Retains ALL features: guest flows, help articles, drag-and-drop,
  *   rating, unread badges, optimistic messaging, idempotency, and retries.
- * • FIXED: iPhone Subject input no longer breaks layout or auto-zooms.
- * • FIXED: Desktop Create Ticket button is always clickable by using
- *   a flex-column layout with a scrollable body.
+ * • FIXED: iPhone guest form no longer auto-zooms or breaks layout.
+ * • FIXED: Desktop and mobile submit buttons are always reachable.
  * • NO API contract changes. Same endpoints.
  */
 
@@ -568,7 +567,8 @@
 
         '.miles-guest-form{display:flex;flex-direction:column;gap:12px;padding:6px 2px}',
         '.miles-guest-form label{font-size:12px;font-weight:700;color:var(--miles-text-dim);text-transform:uppercase;letter-spacing:.04em}',
-        '.miles-guest-form input,.miles-guest-form select,.miles-guest-form textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:13.5px;outline:none;background:var(--miles-white);font-family:inherit}',
+        /* 16px prevents iOS auto-zoom */
+        '.miles-guest-form input,.miles-guest-form select,.miles-guest-form textarea{width:100%;padding:11px 14px;border:1px solid var(--miles-border);border-radius:10px;font-size:16px!important;outline:none;background:var(--miles-white);font-family:inherit}',
         '.miles-guest-form input:focus,.miles-guest-form select:focus,.miles-guest-form textarea:focus{border-color:var(--miles-primary)}',
         '.miles-guest-form textarea{min-height:100px;resize:vertical}',
         '.miles-guest-form .submit-btn{padding:13px;border-radius:10px;background:var(--miles-primary);color:#fff;border:none;font-weight:700;cursor:pointer;font-size:13.5px;margin-top:4px}',

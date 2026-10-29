@@ -2,13 +2,12 @@
 // ─────────────────────────────────────────────────────────────────
 // Admin MFA management. All secrets are encrypted at rest.
 //
-// Endpoints:
-//   GET    /api/admin/mfa/status
-//   GET    /api/admin/mfa/diagnose
-//   POST   /api/admin/mfa/enroll
-//   POST   /api/admin/mfa/verify-enrollment
-//   POST   /api/admin/mfa/disable
-//   POST   /api/admin/mfa/recovery-codes/regenerate
+// Setup tokens (type: 'admin_setup') are accepted by /mfa/enroll
+// and /mfa/verify-enrollment only. They are identified by their
+// `type` claim and NEVER hit the admin_sessions table.
+//
+// On successful first-time enrollment the response includes a full
+// admin session so the client does not need to re-enter credentials.
 // ─────────────────────────────────────────────────────────────────
 
 'use strict';
@@ -18,8 +17,57 @@ const router = express.Router();
 const { supabaseAdmin } = require('../../db/supabase');
 const totp = require('../../services/totpService');
 const mfaSvc = require('../../services/adminMfaService');
-const { adminAuth, recordAdminAction } = require('../../middleware/adminAuth');
+const { adminAuth, setupAuth, recordAdminAction } = require('../../middleware/adminAuth');
 const emailSvc = require('../../services/emailService');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET must be set and at least 32 chars.');
+}
+
+// ─── Hybrid auth for enrollment / verify-enrollment ─────────────
+// Accepts either a full admin token OR a setup token.
+// Delegates to the appropriate middleware so that:
+//   • admin_setup tokens → setupAuth (no session table, no perms)
+//   • admin tokens       → adminAuth (full session checks)
+function enrollmentAuth(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(401).json({ success: false, code: 'NO_TOKEN', error: 'Authentication required.' });
+    }
+    const token = authHeader.slice(7);
+    let decoded;
+    try {
+        decoded = jwt.verify(token, JWT_SECRET, {
+            algorithms: ['HS256'],
+            issuer: 'milespace-admin',
+            audience: 'milespace-admin-api'
+        });
+    } catch (err) {
+        res.setHeader('Cache-Control', 'no-store');
+        const expired = err.name === 'TokenExpiredError';
+        return res.status(401).json({
+            success: false,
+            code: expired ? 'SESSION_EXPIRED' : 'INVALID_TOKEN',
+            error: expired ? 'Your session has expired. Please sign in again.' : 'Invalid or expired token.'
+        });
+    }
+
+    if (decoded.type === 'admin_setup') {
+        return setupAuth(req, res, next);
+    }
+    if (decoded.type === 'admin') {
+        return adminAuth(req, res, next);
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(403).json({ success: false, code: 'INVALID_TOKEN_TYPE', error: 'Invalid token type.' });
+}
+
+function noStore(res) {
+    try { res.setHeader('Cache-Control', 'no-store'); } catch (_) {}
+}
 
 function notify(profile, action, detail, req) {
     if (!profile?.email) return;
@@ -38,6 +86,7 @@ function notify(profile, action, detail, req) {
 
 // ─── GET /api/admin/mfa/status ──────────────────────────────────
 router.get('/mfa/status', adminAuth, async (req, res) => {
+    noStore(res);
     try {
         const state = await mfaSvc.getAdminMfaState(req.adminContext.id);
         if (!state) {
@@ -61,6 +110,7 @@ router.get('/mfa/status', adminAuth, async (req, res) => {
 
 // ─── GET /api/admin/mfa/diagnose ────────────────────────────────
 router.get('/mfa/diagnose', adminAuth, async (req, res) => {
+    noStore(res);
     try {
         const { data, error } = await supabaseAdmin
             .from('profiles')
@@ -104,7 +154,8 @@ router.get('/mfa/diagnose', adminAuth, async (req, res) => {
 });
 
 // ─── POST /api/admin/mfa/enroll ─────────────────────────────────
-router.post('/mfa/enroll', adminAuth, async (req, res) => {
+router.post('/mfa/enroll', enrollmentAuth, async (req, res) => {
+    noStore(res);
     try {
         const ctx = req.adminContext;
         const state = await mfaSvc.getAdminMfaState(ctx.id);
@@ -118,9 +169,7 @@ router.post('/mfa/enroll', adminAuth, async (req, res) => {
             });
         }
 
-        // Reuse a fresh pending enrollment (< 15 min old). We cannot
-        // reproduce the plaintext secret, so we return a fresh QR by
-        // decrypting the pending secret and rebuilding the otpauth URL.
+        // Reuse a fresh pending enrollment (< 15 min old).
         if (state.mfa_pending_secret_encrypted && state.mfa_pending_created_at) {
             const ageSec = (Date.now() - new Date(state.mfa_pending_created_at).getTime()) / 1000;
             if (ageSec < 15 * 60) {
@@ -159,7 +208,6 @@ router.post('/mfa/enroll', adminAuth, async (req, res) => {
             .update({
                 mfa_pending_secret_encrypted: secretEncrypted,
                 mfa_pending_created_at: new Date().toISOString(),
-                // Clear any half-configured state.
                 mfa_secret_encrypted: null,
                 mfa_enabled_at: null,
                 mfa_recovery_codes_hash: null,
@@ -192,7 +240,8 @@ router.post('/mfa/enroll', adminAuth, async (req, res) => {
 });
 
 // ─── POST /api/admin/mfa/verify-enrollment ──────────────────────
-router.post('/mfa/verify-enrollment', adminAuth, async (req, res) => {
+router.post('/mfa/verify-enrollment', enrollmentAuth, async (req, res) => {
+    noStore(res);
     try {
         const ctx = req.adminContext;
         const code = String(req.body?.code || '').trim();
@@ -264,6 +313,37 @@ router.post('/mfa/verify-enrollment', adminAuth, async (req, res) => {
             });
         }
 
+        // ── Upgrade setup session to a full admin session ─────
+        let finalSessionData = null;
+        if (ctx.authType === 'admin_setup') {
+            const { createAdminSession } = require('../admin');
+            const session = await createAdminSession({
+                profile: {
+                    id: ctx.id,
+                    email: ctx.email,
+                    username: ctx.username,
+                    role: ctx.role,
+                    status: 'active'
+                },
+                role: ctx.role,
+                ip: req.ip,
+                userAgent: req.headers['user-agent']
+            });
+            finalSessionData = {
+                token: session.accessToken,
+                refreshToken: session.refreshToken,
+                expiresIn: '1h',
+                sessionId: session.sessionId,
+                user: {
+                    id: ctx.id,
+                    email: ctx.email,
+                    username: ctx.username,
+                    role: ctx.role,
+                    isSuperAdmin: ctx.isSuperAdmin
+                }
+            };
+        }
+
         await recordAdminAction({
             adminId: ctx.id, adminEmail: ctx.email,
             action: 'MFA_ENABLED',
@@ -276,7 +356,8 @@ router.post('/mfa/verify-enrollment', adminAuth, async (req, res) => {
         return res.json({
             success: true,
             message: 'Two-factor authentication is now enabled.',
-            recovery_codes: plaintext
+            recovery_codes: plaintext,
+            session: finalSessionData
         });
     } catch (err) {
         console.error('[ADMIN MFA] verify-enrollment error:', err.message);
@@ -286,6 +367,7 @@ router.post('/mfa/verify-enrollment', adminAuth, async (req, res) => {
 
 // ─── POST /api/admin/mfa/disable ────────────────────────────────
 router.post('/mfa/disable', adminAuth, async (req, res) => {
+    noStore(res);
     try {
         const ctx = req.adminContext;
         const code = String(req.body?.code || '').trim();
@@ -351,6 +433,7 @@ router.post('/mfa/disable', adminAuth, async (req, res) => {
 
 // ─── POST /api/admin/mfa/recovery-codes/regenerate ──────────────
 router.post('/mfa/recovery-codes/regenerate', adminAuth, async (req, res) => {
+    noStore(res);
     try {
         const ctx = req.adminContext;
         const code = String(req.body?.code || '').trim();
@@ -392,14 +475,9 @@ router.post('/mfa/recovery-codes/regenerate', adminAuth, async (req, res) => {
     }
 });
 
-// ADD to routes/admin/mfaRoutes.js
-
 // ─── POST /api/admin/mfa/step-up ────────────────────────────────
-// Verifies a fresh TOTP code and marks the admin as stepped up for
-// a short window. The client can then re-issue a protected request
-// with the same code in X-Step-Up-Token, or omit it because the
-// server remembers the recent step-up.
 router.post('/mfa/step-up', adminAuth, async (req, res) => {
+    noStore(res);
     try {
         const ctx = req.adminContext;
         const code = String(req.body?.code || '').trim();
@@ -414,8 +492,6 @@ router.post('/mfa/step-up', adminAuth, async (req, res) => {
 
         const state = await mfaSvc.getAdminMfaState(ctx.id);
         if (!state || !state.mfaEnabled || !state.mfa_secret_encrypted) {
-            // If MFA is not enabled, nothing to step up. Treat as
-            // already stepped up so the caller can proceed.
             return res.json({ success: true, step_up: true, mfa_enabled: false });
         }
 
