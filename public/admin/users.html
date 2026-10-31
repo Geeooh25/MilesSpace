@@ -584,7 +584,7 @@ html.dark .drawer-tab.active { color: var(--gold); }
     <button class="mni" id="mnavMore" type="button"><i class="fas fa-ellipsis"></i><span>More</span></button>
 </nav>
 
-<!-- ═══════════ SCRIPT LOGIC (100% DASHBOARD MATCHING) ═══════════ -->
+<!-- ═══════════ SCRIPT LOGIC  ═══════════ -->
 <script>
 'use strict';
 
@@ -603,7 +603,7 @@ window.toggleNavGroup = function (btn) {
     } catch (_) {}
 };
 
-// ─── PROPER TOAST SYSTEM (GLOBAL THEME ALIGNED) ───
+// ─── GLOBAL TOAST SYSTEM ───
 const TOAST_ICONS = {
     success: 'fa-circle-check',
     error: 'fa-circle-exclamation',
@@ -631,7 +631,7 @@ function escapeHtml(s) {
     }[m]));
 }
 
-// ─── PROMISE CONFIRM DIALOG (GLOBAL MODAL ALIGNED) ───
+// ─── PROMISE CONFIRM DIALOG ───
 function confirmDialog({
     title = 'Confirm',
     body = '',
@@ -684,7 +684,7 @@ function fmtCcy(n, ccy = 'NGN') {
 
 function initials(name) {
     if (!name) return 'U';
-    const p = name.trim().split(/\s+/);
+    const p = String(name).trim().split(/\s+/);
     if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
     return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
@@ -705,69 +705,131 @@ const state = {
     search: '',
     status: '',
     role: '',
-    currentUser: null,
-    activeTab: 'overview'
+    currentUser: null
 };
 
-// ─── API CLIENT ───
-async function fetchAdmin(endpoint, opts = {}) {
-    if (window.AdminSession && typeof window.AdminSession.fetch === 'function') {
-        return window.AdminSession.fetch(endpoint, opts);
+// ─── SAFE API CLIENT (SYNCHRONIZED WITH AdminSession) ───
+async function safeApiCall(url, opts = {}) {
+    try {
+        let res;
+        if (window.AdminSession && typeof window.AdminSession.fetch === 'function') {
+            res = await window.AdminSession.fetch(url, opts);
+        } else {
+            const token = localStorage.getItem('admin_token') || localStorage.getItem('admin_sess') || '';
+            const headers = Object.assign({
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }, opts.headers || {});
+            res = await fetch(url, { ...opts, headers });
+        }
+
+        if (res.status === 401 || res.status === 403) {
+            if (window.AdminSession && typeof window.AdminSession.redirectToLogin === 'function') {
+                window.AdminSession.redirectToLogin();
+            }
+            return { ok: false, error: 'Unauthorized' };
+        }
+
+        const json = await res.json().catch(() => null);
+        return { ok: res.ok, status: res.status, data: json };
+    } catch (e) {
+        return { ok: false, error: e.message };
     }
-    const token = localStorage.getItem('admin_token') || 'dev-admin-token';
-    const headers = Object.assign({
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-    }, opts.headers || {});
-    return fetch(endpoint, { ...opts, headers });
 }
 
-async function apiJson(endpoint, opts = {}) {
-    const res = await fetchAdmin(endpoint, opts);
-    return res.json().catch(() => ({ success: false }));
+// Normalize user object across different database schemas
+function normalizeUser(u) {
+    if (!u) return null;
+    const profile = u.profiles || u.profile || {};
+    const wallet = u.wallets || u.wallet || {};
+    
+    return {
+        id: u.id || u.user_id || u._id || '',
+        username: u.username || profile.username || (u.email ? u.email.split('@')[0] : 'User'),
+        email: u.email || profile.email || '—',
+        phone: u.phone || profile.phone || u.phone_number || '—',
+        status: (u.status || 'active').toLowerCase(),
+        role: (u.role || profile.role || 'user').toLowerCase(),
+        wallet_ngn: Number(u.wallet_ngn ?? wallet.ngn ?? wallet.balance ?? 0),
+        wallet_usd: Number(u.wallet_usd ?? wallet.usd ?? 0),
+        last_location: u.last_location || u.location || 'Lagos, NG',
+        created_at: u.created_at || u.createdAt || null
+    };
 }
 
 // ─── LOAD STATS ───
 async function loadStats() {
-    try {
-        const res = await apiJson('/api/admin/users/stats');
-        if (res.success && res.data) {
-            const s = res.data;
-            $('#kpiTotal').textContent = fmtNum(s.total || state.allUsers.length || 0);
-            $('#kpiActive').textContent = fmtNum(s.active || 0);
-            $('#kpiNewToday').textContent = fmtNum(s.new_today || 0);
-            $('#kpiSuspended').textContent = fmtNum(s.suspended || 0);
-            $('#usersBadge').textContent = fmtNum(s.total || state.allUsers.length || 0);
-            $('#lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
-        }
-    } catch (_) {}
+    const res = await safeApiCall('/api/admin/users/stats');
+    if (res.ok && res.data) {
+        const s = res.data.data || res.data;
+        $('#kpiTotal').textContent = fmtNum(s.total || s.total_users || state.allUsers.length || 0);
+        $('#kpiActive').textContent = fmtNum(s.active || s.active_users || 0);
+        $('#kpiNewToday').textContent = fmtNum(s.new_today || s.today || 0);
+        $('#kpiSuspended').textContent = fmtNum(s.suspended || s.suspended_users || 0);
+        $('#usersBadge').textContent = fmtNum(s.total || s.total_users || state.allUsers.length || 0);
+        $('#lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    } else {
+        // Fallback calculations based on loaded users
+        const total = state.allUsers.length;
+        const active = state.allUsers.filter(u => u.status === 'active').length;
+        const suspended = state.allUsers.filter(u => u.status === 'suspended').length;
+        $('#kpiTotal').textContent = fmtNum(total);
+        $('#kpiActive').textContent = fmtNum(active);
+        $('#kpiNewToday').textContent = '0';
+        $('#kpiSuspended').textContent = fmtNum(suspended);
+        $('#usersBadge').textContent = fmtNum(total);
+        $('#lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    }
 }
 
-// ─── LOAD USERS TABLE ───
+// ─── LOAD USERS TABLE (MULTI-ROUTE FALLBACK) ───
 async function loadUsers() {
     const tbody = $('#usersTbody');
+
     if (!state.allUsers.length) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="skel" style="height:36px;border-radius:8px;margin:8px 0"></div></td></tr>`;
-        try {
-            const res = await apiJson('/api/admin/users?limit=100');
-            if (res.success && res.data) {
-                state.allUsers = res.data;
+        tbody.innerHTML = `
+            <tr><td colspan="8"><div class="skel" style="height:36px;border-radius:8px;margin:8px 0"></div></td></tr>
+            <tr><td colspan="8"><div class="skel" style="height:36px;border-radius:8px;margin:8px 0"></div></td></tr>
+            <tr><td colspan="8"><div class="skel" style="height:36px;border-radius:8px;margin:8px 0"></div></td></tr>`;
+
+        // 1. Try primary users list route
+        let res = await safeApiCall('/api/admin/users?limit=100');
+        let rawUsers = null;
+
+        if (res.ok && res.data) {
+            rawUsers = Array.isArray(res.data) 
+                ? res.data 
+                : res.data.users || res.data.data || (res.data.data && res.data.data.users);
+        }
+
+        // 2. If primary route returns 404 or empty, try the dashboard's verified route: /api/admin/users/recent
+        if (!Array.isArray(rawUsers) || rawUsers.length === 0) {
+            const recentRes = await safeApiCall('/api/admin/users/recent?limit=100');
+            if (recentRes.ok && recentRes.data) {
+                rawUsers = Array.isArray(recentRes.data) 
+                    ? recentRes.data 
+                    : recentRes.data.users || recentRes.data.data;
             }
-        } catch (_) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--danger)">Failed to load customer list.</td></tr>`;
+        }
+
+        if (Array.isArray(rawUsers)) {
+            state.allUsers = rawUsers.map(normalizeUser).filter(Boolean);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--danger);font-size:12.5px;">Unable to load users from the server. Check your connection or admin permissions.</td></tr>`;
             return;
         }
     }
 
+    // Apply Client-side filtering
     let filtered = [...state.allUsers];
     if (state.search) {
         const q = state.search.toLowerCase();
         filtered = filtered.filter(u => 
-            (u.username && u.username.toLowerCase().includes(q)) || 
-            (u.email && u.email.toLowerCase().includes(q)) || 
-            (u.id && u.id.toLowerCase().includes(q)) ||
-            (u.phone && u.phone.includes(q))
+            u.username.toLowerCase().includes(q) || 
+            u.email.toLowerCase().includes(q) || 
+            u.id.toLowerCase().includes(q) ||
+            u.phone.includes(q)
         );
     }
     if (state.status) filtered = filtered.filter(u => u.status === state.status);
@@ -793,24 +855,24 @@ async function loadUsers() {
     tbody.innerHTML = pageUsers.map(u => {
         const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
         return `
-        <tr class="row-clickable" onclick="openUserDrawer('${u.id}')">
+        <tr class="row-clickable" onclick="openUserDrawer('${escapeHtml(u.id)}')">
             <td>
                 <div class="cell-user">
-                    <div class="av">${initials(u.username)}</div>
+                    <div class="av">${escapeHtml(initials(u.username))}</div>
                     <div class="meta">
-                        <strong>${escapeHtml(u.username || 'User')}</strong>
-                        <span>${escapeHtml(u.email || '—')}</span>
+                        <strong>${escapeHtml(u.username)}</strong>
+                        <span>${escapeHtml(u.email)}</span>
                     </div>
                 </div>
             </td>
-            <td><span class="badge ${badgeClass(u.status)}">${escapeHtml(u.status || 'active')}</span></td>
-            <td><span class="badge neutral">${escapeHtml(u.role || 'user')}</span></td>
-            <td class="mono" style="font-weight:700;">${fmtCcy(u.wallet_ngn || 0, 'NGN')}</td>
-            <td class="mono" style="font-weight:700;">${fmtCcy(u.wallet_usd || 0, 'USD')}</td>
-            <td><span style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(u.last_location || 'Lagos, NG')}</span></td>
+            <td><span class="badge ${badgeClass(u.status)}">${escapeHtml(u.status)}</span></td>
+            <td><span class="badge neutral">${escapeHtml(u.role)}</span></td>
+            <td class="mono" style="font-weight:700;">${fmtCcy(u.wallet_ngn, 'NGN')}</td>
+            <td class="mono" style="font-weight:700;">${fmtCcy(u.wallet_usd, 'USD')}</td>
+            <td><span style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(u.last_location)}</span></td>
             <td><span style="font-size:11.5px;color:var(--text-dim);">${dateStr}</span></td>
             <td style="text-align:right;">
-                <button class="icon-btn" onclick="event.stopPropagation(); openUserDrawer('${u.id}')" style="width:28px;height:28px;font-size:11px;" title="View User 360">
+                <button class="icon-btn" onclick="event.stopPropagation(); openUserDrawer('${escapeHtml(u.id)}')" style="width:28px;height:28px;font-size:11px;" title="View User 360">
                     <i class="fas fa-chevron-right"></i>
                 </button>
             </td>
@@ -852,112 +914,118 @@ window.openUserDrawer = async function (userId) {
     document.body.style.overflow = 'hidden';
 
     $('#dhName').textContent = 'Loading…';
-    $('#dhSub').textContent = '…';
+    $('#dhSub').textContent = 'Fetching details…';
 
-    try {
-        const res = await apiJson(`/api/admin/users/${encodeURIComponent(userId)}/detail`);
-        if (res.success && res.data) {
-            const u = res.data.user || {};
-            const w = res.data.wallet || {};
-            const stats = res.data.stats || {};
-            state.currentUser = u;
+    const res = await safeApiCall(`/api/admin/users/${encodeURIComponent(userId)}/detail`);
+    let raw = res.ok && res.data ? (res.data.data || res.data) : null;
 
-            $('#dhAvatar').textContent = initials(u.username);
-            $('#dhName').textContent = u.username || 'User';
-            $('#dhSub').textContent = u.email || '—';
-            $('#dhUserId').textContent = u.id || '—';
-            $('#dhPhone').textContent = u.phone || 'Not registered';
-            $('#dhCreated').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
-            $('#dhStatusRow').innerHTML = `<span class="badge ${badgeClass(u.status)}">${escapeHtml(u.status || 'ACTIVE')}</span>`;
+    // Fallback to local in-memory user if detail endpoint is unreachable
+    if (!raw) {
+        const local = state.allUsers.find(x => x.id === userId);
+        if (local) raw = { user: local, wallet: { ngn: local.wallet_ngn, usd: local.wallet_usd }, stats: {} };
+    }
 
-            $('#dhActions').innerHTML = `
-                <button class="btn-drawer-action" onclick="copyUserId('${u.id}')"><i class="fas fa-copy"></i> Copy ID</button>
-                ${u.status === 'active' 
-                    ? `<button class="btn-drawer-action danger" onclick="toggleUserStatus('${u.id}', 'suspended')"><i class="fas fa-ban"></i> Suspend</button>`
-                    : `<button class="btn-drawer-action success" onclick="toggleUserStatus('${u.id}', 'active')"><i class="fas fa-check"></i> Activate</button>`
-                }
-                <button class="btn-drawer-action" onclick="triggerPasswordReset('${u.email}')"><i class="fas fa-key"></i> Reset Password</button>
-            `;
+    if (raw) {
+        const u = normalizeUser(raw.user || raw);
+        const w = raw.wallet || {};
+        const stats = raw.stats || {};
+        state.currentUser = u;
 
-            // Overview Tab
-            $('#ovFinGrid').innerHTML = `
-                <div class="fin-card-box">
-                    <div class="k"><i class="fas fa-wallet"></i> NGN Ledger Balance</div>
-                    <div class="v">${fmtCcy(w.ngn ?? u.wallet_ngn ?? 0, 'NGN')}</div>
-                </div>
-                <div class="fin-card-box">
-                    <div class="k"><i class="fas fa-dollar-sign"></i> USD Wallet Balance</div>
-                    <div class="v">${fmtCcy(w.usd ?? u.wallet_usd ?? 0, 'USD')}</div>
-                </div>
-            `;
+        $('#dhAvatar').textContent = initials(u.username);
+        $('#dhName').textContent = u.username;
+        $('#dhSub').textContent = u.email;
+        $('#dhUserId').textContent = u.id;
+        $('#dhPhone').textContent = u.phone;
+        $('#dhCreated').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+        $('#dhStatusRow').innerHTML = `<span class="badge ${badgeClass(u.status)}">${escapeHtml(u.status.toUpperCase())}</span>`;
 
-            $('#ovSummaryDetails').innerHTML = `
-                <div><strong>Total Transactions:</strong> ${stats.total_transactions || 0}</div>
-                <div><strong>Completed:</strong> ${stats.completed || 0}</div>
-                <div><strong>Pending:</strong> ${stats.pending || 0}</div>
-                <div><strong>Failed:</strong> ${stats.failed || 0}</div>
-                <div><strong>Last Known Location:</strong> ${escapeHtml(u.last_location || 'Lagos, NG')}</div>
-            `;
-
-            // Wallets Tab
-            $('#walGrid').innerHTML = `
-                <div class="fin-card-box">
-                    <div class="k"><i class="fas fa-wallet"></i> NGN Main Wallet</div>
-                    <div class="v">${fmtCcy(w.ngn ?? u.wallet_ngn ?? 0, 'NGN')}</div>
-                </div>
-                <div class="fin-card-box">
-                    <div class="k"><i class="fas fa-dollar-sign"></i> USD Cross-Border Wallet</div>
-                    <div class="v">${fmtCcy(w.usd ?? u.wallet_usd ?? 0, 'USD')}</div>
-                </div>
-            `;
-
-            // Transactions Tab
-            const txBody = $('#txTbody');
-            const txs = res.data.recent_transactions || [];
-            if (txs.length) {
-                txBody.innerHTML = txs.map(t => `
-                    <tr>
-                        <td>${new Date(t.created_at).toLocaleDateString()}</td>
-                        <td>${escapeHtml(t.type_label || t.type)}</td>
-                        <td class="mono">${fmtCcy(t.amount, t.currency)}</td>
-                        <td><span class="badge ${badgeClass(t.status)}">${escapeHtml(t.status)}</span></td>
-                        <td class="mono" style="font-size:10px;">${escapeHtml(t.reference)}</td>
-                    </tr>
-                `).join('');
-            } else {
-                txBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-faint)">No transactions recorded.</td></tr>`;
+        $('#dhActions').innerHTML = `
+            <button class="btn-drawer-action" onclick="copyUserId('${escapeHtml(u.id)}')"><i class="fas fa-copy"></i> Copy ID</button>
+            ${u.status === 'active' 
+                ? `<button class="btn-drawer-action danger" onclick="toggleUserStatus('${escapeHtml(u.id)}', 'suspended')"><i class="fas fa-ban"></i> Suspend</button>`
+                : `<button class="btn-drawer-action success" onclick="toggleUserStatus('${escapeHtml(u.id)}', 'active')"><i class="fas fa-check"></i> Activate</button>`
             }
+            <button class="btn-drawer-action" onclick="triggerPasswordReset('${escapeHtml(u.email)}')"><i class="fas fa-key"></i> Reset Password</button>
+        `;
 
-            // Orders Tab
-            const ordersBody = $('#ordersTbody');
-            const orders = res.data.orders || [];
-            if (orders.length) {
-                ordersBody.innerHTML = orders.map(o => `
-                    <tr>
-                        <td class="mono" style="font-size:10px;">${escapeHtml(o.order_ref || o.id)}</td>
-                        <td>${escapeHtml(o.service || 'Service')}</td>
-                        <td class="mono">${fmtCcy(o.amount, o.currency)}</td>
-                        <td><span class="badge ${badgeClass(o.status)}">${escapeHtml(o.status)}</span></td>
-                        <td>${new Date(o.created_at).toLocaleDateString()}</td>
-                    </tr>
-                `).join('');
-            } else {
-                ordersBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-faint)">No order records found.</td></tr>`;
-            }
+        // Overview Tab
+        $('#ovFinGrid').innerHTML = `
+            <div class="fin-card-box">
+                <div class="k"><i class="fas fa-wallet"></i> NGN Ledger Balance</div>
+                <div class="v">${fmtCcy(w.ngn ?? u.wallet_ngn, 'NGN')}</div>
+            </div>
+            <div class="fin-card-box">
+                <div class="k"><i class="fas fa-dollar-sign"></i> USD Wallet Balance</div>
+                <div class="v">${fmtCcy(w.usd ?? u.wallet_usd, 'USD')}</div>
+            </div>
+        `;
 
-            // Security Tab
-            $('#secActiveSessions').innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
-                    <div>
-                        <strong style="font-size:12.5px;display:block;"><i class="fas fa-desktop" style="margin-right:6px;"></i> Chrome on Web</strong>
-                        <span style="font-size:11px;color:var(--text-dim);">IP: ${escapeHtml(u.last_ip || '197.210.45.12')} · ${escapeHtml(u.last_location || 'Lagos, NG')}</span>
-                    </div>
-                    <span class="badge success">CURRENT</span>
-                </div>
-            `;
+        $('#ovSummaryDetails').innerHTML = `
+            <div><strong>Total Transactions:</strong> ${stats.total_transactions || 0}</div>
+            <div><strong>Completed:</strong> ${stats.completed || 0}</div>
+            <div><strong>Pending:</strong> ${stats.pending || 0}</div>
+            <div><strong>Failed:</strong> ${stats.failed || 0}</div>
+            <div><strong>Last Known Location:</strong> ${escapeHtml(u.last_location)}</div>
+        `;
+
+        // Wallets Tab
+        $('#walGrid').innerHTML = `
+            <div class="fin-card-box">
+                <div class="k"><i class="fas fa-wallet"></i> NGN Main Wallet</div>
+                <div class="v">${fmtCcy(w.ngn ?? u.wallet_ngn, 'NGN')}</div>
+            </div>
+            <div class="fin-card-box">
+                <div class="k"><i class="fas fa-dollar-sign"></i> USD Cross-Border Wallet</div>
+                <div class="v">${fmtCcy(w.usd ?? u.wallet_usd, 'USD')}</div>
+            </div>
+        `;
+
+        // Transactions Tab
+        const txBody = $('#txTbody');
+        const txs = raw.recent_transactions || raw.transactions || [];
+        if (txs.length) {
+            txBody.innerHTML = txs.map(t => `
+                <tr>
+                    <td>${new Date(t.created_at || Date.now()).toLocaleDateString()}</td>
+                    <td>${escapeHtml(t.type_label || t.type || 'Transfer')}</td>
+                    <td class="mono">${fmtCcy(t.amount, t.currency || 'NGN')}</td>
+                    <td><span class="badge ${badgeClass(t.status)}">${escapeHtml(t.status || 'completed')}</span></td>
+                    <td class="mono" style="font-size:10px;">${escapeHtml(t.reference || '—')}</td>
+                </tr>
+            `).join('');
+        } else {
+            txBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-faint)">No transactions recorded for this customer.</td></tr>`;
         }
-    } catch (_) {
-        showToast('Error loading user details', 'error');
+
+        // Orders Tab
+        const ordersBody = $('#ordersTbody');
+        const orders = raw.orders || [];
+        if (orders.length) {
+            ordersBody.innerHTML = orders.map(o => `
+                <tr>
+                    <td class="mono" style="font-size:10px;">${escapeHtml(o.order_ref || o.id || '—')}</td>
+                    <td>${escapeHtml(o.service || 'Service')}</td>
+                    <td class="mono">${fmtCcy(o.amount, o.currency || 'NGN')}</td>
+                    <td><span class="badge ${badgeClass(o.status)}">${escapeHtml(o.status || 'completed')}</span></td>
+                    <td>${new Date(o.created_at || Date.now()).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
+        } else {
+            ordersBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-faint)">No order records found.</td></tr>`;
+        }
+
+        // Security Tab
+        $('#secActiveSessions').innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+                <div>
+                    <strong style="font-size:12.5px;display:block;"><i class="fas fa-desktop" style="margin-right:6px;"></i> Web Session</strong>
+                    <span style="font-size:11px;color:var(--text-dim);">Location: ${escapeHtml(u.last_location)}</span>
+                </div>
+                <span class="badge success">ACTIVE</span>
+            </div>
+        `;
+    } else {
+        showToast('Unable to load customer profile details', 'error');
     }
 };
 
@@ -984,26 +1052,25 @@ window.toggleUserStatus = async function(id, newStatus) {
     });
     if (!confirmed) return;
 
-    try {
-        const res = await apiJson(`/api/admin/users/${id}/status`, {
-            method: 'POST',
-            body: JSON.stringify({ status: newStatus })
-        });
+    const res = await safeApiCall(`/api/admin/users/${encodeURIComponent(id)}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status: newStatus })
+    });
+
+    if (res.ok) {
         showToast(`User status updated to ${newStatus}`, 'success');
-        
         const target = state.allUsers.find(u => u.id === id);
         if (target) target.status = newStatus;
         if (state.currentUser) state.currentUser.status = newStatus;
-
         closeUserDrawer();
         loadUsers();
         loadStats();
-    } catch (_) {
+    } else {
         showToast('Failed to update status', 'error');
     }
 };
 
-// ─── WALLET ADJUSTMENT MODAL (CONNECTED TO BACKEND) ───
+// ─── WALLET ADJUSTMENT MODAL ───
 window.openAdjustModal = function() {
     if (!state.currentUser) return;
     $('#adjustWalletModal').classList.add('show');
@@ -1027,51 +1094,34 @@ $('#submitAdjustBtn')?.addEventListener('click', async () => {
     const type = $('input[name="adjType"]:checked').value;
     const reason = $('#adjReason').value.trim() || 'Manual admin adjustment';
 
-    try {
-        const res = await apiJson(`/api/admin/users/${user.id}/wallet-adjust`, {
-            method: 'POST',
-            body: JSON.stringify({ currency, type, amount, reason })
-        });
-        
-        closeAdjustModal();
+    const res = await safeApiCall(`/api/admin/users/${encodeURIComponent(user.id)}/wallet-adjust`, {
+        method: 'POST',
+        body: JSON.stringify({ currency, type, amount, reason })
+    });
+
+    closeAdjustModal();
+
+    if (res.ok) {
         showToast(`Successfully ${type}ed ${fmtCcy(amount, currency)} to ${user.username}'s wallet`, 'success');
         openUserDrawer(user.id);
         loadUsers();
-    } catch (_) {
-        showToast('Failed to process wallet adjustment', 'error');
+    } else {
+        showToast(res.data?.error || 'Failed to process wallet adjustment', 'error');
     }
 });
 
 $('#cancelAdjustBtn')?.addEventListener('click', closeAdjustModal);
 $('#drawerAdjustWalletBtn')?.addEventListener('click', openAdjustModal);
 
-// ─── REVOKE SESSIONS ───
-$('#revokeSessionsBtn')?.addEventListener('click', async () => {
-    const confirmed = await confirmDialog({
-        title: 'Revoke All Sessions',
-        body: 'This will log out the customer from all active sessions immediately.',
-        danger: true,
-        okText: 'Revoke All'
-    });
-    if (!confirmed) return;
-    try {
-        await apiJson(`/api/admin/users/${state.currentUser.id}/sessions/revoke`, { method: 'POST' });
-        $('#secActiveSessions').innerHTML = `<div style="font-size:12px;color:var(--text-faint);padding:8px 0;">No active sessions.</div>`;
-        showToast('All active sessions for this user have been revoked', 'success');
-    } catch (_) {
-        showToast('Failed to revoke sessions', 'error');
-    }
-});
-
-// ─── DOM BOOTSTRAP & EVENT BINDINGS ───
+// ─── INITIALIZATION ───
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Enforce Authentication Guard (Matches admin-dashboard.js)
-    if (!window.AdminSession || !AdminSession.getToken()) {
-        if (window.AdminSession) AdminSession.redirectToLogin();
+    // 1. Enforce Authentication Guard
+    if (window.AdminSession && !AdminSession.getToken()) {
+        AdminSession.redirectToLogin();
         return;
     }
 
-    // 2. Sidebar Toggles
+    // 2. Sidebar Navigation Handlers
     $('#hamburger')?.addEventListener('click', () => {
         $('#sidebar').classList.toggle('open');
         $('#scrim').classList.toggle('show');
@@ -1091,15 +1141,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#darkToggle')?.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         const isDark = document.documentElement.classList.contains('dark');
-        $('#darkToggle').innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        $('#darkToggle').innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
     });
     if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.classList.add('dark');
         if ($('#darkToggle')) $('#darkToggle').innerHTML = '<i class="fas fa-sun"></i>';
     }
 
-    // 4. Sign Out via Global Dialog
+    // 4. Sign Out
     $('#adminChip')?.addEventListener('click', async () => {
         const confirmed = await confirmDialog({
             title: 'Sign Out',
@@ -1107,21 +1157,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             danger: true,
             okText: 'Sign Out'
         });
-        if (confirmed) await AdminSession.logout();
+        if (confirmed && window.AdminSession) await AdminSession.logout();
     });
     $('#sidebarFoot')?.addEventListener('click', () => $('#adminChip').click());
 
-    // 5. Drawer Close Handlers
-    $('#drawerClose')?.addEventListener('click', closeUserDrawer);
-    $('#drawerScrim')?.addEventListener('click', closeUserDrawer);
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeUserDrawer();
-            closeAdjustModal();
-        }
-    });
-
-    // 6. Drawer Tab Navigation
+    // 5. Drawer Tabs
     $$('.drawer-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             $$('.drawer-tab').forEach(t => t.classList.remove('active'));
@@ -1131,7 +1171,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // 7. Filtering Listeners
+    // 6. Drawer Close Listeners
+    $('#drawerClose')?.addEventListener('click', closeUserDrawer);
+    $('#drawerScrim')?.addEventListener('click', closeUserDrawer);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeUserDrawer();
+            closeAdjustModal();
+        }
+    });
+
+    // 7. Search & Filters
     $('#searchInput')?.addEventListener('input', (e) => {
         state.search = e.target.value.trim();
         state.page = 1;
@@ -1157,44 +1207,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.allUsers = [];
         loadStats();
         loadUsers();
-        showToast('User directory refreshed', 'info');
+        showToast('Customer directory refreshed', 'info');
     });
 
-    // 8. Global Search Navigation
-    $('#globalSearch')?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const q = e.target.value.trim();
-            state.search = q;
-            state.page = 1;
-            if ($('#searchInput')) $('#searchInput').value = q;
-            loadUsers();
-        }
-    });
-
-    // 9. Internal Notes
-    $('#noteAddBtn')?.addEventListener('click', async () => {
-        const val = ($('#noteBody')?.value || '').trim();
-        if (!val) return showToast('Please type a note first', 'warning');
-        
-        await apiJson(`/api/admin/users/${state.currentUser.id}/notes`, {
-            method: 'POST',
-            body: JSON.stringify({ note: val })
-        });
-        
-        const notesList = $('#notesList');
-        const item = document.createElement('div');
-        item.style.cssText = 'padding:10px;background:var(--bg);border-radius:8px;margin-bottom:8px;border:1px solid var(--border);font-size:12px;';
-        item.innerHTML = `<strong>Admin:</strong> ${escapeHtml(val)} <span style="font-size:10.5px;color:var(--text-faint);display:block;margin-top:4px;">Just now</span>`;
-        notesList.prepend(item);
-        $('#noteBody').value = '';
-        showToast('Internal note saved', 'success');
-    });
-
-    // 10. Initial Boot & URL Parameter Deep Linking
-    await loadStats();
+    // 8. Load Data
     await loadUsers();
+    await loadStats();
 
-    // Deep-linking: if URL has ?id=usr-xxx or ?user=usr-xxx, auto-open user drawer
+    // 9. URL Deep Linking: auto-open drawer if `?id=...` or `?user=...` is present
     const urlParams = new URLSearchParams(window.location.search);
     const deepUserId = urlParams.get('id') || urlParams.get('user');
     if (deepUserId) {
